@@ -2,7 +2,7 @@ name: Native Linux
 
 on:
   push:
-    branches: [linux-port]
+    branches: [native-macos]
   pull_request:
     branches: [linux-port, native-macos]
   workflow_dispatch:
