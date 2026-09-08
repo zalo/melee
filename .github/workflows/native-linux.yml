@@ -2,9 +2,9 @@ name: Native Linux
 
 on:
   push:
-    branches: [native-macos]
+    branches: [main]
   pull_request:
-    branches: [linux-port, native-macos]
+    branches: [main]
   workflow_dispatch:
 
 permissions:

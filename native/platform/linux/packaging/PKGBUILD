@@ -30,6 +30,6 @@ package() {
   install -d "${pkgdir}/opt/melee-native" "${pkgdir}/usr/bin" "${pkgdir}/usr/share/applications" "${pkgdir}/usr/share/licenses/${pkgname}"
   cp -a "${srcdir}/bundle/Melee-Native-Linux-x86_64/." "${pkgdir}/opt/melee-native/"
   ln -s /opt/melee-native/melee-native "${pkgdir}/usr/bin/melee-native"
-  install -m644 native/packaging/melee-native.desktop "${pkgdir}/usr/share/applications/"
+  install -m644 native/platform/linux/packaging/melee-native.desktop "${pkgdir}/usr/share/applications/"
   cp -a "${srcdir}/bundle/Melee-Native-Linux-x86_64/Third Party Notices/." "${pkgdir}/usr/share/licenses/${pkgname}/"
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Create an asset-free pacman package from the checked relocatable bundle.
 
-For an Arch-native source build use native/packaging/PKGBUILD and makepkg.
+For an Arch-native source build use native/platform/linux/packaging/PKGBUILD and makepkg.
 This conversion also works on the Ubuntu validation/CI host.
 """
 import argparse

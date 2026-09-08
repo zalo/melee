@@ -62,9 +62,9 @@ end
 resources = File.join(app, 'Contents/Resources')
 FileUtils.mkdir_p(resources)
 %w[MeleeNative.icns SSBM.png].each do |name|
-  FileUtils.cp(File.join(root, 'native/resources', name), File.join(resources, name))
+  FileUtils.cp(File.join(root, 'native/platform/macos/resources', name), File.join(resources, name))
 end
-readme = File.read(File.join(root, 'native/PACKAGE_README.txt'))
+readme = File.read(File.join(root, 'native/platform/macos/PACKAGE_README.txt'))
 if identity != '-'
   readme = readme.sub('The app is locally ad-hoc signed, not Developer ID signed or Apple-notarized.',
     notary_profile ? 'The app is Developer ID signed and Apple-notarized.' : 'The app is Developer ID signed but not Apple-notarized.')
@@ -72,7 +72,7 @@ end
 File.write(File.join(resources, 'Read Me.txt'), readme)
 notices = File.join(resources, 'Third Party Notices')
 FileUtils.mkdir_p(notices)
-FileUtils.cp(File.join(root, 'native/resources/README.md'), File.join(notices, 'App Artwork.md'))
+FileUtils.cp(File.join(root, 'native/platform/macos/resources/README.md'), File.join(notices, 'App Artwork.md'))
 license_files = {
   'Aurora.txt' => 'build/native-deps/aurora/LICENSE',
   'Dawn.txt' => 'native/licenses/Dawn.txt',

@@ -1,19 +1,39 @@
 # Melee Native for macOS and Linux
 
-**Linux x86-64:** see [build, packaging and validation instructions](native/LINUX.md)
-for the Aurora/Dawn Vulkan and SDL3 port. The macOS instructions below remain
-available for Apple Silicon. Linux releases are coordinated separately.
-
-An experimental Apple Silicon port of Super Smash Bros. Melee, based on
+An experimental native port of Super Smash Bros. Melee for Apple Silicon macOS
+and x86-64 Linux, based on
 [doldecomp/melee](https://github.com/doldecomp/melee). The recovered game code
-runs natively on ARM64, with Aurora translating GameCube graphics calls to
-Metal. No Dolphin installation or CPU emulation is required.
+runs natively, with Aurora translating GameCube graphics calls to Metal on
+macOS and Vulkan on Linux. No Dolphin installation or CPU emulation is required.
 
-This fork preserves the upstream history. The macOS work lives on
-`native-macos` and Linux work on `linux-port`; original decompilation instructions are preserved in
+Both platforms share the **`main` branch** and game code. This fork preserves
+the upstream history; original decompilation instructions are preserved in
 [the upstream README](.github/UPSTREAM_README.md).
 
-## Play
+```text
+src/                       Shared recovered game code
+native/                    Shared native runtime and platform interface
+  platform/macos/          macOS launcher, app resources and bundle metadata
+  platform/linux/          Linux launcher, desktop entry and Arch packaging
+  tools/                   Build, packaging and test scripts
+  tests/                   Component and gameplay tests
+.github/workflows/         macOS and Linux CI for main
+```
+
+## Play on Linux
+
+[Download the Linux x86-64 app](https://github.com/jonrosner/melee-native/releases/download/v0.1.0-linux.1/Melee-Native-Linux-x86_64.tar.gz),
+extract it and run `melee-native`. Select your own Melee US 1.02 image, then
+choose **No** at the save prompt. Requires Ubuntu 24.04 or compatible glibc 2.39+
+Linux, hardware Vulkan drivers, and a desktop/audio session.
+
+[Linux build and packaging instructions](native/LINUX.md) include GPU selection,
+Arch/Omarchy packages, and the limits of the Ubuntu hardware validation.
+[All release downloads](https://github.com/jonrosner/melee-native/releases/tag/v0.1.0-linux.1)
+include the Arch package and matching macOS app. No disc image or extracted
+game assets are included.
+
+## Play on macOS
 
 Requires an Apple Silicon Mac running macOS 15.5 or newer and your own
 **Melee US 1.02 disc image (GALE01, revision 2)**. ISO, GCM, CISO and RVZ work.
@@ -52,7 +72,7 @@ instructions below, not to run a packaged app.
 The game window receives keyboard focus when you click Play. Logs are written to
 `~/Library/Logs/Melee Native/game.log` when launched through the app picker.
 
-## Build from source
+## Build from source on macOS
 
 Install **Xcode 26.2** and Homebrew. Select Xcode's toolchain rather than an
 older standalone Command Line Tools installation, then build:
@@ -77,7 +97,7 @@ embedded in the original executable is loaded from the selected disc at runtime.
 
 The package command creates `dist/local/Melee Native.app`, a DMG and a ZIP. Choose a
 new destination for each package; the tool refuses to overwrite an existing app.
-The app includes an SSBM logo icon; its source notice is in `native/resources`.
+The app includes an SSBM logo icon; its source notice is in `native/platform/macos/resources`.
 
 For a public release, set `MELEE_SIGN_IDENTITY` to a **Developer ID Application**
 identity and `MELEE_NOTARY_PROFILE` to a configured `notarytool` Keychain profile

@@ -1,5 +1,8 @@
 # Native Linux port
 
+Linux and macOS share the `main` branch. Linux-specific launcher and package
+files are in `native/platform/linux`; the game and runtime are shared.
+
 This x86-64 Linux port runs recovered Melee game code through Aurora/Dawn Vulkan
 and SDL3. Original upstream: [doldecomp/melee](https://github.com/doldecomp/melee).
 It requires your own Melee US 1.02 image (GALE01 revision 2). Source builds and

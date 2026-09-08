@@ -11,6 +11,6 @@ project owner's request for app identification. No game disc data is included.
 `MeleeNative.icns` packages that logo on a dark macOS icon tile. Regenerate with:
 
 ```sh
-swift native/tools/make_icon.swift native/resources/SSBM.png /tmp/melee-native.iconset
-iconutil -c icns /tmp/melee-native.iconset -o native/resources/MeleeNative.icns
+swift native/tools/make_icon.swift native/platform/macos/resources/SSBM.png /tmp/melee-native.iconset
+iconutil -c icns /tmp/melee-native.iconset -o native/platform/macos/resources/MeleeNative.icns
 ```

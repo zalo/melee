@@ -22,7 +22,7 @@ with tarfile.open(archive) as tar:
         if path.suffix.lower() in ('.iso', '.gcm', '.ciso', '.rvz', '.dol', '.elf', '.ttf', '.otf', '.woff', '.woff2', '.fnt', '.ssm', '.mth', '.usd', '.dat', '.gci', '.so', '.a', '.o', '.dylib', '.dll', '.exe') or '/build/' in item.name or '/dist/' in item.name:
             raise RuntimeError(f'Unexpected generated/private source archive entry: {item.name}')
 sha = hashlib.sha256(archive.read_bytes()).hexdigest()
-pkgbuild = subprocess.check_output(['git', '-C', str(root), 'show', 'HEAD:native/packaging/PKGBUILD'], text=True)
+pkgbuild = subprocess.check_output(['git', '-C', str(root), 'show', 'HEAD:native/platform/linux/packaging/PKGBUILD'], text=True)
 pkgbuild = pkgbuild.replace("sha256sums=('SKIP') # Local source archive; record its SHA256 before distributing.", f"sha256sums=('{sha}')")
 (args.destination / 'PKGBUILD').write_text(pkgbuild)
 print(f'{archive}\nSHA256 {sha}')

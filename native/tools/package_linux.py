@@ -66,8 +66,8 @@ app_dir=$(dirname "$(readlink -f "$0")")
 exec "$app_dir/melee_native" "$@"
 ''')
     (bundle / 'melee-native').chmod(0o755)
-    shutil.copy2(ROOT / 'native/linux-package-readme.txt', bundle / 'README.txt')
-    shutil.copy2(ROOT / 'native/packaging/melee-native.desktop', bundle)
+    shutil.copy2(ROOT / 'native/platform/linux/PACKAGE_README.txt', bundle / 'README.txt')
+    shutil.copy2(ROOT / 'native/platform/linux/packaging/melee-native.desktop', bundle)
     notices = bundle / 'Third Party Notices'
     notices.mkdir()
     sources = {
