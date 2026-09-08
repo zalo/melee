@@ -55,10 +55,17 @@ fixes idle polling; it does **not** implement complete saving.
 Short-match coverage does not certify every move/effect, costume, matchup,
 mode, Kirby copy or Pokemon variant. Saving, adventure/target stages,
 exhaustive Kirby copies and locked 60 FPS were already incomplete or unverified
-on macOS. They remain outside this acceptance. macOS source/bundle conditionals
-and Xcode 26.2 CI were preserved; actual Mac regression checks remain for the
-parent. Omarchy/Arch installation and Hyprland/Wayland runtime have **not** been
-tested on this Ubuntu host.
+on macOS. They remain outside this acceptance. Omarchy/Arch installation and
+Hyprland/Wayland runtime have **not** been tested on this Ubuntu host.
+
+## macOS regression
+
+The parent task independently built the final CMake configuration on the Mac;
+all 17 Mac component tests passed. The same game runtime source also passed
+Mac packaging and a packaged Metal match on Fountain of Dreams with Captain
+Falcon, Pikachu and Capsule. That match used SDL's dummy audio driver to keep
+the Mac silent. This is a bounded Mac regression, not a repeat of the complete
+Mac gameplay matrix. The existing Xcode 26.2 CI configuration is preserved.
 
 ## Local artifacts and reproducibility
 
@@ -70,7 +77,7 @@ No disc, extracted game assets, font atlases, firmware or builds are committed.
 Both font atlases continue to load from the selected private image at runtime.
 
 Linux CI builds source-only, tests, packages and uploads downloadable workflow
-artifacts. It has been configured locally, not executed remotely. Nothing has
-been pushed or published. Local commands and raw log paths are recorded in
+artifacts. The branch is published as `linux-port`; CI results are recorded in
+the associated pull request. Local commands and raw log paths are recorded in
 `build/linux-task/status.md`; matrix case logs are referenced in the numeric
 report. See [LINUX.md](../../LINUX.md) for build and packaging commands.
