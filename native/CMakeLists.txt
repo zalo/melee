@@ -6,6 +6,9 @@ endif()
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   add_compile_definitions(_GNU_SOURCE)
   link_libraries(m pthread)
+  # Use Aurora's pinned static SQLite on every Linux host, as validated on the
+  # ThinkPad. A runner's preinstalled SQLite must not change the bundle's ABI.
+  set(CMAKE_DISABLE_FIND_PACKAGE_SQLite3 TRUE CACHE BOOL "Use pinned SQLite" FORCE)
 endif()
 include(CheckCCompilerFlag)
 check_c_compiler_flag("-Wno-return-mismatch" MELEE_HAS_RETURN_MISMATCH_WARNING)
