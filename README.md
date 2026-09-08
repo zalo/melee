@@ -19,10 +19,20 @@ Requires an Apple Silicon Mac running macOS 15.5 or newer and your own
 **Melee US 1.02 disc image (GALE01, revision 2)**. ISO, GCM, CISO and RVZ work.
 Game assets and disc images are not included or downloaded by the project.
 
-Download the experimental app from [GitHub Releases](https://github.com/jonrosner/melee-native/releases).
-Open the packaged **Melee Native.app** and select your disc image. Keep the
-image accessible while playing. At the initial save prompt, choose **No**.
-The app asks for the image again on each fresh launch.
+**[Download for macOS (Apple Silicon)](https://github.com/jonrosner/melee-native/releases/download/v0.1.0/Melee-Native-macOS-arm64.dmg)**
+
+Experimental v0.1.0 · [Release notes and ZIP download](https://github.com/jonrosner/melee-native/releases/tag/v0.1.0)
+
+Open the **DMG**, drag **Melee Native** to **Applications**, and open the app.
+Drop your disc image into the setup window or click **Choose File**. Once it is
+validated, click **Play**. Keep the image accessible while playing.
+The app remembers your image and opens the game automatically on later launches.
+If the image becomes unavailable, setup offers to locate it again.
+
+The **Melee Native** app menu includes **Controls**, **Change Disc Image and
+Restart**, and **Open Logs**. Changing the image ends the current game session.
+The graphical app starts without saving and skips the unsupported initial save
+prompt. Command-line diagnostic launches retain the original memory-card flow.
 
 Development packages are ad-hoc signed, not Apple-notarized. Developer ID
 signing and notarization remain outstanding. Homebrew is needed for the build
@@ -39,7 +49,7 @@ instructions below, not to run a packaged app.
 | IJKL | C-stick |
 | Return | Start / pause |
 
-Click the game window before playing. Logs are written to
+The game window receives keyboard focus when you click Play. Logs are written to
 `~/Library/Logs/Melee Native/game.log` when launched through the app picker.
 
 ## Build from source
@@ -65,8 +75,15 @@ including prebuilt Dawn and nod libraries. A network connection is required.
 Building and the asset-free component tests require no game image. Font data
 embedded in the original executable is loaded from the selected disc at runtime.
 
-The package command creates `dist/local/Melee Native.app` and a ZIP. Choose a
+The package command creates `dist/local/Melee Native.app`, a DMG and a ZIP. Choose a
 new destination for each package; the tool refuses to overwrite an existing app.
+The app includes an SSBM logo icon; its source notice is in `native/resources`.
+
+For a public release, set `MELEE_SIGN_IDENTITY` to a **Developer ID Application**
+identity and `MELEE_NOTARY_PROFILE` to a configured `notarytool` Keychain profile
+when running the package command. Packaging signs bundled libraries with the
+hardened runtime, notarizes the app and DMG, and staples their tickets. Without
+those settings, the default remains an ad-hoc-signed development package.
 Disc-backed integration tests are registered separately when local extracted
 test assets exist. Public CI does not have those assets and does not test gameplay.
 

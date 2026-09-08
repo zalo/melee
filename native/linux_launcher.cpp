@@ -58,3 +58,13 @@ std::string MeleeChooseDisc(const std::string& error) {
     SDL_QuitSubSystem(SDL_INIT_VIDEO);
     return selection.path;
 }
+
+std::string MeleeLaunchDisc(MeleeDiscValidator validate, bool) {
+    std::string error;
+    for (;;) {
+        auto path = MeleeChooseDisc(error);
+        if (path.empty()) return {};
+        error = validate(path);
+        if (error.empty()) return path;
+    }
+}

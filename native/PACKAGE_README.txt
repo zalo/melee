@@ -1,14 +1,18 @@
 Melee Native 0.1.0 (development build)
 
 Requires an Apple Silicon Mac running macOS 15.5 or newer.
-Unzip the app, move it wherever you want, and open Melee Native.
-Choose your Super Smash Bros. Melee US 1.02 image (GALE01, revision 2).
+Open the DMG, drag Melee Native to Applications, and open it from Applications.
+Drop in your Super Smash Bros. Melee US 1.02 image (GALE01, revision 2),
+or click Choose File. Click Play when validation succeeds.
 ISO, GCM, CISO and RVZ are accepted. The file stays where you chose it;
 the game reads its content directly from the image. Keep it accessible while playing.
-Canceling the picker exits. A fresh launch asks for an image again.
+The app remembers the image and opens the game automatically on later launches.
+If the file becomes unavailable, locate it again in the setup window.
+The app menu offers Controls, Change Disc Image and Restart, and Open Logs.
+Changing the image ends the current game session.
 
-At the game's initial save prompt, choose No. Saving is not yet working.
-Keyboard (click the game window first):
+The app skips the initial save prompt and plays without saving progress.
+Keyboard (the game receives focus automatically):
   WASD move; X attack/confirm; Z special/back; C/V jump;
   Q/E shield; R grab; IJKL C-stick; Return start/pause.
 

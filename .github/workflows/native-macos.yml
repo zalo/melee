@@ -32,3 +32,12 @@ jobs:
         run: ctest --test-dir build/native-app -L melee --output-on-failure
       - name: Verify portable package
         run: ruby native/tools/package_app.rb build/native-app dist/ci
+      - name: Upload installable development build
+        uses: actions/upload-artifact@v4
+        with:
+          name: Melee-Native-macOS-arm64
+          path: |
+            dist/ci/Melee-Native-macOS-arm64.dmg
+            dist/ci/Melee-Native-macOS-arm64.zip
+            dist/ci/manifest.json
+          if-no-files-found: error

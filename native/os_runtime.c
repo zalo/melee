@@ -304,3 +304,5 @@ u64 __cvt_dbl_usll(double value) {
     u64 magnitude = exponent >= 1075 ? significand << (exponent-1075) : significand >> (1075-exponent);
     return bits >> 63 ? 0 - magnitude : magnitude;
 }
+// The graphical launcher explicitly starts a session without persistent saves.
+int MeleeNativeSkipSavePrompt = 0;
