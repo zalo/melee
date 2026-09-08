@@ -271,7 +271,7 @@ static struct {
 
 void lbAudioAx_8002392C(void)
 {
-    lbArchive_LoadSymbols("LbAd.dat", &lbl_804D6454, "lbAudioLoadData", 0);
+    lbArchive_LoadSymbols("LbAd.dat", &lbl_804D6454, "lbAudioLoadData", NULL);
 }
 
 static inline int* getAudioLoadData(int arg0)

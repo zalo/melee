@@ -1,12 +1,16 @@
-# Melee Native for macOS
+# Melee Native for macOS and Linux
+
+**Linux x86-64:** see [build, packaging and validation instructions](native/LINUX.md)
+for the Aurora/Dawn Vulkan and SDL3 port. The macOS instructions below remain
+available for Apple Silicon. Linux releases are coordinated separately.
 
 An experimental Apple Silicon port of Super Smash Bros. Melee, based on
 [doldecomp/melee](https://github.com/doldecomp/melee). The recovered game code
 runs natively on ARM64, with Aurora translating GameCube graphics calls to
 Metal. No Dolphin installation or CPU emulation is required.
 
-This fork preserves the upstream history. The native port lives on
-`native-macos`; original decompilation instructions are preserved in
+This fork preserves the upstream history. The macOS work lives on
+`native-macos` and Linux work on `linux-port`; original decompilation instructions are preserved in
 [the upstream README](.github/UPSTREAM_README.md).
 
 ## Play

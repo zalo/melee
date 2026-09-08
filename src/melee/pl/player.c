@@ -2055,7 +2055,7 @@ void Player_80036DD8(void)
     void** sp8;
 
     lbArchive_LoadSymbols(str_PdPmdat_start_of_data, (void**) &sp8,
-                          str_plLoadCommonData, 0);
+                          str_plLoadCommonData, NULL);
     pl_804D6470 = *sp8;
 }
 

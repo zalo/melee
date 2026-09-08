@@ -216,7 +216,7 @@ void mnLanguage_8024C5C0(HSD_GObj* gobj)
         archive, (void**) &model_desc.joint, "MenMainConLa_Top_joint",
         &model_desc.animjoint, "MenMainConLa_Top_animjoint",
         &model_desc.matanim_joint, "MenMainConLa_Top_matanim_joint",
-        &model_desc.shapeanim_joint, "MenMainConLa_Top_shapeanim_joint", 0);
+        &model_desc.shapeanim_joint, "MenMainConLa_Top_shapeanim_joint", NULL);
     mnLanguage_8024C3C4(gobj);
     gobjproc =
         HSD_GObj_SetupProc(GObj_Create(0, 1, 0x80), mnLanguage_8024BFE0, 0);

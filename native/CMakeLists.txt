@@ -1,5 +1,19 @@
 cmake_minimum_required(VERSION 3.25)
-project(MeleeNative LANGUAGES C CXX OBJCXX)
+project(MeleeNative LANGUAGES C CXX)
+if(APPLE)
+  enable_language(OBJCXX)
+endif()
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  add_compile_definitions(_GNU_SOURCE)
+  link_libraries(m pthread)
+endif()
+include(CheckCCompilerFlag)
+check_c_compiler_flag("-Wno-return-mismatch" MELEE_HAS_RETURN_MISMATCH_WARNING)
+if(MELEE_HAS_RETURN_MISMATCH_WARNING)
+  set(MELEE_RETURN_WARNING -Wno-return-mismatch)
+else()
+  set(MELEE_RETURN_WARNING -Wno-return-type)
+endif()
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -15,7 +29,8 @@ target_include_directories(melee_game PRIVATE include "${MELEE_ROOT}/src" "${CMA
 target_compile_definitions(melee_game PRIVATE TARGET_PC MELEE_NATIVE BUILD_VERSION=0 VERSION_GALE01)
 target_compile_options(melee_game PRIVATE -include "${CMAKE_CURRENT_SOURCE_DIR}/include/compat.h"
   -fno-strict-aliasing -fgnu89-inline -ffp-contract=off -Wno-incompatible-pointer-types -Wno-int-conversion
-  -Wno-deprecated-non-prototype -Wno-macro-redefined -Wno-pointer-sign -Wno-return-mismatch)
+  -Wno-deprecated-non-prototype -Wno-macro-redefined -Wno-pointer-sign
+  ${MELEE_RETURN_WARNING})
 
 # Aurora is pinned because its native SDK ABI is part of the port.
 set(MELEE_AURORA_DIR "${MELEE_ROOT}/build/native-deps/aurora" CACHE PATH "Aurora source checkout")
@@ -39,10 +54,16 @@ add_library(melee_os_runtime OBJECT os_runtime.c)
 target_include_directories(melee_os_runtime PRIVATE $<TARGET_PROPERTY:melee_game,INCLUDE_DIRECTORIES>)
 target_compile_definitions(melee_os_runtime PRIVATE $<TARGET_PROPERTY:melee_game,COMPILE_DEFINITIONS>)
 target_compile_options(melee_os_runtime PRIVATE $<TARGET_PROPERTY:melee_game,COMPILE_OPTIONS>)
-add_executable(melee_mac EXCLUDE_FROM_ALL runtime_main.cpp disc_fonts.cpp gx_bridge.cpp vi_runtime.cpp pad_bridge.cpp "${MELEE_ROOT}/src/MSL/float.c" $<TARGET_OBJECTS:melee_game> $<TARGET_OBJECTS:melee_os_runtime>)
-target_link_libraries(melee_mac PRIVATE aurora::core aurora::gx aurora::os aurora::dvd
+add_executable(melee_native EXCLUDE_FROM_ALL runtime_main.cpp disc_fonts.cpp gx_bridge.cpp vi_runtime.cpp pad_bridge.cpp "${MELEE_ROOT}/src/MSL/float.c" $<TARGET_OBJECTS:melee_game> $<TARGET_OBJECTS:melee_os_runtime>)
+target_link_libraries(melee_native PRIVATE aurora::core aurora::gx aurora::os aurora::dvd
   aurora::card aurora::mtx aurora::pad aurora::vi aurora::thp)
-target_link_options(melee_mac PRIVATE -Wl,-dead_strip)
+if(APPLE)
+  target_link_options(melee_native PRIVATE -Wl,-dead_strip)
+  set_target_properties(melee_native PROPERTIES OUTPUT_NAME melee_mac)
+  add_custom_target(melee_mac DEPENDS melee_native)
+else()
+  target_link_options(melee_native PRIVATE -Wl,--gc-sections)
+endif()
 
 enable_testing()
 add_executable(native_core_test tests/core_test.c
@@ -93,9 +114,11 @@ target_link_libraries(melee_asset_probe PRIVATE melee_assets aurora::core aurora
 
 set_tests_properties(native_core native_archive PROPERTIES LABELS melee)
 
+if(APPLE)
 set_target_properties(melee_asset_probe PROPERTIES MACOSX_BUNDLE TRUE
   MACOSX_BUNDLE_GUI_IDENTIFIER "org.melee.native.asset-probe"
   MACOSX_BUNDLE_BUNDLE_NAME "Melee Asset Diagnostic")
+endif()
 add_test(NAME native_disc COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_disc.py")
 set_tests_properties(native_disc PROPERTIES LABELS melee)
 add_executable(native_os_test tests/os_test.c os_runtime.c)
@@ -122,12 +145,14 @@ target_compile_options(melee_gx_probe PRIVATE $<TARGET_PROPERTY:melee_game,COMPI
 target_sources(melee_asset_probe PRIVATE $<TARGET_OBJECTS:melee_gx_probe>)
 
 # Developer-only loader probe. Unimplemented functions still fail at their first
-# call; the actual melee_mac target continues requiring a complete static link.
-add_executable(melee_boot_probe EXCLUDE_FROM_ALL runtime_main.cpp gx_bridge.cpp vi_runtime.cpp pad_bridge.cpp
+# call; the actual melee_native target continues requiring a complete static link.
+add_executable(melee_boot_probe EXCLUDE_FROM_ALL runtime_main.cpp disc_fonts.cpp gx_bridge.cpp vi_runtime.cpp pad_bridge.cpp
   "${MELEE_ROOT}/src/MSL/float.c" $<TARGET_OBJECTS:melee_game> $<TARGET_OBJECTS:melee_os_runtime>)
 target_link_libraries(melee_boot_probe PRIVATE aurora::core aurora::gx aurora::os aurora::dvd
   aurora::card aurora::mtx aurora::pad aurora::vi aurora::thp)
-target_link_options(melee_boot_probe PRIVATE -Wl,-dead_strip -Wl,-undefined,dynamic_lookup)
+if(APPLE)
+  target_link_options(melee_boot_probe PRIVATE -Wl,-dead_strip -Wl,-undefined,dynamic_lookup)
+endif()
 add_library(melee_pad_abi_test OBJECT tests/pad_abi_test.c)
 target_include_directories(melee_pad_abi_test PRIVATE $<TARGET_PROPERTY:melee_game,INCLUDE_DIRECTORIES>)
 target_compile_definitions(melee_pad_abi_test PRIVATE $<TARGET_PROPERTY:melee_game,COMPILE_DEFINITIONS>)
@@ -139,18 +164,22 @@ target_compile_options(native_pad_test PRIVATE -fsanitize=address,undefined)
 target_link_options(native_pad_test PRIVATE -fsanitize=address,undefined)
 add_test(NAME native_pad COMMAND native_pad_test)
 set_tests_properties(native_pad PROPERTIES LABELS melee)
-target_include_directories(melee_mac PRIVATE "${MELEE_AURORA_DIR}/lib/dolphin/gx")
+target_include_directories(melee_native PRIVATE "${MELEE_AURORA_DIR}/lib/dolphin/gx")
 target_include_directories(melee_boot_probe PRIVATE "${MELEE_AURORA_DIR}/lib/dolphin/gx")
 
 add_library(melee_audio_runtime OBJECT audio_runtime.c audio_decode.c arq_runtime.c audio_effects.c audio_chorus.c sfx_bank.c archive_bridge.c asset_schema.c movie_runtime.c dev_hardware.c matrix_runtime.c)
 target_include_directories(melee_audio_runtime PRIVATE $<TARGET_PROPERTY:melee_game,INCLUDE_DIRECTORIES>)
 target_compile_definitions(melee_audio_runtime PRIVATE $<TARGET_PROPERTY:melee_game,COMPILE_DEFINITIONS>)
 target_compile_options(melee_audio_runtime PRIVATE $<TARGET_PROPERTY:melee_game,COMPILE_OPTIONS>)
-foreach(target melee_mac melee_boot_probe)
-  target_sources(${target} PRIVATE mac_launcher.mm)
+foreach(target melee_native melee_boot_probe)
+  if(APPLE)
+    target_sources(${target} PRIVATE mac_launcher.mm)
+    target_link_libraries(${target} PRIVATE "-framework AppKit" "-framework UniformTypeIdentifiers")
+  else()
+    target_sources(${target} PRIVATE linux_launcher.cpp)
+  endif()
   target_sources(${target} PRIVATE render_check.cpp)
   target_include_directories(${target} PRIVATE "${MELEE_AURORA_DIR}/lib")
-  target_link_libraries(${target} PRIVATE "-framework AppKit" "-framework UniformTypeIdentifiers")
   target_sources(${target} PRIVATE audio_host.cpp movie_host.cpp dvd_bridge.cpp card_bridge.cpp keyboard_input.cpp archive_runtime.cpp asset_archive.cpp $<TARGET_OBJECTS:melee_audio_runtime>)
   target_link_libraries(${target} PRIVATE SDL3::SDL3)
 endforeach()
@@ -195,13 +224,15 @@ target_link_options(native_runtime_archive_test PRIVATE -fsanitize=address,undef
 add_test(NAME native_runtime_archive COMMAND native_runtime_archive_test)
 set_tests_properties(native_runtime_archive PROPERTIES LABELS melee)
 
-foreach(target melee_mac melee_boot_probe)
+if(APPLE)
+foreach(target melee_native melee_boot_probe)
   set_target_properties(${target} PROPERTIES MACOSX_BUNDLE TRUE
     MACOSX_BUNDLE_GUI_IDENTIFIER "org.melee.native.${target}"
     MACOSX_BUNDLE_BUNDLE_NAME "${target}")
 endforeach()
-set_target_properties(melee_mac PROPERTIES
+set_target_properties(melee_native PROPERTIES
   MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in")
+endif()
 add_executable(native_card_test card_bridge.cpp tests/card_test.cpp)
 target_include_directories(native_card_test PRIVATE "${MELEE_AURORA_DIR}/include")
 target_compile_definitions(native_card_test PRIVATE TARGET_PC)
@@ -276,10 +307,10 @@ endif()
 
 option(MELEE_SANITIZE_GAME "Instrument the native game and boundary for runtime diagnosis" OFF)
 if(MELEE_SANITIZE_GAME)
-  foreach(target melee_game melee_audio_runtime melee_mac)
+  foreach(target melee_game melee_audio_runtime melee_native)
     target_compile_options(${target} PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
   endforeach()
-  target_link_options(melee_mac PRIVATE -fsanitize=address,undefined)
+  target_link_options(melee_native PRIVATE -fsanitize=address,undefined)
 endif()
 
 add_executable(native_fobj_stream_test tests/fobj_stream_test.c "${MELEE_ROOT}/src/sysdolphin/baselib/fobj.c")
@@ -289,3 +320,35 @@ target_compile_options(native_fobj_stream_test PRIVATE $<TARGET_PROPERTY:melee_g
 target_link_options(native_fobj_stream_test PRIVATE -fsanitize=address,undefined)
 add_test(NAME native_fobj_stream COMMAND native_fobj_stream_test)
 set_tests_properties(native_fobj_stream PROPERTIES LABELS melee)
+
+add_executable(native_jump_test tests/jump_test.c)
+target_include_directories(native_jump_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_compile_options(native_jump_test PRIVATE -fsanitize=address,undefined)
+target_link_options(native_jump_test PRIVATE -fsanitize=address,undefined)
+add_test(NAME native_jump COMMAND native_jump_test)
+set_tests_properties(native_jump PROPERTIES LABELS melee)
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  add_executable(native_linux_platform_test tests/linux_platform_test.cpp linux_launcher.cpp)
+  target_include_directories(native_linux_platform_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+  target_link_libraries(native_linux_platform_test PRIVATE SDL3::SDL3)
+  add_test(NAME native_linux_platform COMMAND native_linux_platform_test)
+  set_tests_properties(native_linux_platform PROPERTIES LABELS melee)
+endif()
+# Component assertions remain active in Release CI/package builds as well.
+get_property(native_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+foreach(target IN LISTS native_targets)
+  if(target MATCHES "^native_.*_test$")
+    target_compile_options(${target} PRIVATE -UNDEBUG)
+  endif()
+endforeach()
+
+add_executable(native_item_pick_test tests/item_pick_test.c "${MELEE_ROOT}/src/melee/it/itspawn.c")
+target_include_directories(native_item_pick_test PRIVATE $<TARGET_PROPERTY:melee_game,INCLUDE_DIRECTORIES>)
+target_compile_definitions(native_item_pick_test PRIVATE $<TARGET_PROPERTY:melee_game,COMPILE_DEFINITIONS>)
+target_compile_options(native_item_pick_test PRIVATE $<TARGET_PROPERTY:melee_game,COMPILE_OPTIONS>
+  -UNDEBUG -ffunction-sections -fdata-sections -fsanitize=address,undefined)
+target_link_options(native_item_pick_test PRIVATE -fsanitize=address,undefined
+  $<$<PLATFORM_ID:Darwin>:-Wl,-dead_strip> $<$<PLATFORM_ID:Linux>:-Wl,--gc-sections>)
+add_test(NAME native_item_pick COMMAND native_item_pick_test)
+set_tests_properties(native_item_pick PROPERTIES LABELS melee)

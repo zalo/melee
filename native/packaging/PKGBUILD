@@ -1,0 +1,35 @@
+# Maintainer: Melee Native contributors
+# Build from a reviewed source checkout. No game image is used or packaged.
+pkgname=melee-native
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Experimental native Melee port using Aurora Vulkan and SDL3'
+arch=('x86_64')
+url='https://github.com/jonrosner/melee-native'
+license=('custom')
+depends=('glibc' 'libgcc' 'libstdc++' 'vulkan-icd-loader' 'libx11' 'libxext' 'libxcursor' 'libxi' 'libxrandr' 'libxfixes' 'libxss' 'wayland' 'libxkbcommon' 'libdecor' 'alsa-lib' 'libpulse' 'systemd-libs' 'dbus' 'libpng' 'freetype2' 'zstd')
+makedepends=('cmake' 'ninja' 'clang' 'compiler-rt' 'python' 'ruby' 'git' 'pkgconf' 'patchelf')
+optdepends=('vulkan-intel: Intel hardware Vulkan' 'vulkan-nouveau: Nouveau/NVK hardware Vulkan' 'nvidia-utils: NVIDIA proprietary Vulkan' 'xdg-desktop-portal-gtk: file chooser portal for Hyprland and other desktops')
+# The source-only archive is produced from the local commit by package_source.py.
+source=("melee-native-${pkgver}.tar.gz")
+sha256sums=('SKIP') # Local source archive; record its SHA256 before distributing.
+
+build() {
+  cd "${srcdir}/melee-native-${pkgver}"
+  python native/tools/bootstrap.py
+  CC=clang CXX=clang++ cmake -S native -B build/native-linux -G Ninja -DCMAKE_BUILD_TYPE=Debug
+  cmake --build build/native-linux --target melee_native all --parallel "${MELEE_BUILD_JOBS:-3}"
+}
+check() {
+  cd "${srcdir}/melee-native-${pkgver}"
+  ctest --test-dir build/native-linux -L melee --output-on-failure
+}
+package() {
+  cd "${srcdir}/melee-native-${pkgver}"
+  python native/tools/package_linux.py build/native-linux "${srcdir}/bundle"
+  install -d "${pkgdir}/opt/melee-native" "${pkgdir}/usr/bin" "${pkgdir}/usr/share/applications" "${pkgdir}/usr/share/licenses/${pkgname}"
+  cp -a "${srcdir}/bundle/Melee-Native-Linux-x86_64/." "${pkgdir}/opt/melee-native/"
+  ln -s /opt/melee-native/melee-native "${pkgdir}/usr/bin/melee-native"
+  install -m644 native/packaging/melee-native.desktop "${pkgdir}/usr/share/applications/"
+  cp -a "${srcdir}/bundle/Melee-Native-Linux-x86_64/Third Party Notices/." "${pkgdir}/usr/share/licenses/${pkgname}/"
+}

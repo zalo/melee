@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <execinfo.h>
 #include "os_runtime.h"
-#include "mac_launcher.h"
+#include "platform_launcher.h"
 #include <dolphin/dvd.h>
 #include <cstring>
 #include <SDL3/SDL.h>
@@ -32,7 +32,7 @@ static void log_message(AuroraLogLevel level, const char* module, const char* te
 
 int main(int argc, char** argv) {
     if (argc > 2) {
-        std::fprintf(stderr, "Usage: melee_mac [Melee-US-1.02-disc-image]\n");
+        std::fprintf(stderr, "Usage: melee_native [Melee-US-1.02-disc-image]\n");
         return 2;
     }
     const bool graphical_launch = argc == 1;
@@ -46,7 +46,16 @@ int main(int argc, char** argv) {
     } else disc_path = argv[1];
     AuroraConfig config{};
     config.appName = "Melee Native";
+#ifdef __APPLE__
     config.desiredBackend = BACKEND_METAL;
+#else
+    config.desiredBackend = BACKEND_VULKAN;
+#endif
+#ifdef __linux__
+    const auto user_path = MeleeConfigPath(), cache_path = MeleeCachePath();
+    config.userPath = user_path.c_str();
+    config.cachePath = cache_path.c_str();
+#endif
     config.vsync = true;
     config.windowWidth = 960;
     config.windowHeight = 720;

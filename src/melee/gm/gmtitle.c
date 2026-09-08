@@ -249,7 +249,7 @@ HSD_Archive* gmTitle_801A1AC0(void)
         "TtlBg_Top_matanim_joint", &model_desc_1.shapeanim_joint,
         "TtlBg_Top_shapeanim_joint",
 
-        &gm_804D67F0, "TitleMark_sobjdesc", 0);
+        &gm_804D67F0, "TitleMark_sobjdesc", NULL);
 }
 
 void gm_Scene_Title_OnFrame(void)

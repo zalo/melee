@@ -765,7 +765,7 @@ void un_802FF7DC(void)
 {
     struct un_803F9F28_t* data = (struct un_803F9F28_t*) un_803F9F28;
     int* syms;
-    lbArchive_LoadSymbols(data->x1DC, &un_804D6DA8, data->x1E8, 0);
+    lbArchive_LoadSymbols(data->x1DC, &un_804D6DA8, data->x1E8, NULL);
     syms = un_804D6DA8;
     data->xB4 = syms[0];
     data->xA8 = syms[1];

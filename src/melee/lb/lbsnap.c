@@ -471,7 +471,7 @@ void lbSnap_8001E218(void* snap, struct Unk80433380_48* slot)
     _p(slot)->card_result = 8;
     _p(slot)[1].card_result = 8;
     lbArchive_80016DBC("LbMcSnap.", (void**) &_p(icon_data), "MemSnapIconData",
-                       0);
+                       NULL);
 }
 
 void lbSnap_8001E27C(void)

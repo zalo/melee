@@ -55,13 +55,17 @@ int main(int argc, char** argv) {
         unsigned frame_limit = argc == 3 ? static_cast<unsigned>(std::stoul(argv[2])) : 0;
         AuroraConfig config{};
         config.appName = "Melee native asset diagnostic (not gameplay)";
-        config.desiredBackend = BACKEND_METAL;
+#ifdef __APPLE__
+    config.desiredBackend = BACKEND_METAL;
+#else
+    config.desiredBackend = BACKEND_VULKAN;
+#endif
         config.windowWidth = 800; config.windowHeight = 600;
         config.vsync = true; config.logCallback = log_message;
         auto info = aurora_initialize(argc, argv, &config);
         initialized = true;
         GXInit(nullptr, 0);
-        if (info.backend != BACKEND_METAL) throw std::runtime_error("Expected native Metal backend");
+        if (info.backend != config.desiredBackend) throw std::runtime_error("Requested native graphics backend unavailable");
         unsigned frames = 0, selected = 0, input_events = 0;
         bool exiting = false;
         while (!exiting && (!frame_limit || frames < frame_limit)) {

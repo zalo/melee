@@ -889,7 +889,7 @@ void mnDataDel_80250170(void)
         "MenMainWarCmn_Top_joint", &assets[2].animjoint,
         "MenMainWarCmn_Top_animjoint", &assets[2].matanim_joint,
         "MenMainWarCmn_Top_matanim_joint", &assets[2].shapeanim_joint,
-        "MenMainWarCmn_Top_shapeanim_joint", 0);
+        "MenMainWarCmn_Top_shapeanim_joint", NULL);
     mnDataDel_8024FE4C(0U);
     proc = HSD_GObj_SetupProc(GObj_Create(0U, 1U, 0x80U), fn_8024F840, 0U);
     proc->flags_3 = HSD_GObj_804D783C;

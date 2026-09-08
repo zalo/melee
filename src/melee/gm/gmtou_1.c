@@ -2464,15 +2464,15 @@ void gm_Scene_TouBracket_OnEnter(void* arg0)
     lbl_804D6680[2] = 0;
     gm_GetTournamentData();
     lbl_804D6660 = lbArchive_80016DBC("GmTou1p", &lbl_804D666C,
-                                      "ScGamTour_scene_data", 0);
+                                      "ScGamTour_scene_data", NULL);
     lbl_804D6638 = lbArchive_80016DBC(
         "TmBox.dat", &lbl_804771B8.box2, "tournament_box2_array",
         &lbl_804771B8.box3, "tournament_box3_array", &lbl_804771B8.box4,
-        "tournament_box4_array", 0);
+        "tournament_box4_array", NULL);
     lbl_804D6664 = lbArchive_80016DBC("GmTou3p", &lbl_804D6670,
-                                      "ScGamTour_scene_data", 0);
+                                      "ScGamTour_scene_data", NULL);
     lbl_804D6668 = lbArchive_80016DBC("GmTou4p", &lbl_804D6674,
-                                      "ScGamTour_scene_data", 0);
+                                      "ScGamTour_scene_data", NULL);
     HSD_SisLib_803A62A0(0, fn_8018F5F0(), "SIS_TournamentData");
     if (HSD_Randi(2) != 0) {
         lbAudioAx_80023F28(0x5D);

@@ -1725,7 +1725,7 @@ void fn_801771C0(ResultsData* data)
 static inline void gmResultLoadArchive(ResultsData* data)
 {
     lbl_804D65B8 = lbArchive_80016DBC("GmRst", &data->pnlsce, "pnlsce",
-                                      &data->flmsce, "flmsce", 0);
+                                      &data->flmsce, "flmsce", NULL);
     if (data->pnlsce == NULL) {
         OSReport("Error : Cannot read archive file (File Name : %s).",
                  "GmRst");

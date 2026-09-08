@@ -364,7 +364,7 @@ void lbRefract_800222A4(void)
     PAD_STACK(4);
 
     lbl_804336D0.refractionUserCount = 0;
-    lbArchive_LoadSymbols("LbRf.dat", &refract_data, "lbRefData", 0);
+    lbArchive_LoadSymbols("LbRf.dat", &refract_data, "lbRefData", NULL);
     {
         size_t buf_size =
             GXGetTexBufferSize(image_width, image_height, GX_TF_RGB565, 0, 0);

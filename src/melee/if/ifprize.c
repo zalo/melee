@@ -232,7 +232,7 @@ execute:
 static void setArchive(void)
 {
     un_804D6D98 = lbArchive_80016DBC("IfPrize", &un_804D6D9C,
-                                     "ScInfPrize_scene_data", 0);
+                                     "ScInfPrize_scene_data", NULL);
     if (lbLang_IsSavedLanguageUS()) {
         HSD_SisLib_803A62A0(2, "SdPrize.usd", "SIS_PrizeData");
     } else {

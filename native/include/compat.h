@@ -1,5 +1,8 @@
 #ifndef MELEE_NATIVE_COMPAT_H
 #define MELEE_NATIVE_COMPAT_H
+#ifdef __linux__
+#define __assert MeleeNativeAssert
+#endif
 #include <math.h>
 #include <stdint.h>
 #include <stdlib.h>

@@ -384,12 +384,12 @@ void gm_801A6EE4(void)
         break;
     }
     lbArchive_LoadSymbols(gm_801604DC(gm_801BEFB0(), var_r29), &gm_804D6798,
-                          gm_80160564(gm_801BEFB0(), var_r29), 0);
+                          gm_80160564(gm_801BEFB0(), var_r29), NULL);
     gm_804D6744 = lbArchive_LoadSymbols(
         "GmRegEnd", &gm_804D6748, "cut1CanimScene", &gm_804D67A8,
         "cut2CanimScene", &gm_804D67A4, "cut3CanimScene", &gm_804D67A0,
-        "cut3BgScene", 0);
-    lbArchive_LoadSymbols("GmRgStnd.dat", &gm_804D67AC, "standScene", 0);
+        "cut3BgScene", NULL);
+    lbArchive_LoadSymbols("GmRgStnd.dat", &gm_804D67AC, "standScene", NULL);
     switch (var_r29) {
     case GM_CLASSIC_GOVER:
     case GM_CLASSIC:

@@ -276,8 +276,20 @@ int OSJoinThread(OSThread* thread, void** value) {
 
 void MeleeNativeReportThreadInfo(void) {
     pthread_t thread = pthread_self();
+#ifdef __APPLE__
     void* top = pthread_get_stackaddr_np(thread);
     size_t size = pthread_get_stacksize_np(thread);
+#else
+    pthread_attr_t attr;
+    void* base = NULL;
+    size_t size = 0;
+    int result = pthread_getattr_np(thread, &attr);
+    if (result) { OSReport("Cannot query native stack: %d\n", result); return; }
+    result = pthread_attr_getstack(&attr, &base, &size);
+    pthread_attr_destroy(&attr);
+    if (result) { OSReport("Cannot read native stack: %d\n", result); return; }
+    void* top = (char*) base + size;
+#endif
     OSReport("Native thread stack: top=%p, size=%zu bytes\n", top, size);
 }
 

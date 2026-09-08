@@ -965,7 +965,7 @@ void ifStatus_802F66A4(void)
     HSD_Archive** arch;
     arch = ifAll_GetArchive();
     lbArchive_LoadSections(*arch, (void**) &num, num_models_name,
-                           (void**) &mrk, mrk_models_name, 0);
+                           (void**) &mrk, mrk_models_name, NULL);
     hud->unk258 = (*num)->joint;
     hud->jobj_desc_parent = (*num)->anims;
     hud->janim_selection_joints = (HSD_AnimJoint*) (*num)->matanims;

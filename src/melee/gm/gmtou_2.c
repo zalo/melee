@@ -994,9 +994,9 @@ void gm_Scene_TouAlt_OnFrame(void)
 void gm_8019ECAC_OnEnter_inline(void)
 {
     lbl_804D6688 = lbArchive_80016DBC("GmTou1p", &lbl_804D6690,
-                                      "ScGamTour_scene_data", 0);
+                                      "ScGamTour_scene_data", NULL);
     lbl_804D668C = lbArchive_80016DBC("GmTou4p", &lbl_804D6694,
-                                      "ScGamTour_scene_data", 0);
+                                      "ScGamTour_scene_data", NULL);
     HSD_SisLib_803A62A0(0, fn_8018F5F0(), "SIS_TournamentData");
 }
 

@@ -2624,7 +2624,7 @@ void mnSnap_80257F24(void)
         "MenMainWarCmn_Top_joint", warn_animjoint,
         "MenMainWarCmn_Top_animjoint", warn_matanim,
         "MenMainWarCmn_Top_matanim_joint", warn_shapeanim,
-        "MenMainWarCmn_Top_shapeanim_joint\0\0\0\0\0\0", 0);
+        "MenMainWarCmn_Top_shapeanim_joint\0\0\0\0\0\0", NULL);
 
     (void) ((const void*) page_name == (const void*) snap);
     /* Main GObj */

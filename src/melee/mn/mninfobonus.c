@@ -328,7 +328,7 @@ void mnInfoBonus_80252F8C(void)
         archive, (void**) &o->x50.joint, "MenMainConBo_Top_joint",
         &o->x50.animjoint, "MenMainConBo_Top_animjoint", &o->x50.matanim_joint,
         "MenMainConBo_Top_matanim_joint", &o->x50.shapeanim_joint,
-        "MenMainConBo_Top_shapeanim_joint", 0);
+        "MenMainConBo_Top_shapeanim_joint", NULL);
     mnInfoBonus_inline_SetGObjFlag(
         HSD_GObj_SetupProc(GObj_Create(0U, 1U, 0x80U), fn_80252C50, 0U));
 

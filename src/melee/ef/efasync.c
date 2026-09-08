@@ -1317,7 +1317,7 @@ void efAsync_LoadSync(int idx)
     }
     {
         bool chk = lbArchive_80017040(NULL, lookup->ef_DAT_file, &spC,
-                                      lookup->effDataTable_name, 0);
+                                      lookup->effDataTable_name, NULL);
         if ((uintptr_t) spC->ef_DAT_file | (uintptr_t) spC->effDataTable_name) {
             if (chk) {
                 psInitDataBankLoad(idx, (void*) spC->ef_DAT_file,

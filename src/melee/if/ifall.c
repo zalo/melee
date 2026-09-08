@@ -205,7 +205,7 @@ void ifAll_802F390C(void)
     ifAll_ShowHUD();
     lbArchive_80016F80(parchive, "IfAll");
     lbArchive_LoadSections(*parchive, (void**) &sp14, "ScInfDmg_scene_data",
-                           0);
+                           NULL);
     ifAll_802F370C(sp14);
 
     {

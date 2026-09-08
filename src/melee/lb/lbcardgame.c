@@ -274,8 +274,8 @@ void lb_8001CF18(void)
 void lbCardGame_LoadArchive(int arg0)
 {
     if (_p(x5C) == 0) {
-        lbArchive_80016DBC("LbMcGame.", &_p(x5C), "MemCardIconData", 0);
-        lbArchive_80016DBC("NtMemAc", &_p(x64), "ScNtcCommon_scene_data", 0);
+        lbArchive_80016DBC("LbMcGame.", &_p(x5C), "MemCardIconData", NULL);
+        lbArchive_80016DBC("NtMemAc", &_p(x64), "ScNtcCommon_scene_data", NULL);
         _p(x60) = arg0;
         _p(enable) = 1;
     }

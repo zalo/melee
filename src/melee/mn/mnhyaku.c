@@ -219,7 +219,7 @@ void mnHyaku_8024CD64(u8 arg0)
         &mnHyaku_804A08E8.animjoint, "MenMainConKm_Top_animjoint",
         &mnHyaku_804A08E8.matanim_joint, "MenMainConKm_Top_matanim_joint",
         &mnHyaku_804A08E8.shapeanim_joint, "MenMainConKm_Top_shapeanim_joint",
-        0);
+        NULL);
     mnHyaku_8024CB94(arg0);
     proc =
         HSD_GObj_SetupProc(GObj_Create(0U, 1U, 0x80U), mnHyaku_8024C68C, 0U);

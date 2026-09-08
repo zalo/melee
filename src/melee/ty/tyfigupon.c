@@ -1568,7 +1568,7 @@ void tyFigupon_Scene_OnEnter(void* arg0)
         archive_name = "TyMnFigp.usd";
     }
     ef4->archive = lbArchive_LoadSymbols(archive_name, &sp20,
-                                         "ToyFigurePonPanel_Top_joint", 0);
+                                         "ToyFigurePonPanel_Top_joint", NULL);
     ef4->x58 = 0;
     ed4 = tyFigupon_InitScene(&ef4_2);
     {

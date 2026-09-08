@@ -190,6 +190,10 @@ void gmVsMelee_EnterVs(GameModeState* state, VsModeData* vs,
 
     gm_80167BC8(vs);
     start->rules = vs->start.rules;
+#ifdef MELEE_NATIVE
+    void MeleeNativeTestMatchRules(struct StartMeleeRules*);
+    MeleeNativeTestMatchRules(&start->rules);
+#endif
 
     if (start->rules.match_kind == MatchKind_Stock) {
         start->rules.is_stock = true;

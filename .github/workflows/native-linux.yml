@@ -1,0 +1,45 @@
+name: Native Linux
+
+on:
+  push:
+    branches: [linux-port]
+  pull_request:
+    branches: [linux-port, native-macos]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ubuntu:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install build and packaging dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang libclang-rt-18-dev ninja-build cmake python3 ruby pkg-config patchelf zstd libpng-dev libfreetype-dev libzstd-dev libx11-dev libxext-dev libxcursor-dev libxi-dev libxrandr-dev libxfixes-dev libxss-dev libxtst-dev libwayland-dev libxkbcommon-dev libdecor-0-dev libasound2-dev libpulse-dev libudev-dev libdbus-1-dev libegl-dev libgl-dev
+      - name: Fetch pinned dependency
+        run: python3 native/tools/bootstrap.py
+      - name: Configure without a game image
+        run: CC=clang CXX=clang++ cmake -S native -B build/native-linux -G Ninja -DCMAKE_BUILD_TYPE=Debug
+      - name: Build native executable and component tests
+        run: cmake --build build/native-linux --target melee_native all --parallel 3
+      - name: Asset-free tests
+        run: ctest --test-dir build/native-linux -L melee --output-on-failure
+      - name: Package and verify dependency relocation
+        run: |
+          python3 native/tools/package_linux.py build/native-linux dist/linux
+          python3 native/tools/package_arch.py dist/linux/Melee-Native-Linux-x86_64 dist/arch
+          python3 native/tools/package_source.py dist/arch
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Melee-Native-Linux-x86_64
+          path: |
+            dist/linux/*.tar.gz
+            dist/linux/manifest.json
+            dist/arch/*.pkg.tar.zst
+            dist/arch/*.tar.gz
+            dist/arch/PKGBUILD
+          if-no-files-found: error

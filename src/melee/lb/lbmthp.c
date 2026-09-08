@@ -99,7 +99,12 @@ struct lbl_803BAFE8_t {
 }; /* size = 0x18 */
 
 /* 01F294 */ static s32 fn_8001F294(void);
+/* The first 0x40 bytes are also the DVD header read destination. */
+#ifdef MELEE_NATIVE
+/* 4333E0 */ static THPDecComp MoviePlayer ATTRIBUTE_ALIGN(32);
+#else
 /* 4333E0 */ static THPDecComp MoviePlayer;
+#endif
 
 static void fn_8001E910(int arg0, int arg1, void* arg2, int cancelflag)
 {

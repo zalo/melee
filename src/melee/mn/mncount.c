@@ -809,7 +809,7 @@ void mnCount_Create(void)
         archive, (void**) &model_desc.joint, "MenMainConCo_Top_joint",
         &model_desc.animjoint, "MenMainConCo_Top_animjoint",
         &model_desc.matanim_joint, "MenMainConCo_Top_matanim_joint",
-        &model_desc.shapeanim_joint, "MenMainConCo_Top_shapeanim_joint", 0);
+        &model_desc.shapeanim_joint, "MenMainConCo_Top_shapeanim_joint", NULL);
 
     gobj = GObj_Create(6, 7, 0x80);
     menu_gobj = gobj;

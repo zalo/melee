@@ -104,6 +104,20 @@ typedef struct CardQueueEntry {
 /* 3ACB74 */ static s32 fn_803ACB74(s32 seq_a, s32 seq_b);
 /* 4D1148 */ extern u32 hsd_804D1148[0x80][0x9];
 /* 4D2348 */ extern __baselib_UnkType003 hsd_804D2348;
+#ifdef MELEE_NATIVE
+/* Console symbols 4D1138, 4D1148 and 4D2348 describe one work area.
+ * Separate native globals have no guaranteed order or adjacency (ELF places
+ * the scalar busy flags immediately after the old 16-byte header). Keep the
+ * legacy byte layout in a single allocation until card commands are ported
+ * to pointer-sized typed storage. This fixes idle polling, not save support. */
+static union {
+    void* alignment;
+    u8 bytes[0x1510];
+} native_card_work;
+#define hsd_804D1138 (native_card_work.bytes)
+#define hsd_804D1148 ((u32 (*)[9]) (native_card_work.bytes + 0x10))
+#define hsd_804D2348 (*(__baselib_UnkType003*) (native_card_work.bytes + 0x1210))
+#endif
 /* 4D7980 */ extern volatile s32 hsd_804D7980;
 /* 4D7984 */ extern volatile s32 hsd_804D7984;
 /* 4D7988 */ extern s32 hsd_804D7988;

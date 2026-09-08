@@ -918,7 +918,7 @@ HSD_Text* fn_8018A000(void)
     state = &lbl_80473700;
     memzero(state->result_cache, sizeof(state->result_cache));
     lbl_804D6628 = lbArchive_80016DBC("GmTrain", &lbl_804D662C,
-                                      "ScGamTraining_scene_models", 0);
+                                      "ScGamTraining_scene_models", NULL);
     fn_80189B88();
     ifAll_GetHUDGObj();
     HSD_SisLib_803A611C(0, NULL, 9, 0x14, 0, 0xE, 0, 0x12);

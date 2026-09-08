@@ -1865,12 +1865,12 @@ void tyDisplay_Scene_OnEnter(void* arg0)
             archive_name = "TyMnDisp.usd";
         }
         data->archive =
-            lbArchive_80016DBC(archive_name, &sp18, "ToyDspBg_Top_joint", 0);
+            lbArchive_80016DBC(archive_name, &sp18, "ToyDspBg_Top_joint", NULL);
     }
 
     for (i = 0; i < 0x2B; i++) {
         s32 ret = _tyDisplay_8031BBF4((s8) i);
-        data->archives[i] = lbArchive_LoadSymbols((char*) ret, 0L);
+        data->archives[i] = lbArchive_LoadSymbols((char*) ret, NULL);
     }
 
     data->x104 = 0;
@@ -2428,7 +2428,7 @@ s32 tyDisplay_8031C454(s32 arg0)
     if (temp2 == NULL) {
         do {
             names3 = temp->arch_names;
-            archArr[41] = lbArchive_LoadSymbols(names3.entries[41], 0L);
+            archArr[41] = lbArchive_LoadSymbols(names3.entries[41], NULL);
         } while (entry->x04 * 0);
     }
 

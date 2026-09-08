@@ -360,9 +360,9 @@ void fn_80181708(void)
 void gm_80181998(void)
 {
     lbl_804D65C8 = lbArchive_80016DBC("IfHrNoCn", &lbl_804D65CC,
-                                      "ScInfCnt_scene_models", 0);
+                                      "ScInfCnt_scene_models", NULL);
     lbl_804D65C8 = lbArchive_80016DBC("IfHrReco", &lbl_804D65D0,
-                                      "ScInfCnt_scene_models", 0);
+                                      "ScInfCnt_scene_models", NULL);
     fn_80181708();
 }
 

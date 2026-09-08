@@ -31,7 +31,7 @@ static bool ifTime_LoadModels(void)
     DynamicModelDesc** ScInfTim_scene_models;
     lbArchive_LoadSections(*ifAll_GetArchive(), (void*) &ScInfTim_scene_models,
                            "ScInfTim_scene_models",
-                           &ifTime_data.countdown_timer_models, "tdsce", 0);
+                           &ifTime_data.countdown_timer_models, "tdsce", NULL);
     if (*ScInfTim_scene_models != NULL) {
         ifTime_match_timer_models.joint = (**ScInfTim_scene_models).joint;
         ifTime_match_timer_models.anims = (**ScInfTim_scene_models).anims;

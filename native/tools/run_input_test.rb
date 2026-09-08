@@ -5,9 +5,10 @@ require 'fileutils'
 
 root = File.expand_path('../..', __dir__)
 Dir.chdir(root)
+linux = RUBY_PLATFORM.include?('linux')
 script = File.expand_path(ARGV.fetch(0, 'native/tests/match-controls.input'))
 deadline_seconds = Integer(ARGV.fetch(1, '180'))
-disc = File.expand_path(ARGV.fetch(2, 'build/disc/Super Smash Bros. Melee (USA) (En,Ja) (Rev 2).ciso'))
+disc = File.expand_path(ARGV.fetch(2, ENV.fetch('MELEE_TEST_DISC', linux ? 'build/disc/melee-us-1.02.ciso' : 'build/disc/Super Smash Bros. Melee (USA) (En,Ja) (Rev 2).ciso')))
 raise 'Expected positive timeout' unless deadline_seconds.positive?
 raise 'Input script or disc missing' unless File.file?(script) && File.file?(disc)
 video_seconds = Integer(ENV.fetch('MELEE_TEST_VIDEO_SECONDS', '0'))
@@ -19,7 +20,8 @@ if video_seconds.positive? && (!File.exist?(record_tool) || File.mtime(record_to
 end
 capture_source = 'native/tools/capture_game.swift'
 capture_tool = 'build/native-capture-game'
-capture_enabled = ENV.fetch('MELEE_TEST_CAPTURE', '1') == '1'
+capture_enabled = ENV.fetch('MELEE_TEST_CAPTURE', linux ? '0' : '1') == '1'
+raise 'Linux runner supports numeric render checks; disable Mac capture/video options' if linux && (capture_enabled || video_seconds.positive?)
 if capture_enabled && (!File.exist?(capture_tool) || File.mtime(capture_tool) < File.mtime(capture_source))
   raise 'Could not build game window capture tool' unless system('swiftc', capture_source, '-o', capture_tool)
 end
@@ -37,15 +39,21 @@ environment = {
   'ASAN_OPTIONS' => 'detect_leaks=0:color=never',
   'UBSAN_OPTIONS' => 'print_stacktrace=1:halt_on_error=1'
 }
+if linux && ENV['MELEE_TEST_CLEAN_LIBRARY_ENV'] == '1'
+  environment['LD_LIBRARY_PATH'] = nil
+  environment['LD_PRELOAD'] = nil
+end
 if ENV['MELEE_TEST_CRASH_TRACE'] == '1'
   trace_source = 'native/tools/crash_trace.c'
-  trace_library = File.join(root, 'build/native-crash-trace.dylib')
+  trace_library = File.join(root, linux ? 'build/native-crash-trace.so' : 'build/native-crash-trace.dylib')
   if !File.file?(trace_library) || File.mtime(trace_library) < File.mtime(trace_source)
-    raise 'Could not build crash tracer' unless system('cc', '-dynamiclib', '-g', trace_source, '-o', trace_library)
+    flags = linux ? ['-shared', '-fPIC'] : ['-dynamiclib']
+    raise 'Could not build crash tracer' unless system('cc', *flags, '-g', trace_source, '-o', trace_library)
   end
-  environment['DYLD_INSERT_LIBRARIES'] = [ENV['DYLD_INSERT_LIBRARIES'], trace_library].compact.join(':')
+  preload = linux ? 'LD_PRELOAD' : 'DYLD_INSERT_LIBRARIES'
+  environment[preload] = [ENV[preload], trace_library].compact.join(':')
 end
-executable = File.expand_path(ENV.fetch('MELEE_TEST_APP', 'build/native/melee_mac.app/Contents/MacOS/melee_mac'))
+executable = File.expand_path(ENV.fetch('MELEE_TEST_APP', linux ? 'build/native-linux/melee_native' : 'build/native/melee_mac.app/Contents/MacOS/melee_mac'))
 run_directory = File.expand_path(ENV.fetch('MELEE_TEST_CWD', root))
 pid = Process.spawn(environment, executable, disc, chdir: run_directory,
                     out: log_path, err: [:child, :out])
@@ -90,13 +98,13 @@ begin
       # Killing at the first ASan line discards the useful stack trace.
       result = log.match?(/AddressSanitizer:|runtime error:|\[input-test\] timed out/) ?
         'FAIL: sanitizer or scene timeout; inspect game.log' :
-        'PASS: input sequence completed with no reported sanitizer error; visual verification still required'
+        'PASS: input sequence completed; inspect render metrics for playfield coverage'
       break
     end
     if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
       result = 'FAIL: wall-clock timeout; inspect game.log'
       system('/usr/bin/sample', pid.to_s, '1', '10', '-file', File.join(directory, 'threads.txt'),
-             out: File.join(directory, 'sample.log'), err: [:child, :out])
+             out: File.join(directory, 'sample.log'), err: [:child, :out]) unless linux
       break
     end
     sleep 0.5

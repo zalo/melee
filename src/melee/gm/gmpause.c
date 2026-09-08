@@ -80,7 +80,7 @@ void fn_801A1134(void)
     HSD_JObj* jobj;
 
     lbl_804D6700 =
-        lbArchive_80016DBC("GmPause", &scene, "ScGamPause_scene_data", 0);
+        lbArchive_80016DBC("GmPause", &scene, "ScGamPause_scene_data", NULL);
     gobj = GObj_Create(0xEU, 2U, 0U);
     lbl_804D6704 = gobj;
     jobj = HSD_JObjLoadJoint(scene->models[0]->joint);

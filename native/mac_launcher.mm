@@ -1,5 +1,5 @@
 #import <AppKit/AppKit.h>
-#include "mac_launcher.h"
+#include "platform_launcher.h"
 #include <cstdio>
 
 static void prepareApplication() {

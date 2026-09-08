@@ -495,7 +495,7 @@ void mnGallery_80259868(void)
         "MenMainCursorGa_Top_animjoint", &mnGallery_804A0BB0.matanim_joint,
         "MenMainCursorGa_Top_matanim_joint",
         &mnGallery_804A0BB0.shapeanim_joint,
-        "MenMainCursorGa_Top_shapeanim_joint", 0);
+        "MenMainCursorGa_Top_shapeanim_joint", NULL);
 
     gobj = GObj_Create(0, 1, 0x80);
     proc = HSD_GObj_SetupProc(gobj, fn_80258ED0, 0);

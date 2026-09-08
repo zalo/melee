@@ -98,7 +98,7 @@ static void gm_801ADB04(void)
     PAD_STACK(4);
 
     gm_80480D98.x0 =
-        lbArchive_80016DBC("NtAppro", &spC, "ScNtcApproach_scene_data", 0);
+        lbArchive_80016DBC("NtAppro", &spC, "ScNtcApproach_scene_data", NULL);
     gobj = GObj_Create(0x13, 0x14, 0);
     cobj = HSD_CObjLoadDesc(spC->cameras[0].desc);
     HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, cobj);

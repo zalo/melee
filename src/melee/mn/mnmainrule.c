@@ -1488,7 +1488,7 @@ void mn_80231804(HSD_Archive* archive, int arg1)
         &MenMainCursorSs_Top.shapeanim_joint,
         "MenMainCursorSs_Top_shapeanim_joint",
 
-        0);
+        NULL);
 
     mn_804D6BD4 = arg1;
     mn_8022C304();

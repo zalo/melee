@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Melee Native
+Comment=Native experimental Melee port; requires your own US 1.02 disc image
+Exec=melee-native
+Icon=applications-games
+Terminal=false
+Categories=Game;ActionGame;
+StartupNotify=true

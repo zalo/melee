@@ -244,7 +244,7 @@ void gm_Scene_IntroAllstar_OnEnter(void* arg0_)
     lbl_804D6618 = *arg0;
     fn_80187714();
     lbl_804D6610 = lbArchive_80016DBC("IrAls", &lbl_804D6614,
-                                      "ScItrAllstar_scene_data", 0);
+                                      "ScItrAllstar_scene_data", NULL);
 
     temp_r30 = GObj_Create(0x13, 0x14, 0);
     cobj = HSD_CObjLoadDesc(lbl_804D6614->cameras[0].desc);

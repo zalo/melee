@@ -769,7 +769,7 @@ void mnEvent_8024E838(int event_idx, int first_time)
         HSD_Archive* archive = mn_804D6BB8;
         lbArchive_LoadSections(archive, arr, base + 0xA0, arr + 1, base + 0xB8,
                                arr + 2, base + 0xD4, arr + 3, base + 0xF4,
-                               arr + 4, base + 0x118, 0);
+                               arr + 4, base + 0x118, NULL);
     }
 
     if (first_time == 0) {

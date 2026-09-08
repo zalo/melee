@@ -441,7 +441,7 @@ void gm_80182174(void)
         (spawn_table_24 = &lbl_80472ED8.x6B0), "gmKumiteSystemTable60min",
         (spawn_table_25 = &lbl_80472ED8.x6B4), "gmKumiteSystemTableEndless",
         (spawn_table_26 = &lbl_80472ED8.x6B8),
-        "gmKumiteSystemTableMercilessly", 0);
+        "gmKumiteSystemTableMercilessly", NULL);
 
     lbl_80472ED8.x0 = 0;
     lbl_80472ED8.x4 = 0;

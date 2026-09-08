@@ -2954,7 +2954,7 @@ void mnDiagram_Init(u8 arg0, u8 arg1)
             "MenMainConB3_Top_animjoint", &assets->ConB3[2],
             "MenMainConB3_Top_matanim_joint", &assets->ConB3[3],
             "MenMainConB3_Top_shapeanim_joint", &assets->CursorB3[0],
-            "MenMainCursorB3_Top_joint", 0);
+            "MenMainCursorB3_Top_joint", NULL);
     }
 
     mnDiagram_SortFightersByKOs();

@@ -20,12 +20,14 @@ static void fired(OSAlarm* alarm, OSContext* context) {
 extern int OSJoinThread(OSThread*, void**);
 static void* worker(void* argument) {
     CHECK(OSGetCurrentThread() != NULL);
+    MeleeNativeReportThreadInfo();
     int enabled = OSDisableInterrupts();
     CHECK(enabled == 1);
     OSRestoreInterrupts(enabled);
     return argument;
 }
 int main(void) {
+    MeleeNativeReportThreadInfo();
     CHECK(OSSecondsToTicks(1) == 40500000);
     int outer = OSDisableInterrupts(); CHECK(outer == 1);
     int inner = OSDisableInterrupts(); CHECK(inner == 0);

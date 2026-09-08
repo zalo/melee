@@ -13,6 +13,7 @@ extern "C" void MeleeNativeRenderCheckScene(int);
 extern "C" void MeleeNativeMatrixScene(int);
 extern "C" void MeleeNativeInputScene(int scene) {
     ready_scene=scene;
+    if(std::getenv("MELEE_TRACE_INPUT")) std::fprintf(stderr,"[input] ready scene %d\n",scene);
     MeleeNativeRenderCheckScene(scene);
     MeleeNativeMatrixScene(scene);
     if(std::getenv("MELEE_INPUT_SCRIPT")) std::fprintf(stderr,"[input-test] ready scene %d\n",scene);
@@ -105,6 +106,8 @@ static bool replayInput() {
     MeleeNativeSetKeyboard(buttons,x,y,cx,cy);--remaining;return true;
 }
 extern "C" void MeleeNativeKeyboardEvent(const SDL_Event* event) {
+    if (std::getenv("MELEE_TRACE_INPUT") && (event->type == SDL_EVENT_KEY_DOWN || event->type == SDL_EVENT_KEY_UP))
+        std::fprintf(stderr, "[keyboard] %s scancode=%d\n", event->type == SDL_EVENT_KEY_DOWN ? "down" : "up", int(event->key.scancode));
     if(event->type==SDL_EVENT_KEY_DOWN && event->key.scancode>SDL_SCANCODE_UNKNOWN && event->key.scancode<SDL_SCANCODE_COUNT)
         pressed[event->key.scancode]=true;
     if(event->type==SDL_EVENT_WINDOW_FOCUS_LOST) pressed.fill(false);

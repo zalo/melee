@@ -8,6 +8,8 @@
 #include <thread>
 #include <cstdlib>
 #include <cstdio>
+#include <vector>
+#include <algorithm>
 
 namespace {
 using Clock = std::chrono::steady_clock;
@@ -23,6 +25,8 @@ unsigned held_retraces;
 unsigned measured_frames;
 unsigned measured_game_frames;
 auto measurement_start = Clock::now();
+auto previous_present = Clock::now();
+std::vector<double> present_intervals;
 auto next_retrace = Clock::now();
 constexpr auto frame_period = std::chrono::nanoseconds(16666667);
 }
@@ -60,10 +64,17 @@ void VIWaitForRetrace(void) {
         presented_black = black;
         ++measured_frames;
         const auto measured_now = Clock::now();
+        present_intervals.push_back(std::chrono::duration<double, std::milli>(measured_now - previous_present).count());
+        previous_present = measured_now;
         const double seconds = std::chrono::duration<double>(measured_now - measurement_start).count();
         if (seconds >= 5.0) {
             std::fprintf(stderr, "[perf] presented_fps=%.2f game_render_fps=%.2f frames=%u seconds=%.3f held_retraces=%u target_hz=60\n",
                          measured_frames / seconds, measured_game_frames / seconds, measured_frames, seconds, held_retraces);
+            std::sort(present_intervals.begin(), present_intervals.end());
+            const auto percentile = [&](double p) { return present_intervals[static_cast<size_t>((present_intervals.size()-1)*p)]; };
+            std::fprintf(stderr, "[pacing] samples=%zu median_ms=%.3f p95_ms=%.3f p99_ms=%.3f max_ms=%.3f\n",
+                         present_intervals.size(), percentile(0.5), percentile(0.95), percentile(0.99), present_intervals.back());
+            present_intervals.clear();
             measured_frames = 0;
             measured_game_frames = 0;
             held_retraces = 0;

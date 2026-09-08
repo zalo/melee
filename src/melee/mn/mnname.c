@@ -1728,16 +1728,16 @@ s32 mnName_8023AC40(void)
         "MenMainSbaseEtNw_Top_animjoint", &mnNameNew_804A0720[0].matanim_joint,
         "MenMainSbaseEtNw_Top_matanim_joint",
         &mnNameNew_804A0720[0].shapeanim_joint,
-        "MenMainSbaseEtNw_Top_shapeanim_joint", 0);
+        "MenMainSbaseEtNw_Top_shapeanim_joint", NULL);
 
     if (lbLang_IsSavedLanguageUS()) {
         lbArchive_LoadSections(
             archive, (void**) &AutoNamesList, (char*) mnName_803ED538 + 0x4D0,
-            (void**) &NotAllowedNamesList, (char*) mnName_803ED538 + 0x4E4, 0);
+            (void**) &NotAllowedNamesList, (char*) mnName_803ED538 + 0x4E4, NULL);
     } else {
         lbArchive_LoadSections(
             archive, (void**) &AutoNamesList, (char*) mnName_803ED538 + 0x4F8,
-            (void**) &NotAllowedNamesList, (char*) mnName_803ED538 + 0x508, 0);
+            (void**) &NotAllowedNamesList, (char*) mnName_803ED538 + 0x508, NULL);
     }
 
     mn_804A04F0.prev_menu = mn_804A04F0.cur_menu;

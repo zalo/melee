@@ -14,7 +14,11 @@ static PanicCallback panicCallback;
 #ifdef MELEE_NATIVE
 static FILE* native_log_stream;
 
+#ifdef __linux__
+static ssize_t native_report(void* cookie, const char* data, size_t size)
+#else
 static int native_report(void* cookie, const char* data, int size)
+#endif
 {
     if (reportCallback != NULL) {
         reportCallback((unsigned char*) data, size);
@@ -26,7 +30,12 @@ void HSD_LogInit(void)
 {
     if (native_log_stream == NULL) {
         native_log_stream = stdout;
+#ifdef __linux__
+        cookie_io_functions_t functions = { .write = native_report };
+        stdout = fopencookie(NULL, "w", functions);
+#else
         stdout = funopen(NULL, NULL, native_report, NULL, NULL);
+#endif
         if (stdout == NULL) {
             abort();
         }

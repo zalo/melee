@@ -1049,7 +1049,7 @@ void fn_80180630(int arg0, int arg1, int arg2, bool arg3,
         void* scene_data;
 
         archive = lbArchive_80016DBC("GmRegClr", &scene_data,
-                                     "ScGamRegClear_scene_data", 0);
+                                     "ScGamRegClear_scene_data", NULL);
         state->x48 = archive;
         if (scene_data == NULL) {
             OSReport("Error : Cannot open archive file (File Name : %s).",

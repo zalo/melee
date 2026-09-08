@@ -1220,7 +1220,7 @@ void gm_Scene_StaffRoll_OnEnter(void* unused)
     lbAudioAx_80027168();
     gm_804D683C = lbArchive_80016DBC(
         "GmStRoll.dat", &gm_804D6840, "ScGamRegStaffroll_scene_data",
-        &gm_804D6844, "ScGamRegStaffrollNames_scene_modelset", 0);
+        &gm_804D6844, "ScGamRegStaffrollNames_scene_modelset", NULL);
     {
         gobj = GObj_Create(17, 19, 0);
         cobj = HSD_CObjLoadDesc(gm_804D6840->cameras[0].desc);

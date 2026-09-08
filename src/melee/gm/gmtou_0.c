@@ -2943,15 +2943,15 @@ void gm_Scene_TouSetup_OnEnter(void* arg0)
     lbAudioAx_80027168();
     lbAudioAx_80027648();
     lbl_804D6640 = lbArchive_80016DBC("GmTou1p", &lbl_804D664C,
-                                      "ScGamTour_scene_data", 0);
+                                      "ScGamTour_scene_data", NULL);
     lbl_804D6644 = lbArchive_80016DBC("GmTou2p", &lbl_804D6650,
-                                      "ScGamTour_scene_data", 0);
+                                      "ScGamTour_scene_data", NULL);
     lbl_804D6648 = lbArchive_LoadArchive("MnExtAll");
     filename = "TmBox.dat";
     lbl_804D6638 = lbArchive_80016DBC(
         filename, &lbl_804771B8.box2, "tournament_box2_array",
         &lbl_804771B8.box3, "tournament_box3_array", &lbl_804771B8.box4,
-        "tournament_box4_array", 0);
+        "tournament_box4_array", NULL);
     HSD_SisLib_803A62A0(0, fn_8018F5F0(), "SIS_TournamentData");
     fn_801935B8();
     lbAudioAx_800237A8(0x7539, 0x7F, 0x40);

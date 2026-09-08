@@ -1,6 +1,3 @@
 #pragma once
-#include <string>
-
-std::string MeleeChooseDisc(const std::string& error = {});
-void MeleeShowLaunchError(const std::string& error);
-void MeleePrepareAppLogging();
+// Compatibility include for existing macOS consumers.
+#include "platform_launcher.h"

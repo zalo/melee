@@ -187,7 +187,7 @@ void mnDeflicker_8024A6C4(HSD_GObj* arg0)
         "MenMainConDf_Top_animjoint", &mnDeflicker_804A08B8.matanim_joint,
         "MenMainConDf_Top_matanim_joint",
         &mnDeflicker_804A08B8.shapeanim_joint,
-        "MenMainConDf_Top_shapeanim_joint", 0);
+        "MenMainConDf_Top_shapeanim_joint", NULL);
     mnDeflicker_8024A4BC(arg0);
     temp_r3 =
         HSD_GObj_SetupProc(GObj_Create(0, 1, 0x80), mnDeflicker_8024A168, 0);

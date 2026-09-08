@@ -42,6 +42,19 @@ void MeleeNativeTestConfigureVs(VsModeData* vs)
             vs->start.players[1].ckind);
 }
 
+void MeleeNativeTestMatchRules(struct StartMeleeRules* rules)
+{
+    if (!getenv("MELEE_MATRIX_TEST") || !getenv("MELEE_TEST_RESULTS")) return;
+    // EnterVs reapplies menu rules after CSS/SSS. Configure the actual timed
+    // match here so the Results test exercises the normal timeout path.
+    rules->time_limit = 30;
+    rules->timer_enabled = 1;
+    rules->timer_counts_up = 0;
+    rules->match_kind = 0;
+    rules->is_stock = 0;
+    fprintf(stderr, "[matrix] timed Results test: %u seconds\n", rules->time_limit);
+}
+
 void MeleeNativeTestStage(VsModeData* vs)
 {
     if (getenv("MELEE_MATRIX_TEST"))

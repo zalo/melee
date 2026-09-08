@@ -11,6 +11,20 @@ static void fill(void*, SDL_AudioStream* stream, int additional, int) {
     while (additional > 0) {
         int16_t block[320];
         renderer(block, 160);
+        static const bool check = std::getenv("MELEE_AUDIO_CHECK") != nullptr;
+        if (check) {
+            static unsigned frames = 0, nonzero = 0, peak = 0;
+            for (auto value : block) {
+                const unsigned magnitude = value < 0 ? -int(value) : int(value);
+                if (magnitude) ++nonzero;
+                if (magnitude > peak) peak = magnitude;
+            }
+            frames += 160;
+            if (frames >= 160000) {
+                std::fprintf(stderr, "[audio-check] frames=%u nonzero_samples=%u peak=%u\n", frames, nonzero, peak);
+                frames = nonzero = peak = 0;
+            }
+        }
         if (!SDL_PutAudioStreamData(stream, block, sizeof(block))) {
             std::fprintf(stderr, "Audio stream failed: %s\n", SDL_GetError());
             std::abort();
@@ -31,6 +45,8 @@ extern "C" void MeleeNativeAudioOpen(void (*render)(int16_t*, unsigned)) {
         std::fprintf(stderr, "Audio device failed: %s\n", SDL_GetError());
         std::abort();
     }
+    std::fprintf(stderr, "[audio] driver=%s device=%s\n", SDL_GetCurrentAudioDriver(),
+                 SDL_GetAudioDeviceName(SDL_GetAudioStreamDevice(output)));
 }
 extern "C" void MeleeNativeAudioClose(void) {
     SDL_DestroyAudioStream(output);

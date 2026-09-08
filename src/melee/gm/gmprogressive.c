@@ -39,7 +39,7 @@ static void gm_801AD088(void)
     PAD_STACK(4);
 
     gm_80480D70.x0 = lbArchive_80016DBC("NtProge.dat", &spC,
-                                        "ScNtcProgressive_scene_data", 0);
+                                        "ScNtcProgressive_scene_data", NULL);
 
     gobj = GObj_Create(0x13, 0x14, 0);
     cobj = HSD_CObjLoadDesc(spC->cameras[0].desc);

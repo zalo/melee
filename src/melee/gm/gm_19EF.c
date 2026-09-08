@@ -368,10 +368,10 @@ static inline void fn_8019F9C4_LoadSymbols(u32 arg0)
     char* model_name = gm_80160564(arg0, game_mode);
     char* scene_name = gm_801604DC(arg0, game_mode);
 
-    lbArchive_LoadSymbols(scene_name, &lbl_804D66AC, model_name, 0);
+    lbArchive_LoadSymbols(scene_name, &lbl_804D66AC, model_name, NULL);
     lbArchive_LoadSymbols("GmGoAnim.dat", &lbl_804D66A4,
-                          "ScGamRegGover_scene_data", 0);
-    lbArchive_LoadSymbols("GmRgStnd.dat", &lbl_804D66A8, "standScene", 0);
+                          "ScGamRegGover_scene_data", NULL);
+    lbArchive_LoadSymbols("GmRgStnd.dat", &lbl_804D66A8, "standScene", NULL);
 }
 
 static inline void fn_8019F9C4_inline1(HSD_JObj* next, HSD_JObj** child)
@@ -459,9 +459,9 @@ void fn_8019F9C4(u32 arg0)
     arg0 = (char_idx == -1) ? 8 : arg0;
     fn_80168F7C();
     lbl_804D6698 = lbArchive_80016DBC("GmGover.dat", &lbl_804D669C,
-                                      "ScGamRegGover_scene_data", 0);
+                                      "ScGamRegGover_scene_data", NULL);
     lbArchive_80016DBC("GmGoCoin.dat", &lbl_804D66A0,
-                       "ScGamRegGover_scene_data", 0);
+                       "ScGamRegGover_scene_data", NULL);
     Toy_803124BC();
     Toy_803102D0();
     fn_8019F9C4_LoadSymbols(arg0);
@@ -724,7 +724,7 @@ void gm_Scene_ComingSoon_OnEnter(void* unused)
 
     lbl_804D66F8 = 0;
     lbl_804D66F0 =
-        lbArchive_80016DBC("IfComSn.dat", &sp10, "ScComSoon_scene_data", 0);
+        lbArchive_80016DBC("IfComSn.dat", &sp10, "ScComSoon_scene_data", NULL);
 
     temp_r30 = GObj_Create(0x13, 0x14, 0);
     cobj = HSD_CObjLoadDesc(sp10->cameras[0].desc);

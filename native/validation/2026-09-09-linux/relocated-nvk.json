@@ -1,0 +1,57 @@
+{
+  "adapter": "NVIDIA GeForce MX150 (NVK GP108)",
+  "driver": "Mesa 25.2.8",
+  "test": "relocated bundle, default adapter, empty working directory, LD_LIBRARY_PATH and LD_PRELOAD removed from game environment",
+  "log": "build/native-runs/20260909-005223/game.log",
+  "input_completed": true,
+  "presented_fps": [
+    45.61,
+    42.19,
+    42.2,
+    42.12,
+    42.87
+  ],
+  "render_details": [
+    {
+      "colors": 394,
+      "dominant": 0.285432,
+      "edges": 0.492385
+    },
+    {
+      "colors": 471,
+      "dominant": 0.058025,
+      "edges": 0.506367
+    },
+    {
+      "colors": 473,
+      "dominant": 0.059012,
+      "edges": 0.513858
+    },
+    {
+      "colors": 386,
+      "dominant": 0.077531,
+      "edges": 0.456929
+    },
+    {
+      "colors": 512,
+      "dominant": 0.032346,
+      "edges": 0.484644
+    },
+    {
+      "colors": 356,
+      "dominant": 0.184444,
+      "edges": 0.378027
+    },
+    {
+      "colors": 268,
+      "dominant": 0.244198,
+      "edges": 0.218727
+    },
+    {
+      "colors": 420,
+      "dominant": 0.06,
+      "edges": 0.489888
+    }
+  ],
+  "audio_active": true
+}

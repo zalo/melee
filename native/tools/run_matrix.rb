@@ -40,9 +40,12 @@ script = File.join(directory, 'combat.input')
 input = File.read('native/tests/to-match.input').sub(/180 NONE\s*\z/, "900 NONE\n")
 input = input.sub(/# Move the P1 glove.*?600 SCENE_SSS/m, "# Matrix hook preselects the two players.\n6 START\n600 SCENE_SSS")
 input = input.sub(/600 SCENE_SSS.*?1800 SCENE_MATCH/m, '1800 SCENE_MATCH')
+if ENV['MELEE_TEST_RESULTS'] == '1'
+  input += "12000 SCENE_RESULTS\n360 NONE\n6 START\n120 NONE\n6 START\n1800 SCENE_CSS\n120 NONE\n"
+end
 File.write(script, input)
-binary = File.expand_path(ENV.fetch('MELEE_TEST_APP', 'build/native/melee_mac.app/Contents/MacOS/melee_mac'))
-report = {binary: binary, sha256: Digest::SHA256.file(binary).hexdigest, coverage: '900-frame match samples including countdown; not exhaustive move or visual acceptance', cases: cases}
+binary = File.expand_path(ENV.fetch('MELEE_TEST_APP', RUBY_PLATFORM.include?('linux') ? 'build/native-linux/melee_native' : 'build/native/melee_mac.app/Contents/MacOS/melee_mac'))
+report = {platform: RUBY_PLATFORM, binary: binary, sha256: Digest::SHA256.file(binary).hexdigest, coverage: '900-frame match samples including countdown; not exhaustive move or visual acceptance', cases: cases}
 save = -> { File.write(File.join(directory, 'report.json'), JSON.pretty_generate(report) + "\n") }
 save.call
 puts "Matrix report: #{directory}/report.json"
@@ -55,15 +58,23 @@ cases.each do |entry|
          'MELEE_TEST_CHARACTER'=>entry[:character].to_s, 'MELEE_TEST_OPPONENT'=>entry.fetch(:opponent, 8).to_s,
          'MELEE_TEST_CASE'=>"#{entry[:group]}: #{entry[:name]}", 'MELEE_TEST_CAPTURE'=>'0', 'MELEE_TEST_VIDEO_SECONDS'=>'0', 'MELEE_TEST_APP'=>binary}
   env['MELEE_TEST_ITEM'] = entry[:item].to_s if entry.key?(:item)
-  output, status = Open3.capture2e(env, 'ruby', 'native/tools/run_input_test.rb', script, '90')
+  output, status = Open3.capture2e(env, 'ruby', 'native/tools/run_input_test.rb', script, ENV.fetch('MELEE_TEST_TIMEOUT', '180'))
   File.write(File.join(directory, "#{entry[:id]}-runner.log"), output)
   entry[:run] = output[/artifacts: (.+)/, 1]
   entry[:status] = status.success? ? 'smoke-pass' : 'failed'
   if entry[:run] && File.file?(File.join(entry[:run], 'game.log'))
     log = File.read(File.join(entry[:run], 'game.log'))
-    entry[:failure] = log.lines.find { |line| line.match?(/runtime error:|ERROR: AddressSanitizer|\[native-crash\]|Missing native asset|\[input-test\] timed out|assertion.*failed|HSD_ASSERT|Native archive error:|Native game panic/) }&.strip
+    entry[:adapter] = log[/  Device: (.+)/, 1]
+    entry[:backend] = log[/  API: (.+)/, 1]
+    entry[:failure] = log.lines.find { |line| line.match?(/runtime error:|ERROR: AddressSanitizer|\[native-crash\]|Missing native asset|\[input-test\] timed out|assertion.*failed|HSD_ASSERT|Native archive error:|Native game panic|Non-finite camera matrix/) }&.strip
+    entry[:status] = 'failed-runtime' if entry[:failure]
     entry[:item_spawns] = log.scan(/\[matrix-item\] kind=\d+ spawned=1/).size if entry.key?(:item)
     entry[:status] = 'failed-no-item-spawn' if entry[:status] == 'smoke-pass' && entry.key?(:item) && entry[:item_spawns] == 0
+    if ENV['MELEE_TEST_RESULTS'] == '1'
+      entry[:results_entered] = log.include?("ready scene 5\n")
+      entry[:returned_to_css] = log.match?(/ready scene 5.*ready scene 8/m)
+      entry[:status] = 'failed-results-return' if entry[:status] == 'smoke-pass' && !(entry[:results_entered] && entry[:returned_to_css])
+    end
     entry[:match_entered] = log.include?("ready scene 2\n")
     samples = log.scan(/center_nonblack=([0-9.]+)/).flatten.map(&:to_f)
     entry[:render_samples] = samples
@@ -81,7 +92,10 @@ cases.each do |entry|
       entry[:status] = 'failed-flat-or-unmeasured-playfield'
     end
     match_log = log.split("[input-test] ready scene 2\n", 2).last
-    entry[:presented_fps] = match_log.scan(/presented_fps=([0-9.]+)/).flatten.map(&:to_f)
+    entry[:pacing] = match_log.split("[input-test] ready scene 5\n", 2).first.scan(/\[pacing\] samples=(\d+) median_ms=([0-9.]+) p95_ms=([0-9.]+) p99_ms=([0-9.]+) max_ms=([0-9.]+)/).map do |n, median, p95, p99, maximum|
+      {samples: n.to_i, median_ms: median.to_f, p95_ms: p95.to_f, p99_ms: p99.to_f, max_ms: maximum.to_f}
+    end
+    entry[:presented_fps] = match_log.split("[input-test] ready scene 5\n", 2).first.scan(/presented_fps=([0-9.]+)/).flatten.map(&:to_f)
   end
   save.call
   puts "#{entry[:status]} #{entry[:name]} #{entry[:failure]}"

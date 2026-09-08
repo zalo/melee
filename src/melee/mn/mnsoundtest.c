@@ -869,7 +869,7 @@ HSD_GObjProc* mnSoundTest_8024BEE0(s32 arg0)
         archive, (&mnSoundTest_804A08C8.joint), mnSoundTest_803EF528,
         &mnSoundTest_804A08C8.animjoint, mnSoundTest_803EF540,
         &mnSoundTest_804A08C8.matanim_joint, mnSoundTest_803EF55C,
-        &mnSoundTest_804A08C8.shapeanim_joint, mnSoundTest_803EF57C, 0);
+        &mnSoundTest_804A08C8.shapeanim_joint, mnSoundTest_803EF57C, NULL);
     mnSoundTest_8024BCA0(arg0);
     proc = HSD_GObj_SetupProc(GObj_Create(0U, 1U, 0x80U), fn_8024B2B0, 0U);
     proc->flags_3 = (u16) HSD_GObj_804D783C;

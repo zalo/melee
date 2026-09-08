@@ -192,7 +192,7 @@ void un_802FCBA0(void)
     DynamicModelDesc** x;
 
     archive = ifAll_GetArchive();
-    lbArchive_LoadSections(*archive, (void**) &x, "ScInfPnm_scene_models", 0);
+    lbArchive_LoadSections(*archive, (void**) &x, "ScInfPnm_scene_models", NULL);
     un_804A1ED0.joint = x[0]->joint;
     if (x[0]->anims) {
         un_804A1ED0.animjoint = x[0]->anims[0];

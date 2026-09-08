@@ -1,4 +1,7 @@
-# Native macOS port, work in progress
+# Native ports, work in progress
+
+Linux x86-64/Vulkan instructions: [LINUX.md](LINUX.md). The validation described
+below is the existing macOS ARM64 result; it is not Linux or Omarchy coverage.
 
 **The ARM64 port passes the current short-match matrix covering 29 selectable
 VS stages, 26 character entries and 35 common item kinds. It remains incomplete.**

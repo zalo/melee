@@ -375,7 +375,7 @@ void mnSound_8024A09C(int arg0)
         &mnSound_804A08A8.animjoint, "MenMainConSo_Top_animjoint",
         &mnSound_804A08A8.matanim_joint, "MenMainConSo_Top_matanim_joint",
         &mnSound_804A08A8.shapeanim_joint, "MenMainConSo_Top_shapeanim_joint",
-        0);
+        NULL);
     mnSound_80249C08(arg0);
     proc = HSD_GObj_SetupProc(GObj_Create(0, 1, 0x80), mnSound_802492CC, 0);
     proc->flags_3 = HSD_GObj_804D783C;

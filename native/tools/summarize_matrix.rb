@@ -34,7 +34,7 @@ summary['complete'] = summary['missing_coverage'].values.all?(&:empty?) && cases
 FileUtils.mkdir_p(output)
 
 File.write(File.join(output, 'report.json'), JSON.pretty_generate(summary) + "\n")
-lines = ['# Native macOS VS test results', '', summary['coverage'], '', summary['limits'], '']
+lines = ['# Native VS test results', '', summary['coverage'], '', summary['limits'], '']
 summary['counts'].each { |group, counts| lines << "- #{group}: #{counts['passed']}/#{counts['total']} smoke passes." }
 summary['unique_coverage'].each do |group, ids|
   lines << "- Unique #{group} exercised in passing matches: #{ids.size} (IDs #{ids.join(', ')})."

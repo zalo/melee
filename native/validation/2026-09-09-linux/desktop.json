@@ -1,0 +1,13 @@
+{
+  "binary": "build/linux-task/relocated/Melee Native/melee-native",
+  "checks": [
+    "picker cancel exits 0",
+    "invalid image presents error",
+    "retry selects user image and boots",
+    "X11 keyboard reaches movie/title/menu/CSS through SDL",
+    "audio device opened and samples measured"
+  ],
+  "status": "pass",
+  "adapter": "Intel UHD620 / Mesa ANV 25.2.8",
+  "clean_game_library_environment": true
+}

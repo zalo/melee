@@ -332,7 +332,7 @@ void gm_801AEBB0(void)
     PAD_STACK(4);
 
     lbArchive_80016DBC("NtMsgWin.dat", &gm_804D6868, "ScNtcCommon_scene_data",
-                       0);
+                       NULL);
 
     if (lbLang_IsSavedLanguageUS()) {
         HSD_SisLib_803A62A0(3, "SdMsgBox.usd", "SIS_MessageData");
