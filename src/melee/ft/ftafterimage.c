@@ -367,6 +367,9 @@ void ftCo_800C2600(Fighter_GObj* gobj, u32 arg1)
                     }
                 }
             }
+#ifdef MELEE_NATIVE
+            GXEnd();
+#endif
         }
     }
 

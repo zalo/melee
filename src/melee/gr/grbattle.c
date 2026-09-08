@@ -116,7 +116,7 @@ static StageCallbacks grNBa_StageCallbacks[] = {
         grBattle_GObj6_Callback1,
         grBattle_GObj6_Callback2,
         grBattle_GObj6_Callback3,
-        (1 << 30) | (1 << 31),
+        (1 << 30) | (1U << 31),
     },
 };
 
@@ -398,12 +398,12 @@ void grBattle_BG_Callback2(Ground_GObj* gobj)
 
             bg_gobj = Ground_GetMapGObj(gp->u.battle_bg.prev);
             HSD_ASSERT(535, bg_gobj);
-            grMaterial_801C9604(bg_gobj, yakumono_param->bg_prev_color_overlay,
+            grMaterial_801C9604(bg_gobj, GR_MATERIAL_SCRIPT(yakumono_param->bg_prev_color_overlay),
                                 0);
 
             bg_gobj = grBattle_80219D84(gp->u.battle_bg.curr);
             HSD_ASSERT(539, bg_gobj);
-            grMaterial_801C9604(bg_gobj, yakumono_param->bg_curr_color_overlay,
+            grMaterial_801C9604(bg_gobj, GR_MATERIAL_SCRIPT(yakumono_param->bg_curr_color_overlay),
                                 0);
 
             gp->u.battle_bg.state = BG_Done;

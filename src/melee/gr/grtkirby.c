@@ -54,7 +54,7 @@ static StageCallbacks grTKb_StageCallbacks[] = {
         grTKirby_8022157C,
         grTKirby_80221584,
         grTKirby_802215B8,
-        (1 << 31) | (1 << 30),
+        (1U << 31) | (1 << 30),
     },
     { 0 },
 };

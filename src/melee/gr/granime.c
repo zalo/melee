@@ -1,3 +1,9 @@
+#ifdef MELEE_NATIVE
+void* MeleeNativeAnimationAt(const void*, unsigned);
+#define GR_ANIMATION_AT(p,i) MeleeNativeAnimationAt(p,i)
+#else
+#define GR_ANIMATION_AT(p,i) (&(p)[i])
+#endif
 #include "granime.h"
 
 #include <Runtime/platform.h>
@@ -47,7 +53,11 @@
                                           u32 type, void* param, int arg5);
 ///* 1C7B24 */ static void grAnime_801C7B24(HSD_GObj* gobj, int arg1, u32 arg2,
 ///                                          f32 arg8);
+#ifdef MELEE_NATIVE
+/* 1C82E8 */ static void fn_801C82E8(HSD_AObj* arg0, HSD_AObj** arg1);
+#else
 /* 1C82E8 */ static void fn_801C82E8(int arg0, int* arg1);
+#endif
 /* 4D6958 */ static float grAnime_804D6958;
 /* 4D695C */ static float grAnime_804D695C;
 
@@ -909,7 +919,7 @@ void grAnime_801C7C1C(HSD_JObj* jobj, s32 map_id, s32 arg2, s32 arg3, s32 arg4,
     if ((arg3 & 1) && (ajp = archive->unk4->unk8[map_id].unk4, ajp != NULL) &&
         ((aj = ajp[arg4]) != NULL))
     {
-        aj = &aj[arg2];
+        aj = GR_ANIMATION_AT(aj,arg2);
         req_flags |= 0x81;
         anim_flags |= 0x220;
     } else {
@@ -918,7 +928,7 @@ void grAnime_801C7C1C(HSD_JObj* jobj, s32 map_id, s32 arg2, s32 arg3, s32 arg4,
     if ((arg3 & 2) && (mjp = archive->unk4->unk8[map_id].unk8, mjp != NULL) &&
         ((mj = mjp[arg4]) != NULL))
     {
-        mj = &mj[arg2];
+        mj = GR_ANIMATION_AT(mj,arg2);
         req_flags |= 0x416;
         anim_flags |= 0x7484;
     } else {
@@ -927,7 +937,7 @@ void grAnime_801C7C1C(HSD_JObj* jobj, s32 map_id, s32 arg2, s32 arg3, s32 arg4,
     if ((arg3 & 4) && (sjp = archive->unk4->unk8[map_id].unkC, sjp != NULL) &&
         ((sj = sjp[arg4]) != NULL))
     {
-        sj = &sj[arg2];
+        sj = GR_ANIMATION_AT(sj,arg2);
         req_flags |= 8;
         anim_flags |= 0x100;
     } else {
@@ -1047,7 +1057,11 @@ void grAnime_801C8138(HSD_GObj* gobj, enum_t arg1, bool arg2)
     HSD_JObjAnimAll(jobj);
 }
 
+#ifdef MELEE_NATIVE
+void fn_801C82E8(HSD_AObj* arg0, HSD_AObj** arg1)
+#else
 void fn_801C82E8(int arg0, int* arg1)
+#endif
 {
     *arg1 = arg0;
     longjmp(&grAnime_8049EE40.buf, 1);

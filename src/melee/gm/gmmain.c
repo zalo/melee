@@ -154,6 +154,20 @@ int main(void)
     HSD_InitComponent();
     GXSetMisc(1, 8);
     *seed_ptr = OSGetTick();
+#ifdef MELEE_NATIVE
+    {
+        const char* test_seed = getenv("MELEE_TEST_SEED");
+        if (test_seed) {
+            char* end;
+            unsigned long value = strtoul(test_seed, &end, 10);
+            if (!*test_seed || *end || value > UINT32_MAX) {
+                OSPanic(__FILE__, __LINE__, "Invalid MELEE_TEST_SEED");
+            }
+            *seed_ptr = (u32) value;
+            OSReport("[input-test] initial random seed %u\n", *seed_ptr);
+        }
+    }
+#endif
     lbAudioAx_8002838C();
     lb_80019AAC(&gmMain_8015FD24);
     HSD_VISetUserPostRetraceCallback(&gmMain_8015FDA0);

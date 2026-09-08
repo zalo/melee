@@ -17,7 +17,11 @@ static void order_sdata(void)
 #endif
 
 struct ResultsData lbl_8046DBE8;
+#ifdef MELEE_NATIVE
+static u8 lbl_804D3F8C[8] = { 0x81, 0x7C, 0x81, 0x7C, 0x81, 0x7C, 0, 0 };
+#else
 static u32 lbl_804D3F8C[2] = { 0x817C817C, 0x817C0000 };
+#endif
 
 #ifdef MUST_MATCH
 static void gmresult_sdata2_order(void)
@@ -50,12 +54,22 @@ static void gmresult_sdata2_order(void)
 }
 #endif
 
+#ifdef MELEE_NATIVE
+u8 lbl_804D3FA0[4] = { 0x81, 0x7C, 0, 0 };
+u8 lbl_804D3FA4[4] = { 0x81, 0x7B, 0, 0 };
+#else
 u32 lbl_804D3FA0 = 0x817C0000;
 u32 lbl_804D3FA4 = 0x817B0000;
+#endif
 union {
     u32 words[2];
     char text[8];
-} lbl_804D3FA8 = { { 0x817C8146, 0x817C0000 } };
+} lbl_804D3FA8 =
+#ifdef MELEE_NATIVE
+    { .text = { 0x81, 0x7C, 0x81, 0x46, 0x81, 0x7C, 0, 0 } };
+#else
+    { { 0x817C8146, 0x817C0000 } };
+#endif
 
 HSD_Archive* lbl_804D65B8;
 

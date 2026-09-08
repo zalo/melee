@@ -29,7 +29,7 @@ static StageCallbacks grTCLink_StageCallbacks[] = {
         grTCLink_8022015C,
         grTCLink_80220164,
         grTCLink_80220198,
-        (1 << 30) | (1 << 31),
+        (1 << 30) | (1U << 31),
     },
     { 0 },
 };

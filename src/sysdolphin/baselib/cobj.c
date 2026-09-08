@@ -475,6 +475,15 @@ void HSD_CObjSetupViewingMtx(HSD_CObj* cobj)
         HSD_CObjGetUpVector(cobj, &up_vec);
         HSD_CObjGetInterest(cobj, &interest);
         C_MTXLookAt(cobj->view_mtx, &eyepos, &up_vec, &interest);
+#ifdef MELEE_NATIVE
+        if (getenv("MELEE_MATRIX_TEST") || getenv("MELEE_RENDER_CHECK")) {
+            int row, col;
+            for (row = 0; row < 3; ++row)
+                for (col = 0; col < 4; ++col)
+                    if (!isfinite(cobj->view_mtx[row][col]))
+                        HSD_Panic(__FILE__, __LINE__, "Non-finite camera matrix");
+        }
+#endif
         HSD_WObjClearFlags(cobj->eyepos, 2);
         HSD_WObjClearFlags(cobj->interest, 2);
         HSD_CObjClearFlags(cobj, 0x40000000);
@@ -757,7 +766,7 @@ int HSD_CObjGetLeftVector(HSD_CObj* cobj, Vec3* left)
 
 void HSD_CObjSetMtxDirty(HSD_CObj* cobj)
 {
-    cobj->flags |= (1 << 30) | (1 << 31);
+    cobj->flags |= (1 << 30) | (1U << 31);
 }
 
 bool HSD_CObjMtxIsDirty(HSD_CObj* cobj)
@@ -784,12 +793,12 @@ void HSD_CObjGetViewingMtx(HSD_CObj* cobj, Mtx mtx)
 
 MtxPtr HSD_CObjGetInvViewingMtxPtrDirect(HSD_CObj* cobj)
 {
-    if (cobj->flags & (1 << 31)) {
+    if (cobj->flags & (1U << 31)) {
         if (cobj->proj_mtx == NULL) {
             cobj->proj_mtx = HSD_MtxAlloc();
         }
         PSMTXInverse(cobj->view_mtx, *cobj->proj_mtx);
-        HSD_CObjClearFlags(cobj, (1 << 31));
+        HSD_CObjClearFlags(cobj, (1U << 31));
     }
     return *cobj->proj_mtx;
 }

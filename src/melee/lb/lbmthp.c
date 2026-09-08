@@ -1,3 +1,12 @@
+#ifdef MELEE_NATIVE
+#include <stdint.h>
+static uint32_t movieReadWord(const void* data) {
+    const uint8_t* p=data;
+    return (uint32_t)p[0]<<24 | (uint32_t)p[1]<<16 | (uint32_t)p[2]<<8 | p[3];
+}
+#else
+#define movieReadWord(p) (*(u32*)(p))
+#endif
 #include "lbmthp.h"
 
 #include <placeholder.h>
@@ -30,7 +39,7 @@ typedef struct THPDecComp {
     /* 0x40 */ u32 unk_40;
     /* 0x44 */ u32 width;
     /* 0x48 */ u32 height;
-    /* 0x4C */ u32* frame_buffers;
+    /* 0x4C */ uintptr_t* frame_buffers;
     /* 0x50 */ void* unk_50;
     /* 0x54 */ void* unk_54;
     /* 0x58 */ void* unk_58;
@@ -48,7 +57,7 @@ typedef struct THPDecComp {
     /* 0x8C */ u32 unk_8C;
     /* 0x90 */ u32 unk_90;
     /* 0x94 */ s32 unk_94;
-    /* 0x98 */ s32 unk_98;
+    /* 0x98 */ intptr_t unk_98;
     /* 0x9C */ THPDec_8032FD40_Data unk_9C;
     /* 0xA8 */ u16 unk_A8;
     /* 0xAA */ u16 unk_AA;
@@ -117,7 +126,7 @@ static void fn_8001E910(int arg0, int arg1, void* arg2, int cancelflag)
     } else {
         var_r0 = streamPlayer->unk_8C - 1;
     }
-    streamPlayer->currPackedSize = *(u32*) streamPlayer->frame_buffers[var_r0];
+    streamPlayer->currPackedSize = movieReadWord((void*)streamPlayer->frame_buffers[var_r0]);
     if (streamPlayer->unk_90 != streamPlayer->unk_8C &&
         streamPlayer->unk_70 != 0)
     {
@@ -165,7 +174,13 @@ static s32 fn_8001EB14(THPDecComp* data, const char* path)
 {
     THPInit();
     data->file_entrynum = DVDConvertPathToEntrynum(path);
-    lbFile_800161C4(data->file_entrynum, 0, (u32) data, 0x40, 0x21, 1);
+    lbFile_800161C4(data->file_entrynum, 0, (uintptr_t) data, 0x40, 0x21, 1);
+#ifdef MELEE_NATIVE
+    for(unsigned offset=8;offset<0x2C;offset+=4) {
+        u32 value=movieReadWord((u8*)data+offset);
+        memcpy((u8*)data+offset,&value,4);
+    }
+#endif
 
     data->unk_40 = data->num_frames;
     data->width = data->x_size;
@@ -241,7 +256,7 @@ size_t fn_8001EBF0(THPDecComp* data)
     data->unk_AA = data->height;
     data->unk_AC = 0;
 
-    size += ALIGN_32(data->unk_104 * 4);
+    size += ALIGN_32(data->unk_104 * sizeof(*data->frame_buffers));
     size += ALIGN_32(data->unk_40 * 4);
 
     return size;
@@ -261,18 +276,18 @@ static void fn_8001ECF4(THPDecComp* data, void* buf)
     width = data->width;
     height = data->height;
     y_size = width * height;
-    data->frame_buffers = (u32*) buf;
+    data->frame_buffers = (uintptr_t*) buf;
     count = data->unk_104;
     data->unk_64 = 0;
     uv_size = (width * height) >> 2U;
-    var_r29 = (u8*) buf + (((count * 4) + 0x1F) & 0xFFFFFFE0);
+    var_r29 = (u8*) buf + ALIGN_32(count * sizeof(*data->frame_buffers));
     if ((data->unk_6C != 0) && (data->unk_11C != 0)) {
         var_r24 = data->first_frame_size;
         csizep = (u8*) &data->first_frame_size;
         var_r25 = 0;
         data->curr_file_offset = data->first_frame;
         for (; var_r25 < data->unk_104; var_r25++) {
-            data->frame_buffers[var_r25] = (u32) var_r29;
+            data->frame_buffers[var_r25] = (uintptr_t) var_r29;
             if (var_r24 == 0) {
                 OSReport("by sugano & yoshiki.\n");
                 OSReport("base %x\n", var_r29);
@@ -293,11 +308,11 @@ static void fn_8001ECF4(THPDecComp* data, void* buf)
                 HSD_ASSERT(266, 0);
             }
             lbFile_800161C4(data->file_entrynum, data->curr_file_offset,
-                            (u32) var_r29, (var_r24 + 0x1F) & 0xFFFFFFE0, 0x21,
+                            (uintptr_t) var_r29, (var_r24 + 0x1F) & 0xFFFFFFE0, 0x21,
                             1);
             csizep = var_r29;
             data->curr_file_offset += var_r24;
-            var_r24 = *(u32*) var_r29;
+            var_r24 = movieReadWord(var_r29);
             var_r29 = var_r29 + data->unk_100;
         }
         data->unk_74 = var_r25;
@@ -321,7 +336,7 @@ static void fn_8001ECF4(THPDecComp* data, void* buf)
     data->unk_58 = var_r29;
     DCInvalidateRange(var_r29, uv_size);
     var_r29 = var_r29 + uv_size;
-    data->unk_98 = (s32) var_r29;
+    data->unk_98 = (intptr_t) var_r29;
 }
 
 static s32 fn_8001F13C(THPDecComp* streamPlayer);

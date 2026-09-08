@@ -86,8 +86,16 @@ struct ftYs_DatAttrs {
     /*   +0 */ char pad_0[0x10];
     /*  +10 */ Vec2 x10;
     /*  +18 */ float x18;
+#ifdef MELEE_NATIVE
+    /*  +1C */ u32 x1C;
+#else
     /*  +1C */ UNK_T x1C;
+#endif
+#ifdef MELEE_NATIVE
+    /*  +20 */ u32 x20;
+#else
     /*  +20 */ UNK_T x20;
+#endif
     /*  +24 */ float x24;
     /*  +28 */ char pad_28[0xEC - 0x28];
     /*  +EC */ float xEC;
@@ -107,7 +115,11 @@ ASSERT_SIZE(struct ftYs_DatAttrs, 0x120);
 
 struct S_UNK_YOSHI2 {
     s32 x0;
+#ifdef MELEE_NATIVE
+    u8* x4;
+#else
     s32 x4;
+#endif
     s32 x8_end_index;
     u8* xC_start_index;
 };

@@ -1,3 +1,4 @@
+#include <Runtime/gx_port.h>
 #include "gm_1832.h"
 
 #include "gm_1601.h"
@@ -635,18 +636,21 @@ void fn_80185408(int x, float arg8, float arg9, float argA, float argB)
     MTXOrtho(sp1C, 0.0F, 480.0F, 0.0F, 640.0F, 0.0F, 5000.0F);
     GXSetProjection(sp1C, GX_ORTHOGRAPHIC);
     GXBegin(GX_QUADS, GX_VTXFMT0, 4);
-    GXWGFifo.f32 = argA;
-    GXWGFifo.f32 = arg8;
-    GXWGFifo.f32 = -4932.0F;
-    GXWGFifo.f32 = argB;
-    GXWGFifo.f32 = arg8;
-    GXWGFifo.f32 = -4932.0F;
-    GXWGFifo.f32 = argB;
-    GXWGFifo.f32 = arg9;
-    GXWGFifo.f32 = -4932.0F;
-    GXWGFifo.f32 = argA;
-    GXWGFifo.f32 = arg9;
-    GXWGFifo.f32 = -4932.0F;
+    HSD_FIFO_F32(argA);
+    HSD_FIFO_F32(arg8);
+    HSD_FIFO_F32(-4932.0F);
+    HSD_FIFO_F32(argB);
+    HSD_FIFO_F32(arg8);
+    HSD_FIFO_F32(-4932.0F);
+    HSD_FIFO_F32(argB);
+    HSD_FIFO_F32(arg9);
+    HSD_FIFO_F32(-4932.0F);
+    HSD_FIFO_F32(argA);
+    HSD_FIFO_F32(arg9);
+    HSD_FIFO_F32(-4932.0F);
+#ifdef MELEE_NATIVE
+    GXEnd();
+#endif
     GXSetColorUpdate(1);
     HSD_StateInvalidate(-1);
     gm_1832_sdata2_order(0);

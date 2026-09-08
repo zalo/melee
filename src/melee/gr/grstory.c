@@ -47,7 +47,7 @@ static StageCallbacks grSt_StageCallbacks[] = {
         grStory_801E332C,
         grStory_801E3334,
         grStory_801E336C,
-        (1 << 30) | (1 << 31),
+        (1 << 30) | (1U << 31),
     },
 };
 

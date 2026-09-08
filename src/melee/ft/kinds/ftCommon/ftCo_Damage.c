@@ -156,7 +156,11 @@ not_squatwait:
 bool ftCo_8008DA4C(Fighter_GObj* gobj, HitElement arg1, enum_t arg2)
 {
     Fighter* fp = gobj->user_data;
+#ifdef MELEE_NATIVE
+    bool result = false;
+#else
     bool result;
+#endif
     if (fp->dmg.x1838_percentTemp) {
         switch (arg1) {
         case HitElement_Fire:

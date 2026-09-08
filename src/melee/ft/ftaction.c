@@ -1221,7 +1221,11 @@ void ftAction_80072E4C(Fighter_GObj* gobj, CommandInfo* cmd)
     }
 
     if (gfx_id == -1) {
+#ifdef MELEE_NATIVE
+        gfx_id = *(u32*) cmd->u & 0xFFFF;
+#else
         gfx_id = ((u16*) cmd->u)[1];
+#endif
     }
     offset.z = 0.0f;
     range.z = 0.0f;

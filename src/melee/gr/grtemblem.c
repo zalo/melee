@@ -55,7 +55,7 @@ StageCallbacks grTFe_StageCallbacks[4] = {
         grTRoy_8022460C,
         grTRoy_80224614,
         grTRoy_80224648,
-        (1 << 30) | (1 << 31),
+        (1 << 30) | (1U << 31),
     },
 };
 

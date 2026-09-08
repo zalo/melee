@@ -1,3 +1,9 @@
+#ifdef MELEE_NATIVE
+#define HEIHO_VALUE(p, i) ((p)->values[(i) - 1])
+#else
+#define HEIHO_VALUE(p, i) ((p)[i])
+#endif
+#include <melee/it/itCommonItems.h>
 #include "itheiho.h"
 
 #include "inlines.h"
@@ -154,9 +160,13 @@ bool itHeiho_UnkMotion1_Anim(Item_GObj* gobj)
 void itHeiho_UnkMotion1_Phys(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
+    #ifdef MELEE_NATIVE
+    itHeihoAttributes* attr = ip->xC4_article_data->x4_specialAttributes;
+#else
     f32* attr = ip->xC4_article_data->x4_specialAttributes;
+#endif
     PAD_STACK(8);
-    ip->x40_vel.x = ip->facing_dir * attr[ip->xDD4_itemVar.heiho.x21 + 1];
+    ip->x40_vel.x = ip->facing_dir * HEIHO_VALUE(attr, ip->xDD4_itemVar.heiho.x21 + 1);
     if (ip->xDD4_itemVar.heiho.x2C > 960) {
         ip->x40_vel.y = -((-0.04f * ABS(ip->x40_vel.x)) - ip->x40_vel.y);
     }
@@ -177,11 +187,15 @@ bool itHeiho_UnkMotion1_Coll(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
     Article* article = ip->xC4_article_data;
+    #ifdef MELEE_NATIVE
+    itHeihoAttributes* attr = article->x4_specialAttributes;
+#else
     f32* attr = article->x4_specialAttributes;
+#endif
     s32 temp_r31 = it_8026DA70(gobj);
     if ((ip->xDD4_itemVar.heiho.x24 == 0) && (it_80276308(gobj) != 0)) {
         ip->facing_dir = -ip->facing_dir;
-        ip->x40_vel.x = ip->facing_dir * attr[ip->xDD4_itemVar.heiho.x21 + 1];
+        ip->x40_vel.x = ip->facing_dir * HEIHO_VALUE(attr, ip->xDD4_itemVar.heiho.x21 + 1);
         ip->xDD4_itemVar.heiho.x24 = 0x14;
     } else if (temp_r31 == 1) {
         itHeiho_UnkMotion1_Anim_inline(gobj, 1);
@@ -197,9 +211,13 @@ bool itHeiho_UnkMotion2_Anim(Item_GObj* gobj)
 static void it_802D8EC8_inline(Item_GObj* gobj)
 {
     Item* ip = gobj->user_data;
+    #ifdef MELEE_NATIVE
+    itHeihoAttributes* attr = ip->xC4_article_data->x4_specialAttributes;
+#else
     f32* attr = ip->xC4_article_data->x4_specialAttributes;
+#endif
     f32 rand = 2.0f * (HSD_Randf() - 0.5F);
-    ip->x40_vel.x += attr[5] * rand;
+    ip->x40_vel.x += HEIHO_VALUE(attr, 5) * rand;
     ip->x40_vel.y = 2.0F;
     ip->x40_vel.z = 1.5f;
     if (ip->facing_dir == -1.0F) {
@@ -329,10 +347,14 @@ bool itHeiho_UnkMotion4_Anim(Item_GObj* gobj)
 void itHeiho_UnkMotion4_Phys(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
+    #ifdef MELEE_NATIVE
+    itHeihoAttributes* attr = ip->xC4_article_data->x4_specialAttributes;
+#else
     f32* attr = ip->xC4_article_data->x4_specialAttributes;
+#endif
     PAD_STACK(8);
     ip->x40_vel.x =
-        1.5F * (ip->facing_dir * attr[ip->xDD4_itemVar.heiho.x21 + 1]);
+        1.5F * (ip->facing_dir * HEIHO_VALUE(attr, ip->xDD4_itemVar.heiho.x21 + 1));
     if (ip->xDD4_itemVar.heiho.x2C > 960) {
         ip->x40_vel.y = -((-0.04f * ABS(ip->x40_vel.x)) - ip->x40_vel.y);
     }
@@ -352,12 +374,16 @@ bool itHeiho_UnkMotion4_Coll(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
     Article* article = ip->xC4_article_data;
+    #ifdef MELEE_NATIVE
+    itHeihoAttributes* attr = article->x4_specialAttributes;
+#else
     f32* attr = article->x4_specialAttributes;
+#endif
     s32 temp_r31 = it_8026DA70(gobj);
     PAD_STACK(4);
     if ((ip->xDD4_itemVar.heiho.x24 == 0) && (it_80276308(gobj) != 0)) {
         ip->facing_dir = -ip->facing_dir;
-        ip->x40_vel.x = ip->facing_dir * attr[ip->xDD4_itemVar.heiho.x21 + 1];
+        ip->x40_vel.x = ip->facing_dir * HEIHO_VALUE(attr, ip->xDD4_itemVar.heiho.x21 + 1);
         ip->xDD4_itemVar.heiho.x24 = 0x14;
     } else if (temp_r31 == 1) {
         it_802D9168(gobj);

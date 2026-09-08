@@ -60,7 +60,7 @@ static StageCallbacks stage_callbacks[] = {
         stageGObj2_Callback1,
         stageGObj2_GObjProc,
         stageGObj2_Callback3,
-        (1 << 30) | (1 << 31),
+        (1 << 30) | (1U << 31),
     },
     { 0 },
 };

@@ -8,6 +8,14 @@
 #include <sysdolphin/baselib/jobj.h>
 #include <sysdolphin/baselib/psstructs.h>
 
+#ifdef MELEE_NATIVE
+typedef uintptr_t HSD_ParticleAddress;
+typedef uintptr_t HSD_ParticleHandle;
+#else
+typedef s32 HSD_ParticleAddress;
+typedef u32 HSD_ParticleHandle;
+#endif
+
 /* 3983A4 */ void hsd_803983A4(HSD_Generator*);
 /* 3984F4 */ void psInitDataBankLoad(int bank, const int* cmdBank,
                                      const int* texBank, const u32* ref,
@@ -23,7 +31,7 @@ psGenerateParticle0(HSD_Particle** head, int linkNo, int bank, u32 kind,
                     u16 texGroup, u8* list, int life, int palflag, f32 x,
                     f32 y, f32 z, f32 vx, f32 vy, f32 vz, f32 size, f32 grav,
                     f32 fric, HSD_Generator* gp, int flgInterpret);
-/* 398F0C */ void hsd_80398F0C(s32, s32, s32, u16, s32, s32, s32, s32, f32,
+/* 398F0C */ void hsd_80398F0C(s32, s32, s32, u16, HSD_ParticleAddress, s32, s32, HSD_ParticleAddress, f32,
                                f32, f32, f32, f32, f32, f32, f32, f32);
 /* 398F8C */ void hsd_80398F8C(HSD_Particle*, f32);
 /* 3991D8 */ s32 hsd_803991D8(HSD_Generator*, HSD_JObj*, f32, f32);
@@ -39,9 +47,9 @@ psGenerateParticle0(HSD_Particle** head, int linkNo, int bank, u32 kind,
 /* 4D78DA */ extern u16 hsd_804D78DA;
 /* 4D78DE */ extern u16 hsd_804D78DE;
 /* 4D78E0 */ extern u16 hsd_804D78E0;
-/* 4D78E8 */ extern u32 hsd_804D78E8;
-/* 4D78EC */ extern u32 hsd_804D78EC;
+/* 4D78E8 */ extern HSD_ParticleHandle hsd_804D78E8;
+/* 4D78EC */ extern HSD_ParticleHandle hsd_804D78EC;
 /* 4D78F0 */ extern HSD_CObj* psCamera;
-/* 4D78F4 */ extern u32 hsd_804D78F4;
+/* 4D78F4 */ extern HSD_ParticleHandle hsd_804D78F4;
 
 #endif

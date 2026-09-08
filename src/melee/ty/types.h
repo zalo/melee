@@ -569,13 +569,13 @@ struct ToyED8Data {
     /* 0x54 */ u32 x54;
     UNK_T x58;
 };
-STATIC_ASSERT(offsetof(struct ToyED8Data, x0) == 0x0);
-STATIC_ASSERT(offsetof(struct ToyED8Data, gobj) == 0x4);
-STATIC_ASSERT(offsetof(struct ToyED8Data, xC) == 0xC);
-STATIC_ASSERT(offsetof(struct ToyED8Data, jobjs) == 0x18);
-STATIC_ASSERT(offsetof(struct ToyED8Data, x30) == 0x30);
-STATIC_ASSERT(offsetof(struct ToyED8Data, archive) == 0x50);
-STATIC_ASSERT(offsetof(struct ToyED8Data, x54) == 0x54);
+ASSERT_OFFSET(struct ToyED8Data, x0, 0x0);
+ASSERT_OFFSET(struct ToyED8Data, gobj, 0x4);
+ASSERT_OFFSET(struct ToyED8Data, xC, 0xC);
+ASSERT_OFFSET(struct ToyED8Data, jobjs, 0x18);
+ASSERT_OFFSET(struct ToyED8Data, x30, 0x30);
+ASSERT_OFFSET(struct ToyED8Data, archive, 0x50);
+ASSERT_OFFSET(struct ToyED8Data, x54, 0x54);
 ASSERT_SIZE(struct ToyED8Data, 0x5C);
 struct TyArchiveData {
     HSD_GObj* gobj;

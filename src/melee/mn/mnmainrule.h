@@ -45,7 +45,11 @@ struct mn_80231634_t {
 /* 2309F0 */ void fn_802309F0(HSD_GObj*);
 /* 230D18 */ s32 mn_80230D18(struct mn_802307F8_t*, HSD_JObj*, int);
 /* 230E38 */ HSD_GObj* mn_80230E38(int);
+#ifdef MELEE_NATIVE
+HSD_JObj* mn_80231634(struct mn_80231634_t*);
+#else
 /* 231634 */ int mn_80231634(struct mn_80231634_t*);
+#endif
 /* 23164C */ void mn_8023164C(void);
 /* 231714 */ UNK_RET mn_80231714(UNK_PARAMS);
 /* 2317E4 */ void mn_802317E4(HSD_Archive*, int);

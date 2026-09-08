@@ -854,7 +854,12 @@ typedef struct itGamewatchchefAttributes {
     /* +4 */ f32 x4;
     /* +8 */ f32 x8;
     /* +C */ f32 xC;
+#ifdef MELEE_NATIVE
+    /* Five food trajectories in the disc attribute table. */
+    itGamewatchchefAttrEntry entries[5];
+#else
     /* +10 */ itGamewatchchefAttrEntry entries[1];
+#endif
 } itGamewatchchefAttributes;
 
 typedef struct itGamewatchparachuteAttributes {

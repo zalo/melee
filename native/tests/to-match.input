@@ -1,0 +1,43 @@
+# Fresh boot with an empty memory card. Decline creating a save.
+180 NONE
+2 D
+20 NONE
+6 X
+45 NONE
+6 X
+# Opening movie, title, main menu, VS. Mode, Melee.
+600 SCENE_MOVIE
+30 NONE
+6 START
+600 SCENE_TITLE
+90 NONE
+6 START
+600 SCENE_MENU
+120 NONE
+2 S
+20 NONE
+6 X
+90 NONE
+6 X
+600 SCENE_CSS
+120 NONE
+# Move the P1 glove onto Fox, select, then activate the second CPU slot.
+7 D
+27 W
+10 NONE
+6 X
+15 NONE
+5 D
+11 S
+10 NONE
+6 X
+30 NONE
+6 START
+600 SCENE_SSS
+120 NONE
+# Stage selection starts below the icons; move to Onett.
+11 W
+15 NONE
+6 X
+1800 SCENE_MATCH
+180 NONE

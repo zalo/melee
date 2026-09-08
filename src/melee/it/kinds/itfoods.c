@@ -9,6 +9,9 @@
 #include <melee/it/itspawn.h>
 #include <sysdolphin/baselib/gobj.h>
 #include <sysdolphin/baselib/random.h>
+#ifdef MELEE_NATIVE
+#include <string.h>
+#endif
 
 /* 28FC84 */ bool itFoods_UnkMotion0_Anim(Item_GObj* arg0);
 /* 28FC8C */ void itFoods_UnkMotion0_Phys(Item_GObj* arg0);
@@ -36,12 +39,22 @@ ItemStateTable it_803F5DB0[] = {
 void it_8028F9D8(Item_GObj* arg0, Vec3* arg1, f32 arg8)
 {
     Item* temp_r30 = GET_ITEM(arg0);
+#ifdef MELEE_NATIVE
+    itFoodsAttributes* attrs = temp_r30->xC4_article_data->x4_specialAttributes;
+    unsigned index = temp_r30->xDD4_itemVar.foods.x0;
+    float x, y;
+    memcpy(&x, &attrs[index].xC, sizeof(x));
+    memcpy(&y, &attrs[index + 1].x0, sizeof(y));
+    temp_r30->pos.x = arg1->x + arg8 * x;
+    temp_r30->pos.y = arg1->y + y;
+#else
     Vec4* temp_r6 = temp_r30->xC4_article_data->x4_specialAttributes;
     f32 var_2;
     temp_r30->pos.x =
         arg1->x + (arg8 * temp_r6[temp_r30->xDD4_itemVar.foods.x0].w);
     var_2 = temp_r6[temp_r30->xDD4_itemVar.foods.x0 + 1].x;
     temp_r30->pos.y = var_2 + arg1->y;
+#endif
     temp_r30->pos.z = arg1->z;
     HSD_JObjSetTranslate(arg0->hsd_obj, &temp_r30->pos);
 }

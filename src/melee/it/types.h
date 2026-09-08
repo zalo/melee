@@ -127,6 +127,14 @@ struct ItemAttr {
 };
 
 /// @sz{8}
+#ifdef MELEE_NATIVE
+typedef struct ItemCollisionDesc {
+    s32 bone_id;
+    Vec3 offset;
+    f32 size;
+} ItemCollisionDesc;
+#endif
+
 struct ItemDynamics {
     /// @todo Combine with ftDynamics? Can see in it_8027163C that this struct
     /// does not work perfectly
@@ -135,6 +143,10 @@ struct ItemDynamics {
 
     /// @at{4} @sz{4}
     BoneDynamicsDesc* dyn_descs;
+#ifdef MELEE_NATIVE
+    s32 collision_count;
+    ItemCollisionDesc* collision_descs;
+#endif
 };
 
 /// @sz{10}

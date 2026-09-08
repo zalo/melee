@@ -63,6 +63,12 @@ static bool itColl_chkECBOverlap(f32 pos_x, f32 pos_y, itECB* ecb_a,
 
 const Quaternion it_803B8560 = { 0.0f, 0.0f, 1.0f, 0.0f };
 
+#ifdef MELEE_NATIVE
+typedef ItemCollisionDesc ItCollDynamicsDesc;
+typedef ItemDynamics ItCollDynamics;
+#define COLLISION_COUNT(d) ((d)->collision_count)
+#define COLLISION_DESCS(d) ((d)->collision_descs)
+#else
 typedef struct ItCollDynamicsDesc {
     s32 bone_id;
     Vec3 offset;
@@ -74,6 +80,9 @@ typedef struct ItCollDynamics {
     s32 count;
     ItCollDynamicsDesc* descs;
 } ItCollDynamics;
+#define COLLISION_COUNT(d) ((d)->count)
+#define COLLISION_DESCS(d) ((d)->descs)
+#endif
 
 void it_8026F9A0(void)
 {
@@ -1046,15 +1055,15 @@ void it_8027163C(Item_GObj* item_gobj)
         item->xAC8_hurtboxNum = 0;
     }
     if (it_dynams != NULL) {
-        if (it_dynams->count > 2) {
+        if (COLLISION_COUNT(it_dynams) > 2) {
             HSD_ASSERTREPORT(0x415, 0, "item dynamics hit num over!\n");
         }
         cnt = 0U;
-        item->xB68 = it_dynams->count;
+        item->xB68 = COLLISION_COUNT(it_dynams);
         index = 0;
-        while (cnt < it_dynams->count) {
+        while (cnt < COLLISION_COUNT(it_dynams)) {
             struct xB6C_t* vars = &item->xB6C_vars[cnt];
-            ItCollDynamicsDesc* bone_dyn_desc = &it_dynams->descs[index];
+            ItCollDynamicsDesc* bone_dyn_desc = &COLLISION_DESCS(it_dynams)[index];
             vars->xB90 = bone_dyn_desc->bone_id;
             vars->xB7C =
                 item->xBBC_dynamicBoneTable->bones[bone_dyn_desc->bone_id];

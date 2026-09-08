@@ -1231,6 +1231,10 @@ static inline f64 it_802A6A78_normalize_diff(Vec3* a, Vec3* b, Vec3* vec)
 /// MSL sqrtf expansion with its volatile spill shifted to the retail slots.
 static inline f32 it_802A4BFC_sqrtf_offset(f32 x)
 {
+#ifdef MELEE_NATIVE
+    // The retail stack-slot trick writes outside y on the native ABI.
+    return sqrtf(x);
+#else
     volatile f32 y;
 
     if (x > 0.0F) {
@@ -1242,6 +1246,7 @@ static inline f32 it_802A4BFC_sqrtf_offset(f32 x)
         return *(&y + 6);
     }
     return x;
+#endif
 }
 
 static inline f64 it_802A4BFC_normalize_diff(Vec3* a, Vec3* b, Vec3* vec)

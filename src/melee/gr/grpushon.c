@@ -87,7 +87,7 @@ StageCallbacks grPushOn_StageCallbacks[] = {
         grPushOn_80218670,
         grPushOn_802186C8,
         grPushOn_802187A4,
-        (1 << 30) | (1 << 31),
+        (1 << 30) | (1U << 31),
     },
     {
         grPushOn_802187A8,

@@ -1,3 +1,8 @@
+#ifdef MELEE_NATIVE
+#define STAGE_DAMAGE(p) (((lbColl_80008D30_arg1*) (p))->damage)
+#else
+#define STAGE_DAMAGE(p) ((p)->count)
+#endif
 #include "ftCo_Bury.h"
 
 #include <Runtime/platform.h>
@@ -72,7 +77,7 @@ void ftCo_800C08A0(Fighter_GObj* gobj, Fighter_GObj* arg1, DynamicsDesc* arg2,
     struct SmallerHitCapsule hit;
     int hurt_idx;
     Fighter* fp = GET_FIGHTER(gobj);
-    f = ftColl_800765F0(fp, NULL, arg2->count);
+    f = ftColl_800765F0(fp, NULL, STAGE_DAMAGE(arg2));
     hurt_idx = 0;
     switch (arg3) {
     case BuryType_Unk2:
@@ -189,7 +194,7 @@ void ftCo_800C0B20(Fighter_GObj* gobj)
             HitCapsule hit;
             float f;
             fp = GET_FIGHTER(gobj);
-            f = ftColl_800765F0(fp, NULL, unk_anim->count);
+            f = ftColl_800765F0(fp, NULL, STAGE_DAMAGE(unk_anim));
             hurt_idx = 0;
             fp->bury_timer_1 = p_ftCommonData->bury_timer_unk1;
             if (ftColl_80076640(fp, &f)) {

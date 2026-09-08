@@ -10,6 +10,15 @@
 #include <melee/it/kinds/itlinkhookshot.h>
 #include <melee/it/kinds/itsamusgrapple.h>
 
+#ifdef MELEE_NATIVE
+typedef Fighter FighterOverlay;
+#define CAPTURE_x1A4C(fp) ((fp)->grab_timer)
+#define CAPTURE_x1A58(fp) ((fp)->victim_gobj)
+#define CAPTURE_x2340(fp) ((fp)->mv.co.capturewait.x0)
+#define CAPTURE_x2344(fp) ((fp)->mv.co.capturewait.x4)
+#define CAPTURE_x2348(fp) ((fp)->mv.co.capturewait.x8)
+#define CAPTURE_x234C(fp) ((fp)->mv.co.capturewait.xC)
+#else
 typedef struct {
     u8 pad_1A4C[0x1A4C];
     f32 x1A4C; // 0x1A4C
@@ -21,6 +30,13 @@ typedef struct {
     s32 x2348; // 0x2348
     u8 x234C;  // 0x234C
 } FighterOverlay;
+#define CAPTURE_x1A4C(fp) ((fp)->x1A4C)
+#define CAPTURE_x1A58(fp) ((fp)->x1A58)
+#define CAPTURE_x2340(fp) ((fp)->x2340)
+#define CAPTURE_x2344(fp) ((fp)->x2344)
+#define CAPTURE_x2348(fp) ((fp)->x2348)
+#define CAPTURE_x234C(fp) ((fp)->x234C)
+#endif
 
 bool fn_800DAD18(Fighter_GObj*);
 static void fn_800DBBF8(Fighter_GObj*);
@@ -123,13 +139,13 @@ void ftCo_CaptureWaitHi_Anim(Fighter_GObj* gobj)
     f32 zero;
     fp = GET_FIGHTER(gobj);
     fp_ovl = (FighterOverlay*) fp;
-    fp_ovl->x2340 += 1.0;
-    fp_ovl->x1A4C -= p_ftCommonData->grab_timer_decrement;
-    fp_ovl->x2348 =
+    CAPTURE_x2340(fp_ovl) += 1.0;
+    CAPTURE_x1A4C(fp_ovl) -= p_ftCommonData->grab_timer_decrement;
+    CAPTURE_x2348(fp_ovl) =
         ftCommon_GrabMash(fp, *(f32*) ((u8*) p_ftCommonData + 0x3A8));
-    if (fp_ovl->x1A4C <= 0.0F) {
-        ftCo_800DA698(fp_ovl->x1A58, 0);
-        if (fp_ovl->x234C != 0 || fn_800DC044(gobj)) {
+    if (CAPTURE_x1A4C(fp_ovl) <= 0.0F) {
+        ftCo_800DA698(CAPTURE_x1A58(fp_ovl), 0);
+        if (CAPTURE_x234C(fp_ovl) != 0 || fn_800DC044(gobj)) {
             fn_800DC070(gobj);
             return;
         }
@@ -139,17 +155,17 @@ void ftCo_CaptureWaitHi_Anim(Fighter_GObj* gobj)
     }
 
     zero = 0.0F;
-    if (fp_ovl->x2344 != zero) {
+    if (CAPTURE_x2344(fp_ovl) != zero) {
         dec = 1.0F;
-        fp_ovl->x2344 -= dec;
-        if (fp_ovl->x2344 <= zero && fp_ovl->x2348 == 0) {
+        CAPTURE_x2344(fp_ovl) -= dec;
+        if (CAPTURE_x2344(fp_ovl) <= zero && CAPTURE_x2348(fp_ovl) == 0) {
             ftAnim_SetAnimRate(gobj, dec);
-            fp_ovl->x2344 = 0.0F;
+            CAPTURE_x2344(fp_ovl) = 0.0F;
         }
     }
 
-    if (*(volatile f32*) &fp_ovl->x2344 <= 0.0F && fp_ovl->x2348 != 0) {
-        fp_ovl->x2344 = *(f32*) ((u8*) p_ftCommonData + 0x3B0);
+    if (*(volatile f32*) &CAPTURE_x2344(fp_ovl) <= 0.0F && CAPTURE_x2348(fp_ovl) != 0) {
+        CAPTURE_x2344(fp_ovl) = *(f32*) ((u8*) p_ftCommonData + 0x3B0);
         ftAnim_SetAnimRate(gobj, *(f32*) ((u8*) p_ftCommonData + 0x3B4));
     }
 }

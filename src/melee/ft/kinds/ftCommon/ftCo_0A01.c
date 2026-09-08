@@ -7296,7 +7296,11 @@ static inline u8 inlineM0(float x)
     if (x >= 0) {
         return 127.0F * x;
     } else {
+#ifdef MELEE_NATIVE
+        return (s8) (128.0F * x);
+#else
         return 128.0F * x;
+#endif
     }
 }
 

@@ -54,7 +54,7 @@ static StageCallbacks grTYs_StageCallbacks[] = {
         grTYoshi_80223D60,
         grTYoshi_80223D68,
         grTYoshi_80223D9C,
-        (1 << 30) | (1 << 31),
+        (1 << 30) | (1U << 31),
     },
     { 0 },
 };

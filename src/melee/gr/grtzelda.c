@@ -41,7 +41,7 @@ static StageCallbacks grTZd_StageCallbacks[4] = {
     { grTZelda_80224084, grTZelda_802240D4, grTZelda_802240DC,
       grTZelda_802240FC, 0 },
     { grTZelda_80223FF4, grTZelda_80224044, grTZelda_8022404C,
-      grTZelda_80224080, (1 << 31) | (1 << 30) },
+      grTZelda_80224080, (1U << 31) | (1 << 30) },
     { NULL, NULL, NULL, NULL, 0 }
 };
 

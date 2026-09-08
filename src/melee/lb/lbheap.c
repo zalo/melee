@@ -50,6 +50,10 @@ lbHeap_DestroyOffsetViewIfCreated(struct lbHeap_HeapOffsetView* view)
     struct Heap* heap = &view->heap;
 
     if (view->heap.status == LbHeapStatus_Create) {
+#ifdef MELEE_NATIVE
+        extern void MeleeNativeArchiveReleaseRange(void*, size_t);
+        MeleeNativeArchiveReleaseRange((void*)heap->start, heap->size);
+#endif
         if (heap->type == 0) {
             OSDestroyHeap(heap->id);
             heap->id = -1;
@@ -90,7 +94,7 @@ int lbHeap_800158E8(int arg0)
 
 void lbHeap_80015900(void)
 {
-    s32 temp_r0;
+    uintptr_t temp_r0;
     struct lbHeap_HeapOffsetView* destroy_view;
     s32 bounds_i;
     struct Heap* bounds_heap;

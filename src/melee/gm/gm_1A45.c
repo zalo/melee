@@ -1,4 +1,8 @@
 #include "gm_1A45.h"
+#ifdef MELEE_NATIVE
+#include <dolphin/vi.h>
+void MeleeNativeGameFrame(void);
+#endif
 
 #include "gm_1A36.h"
 #include "gm_1A45.static.h"
@@ -283,6 +287,9 @@ void gm_801A4D34(void (*on_frame)(void), UNUSED GameSceneInfo* info)
         gmMainLib_8046B0F0.xC = false;
 
         while ((pad_queue_count = lb_80019894()) == 0) {
+#ifdef MELEE_NATIVE
+            VIWaitForRetrace();
+#endif
             lb_800195D0();
         }
         lb_800195D0();
@@ -338,6 +345,10 @@ void gm_801A4D34(void (*on_frame)(void), UNUSED GameSceneInfo* info)
                 temp_r25->unk_10.unk_30();
             }
             HSD_GObj_80390CFC();
+#ifdef MELEE_NATIVE
+            void MeleeNativeMatrixTick(void);
+            MeleeNativeMatrixTick();
+#endif
             if (temp_r25->unk_0 != -2) {
                 temp_r25->unk_0++;
             }
@@ -367,6 +378,9 @@ void gm_801A4D34(void (*on_frame)(void), UNUSED GameSceneInfo* info)
         HSD_Init_803755A8();
         HSD_PerfSetDrawTime();
         HSD_VICopyXFBAsync(HSD_RP_SCREEN);
+#ifdef MELEE_NATIVE
+        MeleeNativeGameFrame();
+#endif
         if (temp_r25->unk_4 != -2U) {
             temp_r25->unk_4++;
         }

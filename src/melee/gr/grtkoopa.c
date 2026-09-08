@@ -55,7 +55,7 @@ static StageCallbacks grTKp_StageCallbacks[] = {
         grTKoopa_80221860,
         grTKoopa_80221868,
         grTKoopa_8022189C,
-        (1 << 30) | (1 << 31),
+        (1 << 30) | (1U << 31),
     },
     { 0 },
 };

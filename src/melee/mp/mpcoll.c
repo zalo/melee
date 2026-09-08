@@ -973,6 +973,26 @@ bool mpColl_80043754(mpColl_Callback cb, CollData* coll, u32 flags)
     y = max_inline(y, dist_top_y);
     x = max_inline(x, y);
 
+#ifdef MELEE_NATIVE
+    if (!isfinite(x)) {
+        OSReport("Invalid ECB delta: pos=(%g,%g,%g) last=(%g,%g,%g) old=(%g,%g,%g,%g) new=(%g,%g,%g,%g)\n",
+            coll->cur_pos.x,coll->cur_pos.y,coll->cur_pos.z,
+            coll->last_pos.x,coll->last_pos.y,coll->last_pos.z,
+            coll->ecb.left.x,coll->ecb.right.x,coll->ecb.top.y,coll->ecb.bottom.y,
+            coll->desired_ecb.left.x,coll->desired_ecb.right.x,coll->desired_ecb.top.y,coll->desired_ecb.bottom.y);
+        if(coll->ecb_source.kind==ECBSource_JObj) {
+            int j;
+            for(j=0;j<6;j++) {
+                HSD_JObj* joint=coll->ecb_source.x10C_joint[j];
+                OSReport("ECB joint %d scale=(%g,%g,%g) translate=(%g,%g,%g) matrix=(%g,%g,%g)\n",j,
+                    joint->scale.x,joint->scale.y,joint->scale.z,
+                    joint->translate.x,joint->translate.y,joint->translate.z,
+                    joint->mtx[0][3],joint->mtx[1][3],joint->mtx[2][3]);
+            }
+        }
+        HSD_ASSERTREPORT(977,0,"non-finite collision movement\n");
+    }
+#endif
     if (x > 6.0F) {
         steps = x / 6.0F;
         steps = steps + 1;

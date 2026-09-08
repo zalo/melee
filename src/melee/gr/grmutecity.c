@@ -340,9 +340,15 @@ StageData grMc_StageData = {
 
 struct grMc_YakumonoParam {
     int x0;
+    #ifdef MELEE_NATIVE
+    s32 x4;
+    s32 x8;
+    s32 xC;
+#else
     void* x4;
     DynamicsDesc* x8;
     DynamicsDesc* xC;
+#endif
     u8 pad10[0x1C];
     f32 x2C;
     f32 x30;
@@ -894,7 +900,7 @@ void grMuteCity_801F04B8(Ground_GObj* gobj)
             Ground_801C39B0(gp->u.mutecity.x130);
             break;
         case 21:
-            grMaterial_801C9604(gobj, yakumono_param->x0, 0);
+            grMaterial_801C9604(gobj, GR_MATERIAL_SCRIPT(yakumono_param->x0), 0);
             break;
         case 20:
             un_802FD604(entry->param);
@@ -923,7 +929,7 @@ void grMuteCity_801F04B8(Ground_GObj* gobj)
             HSD_GObj* bg_gobj = Ground_GetMapGObj(0x1D);
             if (bg_gobj != NULL) {
                 if (param != 0) {
-                    grMaterial_801C9604(bg_gobj, (s32) yakumono_param->x4, 0);
+                    grMaterial_801C9604(bg_gobj, GR_MATERIAL_SCRIPT(yakumono_param->x4), 0);
                     if (gp->u.mutecity.x110 != NULL) {
                         HSD_LObjClearFlags(gp->u.mutecity.x110, LOBJ_HIDDEN);
                     }
@@ -1134,32 +1140,41 @@ void grMuteCity_801F106C(s32 i)
     } grMc_CarState;
     f32 max_x8;
     grMc_CarState* state = (grMc_CarState*) grMc_8049F440;
+    #ifdef MELEE_NATIVE
+    grMc_CarEntry* cars = grMc_8049F4B8;
+#else
     grMc_CarEntry* cars = state->cars;
-    u16 flags16 = state->cars[i].x20;
+#endif
+#ifdef MELEE_NATIVE
+#define MUTE_CAR(i) cars[i]
+#else
+#define MUTE_CAR(i) state->cars[i]
+#endif
+    u16 flags16 = MUTE_CAR(i).x20;
 
     if (!cars[i].x22_flags.b0) {
         if (flags16 & 1) {
             if (flags16 & 8) {
-                state->cars[i].x8 -= yakumono_param->x4C;
+                MUTE_CAR(i).x8 -= yakumono_param->x4C;
             } else {
                 s32 rnd = HSD_Randi(4);
                 switch (rnd) {
                 case 3:
                     break;
                 case 0:
-                    state->cars[i].x8 -= yakumono_param->x4C;
+                    MUTE_CAR(i).x8 -= yakumono_param->x4C;
                     break;
                 case 1:
                 case 2:
                     if (flags16 & 4) {
-                        state->cars[i].xC += yakumono_param->x44;
-                        if (state->cars[i].xC > 0.9) {
-                            state->cars[i].xC = 0.9f;
+                        MUTE_CAR(i).xC += yakumono_param->x44;
+                        if (MUTE_CAR(i).xC > 0.9) {
+                            MUTE_CAR(i).xC = 0.9f;
                         }
                     } else {
-                        state->cars[i].xC -= yakumono_param->x44;
-                        if (state->cars[i].xC < 0.1) {
-                            state->cars[i].xC = 0.1f;
+                        MUTE_CAR(i).xC -= yakumono_param->x44;
+                        if (MUTE_CAR(i).xC < 0.1) {
+                            MUTE_CAR(i).xC = 0.1f;
                         }
                     }
                     break;
@@ -1167,23 +1182,23 @@ void grMuteCity_801F106C(s32 i)
             }
         } else {
             struct grMc_YakumonoParam* params = yakumono_param;
-            state->cars[i].x8 += params->x40;
-            if (state->cars[i].xC > (0.7f + params->x48)) {
-                state->cars[i].xC -= params->x48;
-            } else if (state->cars[i].xC < (0.3f - params->x48)) {
-                state->cars[i].xC += params->x48;
+            MUTE_CAR(i).x8 += params->x40;
+            if (MUTE_CAR(i).xC > (0.7f + params->x48)) {
+                MUTE_CAR(i).xC -= params->x48;
+            } else if (MUTE_CAR(i).xC < (0.3f - params->x48)) {
+                MUTE_CAR(i).xC += params->x48;
             }
         }
         if (flags16 & 8) {
             if (flags16 & 4) {
-                state->cars[i].xC += yakumono_param->x44;
-                if (state->cars[i].xC > 1.0) {
-                    state->cars[i].xC = 1.0f;
+                MUTE_CAR(i).xC += yakumono_param->x44;
+                if (MUTE_CAR(i).xC > 1.0) {
+                    MUTE_CAR(i).xC = 1.0f;
                 }
             } else {
-                state->cars[i].xC -= yakumono_param->x44;
-                if (state->cars[i].xC < 0.0) {
-                    state->cars[i].xC = 0.0f;
+                MUTE_CAR(i).xC -= yakumono_param->x44;
+                if (MUTE_CAR(i).xC < 0.0) {
+                    MUTE_CAR(i).xC = 0.0f;
                 }
             }
         }
@@ -1194,22 +1209,22 @@ void grMuteCity_801F106C(s32 i)
         } else {
             max_x8 = yakumono_param->x34;
         }
-        if (state->cars[i].x8 > max_x8) {
-            state->cars[i].x8 = max_x8;
+        if (MUTE_CAR(i).x8 > max_x8) {
+            MUTE_CAR(i).x8 = max_x8;
             return;
         }
-        if (state->cars[i].x8 < 0.0) {
-            state->cars[i].x8 = 0.0f;
+        if (MUTE_CAR(i).x8 < 0.0) {
+            MUTE_CAR(i).x8 = 0.0f;
         }
     } else {
-        if ((state->cars[i].x4 > 0.827f) && (state->cars[i].x4 < 0.914f)) {
-            if (state->cars[i].x8 < 0.001f) {
-                state->cars[i].x8 = 0.001f;
+        if ((MUTE_CAR(i).x4 > 0.827f) && (MUTE_CAR(i).x4 < 0.914f)) {
+            if (MUTE_CAR(i).x8 < 0.001f) {
+                MUTE_CAR(i).x8 = 0.001f;
             }
         } else {
-            state->cars[i].x8 *= 0.95f;
-            if (state->cars[i].x8 < 0.00001f) {
-                state->cars[i].x8 = 0.0f;
+            MUTE_CAR(i).x8 *= 0.95f;
+            if (MUTE_CAR(i).x8 < 0.00001f) {
+                MUTE_CAR(i).x8 = 0.0f;
             }
         }
     }
@@ -1818,7 +1833,11 @@ DynamicModelDesc* grMuteCity_801F28A8(void)
     HSD_ASSERT(2135, archive);
     dat = archive->unk4;
     if (dat != NULL) {
+#ifdef MELEE_NATIVE
+        return (DynamicModelDesc*) &dat->unk8[38];
+#else
         return (DynamicModelDesc*) ((char*) dat->unk8 + 0x7B8);
+#endif
     }
     return NULL;
 }
@@ -1959,13 +1978,25 @@ DynamicsDesc* grMuteCity_801F2BBC(enum_t arg0)
 {
     if (grMc_804D69D4 == 1) {
         if (arg0 == 0x31) {
+            #ifdef MELEE_NATIVE
+            return MeleeNativeScriptPointer(&yakumono_param->x8);
+#else
             return yakumono_param->x8;
+#endif
         }
         if (arg0 == 0x35) {
+            #ifdef MELEE_NATIVE
+            return MeleeNativeScriptPointer(&yakumono_param->x8);
+#else
             return yakumono_param->x8;
+#endif
         }
         if ((u32) (arg0 - 0x32) <= 2) {
+            #ifdef MELEE_NATIVE
+            return MeleeNativeScriptPointer(&yakumono_param->xC);
+#else
             return yakumono_param->xC;
+#endif
         }
     }
     return NULL;
@@ -2012,3 +2043,5 @@ bool grMuteCity_801F2C10(Vec3* pos, int arg, HSD_JObj* jobj)
     }
     return true;
 }
+
+#undef MUTE_CAR

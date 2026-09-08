@@ -120,7 +120,7 @@ static StageCallbacks stage_callbacks[] = {
         stageGObj3_Callback1,
         stageGObj3_GObjProc,
         stageGObj3_Callback3,
-        (1 << 30) | (1 << 31),
+        (1 << 30) | (1U << 31),
     },
 };
 
@@ -555,7 +555,7 @@ bool grOldKongo_80210454(Ground_GObj* ground_gobj, Fighter_GObj* keep)
     gp->u.taru.xC6 = 1;
     Ground_801C5440(gp, 0, 0x129U);
     grAnime_801C7FF8(ground_gobj, 2, 7, 1, 0.0f, 1.0f);
-    grMaterial_801C9604(ground_gobj, yakumono_param->x6C, 0);
+    grMaterial_801C9604(ground_gobj, GR_MATERIAL_SCRIPT(yakumono_param->x6C), 0);
     efSync_Spawn(0x405, ground_gobj, &pos_ft);
     ftLib_80086C18(keep, 0xD, 0x1E);
     return true;

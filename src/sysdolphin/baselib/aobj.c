@@ -184,7 +184,11 @@ HSD_AObj* HSD_AObjLoadDesc(HSD_AObjDesc* aobjdesc)
     u8 _[4];
 
     HSD_FObj* fobj;
+    #ifdef MELEE_NATIVE
+    uintptr_t id;
+#else
     u32 id;
+#endif
     HSD_Obj* phi_r30;
 
     if (aobjdesc != NULL) {

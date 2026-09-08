@@ -53,7 +53,7 @@ static StageCallbacks grTPc_StageCallbacks[] = {
         grTPichu_80222DB0,
         grTPichu_80222DB8,
         grTPichu_80222DEC,
-        (1 << 30) | (1 << 31),
+        (1 << 30) | (1U << 31),
     },
     { NULL, NULL, NULL, NULL, 0 },
 };

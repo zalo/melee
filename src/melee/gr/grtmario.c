@@ -60,7 +60,7 @@ StageCallbacks grTMr_StageCallbacks[] = {
         grTMario_8021FA94,
         grTMario_8021FA9C,
         grTMario_8021FAD0,
-        (1 << 30) | (1 << 31),
+        (1 << 30) | (1U << 31),
     },
     { 0 },
 };

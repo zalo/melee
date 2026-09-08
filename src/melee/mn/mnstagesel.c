@@ -235,7 +235,11 @@ void fn_8025A090(HSD_GObj* gobj)
     jobj = GET_JOBJ(gobj);
     temp_r30 = HSD_GObjGetUserData(gobj);
     var_r3 = mnStageSel_804D6CAE;
-    if (mnStageSel_803F06D0[mnStageSel_804D6CAE].x8 < 2) {
+    if (
+#ifdef MELEE_NATIVE
+        mnStageSel_804D6CAE >= 30 ||
+#endif
+        mnStageSel_803F06D0[mnStageSel_804D6CAE].x8 < 2) {
         var_r3 = 0x1E;
     }
     if (temp_r30->x0 != var_r3) {
@@ -253,7 +257,11 @@ void fn_8025A090(HSD_GObj* gobj)
     }
     if (temp_r30->x4 < 0x5A) {
         temp_r30->x4++;
-        if (temp_r30->x4 == 0x14) {
+        if (temp_r30->x4 == 0x14
+#ifdef MELEE_NATIVE
+            && temp_r30->x0 < 29
+#endif
+        ) {
             HSD_JObjReqAnimAll(jobj,
                                50.0F * mnStageSel_803F06D0[temp_r30->x0].x9);
         }
@@ -834,6 +842,10 @@ void mnStageSel_Scene_OnFrame(void)
 
 void mnStageSel_Scene_OnExit(UNUSED void* exit_data)
 {
+#ifdef MELEE_NATIVE
+    void MeleeNativeTestStage(VsModeData*);
+    MeleeNativeTestStage(&sss_data->vs);
+#endif
     if (mnStageSel_804D6C94 != NULL) {
         lbArchive_80016EFC(mnStageSel_804D6C94);
         mnStageSel_804D6C94 = NULL;

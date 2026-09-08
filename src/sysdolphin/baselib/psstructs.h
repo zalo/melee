@@ -29,7 +29,7 @@ enum HSD_ParticleKind {
     DispFog = 1 << 24,
     NoZComp = 1 << 28,
     DispPoint = 1 << 30,
-    DispLighting = 1 << 31
+    DispLighting = 1U << 31
 };
 
 /* size: 0x1C */

@@ -53,7 +53,7 @@ static StageCallbacks grTSk_StageCallbacks[] = {
         grTSeak_80223A7C,
         grTSeak_80223A84,
         grTSeak_80223AB8,
-        (1 << 31) | (1 << 30),
+        (1U << 31) | (1 << 30),
     },
     { 0 },
 };

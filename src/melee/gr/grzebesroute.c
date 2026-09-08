@@ -48,7 +48,7 @@ StageCallbacks grZe_Route_StageCallbacks[] = {
         grZebesRoute_8020B424,
         grZebesRoute_8020B42C,
         grZebesRoute_8020B4D4,
-        (1 << 30) | (1 << 31),
+        (1 << 30) | (1U << 31),
     },
     {
         grZebesRoute_8020B384,

@@ -53,7 +53,7 @@ static StageCallbacks grTDr_StageCallbacks[] = {
         grtDrMario_80220724,
         grtDrMario_8022072C,
         grtDrMario_80220760,
-        (1 << 31) | (1 << 30),
+        (1U << 31) | (1 << 30),
     },
     { 0 },
 };

@@ -61,6 +61,16 @@ typedef struct {
     u32 hi;
 } U32Pair;
 
+#ifdef MELEE_NATIVE
+static inline void Results_UnpackHalfWords(u16* dst, u32 first, u32 second)
+{
+    dst[0] = first >> 16;
+    dst[1] = first;
+    dst[2] = second >> 16;
+    dst[3] = second;
+}
+#endif
+
 typedef struct {
     /* 0x00:0 */ u8 x0_0 : 4;
     /* 0x00:4 */ u8 x0_4 : 2;
@@ -118,9 +128,17 @@ extern u32 gmResultScoreTableInit[0x20 / sizeof(u32)];
 extern ResultsCharacterData gmResultCharacterData;
 extern HSD_CameraDescPerspective gmResultCameraDesc;
 
+#ifdef MELEE_NATIVE
+extern ResultsDisplayLayout native_results_display;
+#define lbl_8046E1B0 native_results_display
+#define lbl_8046E38C native_results_display.gobjs
+#define lbl_8046E39C native_results_display.jobjs
+#define lbl_8046E3AC native_results_display.state
+#else
 extern ResultsDisplayData lbl_8046E1B0;
 extern HSD_GObj* lbl_8046E38C[4];
 extern HSD_JObj* lbl_8046E39C[4];
 extern lbl_8046E3AC_t lbl_8046E3AC;
+#endif
 
 #endif

@@ -1,3 +1,9 @@
+#ifdef MELEE_NATIVE
+#define RCRUISE_VANISH(gp) ((gp)->u.rcruise.vanish)
+#else
+#define RCRUISE_VANISH(gp) ((gp)->u.map.vanish)
+#endif
+
 #include "grrcruise.h"
 
 #include <Runtime/platform.h>
@@ -145,7 +151,11 @@ void grRCruise_801FF168(void)
     HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
     grgobj = grRCruise_801FF2C8(3);
     gp2 = GET_GROUND(grgobj);
+#ifdef MELEE_NATIVE
+    gp2->u.scroll.anim_gobj = jgobj;
+#else
     gp2->u.rcruise2.xEC = jgobj;
+#endif
     grRCruise_801FF2C8(0);
     grRCruise_801FF2C8(2);
     grRCruise_801FF2C8(5);
@@ -255,8 +265,13 @@ void grRCruise_801FF5B4(Ground_GObj* gobj)
     Ground_801C2ED0(jobj, gp->map_id);
     grAnime_801C8138(gobj, gp->map_id, 0);
     gp->u.rcruise.x10 = 1;
+#ifdef MELEE_NATIVE
+    gp->u.rcruise.entries = HSD_MemAlloc(17 * sizeof(*gp->u.rcruise.entries));
+    HSD_ASSERT(410, gp->u.rcruise.entries);
+#else
     gp->u.map.chikuwa = HSD_MemAlloc(sizeof(*gp->u.map.chikuwa));
     HSD_ASSERT(410, gp->u.map.chikuwa);
+#endif
     grRCruise_80201410(gobj);
     Ground_801C10B8(gobj, grRCruise_801FF444);
     grRCruise_80200540(gobj);
@@ -1051,18 +1066,27 @@ void grRCruise_80201410(Ground_GObj* gobj)
     Ground* gp = GET_GROUND(gobj);
     int i;
 
-    gp->u.map.vanish = HSD_MemAlloc(sizeof(lbl_803E5014));
+    RCRUISE_VANISH(gp) =
+        HSD_MemAlloc(ARRAY_SIZE(lbl_803E5014) * sizeof(*RCRUISE_VANISH(gp)));
+#ifdef MELEE_NATIVE
+    HSD_ASSERT(1453, RCRUISE_VANISH(gp));
+#else
     HSD_ASSERT(1453, gp->u.map.vanish);
+#endif
 
     for (i = 0; i < ARRAY_SIZE(lbl_803E5014); i++) {
-        gp->u.map.vanish[i].jobj = Ground_801C3FA4(gobj, lbl_803E5014[i].x0);
+        RCRUISE_VANISH(gp)[i].jobj = Ground_801C3FA4(gobj, lbl_803E5014[i].x0);
+#ifdef MELEE_NATIVE
+        HSD_ASSERT(1459, RCRUISE_VANISH(gp)[i].jobj);
+#else
         HSD_ASSERT(1459, gp->u.map.vanish[i].jobj);
+#endif
         if (lbl_803E5014[i].x4 != 0) {
-            gp->u.map.vanish[i].x0 = 2;
+            RCRUISE_VANISH(gp)[i].x0 = 2;
             set_hidden_a(i);
             mpJointListAdd(lbl_803E5014[i].x2);
         } else {
-            gp->u.map.vanish[i].x0 = 0;
+            RCRUISE_VANISH(gp)[i].x0 = 0;
             grAnime_801C7FF8(gobj, lbl_803E5014[i].x0, 2, 1, 0.0f, 1.0f);
             mpLib_80057BC0(lbl_803E5014[i].x2);
         }
@@ -1075,17 +1099,21 @@ void grRCruise_80201588(Ground_GObj* gobj)
     Ground* gp = GET_GROUND(gobj);
     int i;
 
+#ifdef MELEE_NATIVE
+    HSD_ASSERT(0x5D6, RCRUISE_VANISH(gp));
+#else
     HSD_ASSERT(0x5D6, gp->u.map.vanish);
+#endif
 
     for (i = 0; i < ARRAY_SIZE(lbl_803E5014); i++) {
         if (lbl_803E5014[i].x4 != 0) {
             continue;
         }
-        switch (gp->u.map.vanish[i].x0) {
+        switch (RCRUISE_VANISH(gp)[i].x0) {
         case 0:
-            lb_8000B1CC(gp->u.map.vanish[i].jobj, NULL, &pos);
+            lb_8000B1CC(RCRUISE_VANISH(gp)[i].jobj, NULL, &pos);
             if (Camera_8003118C(&pos, -20.0f) != 0) {
-                gp->u.map.vanish[i].x0 = 1;
+                RCRUISE_VANISH(gp)[i].x0 = 1;
                 grAnime_801C7FF8(gobj, lbl_803E5014[i].x0, 2, 2, 0.0f, 1.0f);
                 mpJointListAdd(lbl_803E5014[i].x2);
                 mpLib_80055E9C(lbl_803E5014[i].x2);
@@ -1094,14 +1122,14 @@ void grRCruise_80201588(Ground_GObj* gobj)
             break;
         case 1:
             if (grAnime_801C83D0(gobj, lbl_803E5014[i].x0, 2) != 0) {
-                gp->u.map.vanish[i].x0 = 2;
+                RCRUISE_VANISH(gp)[i].x0 = 2;
                 set_hidden_a(i);
             }
             break;
         case 2:
-            lb_8000B1CC(gp->u.map.vanish[i].jobj, NULL, &pos);
+            lb_8000B1CC(RCRUISE_VANISH(gp)[i].jobj, NULL, &pos);
             if (Camera_8003118C(&pos, -20.0f) == 0) {
-                gp->u.map.vanish[i].x0 = 3;
+                RCRUISE_VANISH(gp)[i].x0 = 3;
                 grAnime_801C7FF8(gobj, lbl_803E5014[i].x0, 2, 3, 0.0f, 1.0f);
                 set_hidden_b(i);
             }
@@ -1109,11 +1137,11 @@ void grRCruise_80201588(Ground_GObj* gobj)
         case 3:
             if (grAnime_801C83D0(gobj, lbl_803E5014[i].x0, 2) != 0) {
                 int j;
-                gp->u.map.vanish[i].x0 = 0;
+                RCRUISE_VANISH(gp)[i].x0 = 0;
                 grAnime_801C7FF8(gobj, lbl_803E5014[i].x0, 2, 1, 0.0f, 1.0f);
                 for (j = 0; j < ARRAY_SIZE(lbl_803E5014); j++) {
                     if (lbl_803E5014[j].x2 == lbl_803E5014[i].x2 &&
-                        gp->u.map.vanish[j].x0 != 0)
+                        RCRUISE_VANISH(gp)[j].x0 != 0)
                     {
                         break;
                     }

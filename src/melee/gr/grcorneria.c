@@ -1347,7 +1347,7 @@ void grCorneria_801DED50(Ground_GObj* gobj)
                                     it_802E72E0(gobj, Ground_801C3FA4(gobj, 5),
                                                 0, -1.0f, yakumono_param->x70);
                                 }
-                                grMaterial_801C9604(gobj, yakumono_param->x84,
+                                grMaterial_801C9604(gobj, GR_MATERIAL_SCRIPT(yakumono_param->x84),
                                                     0);
                             }
                         }
@@ -1432,7 +1432,7 @@ void grCorneria_801DED50(Ground_GObj* gobj)
                         gp->u.corneria2.x100 = (gp->u.corneria2.x100 + 1) & 1;
                     }
                 }
-                grMaterial_801C9604(gobj, yakumono_param->x84, 0);
+                grMaterial_801C9604(gobj, GR_MATERIAL_SCRIPT(yakumono_param->x84), 0);
             }
         }
         }

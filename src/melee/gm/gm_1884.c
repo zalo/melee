@@ -105,8 +105,8 @@ static inline TrainingItemEntry* TrainingItemTable_Get(void)
 /* 473700 */ static TrainingModeState lbl_80473700;
 /* 473814 */ CssSubStruct gm_80473814;
 
-STATIC_ASSERT(sizeof(lbl_80473700) == 0x114);
-STATIC_ASSERT(sizeof(gm_80473814) == 0x204);
+ASSERT_SIZE(lbl_80473700, 0x114);
+ASSERT_SIZE(gm_80473814, 0x204);
 
 int gm_80188454(int idx)
 {

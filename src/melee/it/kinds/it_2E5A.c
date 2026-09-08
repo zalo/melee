@@ -341,7 +341,11 @@ static inline s32 it_802E6380_tier(Item_GObj* item_gobj, it_2E5A_Attrs* attr,
     s32* tier_thresholds = (s32*) &attr->tiers[0].ecb;
     if (arg1->xC < attr->tiers[2].threshold) {
         off = 1;
+#ifdef MELEE_NATIVE
+        if (arg1->xC < attr->tiers[1].threshold) {
+#else
         if (arg1->xC < tier_thresholds[9]) {
+#endif
             off = 0;
         }
     }

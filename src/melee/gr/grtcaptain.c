@@ -56,7 +56,7 @@ static StageCallbacks grTCa_StageCallbacks[] = {
         grTCaptain_8021FE78,
         grTCaptain_8021FE80,
         grTCaptain_8021FEB4,
-        (1 << 30) | (1 << 31),
+        (1 << 30) | (1U << 31),
     },
     { 0 },
 };

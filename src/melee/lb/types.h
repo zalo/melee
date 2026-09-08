@@ -325,6 +325,16 @@ struct ColorOverlay_UnkInner {
 };
 
 union ColorOverlay_x8_t {
+#ifdef MELEE_NATIVE
+    struct { u32 a:8, b:8, g:8, r:8; } light_color;
+    struct { s32 yz:13, x:13, unk:6; } light_rot1;
+    struct {
+        s32 yz:12, x:12;
+        u32 x0_7:1, light_enable:1, x0_5:1, x0_4:1;
+        u32 x0_3:1, x0_2:1, x0_1:1, x0_0:1;
+    } light_rot2;
+    struct { u32 timer:26, unk:6; } unk;
+#else
     GXColor light_color;
     struct {
         s32 unk : 6;
@@ -347,6 +357,7 @@ union ColorOverlay_x8_t {
         u32 unk : 6;
         u32 timer : 26;
     } unk;
+#endif
 };
 ASSERT_SIZE(union ColorOverlay_x8_t, 0x4);
 
@@ -355,12 +366,16 @@ struct ColorOverlay {
     s32 x4_pri;   // 0x4  this colanims priority, lower = will persist
     union ColorOverlay_x8_t* x8_ptr1; // 0x8
     s32 xC_loop;                      // 0xc
+#ifdef MELEE_NATIVE
+    union CmdUnion* event_return[6];
+#else
     s32* x10_ptr2;                    // 0x10
     s32 x14;                          // 0x14
     s32* x18_alloc;                   // 0x18
     s32 x1c;                          // 0x1c
     s32 x20;                          // 0x20
     s32 x24;                          // 0x24
+#endif
     union {
         enum_t i;
         struct ColorOverlay_UnkInner* ptr;
@@ -519,6 +534,9 @@ struct lbColl_8000A10C_arg0_t {
     Vec3 x14;
 };
 
+#ifdef MELEE_NATIVE
+#include <native_command_fields.h>
+#else
 struct Command_00 {
     u32 code : 6;
     u32 value : 26;
@@ -917,6 +935,8 @@ struct wind_fx_3 {
     s16 decay : 16;
 };
 
+#endif
+
 struct CommandInfo {
     f32 timer;       // 0x00
     f32 frame_count; // 0x04
@@ -1011,8 +1031,12 @@ struct CommandInfo {
         }* u;
     };
     u32 loop_count; // 0x0C
+#ifdef MELEE_NATIVE
+    union CmdUnion* event_return[6];
+#else
     union CmdUnion*
         event_return[3]; // 0x10 - Array Size is purely made-up for now
+#endif
     u32 loop_count_dup;  // 0x14
     u32 unk_x18;         // 0x18
 };

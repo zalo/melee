@@ -274,6 +274,12 @@ static inline void Locate(HSD_Archive* archive, intptr_t base_addr)
 int lbArchiveRelocate(HSD_Archive* archive, u8* src, size_t file_size,
                       intptr_t base_addr)
 {
+#ifdef MELEE_NATIVE
+    // Native materialization leaves the source archive in its disc format.
+    // A copied animation buffer can therefore be parsed independently.
+    (void) base_addr;
+    return HSD_ArchiveParse(archive, src, file_size);
+#else
     size_t file_offset;
 
     if (archive == NULL) {
@@ -317,4 +323,5 @@ int lbArchiveRelocate(HSD_Archive* archive, u8* src, size_t file_size,
     Locate(archive, base_addr);
 
     return 0;
+#endif
 }

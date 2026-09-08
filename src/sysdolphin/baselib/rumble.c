@@ -168,7 +168,11 @@ int HSD_PadRumbleInterpret1(HSD_PadRumbleListData* a, u8* b)
         return 0;
     }
     while (a->wait == 0) {
+#ifdef MELEE_NATIVE
+        switch ((*a->listp >> 13) & 7) {
+#else
         switch ((*(u8*) a->listp >> 5) & 7) {
+#endif
         case 0:
             if (a->frame == -2) {
                 return 1;

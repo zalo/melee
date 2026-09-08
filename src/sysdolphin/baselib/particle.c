@@ -31,6 +31,9 @@ typedef struct {
 #include "random.h"
 #include <dolphin/gx.h>
 #include <dolphin/os.h>
+#ifdef MELEE_NATIVE
+#include <melee_particle.h>
+#endif
 
 /* 4D78D8 */ u16 hsd_804D78D8 = 0;
 /* 4D78DA */ u16 hsd_804D78DA = 0;
@@ -44,10 +47,10 @@ typedef struct {
 /* 4D78E4 */ static u16 hsd_804D78E4 = 0;
 #pragma pop
 #endif
-/* 4D78E8 */ u32 hsd_804D78E8 = 0;
-/* 4D78EC */ u32 hsd_804D78EC = 0;
+/* 4D78E8 */ HSD_ParticleHandle hsd_804D78E8 = 0;
+/* 4D78EC */ HSD_ParticleHandle hsd_804D78EC = 0;
 /* 4D78F0 */ HSD_CObj* psCamera = NULL;
-/* 4D78F4 */ u32 hsd_804D78F4 = 0;
+/* 4D78F4 */ HSD_ParticleHandle hsd_804D78F4 = 0;
 static HSD_JObj* hsd_804D08E8[8];
 /* 4D0908 */ HSD_Particle* hsd_804D0908[16];
 /* 4D0948 */ u32* hsd_804D0948[65];
@@ -117,6 +120,20 @@ void hsd_803983A4(HSD_Generator* gen)
 void psInitDataBankLoad(int bank, const int* cmdBank, const int* texBank,
                         const u32* ref, const int* formBank)
 {
+#ifdef MELEE_NATIVE
+    const MeleeNativeParticleBank* cmd = (const void*) cmdBank;
+    const MeleeNativeParticleBank* tex = (const void*) texBank;
+    const MeleeNativeParticleBank* form = (const void*) formBank;
+    HSD_ASSERT(126, bank >= 0 && bank < 65);
+    HSD_ASSERT(127, cmd && cmd->magic == MELEE_PARTICLE_BANK_MAGIC);
+    HSD_ASSERT(128, tex && tex->magic == MELEE_PARTICLE_BANK_MAGIC);
+    HSD_ASSERT(129, !form || (form->magic == MELEE_PARTICLE_BANK_MAGIC && form->count == tex->count));
+    hsd_804D0948[bank] = (u32*) ref;
+    psTexGroupArray[bank] = (HSD_PSTexGroup**) tex->entries;
+    psNumCmdList[bank] = form ? (HSD_PSFormGroup**) form->entries : NULL;
+    psCmdListArray[bank] = cmd->count;
+    ptclref_804D0E5C[bank] = (HSD_PSCmdList**) cmd->entries;
+#else
     u16 version;
 
     (void) hsd_804D0908;
@@ -154,11 +171,18 @@ void psInitDataBankLoad(int bank, const int* cmdBank, const int* texBank,
     default:
         OSPanic(__FILE__, 207, "psInitDataBanks: unknown version\n");
     }
+#endif
 }
 
 void psInitDataBankLocate(HSD_Archive* cmdBank, HSD_Archive* texBank,
                           int* formBank)
 {
+#ifdef MELEE_NATIVE
+    // The native archive reader has already relocated and converted these banks.
+    HSD_ASSERT(163, cmdBank && ((MeleeNativeParticleBank*) cmdBank)->magic == MELEE_PARTICLE_BANK_MAGIC);
+    HSD_ASSERT(164, texBank && ((MeleeNativeParticleBank*) texBank)->magic == MELEE_PARTICLE_BANK_MAGIC);
+    HSD_ASSERT(165, !formBank || ((MeleeNativeParticleBank*) formBank)->magic == MELEE_PARTICLE_BANK_MAGIC);
+#else
     s32 num;
     s32* ptr;
     s32* group;
@@ -321,6 +345,7 @@ done_cmd:
             }
         }
     }
+#endif
 }
 
 void psInitDataBank(int bank, int* cmdBank, int* texBank, u32* ref,
@@ -502,8 +527,8 @@ HSD_Particle* psGenerateParticle0(HSD_Particle** head, int linkNo, int bank,
 #pragma push
 #pragma dont_inline on
 #endif
-void hsd_80398F0C(s32 linkNo, s32 bank, s32 kind, u16 texGroup, s32 cmdList,
-                  s32 life, s32 zero, s32 gen, f32 pos_x, f32 pos_y, f32 pos_z,
+void hsd_80398F0C(s32 linkNo, s32 bank, s32 kind, u16 texGroup, HSD_ParticleAddress cmdList,
+                  s32 life, s32 zero, HSD_ParticleAddress gen, f32 pos_x, f32 pos_y, f32 pos_z,
                   f32 vel_x, f32 vel_y, f32 vel_z, f32 fric, f32 rate,
                   f32 angle3)
 {
@@ -631,10 +656,16 @@ s32 hsd_803991D8(HSD_Generator* gen, HSD_JObj* jobj, f32 force, f32 range)
 static inline void psReadFloat(u8** stream)
 {
     u8* p = *stream;
+#ifdef MELEE_NATIVE
+    u32 bits = ((u32) p[0] << 24) | ((u32) p[1] << 16) | ((u32) p[2] << 8) | p[3];
+    memcpy(&hsd_804D78D0, &bits, sizeof(bits));
+    p += 4;
+#else
     ((ParticleFloatBytes*) &hsd_804D78D0)->bytes[0] = *p++;
     ((ParticleFloatBytes*) &hsd_804D78D0)->bytes[1] = *p++;
     ((ParticleFloatBytes*) &hsd_804D78D0)->bytes[2] = *p++;
     ((ParticleFloatBytes*) &hsd_804D78D0)->bytes[3] = *p++;
+#endif
     *stream = p;
 }
 
@@ -3036,6 +3067,7 @@ void hsd_8039D048(void* particle)
 
 void hsd_8039D0A0(HSD_Generator* gen)
 {
+#ifndef MELEE_NATIVE
     typedef struct {
         HSD_JObj* jobj[8];
         HSD_Particle* particle[146];
@@ -3043,6 +3075,7 @@ void hsd_8039D0A0(HSD_Generator* gen)
         HSD_ObjAllocData alloc_data;
     } ParticleData;
     ParticleData* data = (ParticleData*) hsd_804D08E8;
+#endif
     HSD_Particle* prev;
     HSD_Particle* prt;
     HSD_Particle* next;
@@ -3051,7 +3084,11 @@ void hsd_8039D0A0(HSD_Generator* gen)
 
     prev = NULL;
     idnum = gen->idnum;
+#ifdef MELEE_NATIVE
+    head = &hsd_804D0908[gen->linkNo];
+#else
     head = &data->particle[gen->linkNo];
+#endif
     prt = *head;
 
     while (prt != NULL) {
@@ -3079,13 +3116,24 @@ void hsd_8039D0A0(HSD_Generator* gen)
 
             if (prt->kind & 0x8000) {
                 s32 jidx = (prt->kind >> 12) & 7;
+#ifdef MELEE_NATIVE
+                if (hsd_804D08E8[jidx] != NULL) {
+                    HSD_JObjUnref(hsd_804D08E8[jidx]);
+                    hsd_804D08E8[jidx] = NULL;
+                }
+#else
                 if (data->jobj[jidx] != NULL) {
                     HSD_JObjUnref(data->jobj[jidx]);
                     data->jobj[jidx] = NULL;
                 }
+#endif
             }
 
+#ifdef MELEE_NATIVE
+            HSD_ObjFree(&hsd_804D0F60.alloc_data, prt);
+#else
             HSD_ObjFree(&data->alloc_data, prt);
+#endif
             hsd_804D78E2--;
         } else {
             prev = prt;

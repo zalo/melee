@@ -68,7 +68,7 @@ static const char* lb_8001C658(void)
     return _p(_1C);
 }
 
-static int lb_8001C820(void)
+static intptr_t lb_8001C820(void)
 {
     int var_r0;
 

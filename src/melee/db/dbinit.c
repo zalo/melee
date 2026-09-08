@@ -140,6 +140,10 @@ void db_PrintEntityCounts(void)
 
 void db_PrintThreadInfo(void)
 {
+#ifdef MELEE_NATIVE
+    extern void MeleeNativeReportThreadInfo(void);
+    MeleeNativeReportThreadInfo();
+#else
     u8* peak = _stack_end + 4;
     while (*peak == 0xAA) {
         peak += 1;
@@ -148,6 +152,7 @@ void db_PrintThreadInfo(void)
     OSReport("base:%x, end:%x, size:%d peak:%d \n", _stack_addr, _stack_end,
              _stack_addr - _stack_end, _stack_addr - peak);
     OSReport("\n");
+#endif
 }
 
 static inline int db_get_pad_button(int i)

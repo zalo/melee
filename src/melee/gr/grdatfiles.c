@@ -8,6 +8,9 @@
 #include <sysdolphin/baselib/archive.h>
 #include <sysdolphin/baselib/debug.h>
 #include <sysdolphin/baselib/particle.h>
+#ifdef MELEE_NATIVE
+#include <sysdolphin/baselib/mobj.h>
+#endif
 #include <sysdolphin/baselib/psstructs.h>
 
 /* 1C6228 */ static void grDatFiles_801C6228(UnkStageDat*);
@@ -103,7 +106,11 @@ void grDatFiles_801C6228(UnkStageDat* arg0)
         for (i = 0; i < arg0->unk2C; i++) {
             UnkStageDatInternal* temp_r4 = arg0->unk28[i];
             if (temp_r4 != NULL) {
+#ifdef MELEE_NATIVE
+                ((HSD_MObjDesc*) temp_r4)->rendermode |= 0x4000000;
+#else
                 temp_r4->unk4 |= 0x4000000;
+#endif
             }
         }
     }

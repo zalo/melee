@@ -598,7 +598,11 @@ void ifMagnify_802FC870(void)
     HSD_Archive** archive;
     s32 i;
 
+    #ifdef MELEE_NATIVE
+    memzero(&ifMagnify_804A1DE0, sizeof(ifMagnify_804A1DE0));
+#else
     memzero(&ifMagnify_804A1DE0, 0x74);
+#endif
     ifMagnify_802FC7C0(&ifMagnify_804A1DE0);
     archive = ifAll_GetArchive();
     lbArchive_LoadSections(*archive, (void**) &ifMagnify_804A1DE0,

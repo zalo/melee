@@ -1,3 +1,9 @@
+#ifdef MELEE_NATIVE
+#define KIRBY_STONE_NORMAL(p) (ftKb_Init_803CB4EC.vec)
+#else
+#define KIRBY_STONE_NORMAL(p) ((p)->vec)
+#endif
+
 #include <melee/ft/forward.h>
 #include <sysdolphin/baselib/forward.h>
 
@@ -172,16 +178,16 @@ void ftKb_SpecialHi_800F3570(Fighter_GObj* gobj)
                                 pos_x_alias,
                             bottom_y) == 0)
         {
-            sp1C = p->vec;
+            sp1C = KIRBY_STONE_NORMAL(p);
         }
         if (fp->mv.kb.specialhi.x18.x > 0.0f) {
             if (sp1C.x < 0.0f) {
-                fp->mv.kb.specialhi.x18 = p->vec;
+                fp->mv.kb.specialhi.x18 = KIRBY_STONE_NORMAL(p);
                 fp->xE4_ground_accel_1 = (fp->mv.kb.specialhi.xC4 = 0.0f);
                 fp->gr_vel = 0.0f;
             }
         } else if (sp1C.x > 0.0f) {
-            fp->mv.kb.specialhi.x18 = p->vec;
+            fp->mv.kb.specialhi.x18 = KIRBY_STONE_NORMAL(p);
             fp->mv.kb.specialhi.xC4 = 0.0f;
             fp->xE4_ground_accel_1 = 0.0f;
             fp->gr_vel = 0.0f;
@@ -194,23 +200,23 @@ void ftKb_SpecialHi_800F36DC(Fighter_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
     struct ftKb_Init_803CB490_layout* p =
         (struct ftKb_Init_803CB490_layout*) ftKb_Init_803CB490;
-    fp->mv.kb.speciallw.x24[0] = p->vec;
+    fp->mv.kb.speciallw.x24[0] = KIRBY_STONE_NORMAL(p);
     fp->mv.kb.speciallw.x54[0] = fp->mv.kb.speciallw.x24[0];
     fp->mv.kb.speciallw.x88[0] = 0.0f;
     fp->mv.kb.speciallw.x88[4] = 0.0f;
-    fp->mv.kb.speciallw.x24[1] = p->vec;
+    fp->mv.kb.speciallw.x24[1] = KIRBY_STONE_NORMAL(p);
     fp->mv.kb.speciallw.x54[1] = fp->mv.kb.speciallw.x24[1];
     fp->mv.kb.speciallw.x88[1] = 0.0f;
     fp->mv.kb.speciallw.x88[5] = 0.0f;
-    fp->mv.kb.speciallw.x24[2] = p->vec;
+    fp->mv.kb.speciallw.x24[2] = KIRBY_STONE_NORMAL(p);
     fp->mv.kb.speciallw.x54[2] = fp->mv.kb.speciallw.x24[2];
     fp->mv.kb.speciallw.x88[2] = 0.0f;
     fp->mv.kb.speciallw.x88[6] = 0.0f;
-    fp->mv.kb.speciallw.x24[3] = p->vec;
+    fp->mv.kb.speciallw.x24[3] = KIRBY_STONE_NORMAL(p);
     fp->mv.kb.speciallw.x54[3] = fp->mv.kb.speciallw.x24[3];
     fp->mv.kb.speciallw.x88[3] = 0.0f;
     fp->mv.kb.speciallw.x88[7] = 0.0f;
-    fp->mv.kb.speciallw.x18 = p->vec;
+    fp->mv.kb.speciallw.x18 = KIRBY_STONE_NORMAL(p);
     fp->mv.kb.speciallw.x84 = 0.0f;
 }
 
@@ -604,23 +610,23 @@ void ftKb_SpecialLw1_Coll(Fighter_GObj* gobj)
 
     if (ft_80082708(gobj) == GA_Ground) {
         fp2 = GET_FIGHTER(gobj);
-        fp2->mv.kb.speciallw.x24[0] = p->vec;
+        fp2->mv.kb.speciallw.x24[0] = KIRBY_STONE_NORMAL(p);
         fp2->mv.kb.speciallw.x54[0] = fp2->mv.kb.speciallw.x24[0];
         fp2->mv.kb.speciallw.x88[0] = 0.0f;
         fp2->mv.kb.speciallw.x88[4] = 0.0f;
-        fp2->mv.kb.speciallw.x24[1] = p->vec;
+        fp2->mv.kb.speciallw.x24[1] = KIRBY_STONE_NORMAL(p);
         fp2->mv.kb.speciallw.x54[1] = fp2->mv.kb.speciallw.x24[1];
         fp2->mv.kb.speciallw.x88[1] = 0.0f;
         fp2->mv.kb.speciallw.x88[5] = 0.0f;
-        fp2->mv.kb.speciallw.x24[2] = p->vec;
+        fp2->mv.kb.speciallw.x24[2] = KIRBY_STONE_NORMAL(p);
         fp2->mv.kb.speciallw.x54[2] = fp2->mv.kb.speciallw.x24[2];
         fp2->mv.kb.speciallw.x88[2] = 0.0f;
         fp2->mv.kb.speciallw.x88[6] = 0.0f;
-        fp2->mv.kb.speciallw.x24[3] = p->vec;
+        fp2->mv.kb.speciallw.x24[3] = KIRBY_STONE_NORMAL(p);
         fp2->mv.kb.speciallw.x54[3] = fp2->mv.kb.speciallw.x24[3];
         fp2->mv.kb.speciallw.x88[3] = 0.0f;
         fp2->mv.kb.speciallw.x88[7] = 0.0f;
-        fp2->mv.kb.speciallw.x18 = p->vec;
+        fp2->mv.kb.speciallw.x18 = KIRBY_STONE_NORMAL(p);
         fp2->mv.kb.speciallw.x84 = 0.0f;
         fp->self_vel.x = 0.0f;
         ftCommon_8007D5D4(fp);
@@ -650,23 +656,23 @@ void ftKb_SpecialLw_Coll(Fighter_GObj* gobj)
 
     if (ft_80082708(gobj) == GA_Ground) {
         fp2 = GET_FIGHTER(gobj);
-        fp2->mv.kb.speciallw.x24[0] = p->vec;
+        fp2->mv.kb.speciallw.x24[0] = KIRBY_STONE_NORMAL(p);
         fp2->mv.kb.speciallw.x54[0] = fp2->mv.kb.speciallw.x24[0];
         fp2->mv.kb.speciallw.x88[0] = 0.0f;
         fp2->mv.kb.speciallw.x88[4] = 0.0f;
-        fp2->mv.kb.speciallw.x24[1] = p->vec;
+        fp2->mv.kb.speciallw.x24[1] = KIRBY_STONE_NORMAL(p);
         fp2->mv.kb.speciallw.x54[1] = fp2->mv.kb.speciallw.x24[1];
         fp2->mv.kb.speciallw.x88[1] = 0.0f;
         fp2->mv.kb.speciallw.x88[5] = 0.0f;
-        fp2->mv.kb.speciallw.x24[2] = p->vec;
+        fp2->mv.kb.speciallw.x24[2] = KIRBY_STONE_NORMAL(p);
         fp2->mv.kb.speciallw.x54[2] = fp2->mv.kb.speciallw.x24[2];
         fp2->mv.kb.speciallw.x88[2] = 0.0f;
         fp2->mv.kb.speciallw.x88[6] = 0.0f;
-        fp2->mv.kb.speciallw.x24[3] = p->vec;
+        fp2->mv.kb.speciallw.x24[3] = KIRBY_STONE_NORMAL(p);
         fp2->mv.kb.speciallw.x54[3] = fp2->mv.kb.speciallw.x24[3];
         fp2->mv.kb.speciallw.x88[3] = 0.0f;
         fp2->mv.kb.speciallw.x88[7] = 0.0f;
-        fp2->mv.kb.speciallw.x18 = p->vec;
+        fp2->mv.kb.speciallw.x18 = KIRBY_STONE_NORMAL(p);
         fp2->mv.kb.speciallw.x84 = 0.0f;
         fp->self_vel.x = 0.0f;
         ftCommon_8007D5D4(fp);
@@ -694,23 +700,23 @@ void ftKb_SpecialLwEnd_Coll(Fighter_GObj* gobj)
     PAD_STACK(8);
     ft_80081D0C(gobj);
     fp2 = GET_FIGHTER(gobj);
-    fp2->mv.kb.speciallw.x24[0] = p->vec;
+    fp2->mv.kb.speciallw.x24[0] = KIRBY_STONE_NORMAL(p);
     fp2->mv.kb.speciallw.x54[0] = fp2->mv.kb.speciallw.x24[0];
     fp2->mv.kb.speciallw.x88[0] = 0.0f;
     fp2->mv.kb.speciallw.x88[4] = 0.0f;
-    fp2->mv.kb.speciallw.x24[1] = p->vec;
+    fp2->mv.kb.speciallw.x24[1] = KIRBY_STONE_NORMAL(p);
     fp2->mv.kb.speciallw.x54[1] = fp2->mv.kb.speciallw.x24[1];
     fp2->mv.kb.speciallw.x88[1] = 0.0f;
     fp2->mv.kb.speciallw.x88[5] = 0.0f;
-    fp2->mv.kb.speciallw.x24[2] = p->vec;
+    fp2->mv.kb.speciallw.x24[2] = KIRBY_STONE_NORMAL(p);
     fp2->mv.kb.speciallw.x54[2] = fp2->mv.kb.speciallw.x24[2];
     fp2->mv.kb.speciallw.x88[2] = 0.0f;
     fp2->mv.kb.speciallw.x88[6] = 0.0f;
-    fp2->mv.kb.speciallw.x24[3] = p->vec;
+    fp2->mv.kb.speciallw.x24[3] = KIRBY_STONE_NORMAL(p);
     fp2->mv.kb.speciallw.x54[3] = fp2->mv.kb.speciallw.x24[3];
     fp2->mv.kb.speciallw.x88[3] = 0.0f;
     fp2->mv.kb.speciallw.x88[7] = 0.0f;
-    fp2->mv.kb.speciallw.x18 = p->vec;
+    fp2->mv.kb.speciallw.x18 = KIRBY_STONE_NORMAL(p);
     fp2->mv.kb.speciallw.x84 = 0.0f;
     ftPartSetRotX(fp, 0, 0.0f);
 }
@@ -783,23 +789,23 @@ void ftKb_SpecialAirLwStart_Coll(Fighter_GObj* gobj)
         ftKb_SpecialLw_SetStoneVecs(gobj, fp, da);
     } else {
         fp2 = GET_FIGHTER(gobj);
-        fp2->mv.kb.speciallw.x24[0] = p->vec;
+        fp2->mv.kb.speciallw.x24[0] = KIRBY_STONE_NORMAL(p);
         fp2->mv.kb.speciallw.x54[0] = fp2->mv.kb.speciallw.x24[0];
         fp2->mv.kb.speciallw.x88[0] = 0.0f;
         fp2->mv.kb.speciallw.x88[4] = 0.0f;
-        fp2->mv.kb.speciallw.x24[1] = p->vec;
+        fp2->mv.kb.speciallw.x24[1] = KIRBY_STONE_NORMAL(p);
         fp2->mv.kb.speciallw.x54[1] = fp2->mv.kb.speciallw.x24[1];
         fp2->mv.kb.speciallw.x88[1] = 0.0f;
         fp2->mv.kb.speciallw.x88[5] = 0.0f;
-        fp2->mv.kb.speciallw.x24[2] = p->vec;
+        fp2->mv.kb.speciallw.x24[2] = KIRBY_STONE_NORMAL(p);
         fp2->mv.kb.speciallw.x54[2] = fp2->mv.kb.speciallw.x24[2];
         fp2->mv.kb.speciallw.x88[2] = 0.0f;
         fp2->mv.kb.speciallw.x88[6] = 0.0f;
-        fp2->mv.kb.speciallw.x24[3] = p->vec;
+        fp2->mv.kb.speciallw.x24[3] = KIRBY_STONE_NORMAL(p);
         fp2->mv.kb.speciallw.x54[3] = fp2->mv.kb.speciallw.x24[3];
         fp2->mv.kb.speciallw.x88[3] = 0.0f;
         fp2->mv.kb.speciallw.x88[7] = 0.0f;
-        fp2->mv.kb.speciallw.x18 = p->vec;
+        fp2->mv.kb.speciallw.x18 = KIRBY_STONE_NORMAL(p);
         fp2->mv.kb.speciallw.x84 = 0.0f;
         ftPartSetRotX(fp, 0, 0.0f);
     }
@@ -834,23 +840,23 @@ void ftKb_SpecialAirLw_Coll(Fighter_GObj* gobj)
         ftKb_SpecialLw_SetStoneVecs(gobj, fp, da);
     } else {
         fp2 = GET_FIGHTER(gobj);
-        fp2->mv.kb.speciallw.x24[0] = p->vec;
+        fp2->mv.kb.speciallw.x24[0] = KIRBY_STONE_NORMAL(p);
         fp2->mv.kb.speciallw.x54[0] = fp2->mv.kb.speciallw.x24[0];
         fp2->mv.kb.speciallw.x88[0] = 0.0f;
         fp2->mv.kb.speciallw.x88[4] = 0.0f;
-        fp2->mv.kb.speciallw.x24[1] = p->vec;
+        fp2->mv.kb.speciallw.x24[1] = KIRBY_STONE_NORMAL(p);
         fp2->mv.kb.speciallw.x54[1] = fp2->mv.kb.speciallw.x24[1];
         fp2->mv.kb.speciallw.x88[1] = 0.0f;
         fp2->mv.kb.speciallw.x88[5] = 0.0f;
-        fp2->mv.kb.speciallw.x24[2] = p->vec;
+        fp2->mv.kb.speciallw.x24[2] = KIRBY_STONE_NORMAL(p);
         fp2->mv.kb.speciallw.x54[2] = fp2->mv.kb.speciallw.x24[2];
         fp2->mv.kb.speciallw.x88[2] = 0.0f;
         fp2->mv.kb.speciallw.x88[6] = 0.0f;
-        fp2->mv.kb.speciallw.x24[3] = p->vec;
+        fp2->mv.kb.speciallw.x24[3] = KIRBY_STONE_NORMAL(p);
         fp2->mv.kb.speciallw.x54[3] = fp2->mv.kb.speciallw.x24[3];
         fp2->mv.kb.speciallw.x88[3] = 0.0f;
         fp2->mv.kb.speciallw.x88[7] = 0.0f;
-        fp2->mv.kb.speciallw.x18 = p->vec;
+        fp2->mv.kb.speciallw.x18 = KIRBY_STONE_NORMAL(p);
         fp2->mv.kb.speciallw.x84 = 0.0f;
         ftPartSetRotX(fp, 0, 0.0f);
     }
@@ -865,23 +871,23 @@ void ftKb_SpecialAirLwEnd_Coll(Fighter_GObj* gobj)
     PAD_STACK(8);
     ft_80081D0C(gobj);
     fp2 = GET_FIGHTER(gobj);
-    fp2->mv.kb.speciallw.x24[0] = p->vec;
+    fp2->mv.kb.speciallw.x24[0] = KIRBY_STONE_NORMAL(p);
     fp2->mv.kb.speciallw.x54[0] = fp2->mv.kb.speciallw.x24[0];
     fp2->mv.kb.speciallw.x88[0] = 0.0f;
     fp2->mv.kb.speciallw.x88[4] = 0.0f;
-    fp2->mv.kb.speciallw.x24[1] = p->vec;
+    fp2->mv.kb.speciallw.x24[1] = KIRBY_STONE_NORMAL(p);
     fp2->mv.kb.speciallw.x54[1] = fp2->mv.kb.speciallw.x24[1];
     fp2->mv.kb.speciallw.x88[1] = 0.0f;
     fp2->mv.kb.speciallw.x88[5] = 0.0f;
-    fp2->mv.kb.speciallw.x24[2] = p->vec;
+    fp2->mv.kb.speciallw.x24[2] = KIRBY_STONE_NORMAL(p);
     fp2->mv.kb.speciallw.x54[2] = fp2->mv.kb.speciallw.x24[2];
     fp2->mv.kb.speciallw.x88[2] = 0.0f;
     fp2->mv.kb.speciallw.x88[6] = 0.0f;
-    fp2->mv.kb.speciallw.x24[3] = p->vec;
+    fp2->mv.kb.speciallw.x24[3] = KIRBY_STONE_NORMAL(p);
     fp2->mv.kb.speciallw.x54[3] = fp2->mv.kb.speciallw.x24[3];
     fp2->mv.kb.speciallw.x88[3] = 0.0f;
     fp2->mv.kb.speciallw.x88[7] = 0.0f;
-    fp2->mv.kb.speciallw.x18 = p->vec;
+    fp2->mv.kb.speciallw.x18 = KIRBY_STONE_NORMAL(p);
     fp2->mv.kb.speciallw.x84 = 0.0f;
     ftPartSetRotX(fp, 0, 0.0f);
 }

@@ -44,7 +44,7 @@ static StageCallbacks grTFx_StageCallbacks[4] = {
     { grTFox_80220D14, grTFox_80220D40, grTFox_80220D48, grTFox_80220D4C, 0 },
     { grTFox_80220DE0, grTFox_80220E30, grTFox_80220E38, grTFox_80220E58, 0 },
     { grTFox_80220D50, grTFox_80220DA0, grTFox_80220DA8, grTFox_80220DDC,
-      (1 << 31) | (1 << 30) },
+      (1U << 31) | (1 << 30) },
     { NULL, NULL, NULL, NULL, 0 }
 };
 

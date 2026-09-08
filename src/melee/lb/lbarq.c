@@ -46,10 +46,18 @@ static lbArqState lbArq_80014ABC(lbArqNode* arg0)
 #pragma pop
 #endif
 
+#ifdef MELEE_NATIVE
+static void lbArq_80014AC4(ARQRequest* request)
+#else
 static void lbArq_80014AC4(lbArqHandle* handle)
+#endif
 {
     lbArqGlobal* global = &lbArq_804316C0;
+#ifdef MELEE_NATIVE
+    lbArqNode* node = (lbArqNode*) ((u8*) request - offsetof(lbArqNode, arq));
+#else
     lbArqNode* node = handle->node;
+#endif
     lbArqNode** prev;
     lbArqNode** tail;
     uintptr_t offset;
@@ -58,10 +66,14 @@ static void lbArq_80014AC4(lbArqHandle* handle)
     intr = OSDisableInterrupts();
 
     /* Remove from current list (indexed by state) */
+#ifdef MELEE_NATIVE
+    prev = &global->list[node->state];
+#else
     offset = node->state * 4;
     offset += 0x1E0;
     offset += (uintptr_t) global;
     prev = (lbArqNode**) offset;
+#endif
     while (*prev != node) {
         prev = &(*prev)->next;
     }

@@ -30,6 +30,9 @@ struct ftHurtboxInit {
 };
 
 union ftCommon_MotionVars {
+#ifdef MELEE_NATIVE
+    struct { float timer; int flag; } scope;
+#endif
     struct {
         /* fp+2340 */ int x0;
         /* fp+2344 */ Vec3 x4;

@@ -50,7 +50,7 @@ struct CardEntry {
                              UNK_T status_out);
 /* 01BC18 */ int lb_8001BC18(int chan, char* filename, void** file_entries,
                              void* save_data, const char* write_buf,
-                             int write_offset, int write_len,
+                             intptr_t write_offset, intptr_t write_len,
                              UNK_T status_out);
 /* 01BD34 */ enum_t lb_8001BD34(int chan, const char* filename,
                                 UNK_T file_entries, UNK_T status_out);

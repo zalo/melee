@@ -1,4 +1,7 @@
 #include "axdriver.h"
+#ifdef MELEE_NATIVE
+#include <melee_sfx.h>
+#endif
 
 #include <math.h>
 #include <string.h>
@@ -835,6 +838,34 @@ void AXDriver_8038DA70(const char* path, void (*callback)(void))
 
     DVDClose(&fileInfo);
 
+#ifdef MELEE_NATIVE
+    HSD_ASSERT(843, (AXDriver_804D779C & 3) == 0);
+    u32* words = AXDriver_804D7798;
+    size_t word_count = AXDriver_804D779C / 4;
+    for (size_t k = 0; k < word_count; ++k) words[k] = MeleeSfxRead32(&words[k]);
+    size_t cursor = 0;
+    s32* counts[5] = {&AXDriver_804D77A0, &AXDriver_804D77A8, &AXDriver_804D77B0, &AXDriver_804D77B8, &AXDriver_804D77C0};
+    void* tables[5] = {0};
+    for (unsigned table = 0; table < 5; ++table) {
+        HSD_ASSERT(850, cursor < word_count);
+        u32 count = words[cursor++];
+        HSD_ASSERT(852, count <= word_count - cursor);
+        *counts[table] = count;
+        if (table == 0 || table == 2) tables[table] = count ? &words[cursor] : NULL;
+        else if (count) {
+            u32** pointers = HSD_AudioMalloc(count * sizeof(*pointers));
+            for (u32 k = 0; k < count; ++k) {
+                u32 offset = words[cursor+k];
+                HSD_ASSERT(859, !(offset & 3) && offset < AXDriver_804D779C);
+                pointers[k] = words + offset / 4;
+            }
+            tables[table] = pointers;
+        }
+        cursor += count;
+    }
+    AXDriver_804D77A4=tables[0]; AXDriver_804D77AC=tables[1]; AXDriver_804D77B4=tables[2];
+    AXDriver_804D77BC=tables[3]; AXDriver_804D77C4=tables[4];
+#else
     AXDriver_804D77A0 = ((s32*) AXDriver_804D7798)[0];
     count = AXDriver_804D77A0;
     if (count != 0) {
@@ -902,10 +933,17 @@ void AXDriver_8038DA70(const char* path, void (*callback)(void))
         *(u32*) ((u8*) AXDriver_804D77C4 + i) += (u32) AXDriver_804D7798 & ~3u;
         i += 4;
     }
+#endif
 }
 
 void AXDriver_8038DCFC(void)
 {
+#ifdef MELEE_NATIVE
+    if (AXDriver_804D77AC) HSD_AudioFree(AXDriver_804D77AC);
+    if (AXDriver_804D77BC) HSD_AudioFree(AXDriver_804D77BC);
+    if (AXDriver_804D77C4) HSD_AudioFree(AXDriver_804D77C4);
+    AXDriver_804D77AC = AXDriver_804D77BC = AXDriver_804D77C4 = NULL;
+#endif
     if (AXDriver_804D7798 != NULL) {
         HSD_AudioFree(AXDriver_804D7798);
     }

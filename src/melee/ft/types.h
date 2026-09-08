@@ -50,6 +50,12 @@ struct FighterPartsTable {
 };
 
 /// @todo Determine size and add remaining members.
+#ifdef MELEE_NATIVE
+typedef u32 FtCommonUnknownWord;
+#else
+typedef UNK_T FtCommonUnknownWord;
+#endif
+
 struct ftCommonData {
     /*   +0 */ float horizontal_stick_deadzone;
     /*   +4 */ float vertical_stick_deadzone;
@@ -170,7 +176,7 @@ struct ftCommonData {
     /* +1D0 */ float x1D0;
     /* +1D4 */ float x1D4;
     /* +1D8 */ float x1D8;
-    /* +1DC */ UNK_T x1DC;
+    /* +1DC */ FtCommonUnknownWord x1DC;
     /* +1E0 */ float x1E0;
     /* +1E4 */ float x1E4;
     /* +1E8 */ float x1E8_radians;
@@ -194,7 +200,7 @@ struct ftCommonData {
     /* +230 */ float x230;
     /* +234 */ float x234_radians;
     /* +238 */ float x238_radians;
-    /* +23C */ UNK_T x23C;
+    /* +23C */ FtCommonUnknownWord x23C;
     /* +240 */ float x240;
     /* +244 */ float x244;
     /* +248 */ float x248;
@@ -208,7 +214,7 @@ struct ftCommonData {
     /* +268 */ float x268;
     /* +26C */ float x26C;
     /* +270 */ float x270;
-    /* +274 */ UNK_T x274;
+    /* +274 */ FtCommonUnknownWord x274;
     /* +278 */ float x278;
     /* +27C */ float x27C;
     /* +280 */ float x280_unkShieldHealth;
@@ -295,8 +301,8 @@ struct ftCommonData {
     /* +3E8 */ float x3E8_shieldKnockbackFrameDecay;
     /* +3EC */ float x3EC_shieldGroundFrictionMultiplier;
     /* +3F0 */ float x3F0;
-    /* +3F4 */ UNK_T x3F4;
-    /* +3F8 */ UNK_T x3F8;
+    /* +3F4 */ FtCommonUnknownWord x3F4;
+    /* +3F8 */ FtCommonUnknownWord x3F8;
     /* +3FC */ int x3FC;
     /* +400 */ float x400;
     /* +404 */ float x404;
@@ -359,24 +365,24 @@ struct ftCommonData {
     /* +4F4 */ float x4F4;
     /* +4F8 */ u32 x4F8;
     /* +4FC */ u32 x4FC;
-    /* +500 */ UNK_T x500;
+    /* +500 */ FtCommonUnknownWord x500;
     /* +504 */ int x504;
-    /* +508 */ UNK_T x508;
-    /* +50C */ UNK_T x50C;
+    /* +508 */ FtCommonUnknownWord x508;
+    /* +50C */ FtCommonUnknownWord x50C;
     /* +510 */ float x510;
     /* +514 */ float x514;
-    /* +518 */ UNK_T x518;
+    /* +518 */ FtCommonUnknownWord x518;
     /* +51C */ float x51C_radians;
     /* +520 */ int x520;
-    /* +524 */ UNK_T x524;
-    /* +528 */ UNK_T x528;
-    /* +52C */ UNK_T x52C;
-    /* +530 */ UNK_T x530;
-    /* +534 */ UNK_T x534;
-    /* +538 */ UNK_T x538;
+    /* +524 */ FtCommonUnknownWord x524;
+    /* +528 */ FtCommonUnknownWord x528;
+    /* +52C */ FtCommonUnknownWord x52C;
+    /* +530 */ FtCommonUnknownWord x530;
+    /* +534 */ FtCommonUnknownWord x534;
+    /* +538 */ FtCommonUnknownWord x538;
     /* +53C */ float x53C;
     /* +540 */ float x540;
-    /* +544 */ UNK_T x544;
+    /* +544 */ FtCommonUnknownWord x544;
     /* +548 */ float x548;
     /* +54C */ float x54C;
     /* +550 */ float x550;
@@ -406,19 +412,19 @@ struct ftCommonData {
     /* +5B0 */ float x5B0;
     /* +5B4 */ int x5B4;
     /* +5B8 */ float x5B8;
-    /* +5BC */ UNK_T x5BC;
+    /* +5BC */ FtCommonUnknownWord x5BC;
     /* +5C0 */ float x5C0;
-    /* +5C4 */ UNK_T x5C4;
+    /* +5C4 */ FtCommonUnknownWord x5C4;
     /* +5C8 */ int x5C8;
     /* +5CC */ float x5CC;
-    /* +5D0 */ UNK_T x5D0;
-    /* +5D4 */ UNK_T x5D4;
+    /* +5D0 */ FtCommonUnknownWord x5D0;
+    /* +5D4 */ FtCommonUnknownWord x5D4;
     /* +5D8 */ int x5D8;
     /* +5DC */ u32 bury_timer_unk1;
     /* +5E0 */ u32 bury_timer_unk2;
     /* +5E4 */ u32 bury_timer_unk3;
     /* +5E8 */ float x5E8;
-    /* +5EC */ UNK_T x5EC;
+    /* +5EC */ FtCommonUnknownWord x5EC;
     /* +5F0 */ u32 x5F0;
     /* +5F4 */ int x5F4;
     /* +5F8 */ float x5F8;
@@ -567,7 +573,11 @@ struct FtSFX {
     int x10;
     int x14;
     int x18;
+#ifdef MELEE_NATIVE
+    FtSFXArr* x1C;
+#else
     int x1C;
+#endif
     FtSFXArr* x20;
     int x24;
     int x28;
@@ -605,7 +615,11 @@ struct FtPartsDesc {
 };
 
 struct ftData_x20 {
+#ifdef MELEE_NATIVE
+    HSD_Joint* x0;
+#else
     /* +0 */ HSD_Joint** x0;
+#endif
     /* +4 */ f32 x8;
 };
 
@@ -655,7 +669,11 @@ struct ftData {
                                 ///< ftPr_Init_8013C360
     /* +4C */ FtSFX* x4C_sfx;
     /* +50 */ Vec2* x50;
+#ifdef MELEE_NATIVE
+    int* x54;
+#else
     /* +54 */ int x54;
+#endif
     /* +58 */ struct ftData_x58_t* x58;
     /* +5C */ HSD_Joint* x5C;
 };
@@ -888,7 +906,11 @@ struct Fighter_WaitAnimData {
     s32 x8;
     union CmdUnion* xC;
     s32 x10_animCurrFlags;
+#ifdef MELEE_NATIVE
+    uintptr_t x14;
+#else
     u32 x14;
+#endif
 };
 
 struct Fighter_CostumeStrings {
@@ -1197,6 +1219,26 @@ struct Fighter {
     /*  fp+58C */ u32 x58C;
     /*  fp+590 */ FigaTree* x590;
     /*  fp+594 */ union {
+#ifdef MELEE_NATIVE
+        struct {
+            u32 : 24;
+            u32 x594_b7 : 1;
+            u32 x594_b6 : 1;
+            u32 x594_b5 : 1;
+            u32 x594_b4 : 1;
+            u32 x594_b3 : 1;
+            u32 x594_b2 : 1;
+            u32 x594_b1_loop : 1;
+            u32 x594_b0 : 1;
+        };
+        struct { u32 : 6; u32 x7 : 3; u32 x0 : 7; u32 : 16; } x596_bits;
+        struct {
+            u32 x597_bits : 6;
+            u32 x594_pad2 : 3;
+            u32 x594_bits : 13;
+            u32 x594_pad : 10;
+        };
+#else
         struct {
             /* fp+594:0 */ u8 x594_b0 : 1;
             /* fp+594:1 */ u8 x594_b1_loop : 1;
@@ -1217,6 +1259,7 @@ struct Fighter {
             u32 x594_pad2 : 3;
             u32 x597_bits : 6; // FighterKind of this fighter's x590 FigaTree
         };
+#endif
         /* fp+594 */ s32 x594_s32;
     };
     /*  fp+598 */ FigaTree* x598;
@@ -1348,14 +1391,22 @@ struct Fighter {
         /* fp+1864 */ int x1864;
         /* fp+1868 */ HSD_GObj* x1868_source;
         /* fp+186C */ int x186c;
+#ifdef MELEE_NATIVE
+        _Alignas(8) float x1870;
+#else
         /* fp+1870 */ struct DmgLogEntry* x1870;
+#endif
         /* fp+1874 */ int x1874;
         /* fp+1878 */ int x1878;
         /* fp+187C */ float x187c;
         /* fp+1880 */ Vec3 x1880;
         /* fp+188C */ int x188c;
         /* fp+1890 */ int x1890;
+#ifdef MELEE_NATIVE
+        HSD_GObj* x1894;
+#else
         /* fp+1894 */ int x1894;
+#endif
         /* fp+1898 */ float x1898;
         /* fp+189C */ float x189C_unk_num_frames;
         /* fp+18A0 */ float x18a0;
@@ -1806,8 +1857,13 @@ struct Fighter {
 ASSERT_SIZE(struct Fighter, 0x23EC);
 
 struct gmScriptEventDefault {
+#ifdef MELEE_NATIVE
+    u32 value1 : 26;
+    u32 opcode : 6;
+#else
     u32 opcode : 6;
     u32 value1 : 26;
+#endif
 };
 
 struct ftData_UnkCountStruct {
@@ -1827,12 +1883,22 @@ typedef struct ftData_UnkModelStruct {
 
 struct ftData_80085FD4_ret {
     /* +0 */ const char* x0;
+#ifdef MELEE_NATIVE
+    s32 x4;
+    s32 x8;
+    UNK_T xC;
+    u32 : 30;
+    u32 x10_b1 : 1;
+    u32 x10_b0 : 1;
+    uintptr_t x14;
+#else
     /* +4 */ UNK_T x4;
     /* +8 */ size_t x8;
     /* +C */ UNK_T xC;
     /* +10:0 */ u8 x10_b0 : 1;
     /* +10:1 */ u8 x10_b1 : 1;
     /* +14 */ u32 x14;
+#endif
 };
 
 struct ArticleDynamicBones {
@@ -1847,13 +1913,23 @@ struct ftDynamics {
     };
     /*  +8 */ int x4;
     /*  +C */ struct ftData_x38* x8;
+#ifdef MELEE_NATIVE
+    /* Per-animation counts of simulated bones, indexed by dynamics set. */
+    s32** x10;
+#else
     /* +10 */ FigaTree*** x10;
+#endif
 };
 
 struct KirbyHatStruct {
     /*  +0 */ HSD_Joint* hat_joint;
     /*  +4 */ FtPartsDesc desc;
+#ifdef MELEE_NATIVE
+    /* Yoshi and Game & Watch copy records have six and seven entries. */
+    ftDynamics* hat_dynamics[7];
+#else
     /*  +C */ ftDynamics* hat_dynamics[5];
+#endif
 };
 
 typedef struct Kirby_Unk {

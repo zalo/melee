@@ -1150,7 +1150,11 @@ DynamicModelDesc* grBigBlueRoute_8020DE48(void)
     HSD_ASSERT(1495, archive);
     dat = archive->unk4;
     if (dat != NULL) {
+#ifdef MELEE_NATIVE
+        return (DynamicModelDesc*) &dat->unk8[2];
+#else
         return (DynamicModelDesc*) ((char*) dat->unk8 + 0x68);
+#endif
     }
     return NULL;
 }

@@ -64,7 +64,7 @@
         grOnett_801E3C58,
         grOnett_801E3C60,
         grOnett_801E3CE0,
-        (1 << 30) | (1 << 31),
+        (1 << 30) | (1U << 31),
     },
 };
 
@@ -560,8 +560,14 @@ void grOnett_801E43E0(Ground_GObj* gobj)
 
         Camera_800307D0(&cam_x, &cam_y, &cam_z);
 
+#ifdef MELEE_NATIVE
+        // State zero has no selected car yet (index 4); it selects one below.
+        car_jobj = gp->u.onettcar.state_a ? gp->u.onettcar.car_jobjs[saved_car] : NULL;
+        car_jobj2 = gp->u.onettcar.state_a ? gp->u.onettcar.car_jobjs2[saved_car] : NULL;
+#else
         car_jobj = gp->u.onettcar.car_jobjs[saved_car];
         car_jobj2 = gp->u.onettcar.car_jobjs2[saved_car];
+#endif
 
         switch ((s8) gp->u.onettcar.state_a) {
         case 0: {
@@ -701,7 +707,11 @@ void grOnett_801E43E0(Ground_GObj* gobj)
         {
             s8 state_b = gp->u.onettcar.state_b;
             s8 next = gp->u.onettcar.next_car;
+#ifdef MELEE_NATIVE
+            car_jobj = state_b ? gp->u.onettcar.car_jobjs[next] : NULL;
+#else
             car_jobj = gp->u.onettcar.car_jobjs[next];
+#endif
 
             switch (state_b) {
             case 0:
@@ -954,7 +964,11 @@ DynamicModelDesc* grOnett_801E56FC(void)
     HSD_ASSERT(1319, archive);
     dat = archive->unk4;
     if (dat != NULL) {
+#ifdef MELEE_NATIVE
+        return (DynamicModelDesc*) &dat->unk8[1];
+#else
         return (DynamicModelDesc*) ((char*) dat->unk8 + 0x34);
+#endif
     }
     return NULL;
 }

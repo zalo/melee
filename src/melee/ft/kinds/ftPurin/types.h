@@ -97,8 +97,16 @@ typedef struct _ftPurinAttributes {
     float xDC;
     float xE0;
     float xE4;
+#ifdef MELEE_NATIVE
+    u32 xE8;
+#else
     UNK_T xE8;
+#endif
+#ifdef MELEE_NATIVE
+    u32 xEC;
+#else
     UNK_T xEC;
+#endif
     float xF0;
     float xF4;
     u8 _F8[0x100 - 0xF8];

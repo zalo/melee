@@ -6,6 +6,9 @@
 #include <melee/pl/forward.h>
 
 #include <melee/ft/types.h>
+#ifdef MELEE_NATIVE
+#include <stddef.h>
+#endif
 
 struct plAllocInfo {
     FighterKind internal_id;
@@ -94,6 +97,15 @@ struct plActionStats {
     /* +5BC */ u8 x5BC_b2 : 1;
     /* +5BC */ u8 x5BC_b3 : 1;
 };
+
+#ifdef MELEE_NATIVE
+/* The original high-counter base also addresses named statistics after the
+ * attack arrays. Preserve those byte offsets within the complete object. */
+static inline u32* plActionStatsHighCounter(plActionStats* stats, size_t index)
+{
+    return (u32*) ((u8*) stats + offsetof(plActionStats, by_attack_hi) + index * sizeof(u32));
+}
+#endif
 
 struct StaleMoveTable {
     /*   +0 */ int current_index;

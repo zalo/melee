@@ -85,6 +85,9 @@ void HSD_FObjInterpretAnimAll(void* fobj, void* obj,
                               HSD_ObjUpdateFunc obj_update, f32 rate);
 HSD_FObj* HSD_FObjLoadDesc(HSD_FObjDesc* desc);
 HSD_FObj* HSD_FObjAlloc(void);
+#ifdef MELEE_NATIVE
+void HSD_FObjCopyBytecode(HSD_FObj* fobj, const u8* data, u32 length);
+#endif
 void HSD_FObjFree(HSD_FObj* fobj);
 
 #endif

@@ -1278,6 +1278,12 @@ HSD_GObj* mn_80230E38(int arg0)
     return gobj;
 }
 
+#ifdef MELEE_NATIVE
+HSD_JObj* mn_80231634(struct mn_80231634_t* arg0)
+{
+    return HSD_JObjGetChild((HSD_JObj*) arg0);
+}
+#else
 int mn_80231634(struct mn_80231634_t* arg0)
 {
     if (arg0 == NULL) {
@@ -1285,6 +1291,7 @@ int mn_80231634(struct mn_80231634_t* arg0)
     }
     return arg0->x10;
 }
+#endif
 
 void mn_8023164C(void)
 {

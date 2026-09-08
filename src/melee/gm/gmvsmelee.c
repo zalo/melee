@@ -18,6 +18,9 @@
 #include <melee/lb/lbdvd.h>
 #include <melee/lb/lbtime.h>
 #include <melee/mn/types.h>
+#ifdef MELEE_NATIVE
+void MeleeNativeTestConfigureVs(VsModeData*);
+#endif
 
 /* 1A5360 */ static u8 findSmallestLoser(MatchEnd*);
 /* 4807B0 */ CSSData gmVsMelee_CssData;
@@ -123,6 +126,10 @@ void gmVsMelee_EnterCss(GameModeState* state, VsModeData* vs,
     css->match_type = match_type;
     css->ko_counts = ko_counts;
     css->vs = *vs;
+#ifdef MELEE_NATIVE
+    void MeleeNativeTestPrepareCss(CSSData*);
+    MeleeNativeTestPrepareCss(css);
+#endif
     lbDvd_SetupVsPreloadCache();
 }
 
@@ -135,6 +142,9 @@ void gmVsMelee_ExitCss(GameModeState* state, VsModeData* vs)
     }
 
     *vs = css->vs;
+#ifdef MELEE_NATIVE
+    MeleeNativeTestConfigureVs(vs);
+#endif
     {
         u64 mask = 0;
         ssize_t i;
@@ -152,6 +162,10 @@ void gmVsMelee_EnterSss(GameModeState* state, VsModeData* vs)
     SSSData* sss = gm_GetGameModeStateEnterData(state);
     sss->vs = *vs;
     gm_80167FC4(sss);
+#ifdef MELEE_NATIVE
+    void MeleeNativeTestPrepareSss(SSSData*);
+    MeleeNativeTestPrepareSss(sss);
+#endif
 }
 
 void gmVsMelee_ExitSss(GameModeState* state, VsModeData* vs,

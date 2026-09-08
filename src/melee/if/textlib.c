@@ -338,7 +338,11 @@ void DevText_Printf(DevText* text, char* format, ...)
     char str[64];
     va_list args;
     va_start(args, format);
+#ifdef MELEE_NATIVE
+    vsnprintf(str, sizeof(str), format, args);
+#else
     vsnprintf(str, -1, format, args);
+#endif
     va_end(args);
     DevText_Print(text, str);
 }

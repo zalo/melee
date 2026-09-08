@@ -1,6 +1,9 @@
 #include "fobj.h"
 
 #include <string.h>
+#ifdef MELEE_NATIVE
+#include <stdlib.h>
+#endif
 
 #include "debug.h"
 #include "spline.h"
@@ -124,7 +127,11 @@ static f32 parseFloat(u8** pos, u8 frac)
         u.d = (s32) ((*pos)++)[0];
         u.d |= ((*pos)++)[0] << 8;
         u.d |= ((*pos)++)[0] << 16;
+        #ifdef MELEE_NATIVE
+        u.d |= (u32) ((*pos)++)[0] << 24;
+#else
         u.d |= ((*pos)++)[0] << 24;
+#endif
         return u.f;
     }
 
@@ -139,7 +146,11 @@ static f32 parseFloat(u8** pos, u8 frac)
         *pos += 1;
         break;
     case HSD_A_FRAC_S16:
+        #ifdef MELEE_NATIVE
+        numer = (s16) (((u16) (*pos)[1] << 8) | (*pos)[0]);
+#else
         numer = ((s8) (*pos)[1] << 8) | (*pos)[0];
+#endif
         *pos += 2;
         break;
     case HSD_A_FRAC_U16:
@@ -474,8 +485,12 @@ HSD_FObj* HSD_FObjLoadDesc(HSD_FObjDesc* desc)
         fobj->obj_type = desc->type;
         fobj->frac_value = desc->frac_value;
         fobj->frac_slope = desc->frac_slope;
+#ifdef MELEE_NATIVE
+        HSD_FObjCopyBytecode(fobj, desc->ad, desc->length);
+#else
         fobj->ad_head = desc->ad;
         fobj->length = desc->length;
+#endif
         fobj->flags = 0;
         return fobj;
     }
@@ -492,5 +507,20 @@ HSD_FObj* HSD_FObjAlloc(void)
 
 void HSD_FObjFree(HSD_FObj* fobj)
 {
+#ifdef MELEE_NATIVE
+    free(fobj->ad_head);
+#endif
     HSD_ObjFree(HSD_FObjGetAllocData(), fobj);
 }
+
+#ifdef MELEE_NATIVE
+// Animation scratch archives can be replaced while an earlier track is still
+// playing. A live native track owns its bytecode until HSD_FObjFree.
+void HSD_FObjCopyBytecode(HSD_FObj* fobj, const u8* data, u32 length)
+{
+    fobj->length = length;
+    fobj->ad_head = length ? malloc(length) : NULL;
+    HSD_ASSERT(0, !length || fobj->ad_head);
+    if (length) memcpy(fobj->ad_head, data, length);
+}
+#endif

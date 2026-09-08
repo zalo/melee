@@ -4,6 +4,9 @@
 #include "state.h"
 #include <dolphin/gx.h>
 #include <dolphin/vi.h>
+#ifdef MELEE_NATIVE
+void MeleeNativeFrameReady(void);
+#endif
 
 HSD_VIInfo HSD_VIData;
 static u8 garbage[HSD_ANTIALIAS_GARBAGE_SIZE] ATTRIBUTE_ALIGN(32);
@@ -261,6 +264,9 @@ void HSD_VICopyEFB2XFBPtr(HSD_VIStatus* vi, void* buffer, HSD_RenderPass rpass)
         HSD_Panic(__FILE__, 0x207, "unexpected type of render pass.\n");
     }
 
+#ifdef MELEE_NATIVE
+    MeleeNativeFrameReady();
+#endif
     GXPixModeSync();
 }
 

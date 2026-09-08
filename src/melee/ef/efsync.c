@@ -654,8 +654,12 @@ void* efSync_Spawn(s32 gfx_id, HSD_GObj* gobj, ...)
     while (efLib_AnimCount != 0) {
         cnt_2 = efLib_AnimCount - 1;
         efLib_AnimCount = cnt_2;
+#ifdef MELEE_NATIVE
+        HSD_JObjAnimAll(efLib_AnimQueue[cnt_2]);
+#else
         HSD_JObjAnimAll(
             ((EF_ParamEntry*) (((u32*) efLib_AnimQueue) + cnt_2))->gobj);
+#endif
     }
 
     va_end(vlist);

@@ -94,7 +94,7 @@ StageCallbacks grOp_StageCallbacks[] = {
         grOldPupupu_80210BB8,
         grOldPupupu_80210BC0,
         grOldPupupu_80210BE0,
-        (1 << 30) | (1 << 31),
+        (1 << 30) | (1U << 31),
     },
     {
         grOldPupupu_80211C10,

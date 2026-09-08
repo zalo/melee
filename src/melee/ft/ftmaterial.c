@@ -20,11 +20,13 @@
 
 HSD_MObjInfo ftMObj = { ftMaterial_800BF260 };
 
+#ifndef MELEE_NATIVE
 struct ft_MObjInfo {
     HSD_MObjInfo parent;
     HSD_TevDesc tevdesc_tmpl;
     HSD_TECnst texp_tmpl;
 };
+#endif
 
 static HSD_TevDesc ftMaterial_803C69D0 = {
     NULL,
@@ -159,12 +161,18 @@ HSD_TExp* ftMaterial_800BF534(Fighter* fp, HSD_MObj* mobj, HSD_TExp* texp,
     HSD_TevDesc sp_tevdesc;
     s32 reg;
     bool chk;
+#ifndef MELEE_NATIVE
     struct ft_MObjInfo* info = (struct ft_MObjInfo*) &ftMObj;
+#endif
     ColorOverlay* overlay = ftCo_800C0658(fp);
 
     if (overlay->x7C_flag2 && overlay->x7C_light_enable) {
         if (!(rendermode & RENDER_XLU) && !fp->x2223_b2) {
+#ifdef MELEE_NATIVE
+            texp->cnst = ftMaterial_803C6A44;
+#else
             texp->cnst = info->texp_tmpl;
+#endif
             chk = lbGetFreeColorRegister(0, mobj, NULL);
             reg = chk;
             if (reg == -1) {
@@ -173,8 +181,13 @@ HSD_TExp* ftMaterial_800BF534(Fighter* fp, HSD_MObj* mobj, HSD_TExp* texp,
             texp->cnst.reg = (u8) reg;
             texp->cnst.val = &overlay->x50_light_color;
             HSD_TExpSetReg(texp);
+#ifdef MELEE_NATIVE
+
+            sp_tevdesc = ftMaterial_803C69D0;
+#else
 
             sp_tevdesc = info->tevdesc_tmpl;
+#endif
             sp_tevdesc.stage = HSD_StateAssignTev();
             sp_tevdesc.color = 2;
             sp_tevdesc.u.tevconf.clr_a = GX_CC_ZERO;
@@ -213,7 +226,9 @@ void ftMaterial_800BF6BC(Fighter* fp, HSD_MObj* mobj, HSD_TExp* texp)
     s32 var_r3;
     ColorOverlay* overlay;
     s32 var_r5;
+#ifndef MELEE_NATIVE
     struct ft_MObjInfo* info = (struct ft_MObjInfo*) &ftMObj;
+#endif
 
     if (!fp->x2223_b3) {
         overlay = ftCo_800C0658(fp);
@@ -282,7 +297,11 @@ void ftMaterial_800BF6BC(Fighter* fp, HSD_MObj* mobj, HSD_TExp* texp)
             sp168 = overlay->x2C_hex;
         }
         if (chk1 != 0) {
+#ifdef MELEE_NATIVE
+            sp_cnst1 = ftMaterial_803C6A44;
+#else
             sp_cnst1 = info->texp_tmpl;
+#endif
             reg1 = lbGetFreeColorRegister(0, mobj, texp);
             if (reg1 == -1) {
                 HSD_ASSERTREPORT(352, 0, "can't find free color register!\n");
@@ -307,7 +326,11 @@ void ftMaterial_800BF6BC(Fighter* fp, HSD_MObj* mobj, HSD_TExp* texp)
                                  "can't find free color ratio register!\n");
             }
             if (fp->x61D != 0xFF) {
+#ifdef MELEE_NATIVE
+                sp_cnst2 = ftMaterial_803C6A44;
+#else
                 sp_cnst2 = info->texp_tmpl;
+#endif
                 sp_cnst2.reg = (u8) reg2;
                 sp_cnst2.comp = 5;
                 sp_cnst2.idx = 3;
@@ -322,7 +345,11 @@ void ftMaterial_800BF6BC(Fighter* fp, HSD_MObj* mobj, HSD_TExp* texp)
             color.b = sp168.a;
             sp_cnst1.val = &color;
             HSD_TExpSetReg((HSD_TExp*) &sp_cnst1);
+#ifdef MELEE_NATIVE
+            sp_tevdesc = ftMaterial_803C69D0;
+#else
             sp_tevdesc = info->tevdesc_tmpl;
+#endif
             sp_tevdesc.stage = HSD_StateAssignTev();
             sp_tevdesc.u.tevconf.clr_b = lb_8000CC8C(reg1);
             sp_tevdesc.u.tevconf.clr_c = lb_8000CC8C(reg2);

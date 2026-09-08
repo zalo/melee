@@ -41,7 +41,11 @@ static inline void setPointValue(int player, int kind, unsigned int val)
 #endif
 unsigned int pl_800386D8(plActionStats* arg0, ssize_t arg1)
 {
+#ifdef MELEE_NATIVE
+    return *plActionStatsHighCounter(arg0, arg1);
+#else
     return arg0->by_attack_hi[arg1];
+#endif
 }
 #ifdef MUST_MATCH
 #pragma pop

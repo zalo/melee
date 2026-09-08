@@ -5,9 +5,15 @@
 
 #include <sysdolphin/baselib/debug.h>
 
+#ifdef MELEE_NATIVE
+typedef uintptr_t HSD_ObjAddress;
+#else
+typedef u32 HSD_ObjAddress;
+#endif
+
 typedef struct _objheap {
-    u32 top;
-    u32 curr;
+    HSD_ObjAddress top;
+    HSD_ObjAddress curr;
     u32 size;
     u32 remain;
 } objheap;

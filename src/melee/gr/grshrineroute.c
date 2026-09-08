@@ -473,10 +473,10 @@ void grShrineRoute_80208F70(Ground_GObj* gobj)
                             HSD_JObjSetTranslate(ejobj, &sp88);
                         }
                         grMaterial_801C9604((HSD_GObj*) gobj,
-                                            yakumono_param->x0, 0);
+                                            GR_MATERIAL_SCRIPT(yakumono_param->x0), 0);
                         temp = Ground_GetMapGObj(2);
                         if (temp != NULL) {
-                            grMaterial_801C9604(temp, yakumono_param->x0, 0);
+                            grMaterial_801C9604(temp, GR_MATERIAL_SCRIPT(yakumono_param->x0), 0);
                         }
                         if (result != 0xBD) {
                             HSD_JObj* j =
@@ -562,7 +562,7 @@ void grShrineRoute_80208F70(Ground_GObj* gobj)
             grLib_801C9908(gobj->hsd_obj);
             if (gp->u.shrineroute.xD4 != 0) {
                 grMaterial_801C9604((HSD_GObj*) gp->u.shrineroute.xD4,
-                                    yakumono_param->x4, 0);
+                                    GR_MATERIAL_SCRIPT(yakumono_param->x4), 0);
             }
         }
         break;
@@ -616,7 +616,7 @@ void grShrineRoute_80208F70(Ground_GObj* gobj)
             grShrineRoute_8020B0AC();
             if (gp->u.shrineroute.xD4 != 0) {
                 grMaterial_801C9604((HSD_GObj*) gp->u.shrineroute.xD4,
-                                    yakumono_param->x8, 0);
+                                    GR_MATERIAL_SCRIPT(yakumono_param->x8), 0);
             }
             stage_info.x6DC = 0;
             gp->u.shrineroute.xC4 = 4;
@@ -635,11 +635,11 @@ void grShrineRoute_80208F70(Ground_GObj* gobj)
                 Ground_801C4A08((HSD_GObj*) gp->u.shrineroute.xD4);
                 gp->u.shrineroute.xD4 = 0;
             }
-            grMaterial_801C9604((HSD_GObj*) gobj, yakumono_param->xC, 0);
+            grMaterial_801C9604((HSD_GObj*) gobj, GR_MATERIAL_SCRIPT(yakumono_param->xC), 0);
             {
                 HSD_GObj* gr2 = Ground_GetMapGObj(2);
                 if (gr2 != NULL) {
-                    grMaterial_801C9604(gr2, yakumono_param->xC, 0);
+                    grMaterial_801C9604(gr2, GR_MATERIAL_SCRIPT(yakumono_param->xC), 0);
                 }
             }
         }

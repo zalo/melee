@@ -40,10 +40,14 @@
 
 extern ResultsData lbl_8046DBE8;
 
+#ifdef MELEE_NATIVE
+ResultsDisplayLayout native_results_display;
+#else
 ResultsDisplayData lbl_8046E1B0;
 HSD_GObj* lbl_8046E38C[4];
 HSD_JObj* lbl_8046E39C[4];
 lbl_8046E3AC_t lbl_8046E3AC;
+#endif
 
 static U32Pair lbl_804D3FD0 ATTRIBUTE_ALIGN(8) = { 0x00500050, 0x00460034 };
 static U32Pair lbl_804D3FD8 = { 0x006E0072, 0x0064004A };
@@ -368,7 +372,15 @@ HSD_GObj* fn_8017A318(s32 arg0)
 {
     static Scissor const scissor_init = { 270, 370, 124, 276 };
     u32* config = (u32*) &lbl_803B7B68;
+#ifdef MELEE_NATIVE
+    CameraKindParams* kinds = (CameraKindParams*) gmResultCharacterScaleData;
+#define RESULT_KIND(i) kinds[i]
+#define RESULT_SLOT(i, axis, slot) gmResultCharacterData.slot_off[i][axis][slot]
+#else
     CameraKindData* data = (CameraKindData*) gmResultPlayerColors;
+#define RESULT_KIND(i) data->kind[i]
+#define RESULT_SLOT(i, axis, slot) data->slot_off[i][axis][slot]
+#endif
     ResultsDisplayLayout* disp = (ResultsDisplayLayout*) &lbl_8046E1B0;
     MatchEnd* match_end = &disp->state.match_end;
     s32 _pad[2];
@@ -401,7 +413,11 @@ HSD_GObj* fn_8017A318(s32 arg0)
     }
 
     gobj = GObj_Create(0x13, 0x14, 0);
+#ifdef MELEE_NATIVE
+    cobj = HSD_CObjLoadDesc((HSD_CObjDesc*) &gmResultCameraDesc);
+#else
     cobj = HSD_CObjLoadDesc(&data->cobj_desc);
+#endif
     HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, cobj);
 
     {
@@ -416,28 +432,28 @@ HSD_GObj* fn_8017A318(s32 arg0)
 
     kind_data = disp->state.char_kind[arg0];
     (void) kind_data;
-    eye.y += data->kind[kind_data].y_off[vi];
+    eye.y += RESULT_KIND(kind_data).y_off[vi];
 
     vi = ((s32) variant <= 2) ? variant : 3;
-    interest.y += data->kind[kind_data].y_off[vi];
+    interest.y += RESULT_KIND(kind_data).y_off[vi];
 
     vi = ((s32) variant <= 2) ? variant : 3;
-    eye.x += data->kind[kind_data].x_off[vi];
+    eye.x += RESULT_KIND(kind_data).x_off[vi];
 
     {
         f32 interest_x;
         vi = ((s32) variant <= 2) ? variant : 3;
-        interest_x = interest.x + data->kind[kind_data].x_off[vi];
+        interest_x = interest.x + RESULT_KIND(kind_data).x_off[vi];
 
         {
             f32 x_off, y_off;
 
             interest.x = interest_x;
-            x_off = data->slot_off[kind_data][0][slot];
+            x_off = RESULT_SLOT(kind_data, 0, slot);
             eye.x += x_off;
             interest.x += x_off;
 
-            eye.y = eye.y + (y_off = data->slot_off[kind_data][1][slot]);
+            eye.y = eye.y + (y_off = RESULT_SLOT(kind_data, 1, slot));
             interest.y += y_off;
         }
     }
@@ -447,12 +463,12 @@ HSD_GObj* fn_8017A318(s32 arg0)
     }
 
     vi = ((s32) variant <= 2) ? variant : 3;
-    if ((1.0f - data->kind[kind_data].z_scale[vi]) < 0.0f) {
+    if ((1.0f - RESULT_KIND(kind_data).z_scale[vi]) < 0.0f) {
         vi = ((s32) variant <= 2) ? variant : 3;
-        eye.z += 100.0f * (1.0f - data->kind[kind_data].z_scale[vi]);
+        eye.z += 100.0f * (1.0f - RESULT_KIND(kind_data).z_scale[vi]);
     } else {
         vi = ((s32) variant <= 2) ? variant : 3;
-        eye.z += 300.0f * (1.0f - data->kind[kind_data].z_scale[vi]);
+        eye.z += 300.0f * (1.0f - RESULT_KIND(kind_data).z_scale[vi]);
     }
 
     HSD_CObjSetEyePosition(cobj, &eye);
@@ -463,7 +479,13 @@ HSD_GObj* fn_8017A318(s32 arg0)
     if (slot == 0) {
         fn_8017A078(arg0);
     }
+#ifdef MELEE_NATIVE
+    return gobj;
+#endif
 }
+
+#undef RESULT_KIND
+#undef RESULT_SLOT
 
 Fighter_GObj* fn_8017A67C(CharacterKind kind, int arg1, int arg2)
 {
@@ -619,12 +641,21 @@ void fn_8017AA78(const u8* arg0)
     lbl_8046E3AC.x0_4 = 0;
     lbl_8046E3AC.x0_6 = 0;
 
+#ifdef MELEE_NATIVE
+    Results_UnpackHalfWords(lbl_8046E3AC.dim_w1, lbl_804D3FD0.lo, lbl_804D3FD0.hi);
+    Results_UnpackHalfWords(lbl_8046E3AC.dim_h1, lbl_804D3FD8.lo, lbl_804D3FD8.hi);
+    Results_UnpackHalfWords(lbl_8046E3AC.dim_w2, lbl_804D3FE0.lo, lbl_804D3FE0.hi);
+    Results_UnpackHalfWords(lbl_8046E3AC.dim_h2, lbl_804D3FE8.lo, lbl_804D3FE8.hi);
+    Results_UnpackHalfWords(lbl_8046E3AC.scissor_y, lbl_804D3FF0.lo, lbl_804D3FF0.hi);
+    Results_UnpackHalfWords(lbl_8046E3AC.scissor_x, lbl_804D3FF8.lo, lbl_804D3FF8.hi);
+#else
     *(U32Pair*) lbl_8046E3AC.dim_w1 = lbl_804D3FD0;
     *(U32Pair*) lbl_8046E3AC.dim_h1 = lbl_804D3FD8;
     *(U32Pair*) lbl_8046E3AC.dim_w2 = lbl_804D3FE0;
     *(U32Pair*) lbl_8046E3AC.dim_h2 = lbl_804D3FE8;
     *(U32Pair*) lbl_8046E3AC.scissor_y = lbl_804D3FF0;
     *(U32Pair*) lbl_8046E3AC.scissor_x = lbl_804D3FF8;
+#endif
 
     for (i = 0; i < 4; i++) {
         lbl_8046E3AC.player_flags[i] = 0;
@@ -637,7 +668,14 @@ void fn_8017AA78(const u8* arg0)
                 .is_big_loser = 1;
         }
         lbl_8046E3AC.x6[i] = 0;
+#ifdef MELEE_NATIVE
+        Results_UnpackHalfWords((u16*) lbl_8046E3AC.score_tbl[i].h,
+            gmResultScoreTableInit[i * 2], gmResultScoreTableInit[i * 2 + 1]);
+        Results_UnpackHalfWords((u16*) lbl_8046E3AC.x22F4[i].h,
+            gmResultX22F4Init[i * 2], gmResultX22F4Init[i * 2 + 1]);
+#else
         lbl_8046E3AC.score_tbl[i] = ((PackedS16x4*) gmResultScoreTableInit)[i];
         lbl_8046E3AC.x22F4[i] = ((PackedS16x4*) gmResultX22F4Init)[i];
+#endif
     }
 }

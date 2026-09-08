@@ -17,6 +17,10 @@ static inline void Locate(HSD_Archive* archive)
 
 s32 HSD_ArchiveParse(HSD_Archive* archive, u8* src, size_t file_size)
 {
+#ifdef MELEE_NATIVE
+    extern s32 MeleeArchiveParse(HSD_Archive*, u8*, size_t);
+    return MeleeArchiveParse(archive, src, file_size);
+#else
     u32 offset;
 
     if (archive == NULL) {
@@ -65,10 +69,15 @@ s32 HSD_ArchiveParse(HSD_Archive* archive, u8* src, size_t file_size)
     Locate(archive);
 
     return 0;
+#endif
 }
 
 void* HSD_ArchiveGetPublicAddress(HSD_Archive* archive, const char* symbols)
 {
+#ifdef MELEE_NATIVE
+    extern void* MeleeNativeArchivePublic(void*, const char*);
+    return MeleeNativeArchivePublic(archive, symbols);
+#else
     u32 i;
 
     for (i = 0; i < archive->header.nb_public; i++) {
@@ -82,6 +91,7 @@ void* HSD_ArchiveGetPublicAddress(HSD_Archive* archive, const char* symbols)
     }
 
     return NULL;
+#endif
 }
 
 char* HSD_ArchiveGetExtern(HSD_Archive* archive, int offset)
@@ -96,6 +106,10 @@ char* HSD_ArchiveGetExtern(HSD_Archive* archive, int offset)
 void HSD_ArchiveLocateExtern(HSD_Archive* archive, const char* symbols,
                              void* addr)
 {
+#ifdef MELEE_NATIVE
+    extern void MeleeNativeArchiveExtern(void*, const char*, void*);
+    MeleeNativeArchiveExtern(archive, symbols, addr);
+#else
     uintptr_t next;
     uintptr_t offset = -1;
     u32 i;
@@ -119,4 +133,5 @@ void HSD_ArchiveLocateExtern(HSD_Archive* archive, const char* symbols,
         *(u32*) ((uintptr_t) archive->data + offset) = (uintptr_t) addr;
         offset = next;
     }
+#endif
 }

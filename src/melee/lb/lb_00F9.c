@@ -1059,6 +1059,9 @@ bool lb_800117F4(DynamicsDesc* arg0, GXColor* arg1, GXColor* arg2, int arg3,
             }
         }
     }
+#ifdef MELEE_NATIVE
+    GXEnd();
+#endif
     return true;
 }
 

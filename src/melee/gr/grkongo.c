@@ -117,7 +117,7 @@ StageCallbacks grKg_StageCallbacks[] = {
         grKongo_801D5574,
         grKongo_801D557C,
         grKongo_801D55D4,
-        (1 << 30) | (1 << 31),
+        (1 << 30) | (1U << 31),
     },
     {
         grKongo_801D651C,
@@ -447,7 +447,7 @@ void grKongo_801D577C(Ground_GObj* arg0)
             gp->u.kongo.u.taru.keep = item_gobj;
             gp->u.kongo3.xC6 = 1;
             Ground_801C5440(gp, 0, 0x129U);
-            grMaterial_801C9604(arg0, yakumono_param->unk84, 0);
+            grMaterial_801C9604(arg0, GR_MATERIAL_SCRIPT(yakumono_param->unk84), 0);
         }
         return;
     }
@@ -1157,7 +1157,11 @@ void grKongo_801D77E0(HSD_GObj* gobj, s32 arg1)
                     q->u.kongo.xC8 = 0.0f;
                 }
             }
+#ifdef MELEE_NATIVE
+            q = (Ground*) ((u8*) q + offsetof(struct grKongo_GroundVars, xD4));
+#else
             q = (Ground*) ((u8*) q + 0x10);
+#endif
         }
     }
     HSD_JObjSetRotationZ(gp->u.kongo3.xCC, gp->u.kongo.xC4);
@@ -1426,7 +1430,7 @@ static int fn_801D8134(HSD_GObj* arg0, HSD_GObj* arg1)
     gp->u.kongo3.xD0 = (HSD_JObj*) arg1;
     gp->u.kongo3.xC6 = 1;
     Ground_801C5440(gp, 0, 0x129U);
-    grMaterial_801C9604(arg0, yakumono_param->unk84, 0);
+    grMaterial_801C9604(arg0, GR_MATERIAL_SCRIPT(yakumono_param->unk84), 0);
     efSync_Spawn(0x405, arg0, &pos_ft);
     ftLib_80086C18(arg1, 0xD, 0x1E);
     return 1;

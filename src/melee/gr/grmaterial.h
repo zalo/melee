@@ -40,7 +40,16 @@ grMaterial_801C8CFC(int, int, Ground*, HSD_JObj*,
 /* 1C9490 */ void grMaterial_801C9490(Item_GObj* gobj, CommandInfo* cmd);
 /* 1C94D8 */ void grMaterial_801C94D8(void*);
 /* 1C95C4 */ void grMaterial_801C95C4(HSD_GObj*);
+#ifdef MELEE_NATIVE
+#include <stdint.h>
+void* MeleeNativeScriptPointer(const void*);
+#define GR_MATERIAL_SCRIPT(field) ((uintptr_t) MeleeNativeScriptPointer(&(field)))
+void grMaterial_801C9604(HSD_GObj* bg, uintptr_t, bool);
+#else
+#define GR_MATERIAL_SCRIPT(field) ((int) (field))
 /* 1C9604 */ void grMaterial_801C9604(HSD_GObj* bg, int, bool);
+#endif
+
 /* 1C9664 */ void fn_801C9664(Item_GObj* gobj, CommandInfo* cmd, int arg2);
 /* 1C9698 */ void grMaterial_801C9698(HSD_GObj*);
 

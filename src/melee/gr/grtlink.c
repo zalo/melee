@@ -54,7 +54,7 @@ static StageCallbacks grTLk_StageCallbacks[] = {
         grTLink_80221B44,
         grTLink_80221B4C,
         grTLink_80221B80,
-        (1 << 31) | (1 << 30),
+        (1U << 31) | (1 << 30),
     },
     { 0 },
 };

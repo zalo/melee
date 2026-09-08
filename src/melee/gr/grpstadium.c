@@ -1215,7 +1215,11 @@ HSD_GObj* grStadium_801D2D78(void)
 
     temp_r3 = GObj_Create(0x11, 0x12, 0);
     GObj_SetupGXLinkMax(temp_r3, grStadium_801D2FD0, 3);
+#ifdef MELEE_NATIVE
+    wrapper = HSD_MemAlloc(sizeof(*wrapper));
+#else
     wrapper = HSD_MemAlloc(0x1C);
+#endif
     GObj_InitUserData(temp_r3, 3, HSD_Free, wrapper);
     memzero(&wrapper->desc, sizeof(wrapper->desc));
     lb_800121FC(&wrapper->desc, 0x280, 0x196, 4, 0x7D3);

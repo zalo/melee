@@ -188,7 +188,12 @@ void Camera_Init(int n_subjects)
     game_camera.nearz = 0.1f;
     game_camera.farz = 16384.0f;
     game_camera.mode = CAMERA_STANDARD;
+#ifdef MELEE_NATIVE
+    memzero(game_camera.quake_frames_left,
+            offsetof(Camera, x2B0) - offsetof(Camera, quake_frames_left));
+#else
     memzero(game_camera.quake_frames_left, 0x224);
+#endif
     game_camera.quake_scale = 1.0f;
     game_camera.x2BC = 1.0f;
     game_camera.x2C0 = -1.0f;
@@ -917,12 +922,14 @@ void Camera_ApplyQuake(CameraBounds* bounds, CameraTransformState* state)
     f32 input_x;
     f32 input_y;
     f32 depth_ratio;
+#ifndef MELEE_NATIVE
     struct CameraStaticData {
         CameraModeCallbacks callbacks;
         HSD_WObjDesc interest;
         HSD_WObjDesc eyepos;
         HSD_CameraDescPerspective desc;
     }* data = (struct CameraStaticData*) &cm_803BCB18;
+#endif
 
     input_x = game_camera.quake_offset.x * game_camera.quake_scale;
     input_y = game_camera.quake_offset.y * game_camera.quake_scale;
@@ -938,6 +945,13 @@ void Camera_ApplyQuake(CameraBounds* bounds, CameraTransformState* state)
     input_y *= game_camera.x2BC;
     half_view_height =
         bounds->z_pos * tanf(0.5f * (0.017453292f * state->fov));
+#ifdef MELEE_NATIVE
+    // Separate globals have no shared layout in the native executable.
+    viewport_x_scale = cm_803BCB64.aspect * half_view_height /
+        (0.5f * (cm_803BCB64.viewport.xmax - cm_803BCB64.viewport.xmin));
+    viewport_y_scale = half_view_height /
+        (0.5f * (cm_803BCB64.viewport.ymax - cm_803BCB64.viewport.ymin));
+#else
     viewport_x_scale =
         data->desc.aspect *
         (half_view_height /
@@ -945,6 +959,7 @@ void Camera_ApplyQuake(CameraBounds* bounds, CameraTransformState* state)
     viewport_y_scale =
         half_view_height /
         (0.5f * (f32) (data->desc.viewport.ymax - data->desc.viewport.ymin));
+#endif
     depth_factor_y = Stage_GetCamZoomRate();
     depth_factor_x = Stage_GetCamMaxDepth() - depth_factor_y;
 
@@ -4629,3 +4644,16 @@ void Camera_800313E0(HSD_GObj* gobj, u64 prios)
     0.004f, 0.2f,    0.025f,  0.2f,  0.003f, 0.2f,   0.025f, 0.2f,  0.02f,
     1.0f,   0.14f,   1200.0f, -0.2f, 1.2f,   0.0f,
 };
+
+#ifdef MELEE_NATIVE
+void MeleeNativeTraceCamera(void)
+{
+    CameraTransformState* t = &game_camera.transform;
+    OSReport("[camera-check] mode=%d near=%g far=%g eye=%g,%g,%g interest=%g,%g,%g fov=%g hidden=%d%d%d%d%d%d\n",
+             game_camera.mode, game_camera.nearz, game_camera.farz,
+             t->position.x, t->position.y, t->position.z,
+             t->interest.x, t->interest.y, t->interest.z, t->fov,
+             game_camera.x398_b0, game_camera.x398_b1, game_camera.x398_b2,
+             game_camera.x398_b3, game_camera.x398_b4, game_camera.x398_b5);
+}
+#endif

@@ -12,6 +12,11 @@ ctx.*
 
 # Build files
 build/
+dist/
+*.iso
+*.gcm
+*.ciso
+*.rvz
 .ninja_*
 build.ninja
 

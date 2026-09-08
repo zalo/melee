@@ -1,3 +1,9 @@
+#ifdef MELEE_NATIVE
+#define ICEMT_SLOT(gp, i) ((gp)->u.icemt9.x18[i])
+#else
+#define ICEMT_SLOT(gp, i) ((gp)->u.icemt9.x18[0])
+#endif
+
 #include "gricemt.h"
 
 #include <Runtime/platform.h>
@@ -63,6 +69,9 @@ static const Vec3 grIm_803B8220[] = {
 
 typedef int (*GrIceMtCb)(Ground_GObj* gobj, int* out);
 
+#ifdef MELEE_NATIVE
+#include "native_stageparams.h"
+#else
 struct grIceMt_YakumonoParam {
     s16 x0;
     s16 x2;
@@ -123,6 +132,7 @@ struct grIceMt_YakumonoParam {
     float xC8;
     float xCC;
 };
+#endif
 
 /* 1F6868 */ static void grIceMt_801F6868(bool id);
 /* 1F686C */ static void grIceMt_801F686C(void);
@@ -357,7 +367,7 @@ static StageCallbacks stage_callbacks[] = {
         stageGObj8_Callback1,
         stageGObj8_GObjProc,
         stageGObj8_Callback3,
-        (1 << 30) | (1 << 31),
+        (1 << 30) | (1U << 31),
     },
     {
         stageGObj9_OnInit,
@@ -1370,12 +1380,14 @@ int fn_801F8E58(Ground_GObj* arg0, int* out)
     arg0 = (Ground_GObj*) (gp = arg0->user_data);
     p = &list[max = 0];
     for (i = 0; i < 12; i++) {
-        if (gp->u.icemt9.x18[0] == 0 && (Stage_80225194() != 212 || i >= 4)) {
+        if (ICEMT_SLOT(gp, i) == 0 && (Stage_80225194() != 212 || i >= 4)) {
             *p = i;
             p++;
             max++;
         }
+#ifndef MELEE_NATIVE
         gp = (Ground*) ((u8*) gp + 2);
+#endif
     }
 
     HSD_ASSERT(2077, max);
@@ -1383,10 +1395,12 @@ int fn_801F8E58(Ground_GObj* arg0, int* out)
 
     gp = (Ground*) arg0;
     for (i = 0; i < 12; i++) {
-        if (gp->u.icemt9.x18[0] > 0) {
-            gp->u.icemt9.x18[0]--;
+        if (ICEMT_SLOT(gp, i) > 0) {
+            ICEMT_SLOT(gp, i)--;
         }
+#ifndef MELEE_NATIVE
         gp = (Ground*) ((u8*) gp + 2);
+#endif
     }
 
     gp = (Ground*) arg0;

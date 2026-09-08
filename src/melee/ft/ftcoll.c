@@ -1,3 +1,8 @@
+#ifdef MELEE_NATIVE
+#define STAGE_DAMAGE(p) (((lbColl_80008D30_arg1*) (p))->damage)
+#else
+#define STAGE_DAMAGE(p) ((p)->count)
+#endif
 #include "ftcoll.h"
 
 #include <Runtime/platform.h>
@@ -248,7 +253,7 @@ void ftColl_80076764(int arg0, enum_t arg1, Fighter_GObj* arg2,
         entry->unk_anim0 = arg3;
         entry->hurt1 = hurt;
         entry->pos = fp->cur_pos;
-        entry->size_of_xC = arg3->count;
+        entry->size_of_xC = STAGE_DAMAGE(arg3);
         ++dmg_log0_idx;
     } else {
         HSD_ASSERTREPORT(0xF9, 0, "damage log over %d!!\n",
@@ -2545,6 +2550,12 @@ void ftColl_8007A06C(Fighter_GObj* gobj, void* dmg_ptr, void* log, size_t idx,
         /* 0x24 */ HSD_GObj* source;
         /* 0x28 */ float damage;
     };
+
+#ifdef MELEE_NATIVE
+    _Static_assert(offsetof(Fighter, dmg.x1894) - offsetof(Fighter, dmg.x1870) == offsetof(struct DmgResult, source), "Secondary damage source layout");
+    _Static_assert(offsetof(Fighter, dmg.x1898) - offsetof(Fighter, dmg.x1870) == offsetof(struct DmgResult, damage), "Secondary damage amount layout");
+    _Static_assert(offsetof(Fighter, dmg.x1868_source) - offsetof(Fighter, dmg.facing_dir_1) == offsetof(struct DmgResult, source), "Primary damage source layout");
+#endif
 
     UNUSED u8 _q0[4];
     float angle;

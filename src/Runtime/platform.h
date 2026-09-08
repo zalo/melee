@@ -28,7 +28,11 @@
 typedef int enum_t;
 
 /// Signed variant of ::size_t
+#ifdef MELEE_NATIVE
+#include <sys/types.h>
+#else
 typedef signed int ssize_t;
+#endif
 
 /// A @c void callback with no arguments.
 typedef void (*Event)(void);

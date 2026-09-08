@@ -1669,7 +1669,14 @@ static void fn_80026C04(int arg0, int unused)
     slot = fn_80026650();
     if (slot != -1) {
         strcpy(&cur_ssm_file[ssm_stem_pos], ssm_files[slot]);
+#ifdef MELEE_NATIVE
+        // Publish the request identity before a cached DVD read can complete
+        // on its worker and call fn_80026C04 on another thread.
+        lbl_80433A64[slot] = DVDConvertPathToEntrynum(cur_ssm_file);
+        HSD_SynthSFXLoad(cur_ssm_file, 2, fn_80026C04, 0);
+#else
         lbl_80433A64[slot] = HSD_SynthSFXLoad(cur_ssm_file, 2, fn_80026C04, 0);
+#endif
     }
 }
 
@@ -1784,7 +1791,14 @@ static inline void lbAudioAx_80027168_inline_2(void)
     int slot = fn_80026650();
     if (slot != -1) {
         strcpy(&cur_ssm_file[ssm_stem_pos], ssm_files[slot]);
+#ifdef MELEE_NATIVE
+        // Publish the request identity before a cached DVD read can complete
+        // on its worker and call fn_80026C04 on another thread.
+        lbl_80433A64[slot] = DVDConvertPathToEntrynum(cur_ssm_file);
+        HSD_SynthSFXLoad(cur_ssm_file, 2, fn_80026C04, 0);
+#else
         lbl_80433A64[slot] = HSD_SynthSFXLoad(cur_ssm_file, 2, fn_80026C04, 0);
+#endif
     }
 }
 

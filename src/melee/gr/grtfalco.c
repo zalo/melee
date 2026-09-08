@@ -55,7 +55,7 @@ StageCallbacks grTFc_803E8918[] = {
         stageGObj2_Callback1,
         stageGObj2_GObjProc,
         stageGObj2_Callback3,
-        (1 << 30) | (1 << 31),
+        (1 << 30) | (1U << 31),
     },
     { 0 },
 };

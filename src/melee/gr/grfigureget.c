@@ -73,7 +73,7 @@ static StageCallbacks grFigureGet_StageCallbacks[] = {
         grFigureGet_80219890,
         grFigureGet_80219898,
         grFigureGet_80219B0C,
-        (1 << 30) | (1 << 31),
+        (1 << 30) | (1U << 31),
     },
 };
 

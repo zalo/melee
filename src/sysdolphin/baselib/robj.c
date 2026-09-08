@@ -573,7 +573,7 @@ void HSD_RObjResolveRefs(HSD_RObj* robj, HSD_RObjDesc* desc)
         switch (robj->flags & ROBJ_TYPE_MASK) {
         case REFTYPE_JOBJ:
             HSD_JObjUnrefThis(robj->u.jobj);
-            robj->u.jobj = HSD_IDGetData((u32) desc->u.joint, NULL);
+            robj->u.jobj = HSD_IDGetData((uintptr_t) desc->u.joint, NULL);
             HSD_ASSERT(883, robj->u.jobj);
             HSD_JObjRefThis(robj->u.jobj);
             break;
@@ -694,7 +694,11 @@ static void expEvaluate(HSD_Exp* exp, u32 type, void* obj,
     Vec3 scale;
     float temp_f31;
     float* cur_arg;
+#ifdef MELEE_NATIVE
+    u32 cur_bit;
+#else
     int cur_bit;
+#endif
     Vec3 sp2C;
     u8 _[4]; ///< @todo should HSD_ObjData be 4 bytes larger?
     HSD_ObjData sp1C;
@@ -891,7 +895,7 @@ void HSD_RvalueResolveRefs(HSD_Rvalue* rvalue, HSD_RvalueList* list)
 {
     if (rvalue != NULL && list != NULL) {
         HSD_JObjUnrefThis(rvalue->jobj);
-        rvalue->jobj = HSD_IDGetData((u32) list->joint, NULL);
+        rvalue->jobj = HSD_IDGetData((uintptr_t) list->joint, NULL);
         HSD_ASSERT(1333, rvalue->jobj);
         HSD_JObjRefThis(rvalue->jobj);
     }

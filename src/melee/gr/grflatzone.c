@@ -56,7 +56,7 @@ static StageCallbacks grFz_StageCallbacks[] = {
         grFlatzone_802171CC,
         grFlatzone_802171D4,
         grFlatzone_802173D0,
-        (1 << 30) | (1 << 31),
+        (1 << 30) | (1U << 31),
     },
     {
         grFlatzone_80217648,

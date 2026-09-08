@@ -40,7 +40,7 @@ static StageCallbacks grEF1_StageCallbacks[3] = {
     { grFigure1_8020E168, grFigure1_8020E194, grFigure1_8020E19C,
       grFigure1_8020E1A0, 0 },
     { grFigure1_8020E1A4, grFigure1_8020E1D0, grFigure1_8020E1D8,
-      grFigure1_8020E1FC, (1 << 30) | (1 << 31) },
+      grFigure1_8020E1FC, (1 << 30) | (1U << 31) },
     { grFigure1_8020E200, grFigure1_8020E250, grFigure1_8020E258,
       grFigure1_8020E25C, 0 }
 };

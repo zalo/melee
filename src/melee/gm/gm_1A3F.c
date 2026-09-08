@@ -22,6 +22,9 @@
 #include <sysdolphin/baselib/devcom.h>
 #include <sysdolphin/baselib/sislib.h>
 #include <sysdolphin/baselib/video.h>
+#ifdef MELEE_NATIVE
+extern void MeleeNativeInputScene(int);
+#endif
 
 struct routingInfo {
     u8 curr_mode;     ///< ::GameModeKind
@@ -136,6 +139,9 @@ void gm_801A4014(GameMode* mode)
     state = findState(mode->states);
     sm->routing.curr_state_id = state->id;
 
+#ifdef MELEE_NATIVE
+    MeleeNativeInputScene(-1);
+#endif
     preloadState(state);
     if (state->on_enter != NULL) {
         state->on_enter(state);
@@ -149,6 +155,9 @@ void gm_801A4014(GameMode* mode)
     if (scene->on_enter != NULL) {
         scene->on_enter(info->enter_data);
     }
+#ifdef MELEE_NATIVE
+    MeleeNativeInputScene(info->scene_kind);
+#endif
     gm_801A4D34(scene->on_frame, info);
     if (!gmMainLib_8046B0F0.resetting && scene->on_exit != NULL) {
         scene->on_exit(info->exit_data);

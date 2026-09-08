@@ -50,7 +50,7 @@ static StageCallbacks grTDk_StageCallbacks[] = {
         grTDonkey_80220440,
         grTDonkey_80220448,
         grTDonkey_8022047C,
-        (1 << 30) | (1 << 31),
+        (1 << 30) | (1U << 31),
     },
     { 0 },
 };

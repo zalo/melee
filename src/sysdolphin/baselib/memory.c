@@ -8,6 +8,10 @@
 
 void HSD_Free(void* ptr)
 {
+#ifdef MELEE_NATIVE
+    extern void MeleeNativeArchiveRelease(void*);
+    MeleeNativeArchiveRelease(ptr);
+#endif
     OSFreeToHeap(HSD_GetHeap(), ptr);
 }
 

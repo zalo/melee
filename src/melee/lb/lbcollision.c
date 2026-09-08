@@ -1,3 +1,4 @@
+#include <Runtime/gx_port.h>
 #include "lbcollision.h"
 
 #include <Runtime/platform.h>
@@ -2130,8 +2131,8 @@ void lbColl_80008FC8(Vec3 arg0, Vec3 arg1, GXColor* arg2, GXColor* arg3,
     PSMTXConcat(sp44, sp74, sp74);
     GXSetCullMode(GX_CULL_BACK);
     GXClearVtxDesc();
-    GXSetArray(GX_VA_POS, lbColl_SpherePositions, 6);
-    GXSetArray(GX_VA_NRM, lbColl_SphereNormals, 6);
+    HSD_GX_SET_ARRAY(GX_VA_POS, lbColl_SpherePositions, 6);
+    HSD_GX_SET_ARRAY(GX_VA_NRM, lbColl_SphereNormals, 6);
     GXSetVtxDesc(GX_VA_POS, GX_INDEX8);
     GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_TEX_ST, GX_RGBA4, 0xE);
     GXSetVtxDesc(GX_VA_NRM, GX_INDEX8);
@@ -2143,8 +2144,8 @@ void lbColl_80008FC8(Vec3 arg0, Vec3 arg1, GXColor* arg2, GXColor* arg3,
     GXLoadNrmMtxImm(spD4, 0);
     GXCallDisplayList(lbColl_SphereDisplayList, 0x120);
     GXClearVtxDesc();
-    GXSetArray(GX_VA_POS, lbColl_SpherePositions, 6);
-    GXSetArray(GX_VA_NRM, lbColl_SphereNormals, 6);
+    HSD_GX_SET_ARRAY(GX_VA_POS, lbColl_SpherePositions, 6);
+    HSD_GX_SET_ARRAY(GX_VA_NRM, lbColl_SphereNormals, 6);
     GXSetVtxDesc(GX_VA_POS, GX_INDEX8);
     GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_TEX_ST, GX_RGBA4, 0xE);
     GXSetVtxDesc(GX_VA_NRM, GX_INDEX8);
@@ -2157,8 +2158,8 @@ void lbColl_80008FC8(Vec3 arg0, Vec3 arg1, GXColor* arg2, GXColor* arg3,
     GXCallDisplayList(lbColl_SphereDisplayList, 0x120);
     if (!isSmall(var_f31)) {
         GXClearVtxDesc();
-        GXSetArray(GX_VA_POS, lbColl_CylinderPositions, 6);
-        GXSetArray(GX_VA_NRM, lbColl_CylinderNormals, 6);
+        HSD_GX_SET_ARRAY(GX_VA_POS, lbColl_CylinderPositions, 6);
+        HSD_GX_SET_ARRAY(GX_VA_NRM, lbColl_CylinderNormals, 6);
         GXSetVtxDesc(GX_VA_POS, GX_INDEX8);
         GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_TEX_ST, GX_RGBA4, 0xE);
         GXSetVtxDesc(GX_VA_NRM, GX_INDEX8);
@@ -2259,8 +2260,8 @@ void lbColl_800096B4(MtxPtr arg0, Vec3 arg1, Vec3 arg2, GXColor* arg3,
     PSMTXConcat(arg0, sp78, sp78);
     GXSetCullMode(GX_CULL_BACK);
     GXClearVtxDesc();
-    GXSetArray(GX_VA_POS, lbColl_SpherePositions, 6);
-    GXSetArray(GX_VA_NRM, lbColl_SphereNormals, 6);
+    HSD_GX_SET_ARRAY(GX_VA_POS, lbColl_SpherePositions, 6);
+    HSD_GX_SET_ARRAY(GX_VA_NRM, lbColl_SphereNormals, 6);
     GXSetVtxDesc(GX_VA_POS, GX_INDEX8);
     GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_TEX_ST, GX_RGBA4, 0xE);
     GXSetVtxDesc(GX_VA_NRM, GX_INDEX8);
@@ -2272,8 +2273,8 @@ void lbColl_800096B4(MtxPtr arg0, Vec3 arg1, Vec3 arg2, GXColor* arg3,
     GXLoadNrmMtxImm(spD8, 0);
     GXCallDisplayList(lbColl_SphereDisplayList, 0x120);
     GXClearVtxDesc();
-    GXSetArray(GX_VA_POS, lbColl_SpherePositions, 6);
-    GXSetArray(GX_VA_NRM, lbColl_SphereNormals, 6);
+    HSD_GX_SET_ARRAY(GX_VA_POS, lbColl_SpherePositions, 6);
+    HSD_GX_SET_ARRAY(GX_VA_NRM, lbColl_SphereNormals, 6);
     GXSetVtxDesc(GX_VA_POS, GX_INDEX8);
     GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_TEX_ST, GX_RGBA4, 0xE);
     GXSetVtxDesc(GX_VA_NRM, GX_INDEX8);
@@ -2286,8 +2287,8 @@ void lbColl_800096B4(MtxPtr arg0, Vec3 arg1, Vec3 arg2, GXColor* arg3,
     GXCallDisplayList(lbColl_SphereDisplayList, 0x120);
     if (!isSmall(var_f31)) {
         GXClearVtxDesc();
-        GXSetArray(GX_VA_POS, lbColl_CylinderPositions, 6);
-        GXSetArray(GX_VA_NRM, lbColl_CylinderNormals, 6);
+        HSD_GX_SET_ARRAY(GX_VA_POS, lbColl_CylinderPositions, 6);
+        HSD_GX_SET_ARRAY(GX_VA_NRM, lbColl_CylinderNormals, 6);
         GXSetVtxDesc(GX_VA_POS, GX_INDEX8);
         GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_TEX_ST, GX_RGBA4, 0xE);
         GXSetVtxDesc(GX_VA_NRM, GX_INDEX8);
@@ -2344,6 +2345,9 @@ void lbColl_80009DD4(Vec3* v0, Vec3* v1, GXColor* clr)
 
     GXPosition3f32(x0, y1, z0);
     GXColor4u8(r, g, b, a);
+#ifdef MELEE_NATIVE
+    GXEnd();
+#endif
 
     HSD_StateInvalidate(-1);
     HSD_StateInitTev();

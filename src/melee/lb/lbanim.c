@@ -26,8 +26,12 @@ static HSD_FObj* lbAnim_InitFrames(FigaTrack* track, s8 frames)
         fobj->obj_type = track->obj_type;
         fobj->frac_value = track->frac_value;
         fobj->frac_slope = track->frac_slope;
+#ifdef MELEE_NATIVE
+        HSD_FObjCopyBytecode(fobj, track->ad_head, track->length);
+#else
         fobj->ad_head = track->ad_head;
         fobj->length = track->length;
+#endif
         fobj->flags = 0;
         track++;
     }
@@ -56,8 +60,12 @@ HSD_FObj* fn_8001E60C(FigaTrack* track, s8 frames)
             fobj->obj_type = track->obj_type;
             fobj->frac_value = track->frac_value;
             fobj->frac_slope = track->frac_slope;
+#ifdef MELEE_NATIVE
+            HSD_FObjCopyBytecode(fobj, track->ad_head, track->length);
+#else
             fobj->ad_head = track->ad_head;
             fobj->length = track->length;
+#endif
             fobj->flags = 0;
             track++;
         }

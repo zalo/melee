@@ -335,8 +335,12 @@ void grIzumi_801CBE64(Ground_GObj* gobj)
         grLib_801C96F8(0x7536, 0x1E, &y);
     }
     gp->u.izumi.xCC = grIzumi_801CBCE8(2);
+#ifdef MELEE_NATIVE
+    GET_GROUND(gp->u.izumi.xCC)->x18 = gp->u.izumi.xC8;
+#else
     ((IzumiUnkCC*) HSD_GObjGetUserData(gp->u.izumi.xCC))->x18 =
         gp->u.izumi.xC8;
+#endif
     jobj = Ground_801C3FA4(gobj, 4);
     { // this looks like inlines, but there's a lot of small differences
         u8 _[4] = { 0 };

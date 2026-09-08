@@ -45,7 +45,7 @@ static StageCallbacks grSh_StageCallbacks[3] = {
     { grShrine_80201E44, grShrine_80201E88, grShrine_80201E90,
       grShrine_80201E94, 0 },
     { grShrine_80201E9C, grShrine_80201F14, grShrine_80201F1C,
-      grShrine_80201F40, (1 << 30) | (1 << 31) },
+      grShrine_80201F40, (1 << 30) | (1U << 31) },
 };
 
 StageData grSh_StageData = {

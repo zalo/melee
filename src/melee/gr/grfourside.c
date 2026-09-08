@@ -109,7 +109,7 @@ StageCallbacks grFs_StageCallbacks[] = {
         grFourside_801F3070,
         grFourside_801F3078,
         grFourside_801F309C,
-        (1 << 30) | (1 << 31),
+        (1 << 30) | (1U << 31),
     },
 };
 

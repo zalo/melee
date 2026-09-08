@@ -190,7 +190,7 @@ StageCallbacks grI1_StageCallbacks[] = {
         grInishie1_801FAB60,
         grInishie1_801FAB68,
         grInishie1_801FABB0,
-        (1 << 30) | (1 << 31),
+        (1 << 30) | (1U << 31),
     },
 };
 

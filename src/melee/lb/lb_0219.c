@@ -22,6 +22,12 @@
 #include <sysdolphin/baselib/gobjuserdata.h>
 #include <sysdolphin/baselib/objalloc.h>
 
+typedef struct BgFlashUserData {
+    u8 x0;
+    u8 pad_01[3];
+    ColorOverlay x4;
+} BgFlashUserData;
+
 HSD_ObjAllocData lbl_804336A0;
 
 void fn_800219E4(void* arg0)
@@ -29,10 +35,14 @@ void fn_800219E4(void* arg0)
     HSD_ObjFree(&lbl_804336A0, arg0);
 }
 
+#ifdef MELEE_NATIVE
+typedef HSD_GObj BgFlashGlobal;
+#else
 typedef struct {
     char pad[0x2C];
     void* x2C;
 } BgFlashGlobal;
+#endif
 
 BgFlashGlobal* lbl_804D63E0;
 struct Fighter_804D653C_t* lbl_804D63DC;
@@ -48,7 +58,11 @@ void lbBgFlash_80021A18(int arg0)
     HSD_GObj* gobj;
     u8* user_data;
 
+#ifdef MELEE_NATIVE
+    HSD_ObjAllocInit(&lbl_804336A0, sizeof(BgFlashUserData), 4);
+#else
     HSD_ObjAllocInit(&lbl_804336A0, 0x84, 4);
+#endif
     gobj = GObj_Create(0xE, 0xE, 0);
     if (gobj != NULL) {
         user_data = HSD_ObjAlloc(&lbl_804336A0);
@@ -68,11 +82,7 @@ void lbBgFlash_80021A18(int arg0)
     }
 }
 
-typedef struct BgFlashUserData {
-    u8 x0;
-    u8 pad_01[3];
-    ColorOverlay x4;
-} BgFlashUserData;
+
 
 #ifdef MUST_MATCH
 #pragma push
@@ -113,7 +123,11 @@ void fn_80021C1C(void)
 {
     HSD_GObj* gobj = (HSD_GObj*) lbl_804D63E0;
     u8* user_data = gobj->user_data;
+#ifdef MELEE_NATIVE
+    lb_80014498(&((BgFlashUserData*) user_data)->x4);
+#else
     lb_80014498((ColorOverlay*) (user_data + 4));
+#endif
 }
 
 void lbBgFlash_80021C48(u32 arg0, u32 arg1)
@@ -121,7 +135,11 @@ void lbBgFlash_80021C48(u32 arg0, u32 arg1)
     struct {
         u8 unk0[4];
         ColorOverlay x4;
+#ifdef MELEE_NATIVE
+    }* data = lbl_804D63E0->user_data;
+#else
     }* data = lbl_804D63E0->x2C;
+#endif
     lb_800144C8(&data->x4, lbl_804D63DC, arg0, arg1);
 }
 

@@ -1103,7 +1103,11 @@ void efLib_Cb_SetRotYAndTransition(EF_Effect* effect)
     eff_jobj = GET_JOBJ(effect->gobj);
     (void) user_data;
     if (user_data != NULL) {
+#ifdef MELEE_NATIVE
+        if (((Fighter*) effect->user_data)->facing_dir < 0.0F) {
+#else
         if (user_data->scale.x < 0.0F) {
+#endif
             temp_d = -M_PI_2;
         } else {
             temp_d = M_PI_2;
@@ -1401,7 +1405,11 @@ void efLib_SetTevKonstColor(HSD_JObj* jobj, s32 count, u32 konst, u32 tev0)
 // (???), so both must be the same type x_X ... if you can figure out a way
 // around this pls fix ty).
 
+#ifdef MELEE_NATIVE
+/* 458EE0 */ HSD_JObj* efLib_AnimQueue[32];
+#else
 /* 458EE0 */ EF_ParamEntry efLib_AnimQueue[0x10];
+#endif
 
 // Stores gobj effect params (gfx_id, alpha)
 // Used by efLib_Cb_ApplyStoredAlpha to set TEV konst alpha.
@@ -1413,7 +1421,11 @@ void efLib_SetParamAlpha(HSD_GObj* gobj, u8 alpha)
     s32 idx;
 
     // WHY
+#ifdef MELEE_NATIVE
+    EF_ParamEntry* base = efLib_ParamTable;
+#else
     EF_ParamEntry* base = efLib_AnimQueue + 0x10;
+#endif
 
     for (idx = 0; idx < 8; idx++) {
         if (base[idx].gobj == gobj) {
@@ -1429,8 +1441,13 @@ void efLib_SetParamAlpha(HSD_GObj* gobj, u8 alpha)
 
 found:
     // WHY
+#ifdef MELEE_NATIVE
+    base[idx].gobj = gobj;
+    base[idx].alpha = alpha;
+#else
     efLib_AnimQueue[idx + 0x10].gobj = gobj;
     efLib_AnimQueue[idx + 0x10].alpha = alpha;
+#endif
 }
 
 void efLib_SetParamGfxId(HSD_GObj* gobj, s32 gfx_id)
@@ -1438,7 +1455,11 @@ void efLib_SetParamGfxId(HSD_GObj* gobj, s32 gfx_id)
     s32 idx;
 
     // WHY
+#ifdef MELEE_NATIVE
+    EF_ParamEntry* base = efLib_ParamTable;
+#else
     EF_ParamEntry* base = efLib_AnimQueue + 0x10;
+#endif
 
     for (idx = 0; idx < 8; idx++) {
         if (base[idx].gobj == gobj) {
@@ -1454,8 +1475,13 @@ void efLib_SetParamGfxId(HSD_GObj* gobj, s32 gfx_id)
 
 found:
     // WHY
+#ifdef MELEE_NATIVE
+    base[idx].gobj = gobj;
+    base[idx].gfx_id = gfx_id;
+#else
     efLib_AnimQueue[idx + 0x10].gobj = gobj;
     efLib_AnimQueue[idx + 0x10].gfx_id = gfx_id;
+#endif
 }
 
 void efLib_Cb_ApplyStoredAlpha(EF_Effect* effect)

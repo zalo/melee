@@ -22,6 +22,16 @@
 typedef union UnkFlagStruct {
     u8 u8;
     struct {
+#ifdef MELEE_NATIVE
+        u8 b7 : 1;
+        u8 b6 : 1;
+        u8 b5 : 1;
+        u8 b4 : 1;
+        u8 b3 : 1;
+        u8 b2 : 1;
+        u8 b1 : 1;
+        u8 b0 : 1;
+#else
         u8 b0 : 1;
         u8 b1 : 1;
         u8 b2 : 1;
@@ -30,6 +40,7 @@ typedef union UnkFlagStruct {
         u8 b5 : 1;
         u8 b6 : 1;
         u8 b7 : 1;
+#endif
     };
 } UnkFlagStruct;
 
@@ -418,7 +429,11 @@ ASSERT_SIZE(struct gmm_x0, 0x8518);
 
 /// @todo ::MatchEnd
 struct lbl_8046B6A0_24C_t {
+#ifdef MELEE_NATIVE
+    u32 x0; // MatchEnd timer, not a host pointer.
+#else
     UNK_T x0;
+#endif
     u8 x4; ///< MatchOutcome
     u8 x5; ///< match mode
     u8 is_teams;
@@ -651,8 +666,15 @@ struct MatchPlayerData {
     u16 self_destructs;
     u16 percent;
     u16 xE;
+#ifdef MELEE_NATIVE
+    union {
+        u16 kills[6];
+        struct { u16 first_four_kills[4]; u16 x18; };
+    };
+#else
     u16 kills[4];
     u16 x18;
+#endif
     s32 x1C;
     s32 x20;
     int x24;

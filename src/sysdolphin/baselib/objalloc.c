@@ -12,16 +12,16 @@ static HSD_ObjAllocData* alloc_datas;
 
 void HSD_ObjSetHeap(u32 size, void* ptr)
 {
-    obj_heap.curr = (u32) ptr;
-    obj_heap.top = (u32) ptr;
+    obj_heap.curr = (HSD_ObjAddress) ptr;
+    obj_heap.top = (HSD_ObjAddress) ptr;
     obj_heap.remain = size;
     obj_heap.size = size;
 }
 
 s32 HSD_ObjAllocAddFree(HSD_ObjAllocData* data, u32 num)
 {
-    u32 computed_start;
-    u32 pool_end;
+    HSD_ObjAddress computed_start;
+    HSD_ObjAddress pool_end;
     u32 pool_size;
     u8* pool_start;
 
@@ -31,20 +31,20 @@ s32 HSD_ObjAllocAddFree(HSD_ObjAllocData* data, u32 num)
     pool_size = data->size * num;
     if (obj_heap.top != 0) {
         pool_end = obj_heap.top + obj_heap.size;
-        computed_start = (obj_heap.curr + data->align) & ~data->align;
+        computed_start = (obj_heap.curr + data->align) & ~(HSD_ObjAddress) data->align;
         pool_start = (void*) computed_start;
         if (computed_start > pool_end) {
             return 0;
         }
-        if (pool_end - (u32) pool_start < pool_size) {
-            pool_size = pool_end - (u32) pool_start -
-                        (pool_end - (u32) pool_start) % data->size;
+        if (pool_end - (HSD_ObjAddress) pool_start < pool_size) {
+            pool_size = pool_end - (HSD_ObjAddress) pool_start -
+                        (pool_end - (HSD_ObjAddress) pool_start) % data->size;
         }
         num = pool_size / data->size;
         if (num == 0) {
             return 0;
         }
-        obj_heap.curr = (u32) pool_start + pool_size;
+        obj_heap.curr = (HSD_ObjAddress) pool_start + pool_size;
         obj_heap.remain = pool_end - obj_heap.curr;
     } else {
         pool_start = HSD_MemAlloc(pool_size);
@@ -149,8 +149,18 @@ void HSD_ObjAllocInit(HSD_ObjAllocData* data, size_t size, u32 align)
     data->num_limit = -1;
     data->heap_limit_size = 0;
     data->heap_limit_num = -1;
+#ifdef MELEE_NATIVE
+    /* Freed objects hold host pointers, including pools of 12-byte vectors. */
+    HSD_ASSERT(0, align != 0 && (align & (align - 1)) == 0);
+    if (align < _Alignof(HSD_ObjAllocLink)) {
+        align = _Alignof(HSD_ObjAllocLink);
+    }
+    if (size < sizeof(HSD_ObjAllocLink)) {
+        size = sizeof(HSD_ObjAllocLink);
+    }
+#endif
     data->align = align - 1;
-    data->size = (size + data->align) & ~data->align;
+    data->size = (size + data->align) & ~(HSD_ObjAddress) data->align;
     data->next = alloc_datas;
     alloc_datas = data;
 }

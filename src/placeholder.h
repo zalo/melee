@@ -10,7 +10,9 @@ typedef void (*jmp_t)(void);
 typedef jmp_t jtbl_t[];
 
 #ifndef MWERKS_GEKKO
-#define __frsqrte(x) sqrt(x)
+#ifndef __frsqrte
+#define __frsqrte(x) (1.0 / sqrt(x))
+#endif
 #define sqrtf__Ff(x) sqrtf(x)
 #define sqrtf_accurate(x) sqrtf(x)
 #define __fabs(f) fabsf(f)

@@ -1,3 +1,4 @@
+#include <Runtime/gx_port.h>
 #include "hsd_3915.h"
 
 #include <math.h> // IWYU pragma: keep
@@ -33,6 +34,9 @@ void DrawRectangle(f32 x_min, f32 y_min, f32 w, f32 h, GXColor* color)
     GXColor4u8(color->r, color->g, color->b, color->a);
     GXPosition2f32(x_min, y_max);
     GXColor4u8(color->r, color->g, color->b, color->a);
+#ifdef MELEE_NATIVE
+    GXEnd();
+#endif
 }
 
 static u8 lbl_80408630[0x268] = {
@@ -116,6 +120,9 @@ f32 DrawASCII(int chr, float x, float y, GXColor* color)
             py = lbl_804D6074 * 0.9 + y;
             GXPosition2f32(px, py);
             GXColor4u8(color->r, color->g, color->b, color->a);
+#ifdef MELEE_NATIVE
+            GXEnd();
+#endif
             return lbl_804D6070;
         }
         case ':': {
@@ -124,6 +131,9 @@ f32 DrawASCII(int chr, float x, float y, GXColor* color)
             GXColor4u8(color->r, color->g, color->b, color->a);
             GXPosition2f32(lbl_804D6070 * 0.3 + x, lbl_804D6074 * 0.7 + y);
             GXColor4u8(color->r, color->g, color->b, color->a);
+#ifdef MELEE_NATIVE
+            GXEnd();
+#endif
             return lbl_804D6070;
         }
         case '-':
@@ -176,6 +186,9 @@ f32 DrawASCII(int chr, float x, float y, GXColor* color)
         GXPosition2f32(lbl_804D6070 * (0.11F * (p1 >> 4)) + x,
                        lbl_804D6074 * (0.11F * (p1 & 0xF)) + y);
         GXColor4u8(color->r, color->g, color->b, color->a);
+#ifdef MELEE_NATIVE
+        GXEnd();
+#endif
     }
     return lbl_804D6070;
 }
@@ -297,8 +310,8 @@ void hsd_80391E18(const u8* list, f32 x1, f32 y1, f32 x2, f32 y2)
 
         GXBegin(0xA8, 0, 2);
 
-        GXWGFifo.f32 = prev_x;
-        GXWGFifo.f32 = prev_y;
+        HSD_FIFO_F32(prev_x);
+        HSD_FIFO_F32(prev_y);
 
         prev_x = t * dx + x1;
         prev_y = t * dy + y1;
@@ -311,6 +324,9 @@ void hsd_80391E18(const u8* list, f32 x1, f32 y1, f32 x2, f32 y2)
         GXColor4u8(r, g, b, a);
         GXPosition2f32(prev_x, prev_y);
         GXColor4u8(r, g, b, a);
+#ifdef MELEE_NATIVE
+        GXEnd();
+#endif
     }
 }
 
@@ -370,6 +386,9 @@ void hsd_80391F28(GXColor* color, f32 x1, f32 y1, f32 x2, f32 y2, f32 count)
     GXColor4u8(color->r, color->g, color->b, color->a);
     GXPosition2f32(x2, y2);
     GXColor4u8(color->r, color->g, color->b, color->a);
+#ifdef MELEE_NATIVE
+    GXEnd();
+#endif
 
     x = x1;
     y = y1;
@@ -384,6 +403,9 @@ void hsd_80391F28(GXColor* color, f32 x1, f32 y1, f32 x2, f32 y2, f32 count)
             GXPosition2f32(x + tick4_x, y + tick4_y);
         }
         GXColor4u8(color->r, color->g, color->b, color->a);
+#ifdef MELEE_NATIVE
+        GXEnd();
+#endif
         x += dx / count;
         y += dy / count;
     }

@@ -126,7 +126,11 @@ struct Fighter_804D6520_t* Fighter_804D6520 = NULL;
 struct Fighter_804D6524_t* Fighter_804D6524 = NULL;
 struct Fighter_ShakeTable_t* Fighter_SmashChargeShakeTable = NULL;
 struct Fighter_ShakeTable_t* Fighter_GrabMashShake = NULL;
+#ifdef MELEE_NATIVE
+struct Fighter_ShakeTable_t* Fighter_804D6530 = NULL;
+#else
 Vec2** Fighter_804D6530 = NULL;
+#endif
 UNK_T Fighter_804D6534 = NULL;
 struct Fighter_804D653C_t* Fighter_804D6538 = NULL;
 struct Fighter_804D653C_t* Fighter_804D653C = NULL;

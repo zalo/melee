@@ -16,6 +16,9 @@
 #include <sysdolphin/baselib/gobjproc.h>
 #include <sysdolphin/baselib/jobj.h>
 #include <sysdolphin/baselib/lobj.h>
+#ifdef MELEE_NATIVE
+#include <sysdolphin/baselib/wobj.h>
+#endif
 
 /* 09F480 */ static void ftCo_8009F480(Fighter_GObj* gobj);
 /* 09F54C */ static void ftCo_8009F54C(HSD_GObj* gobj, int code);
@@ -23,7 +26,11 @@
 static HSD_LObj* lobj0;
 static HSD_LObj* lobj1;
 
+#ifdef MELEE_NATIVE
+static HSD_WObjDesc floats[] = { { NULL, { 0.57f, 0.57f, 0.57f }, NULL } };
+#else
 static float floats[] = { 0, 0.57, 0.57, 0.57, 0 };
+#endif
 
 static HSD_LightDesc node0 = {
     NULL,           NULL, 0x0005, 0x0000, { 0xFF, 0xFF, 0xFF, 0xFF },

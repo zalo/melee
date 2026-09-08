@@ -2367,6 +2367,10 @@ int gm_801647F8(u8 arg0)
 /// Is a specific character unlocked?
 bool gm_IsCKindUnlocked(u8 ckind)
 {
+#ifdef MELEE_NATIVE
+    extern int MeleeNativeMatrixUnlocks(void);
+    if (MeleeNativeMatrixUnlocks()) return true;
+#endif
     u16* unlocked_chars_bitmask = gmMainLib_GetUnlockedCharactersBitmaskPtr();
     u8 selkind = ckind_to_selkind_map[ckind];
     u8 unlock_bit = gm_SelKindToUnlockIndex(selkind);
@@ -3214,7 +3218,11 @@ void gm_80166CCC(MatchEnd* arg0, MatchEnd* arg1)
         }
     }
 
+#ifdef MELEE_NATIVE
+    for (i = 0; i < GM_MAX_TEAMS; i++) {
+#else
     for (i = 0; i < 6; i++) {
+#endif
         if (arg1->team_standings[i].active != 0) {
             team_count += 1;
         }
@@ -3901,7 +3909,11 @@ void fn_80168A6C(void* arg0, void* arg1, s32 idx)
 
 f32 gm_80168B34(CharacterKind ckind, int arg1, int arg2)
 {
+#ifdef MELEE_NATIVE
+    int base = ckind;
+#else
     int base;
+#endif
     if (ckind == CKIND_GKOOPS) {
         return 58.0F;
     }
@@ -3934,7 +3946,11 @@ float gm_80168BF8(int arg0)
 {
     CharacterKind ckind = Player_GetPlayerCharacter(arg0);
     u32 costume = Player_GetCostumeId(arg0);
+#ifdef MELEE_NATIVE
+    return gm_80168B34(ckind, Player_80036394(arg0), costume);
+#else
     gm_80168B34(ckind, Player_80036394(arg0), costume);
+#endif
 }
 
 void gm_80168C5C(u32 arg0)

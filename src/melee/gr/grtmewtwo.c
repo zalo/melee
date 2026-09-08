@@ -70,7 +70,7 @@ static StageCallbacks grTMewtwo_StageCallbacks[4] = {
         grTMewtwo_802223F8,
         grTMewtwo_80222400,
         grTMewtwo_80222434,
-        (1 << 30) | (1 << 31),
+        (1 << 30) | (1U << 31),
     },
     {
         NULL,

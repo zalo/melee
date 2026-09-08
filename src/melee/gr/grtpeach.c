@@ -56,7 +56,7 @@ StageCallbacks grTPe_StageCallbacks[4] = {
         grTPeach_80222ACC,
         grTPeach_80222AD4,
         grTPeach_80222B08,
-        (1 << 30) | (1 << 31),
+        (1 << 30) | (1U << 31),
     },
     {
         NULL,

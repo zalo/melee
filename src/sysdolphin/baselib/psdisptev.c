@@ -1,5 +1,12 @@
 #include "psdisptev.h"
 
+#ifdef MELEE_NATIVE
+#include "psstructs.h"
+#define PARTICLE_KIND(p) (((HSD_Particle*) (p))->kind)
+#else
+#define PARTICLE_KIND(p) ((p)[1])
+#endif
+
 #include <dolphin/gx.h>
 
 static u32 prevTev[2];
@@ -33,7 +40,7 @@ void psSetupTevInvalidState(void)
 
 void psSetupTev(u32* arg0)
 {
-    u32 temp_r5 = arg0[1] & 0x80100480;
+    u32 temp_r5 = PARTICLE_KIND(arg0) & 0x80100480;
     if (temp_r5 == prevTev[0]) {
         return;
     }
@@ -41,7 +48,7 @@ void psSetupTev(u32* arg0)
     prevTev[0] = temp_r5;
     switch (prevTev[0]) {
     case 0x80000080:
-        arg0[1] &= 0xFFFFFF7F;
+        PARTICLE_KIND(arg0) &= 0xFFFFFF7F;
         prevTev[0] &= 0xFFFFFF7F;
     case 0x80000000:
         GXSetNumTevStages(2);
@@ -59,7 +66,7 @@ void psSetupTev(u32* arg0)
         break;
 
     case 0x80:
-        arg0[1] &= 0xFFFFFF7F;
+        PARTICLE_KIND(arg0) &= 0xFFFFFF7F;
         prevTev[0] &= 0xFFFFFF7F;
     case 0x0:
         GXSetNumTevStages(1);
@@ -169,7 +176,7 @@ void psSetupTev(u32* arg0)
         break;
 
     case 0x100080:
-        arg0[1] &= 0xFFFFFF7F;
+        PARTICLE_KIND(arg0) &= 0xFFFFFF7F;
         prevTev[0] &= 0xFFFFFF7F;
     case 0x100000:
         GXSetNumTevStages(1);
@@ -183,7 +190,7 @@ void psSetupTev(u32* arg0)
         break;
 
     case 0x80100080:
-        arg0[1] &= 0xFFFFFF7F;
+        PARTICLE_KIND(arg0) &= 0xFFFFFF7F;
         prevTev[0] &= 0xFFFFFF7F;
     case 0x80100000:
         GXSetNumTevStages(2);

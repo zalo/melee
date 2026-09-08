@@ -11,6 +11,29 @@ struct DebugContext {
 
 static ReportCallback reportCallback;
 static PanicCallback panicCallback;
+#ifdef MELEE_NATIVE
+static FILE* native_log_stream;
+
+static int native_report(void* cookie, const char* data, int size)
+{
+    if (reportCallback != NULL) {
+        reportCallback((unsigned char*) data, size);
+    }
+    return (int) fwrite(data, 1, size, native_log_stream);
+}
+
+void HSD_LogInit(void)
+{
+    if (native_log_stream == NULL) {
+        native_log_stream = stdout;
+        stdout = funopen(NULL, NULL, native_report, NULL, NULL);
+        if (stdout == NULL) {
+            abort();
+        }
+        setvbuf(stdout, NULL, _IONBF, 0);
+    }
+}
+#else
 static __io_proc logFunc;
 
 #ifdef MUST_MATCH
@@ -35,6 +58,7 @@ void HSD_LogInit(void)
     stdout->write_proc = report_func;
     stdout->state.error = 0;
 }
+#endif
 
 void __assert(char* str, u32 arg1, char* arg2)
 {

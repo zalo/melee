@@ -1041,7 +1041,11 @@ void HSD_TExpSetReg(HSD_TExp* texp)
     u32 changed;
     HSD_TECnst* clist;
 
-    clist = &texp->cnst;
+    #ifdef MELEE_NATIVE
+        clist = texp ? &texp->cnst : NULL;
+#else
+        clist = &texp->cnst;
+#endif
     changed = 0;
 
     while (clist != NULL) {
@@ -1146,7 +1150,11 @@ void HSD_TExpSetReg(HSD_TExp* texp)
                 }
             }
         }
+        #ifdef MELEE_NATIVE
+        clist = clist->next ? &clist->next->cnst : NULL;
+#else
         clist = &clist->next->cnst;
+#endif
     }
     if (changed != 0) {
         GXPixModeSync();
@@ -1215,7 +1223,11 @@ int HSD_TExpCompile(HSD_TExp* texp, HSD_TExpTevDesc** tevdesc,
         HSD_TExpTevDesc* tdesc = hsdAllocMemPiece(sizeof(HSD_TExpTevDesc));
         tdesc->desc.stage = HSD_Index2TevStage(i);
         TExp2TevDesc(order[(num - i) - 1], tdesc, &init_cprev, &init_aprev);
+        #ifdef MELEE_NATIVE
+        tdesc->desc.next = *tevdesc ? &(*tevdesc)->desc : NULL;
+#else
         tdesc->desc.next = &(*tevdesc)->desc;
+#endif
         *tevdesc = tdesc;
     }
 

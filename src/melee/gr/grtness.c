@@ -51,7 +51,7 @@ static StageCallbacks grTNs_StageCallbacks[] = {
         grTNess_802227E8,
         grTNess_802227F0,
         grTNess_80222824,
-        (1 << 30) | (1 << 31),
+        (1 << 30) | (1U << 31),
     },
     { 0 },
 };

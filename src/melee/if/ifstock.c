@@ -36,10 +36,10 @@ static struct ifStock_804A1378 ifStock_804A1378;
 static struct ifStock_804A1774 ifStock_804A1774;
 static HSD_GObj* ifStock_804A1A8C[16];
 static struct ifStock_804A1ACC ifStock_804A1ACC;
-STATIC_ASSERT(sizeof(ifStock_804A1378) == 0x3FC);
-STATIC_ASSERT(sizeof(ifStock_804A1774) == 0x318);
-STATIC_ASSERT(sizeof(ifStock_804A1A8C) == 0x40);
-STATIC_ASSERT(sizeof(ifStock_804A1ACC) == 0x314);
+ASSERT_SIZE(ifStock_804A1378, 0x3FC);
+ASSERT_SIZE(ifStock_804A1774, 0x318);
+ASSERT_SIZE(ifStock_804A1A8C, 0x40);
+ASSERT_SIZE(ifStock_804A1ACC, 0x314);
 
 static char ifStock_SceneModels[] = "Stc_scemdls";
 
@@ -902,9 +902,17 @@ void fn_802FA8C0(HSD_GObj* arg)
     float y = 11.0f;
     signed char* a97c = gm_8016A97C();
     signed char* a98c = gm_8016A98C()->arr1;
+#ifdef MELEE_NATIVE
+    cur = stock->x10C;
+#else
     cur = stock->x10C - (0x10C / sizeof(*cur));
+#endif
     for (i = 0; i < 0x82; i++, cur++, a97c++, a98c++) {
+#ifdef MELEE_NATIVE
+        HSD_GObj* gobj = *cur;
+#else
         HSD_GObj* gobj = cur[0x10C / sizeof(*cur)];
+#endif
         if (gobj == NULL) {
             return;
         }

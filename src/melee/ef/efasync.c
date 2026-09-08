@@ -1122,8 +1122,12 @@ void* efAsync_Dispatch(s32 gfx_id, HSD_GObj* gobj, va_list vlist)
     while (efLib_AnimCount != 0) {
         count = efLib_AnimCount - 1;
         efLib_AnimCount = count;
+#ifdef MELEE_NATIVE
+        HSD_JObjAnimAll(efLib_AnimQueue[count]);
+#else
         HSD_JObjAnimAll(
             ((EF_ParamEntry*) (((u32*) efLib_AnimQueue) + count))->gobj);
+#endif
     }
 #if 1
 #else
@@ -1259,10 +1263,17 @@ static char efAsync_803C0248[] = "effEmblemDataTable";
 
 void efAsync_LoadAsync(int index)
 {
+#ifdef MELEE_NATIVE
+    EF_DAT_Entry* entry;
+#else
     EF_DAT_Entry* entry = &efAsync_DatEntries[index];
+#endif
     if (index >= 50 || index < 0) {
         return;
     }
+#ifdef MELEE_NATIVE
+    entry = &efAsync_DatEntries[index];
+#endif
 
     if (entry->ef_DAT_file == NULL) {
         return;
@@ -1278,7 +1289,7 @@ void efAsync_OnLoad(HSD_Archive* archive, u8* data, u32 length, int index)
     lbArchive_InitializeDAT(archive, data, length);
     result = HSD_ArchiveGetPublicAddress(
         archive, efAsync_DatEntries[index].effDataTable_name);
-    if ((u32) result->ef_DAT_file | (u32) result->effDataTable_name) {
+    if ((uintptr_t) result->ef_DAT_file | (uintptr_t) result->effDataTable_name) {
         psInitDataBankLocate((HSD_Archive*) result->ef_DAT_file,
                              (HSD_Archive*) result->effDataTable_name, NULL);
     }
@@ -1288,11 +1299,16 @@ void efAsync_LoadSync(int idx)
 {
     EF_DAT_Entry* spC;
     EF_DAT_Entry* lookup;
+#ifndef MELEE_NATIVE
     lookup = &efAsync_DatEntries[idx];
+#endif
 
     if (idx >= 50 || idx < 0) {
         return;
     }
+#ifdef MELEE_NATIVE
+    lookup = &efAsync_DatEntries[idx];
+#endif
     if (!lookup->ef_DAT_file) {
         return;
     }
@@ -1302,7 +1318,7 @@ void efAsync_LoadSync(int idx)
     {
         bool chk = lbArchive_80017040(NULL, lookup->ef_DAT_file, &spC,
                                       lookup->effDataTable_name, 0);
-        if ((u32) spC->ef_DAT_file | (u32) spC->effDataTable_name) {
+        if ((uintptr_t) spC->ef_DAT_file | (uintptr_t) spC->effDataTable_name) {
             if (chk) {
                 psInitDataBankLoad(idx, (void*) spC->ef_DAT_file,
                                    (void*) spC->effDataTable_name, NULL, NULL);

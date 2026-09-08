@@ -77,10 +77,15 @@ void* HSD_SisLib_Alloc(s32 size)
         OSReport("ZERO byte alloc\n");
         OSPanic(__FILE__, 60, "");
     }
+#ifdef MELEE_NATIVE
+    remainder = size % _Alignof(SisBlock);
+    if (remainder != 0) size += _Alignof(SisBlock) - remainder;
+#else
     remainder = size % 4;
     if (remainder != 0) {
         size += 4 - remainder;
     }
+#endif
     while (alloc_cur != NULL) {
         alloc_tail = alloc_cur;
         alloc_cur = alloc_cur->next;

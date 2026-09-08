@@ -83,7 +83,7 @@ StageCallbacks grNKr_StageCallbacks[4] = {
         grKinokoRoute_80207C80,
         grKinokoRoute_80207C88,
         grKinokoRoute_80208368,
-        (1 << 30) | (1 << 31),
+        (1 << 30) | (1U << 31),
     },
 };
 

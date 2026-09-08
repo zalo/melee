@@ -381,7 +381,11 @@ void lbRefract_800222A4(void)
         lbRefract_8002219C(&cb, buf, GX_TF_IA8, 32, 32);
         lbRefract_80021CE8(&cb, i);
 
+#ifdef MELEE_NATIVE
+        lbl_804336D0.imagedesc[i] = imagedesc0;
+#else
         lbl_804336D0.imagedesc[i] = data->imagedesc0;
+#endif
         tobjdesc1.imagedesc = &lbl_804336D0.imagedesc[i];
         lbl_804336D0.tobj_list[i] = HSD_TObjLoadDesc(&tobjdesc1);
 

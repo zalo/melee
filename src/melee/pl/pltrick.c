@@ -81,7 +81,11 @@ void pl_80037C60(Fighter_GObj* fgp, s32 prev2070_int)
     if ((attack_id != 0) && (attack_id != prev_union.x2073)) {
         if (attack_id >= StatsAttack_Count) {
             if (!fp->x221F_b4) {
+#ifdef MELEE_NATIVE
+                (*plActionStatsHighCounter(acp, attack_id))++;
+#else
                 acp->by_attack_hi[attack_id]++;
+#endif
             }
         } else {
             ev.x2070_int = fp->x2070.x2070_int;
