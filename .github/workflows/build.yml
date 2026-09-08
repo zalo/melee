@@ -1,7 +1,11 @@
 name: build
 run-name: Build Melee & publish GitHub Pages
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
 
 permissions:
   contents: read

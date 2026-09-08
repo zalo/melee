@@ -15,6 +15,7 @@ Requires an Apple Silicon Mac running macOS 15.5 or newer and your own
 **Melee US 1.02 disc image (GALE01, revision 2)**. ISO, GCM, CISO and RVZ work.
 Game assets and disc images are not included or downloaded by the project.
 
+Download the experimental app from [GitHub Releases](https://github.com/jonrosner/melee-native/releases).
 Open the packaged **Melee Native.app** and select your disc image. Keep the
 image accessible while playing. At the initial save prompt, choose **No**.
 The app asks for the image again on each fresh launch.
