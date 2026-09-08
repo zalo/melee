@@ -14,8 +14,12 @@ jobs:
   build:
     runs-on: macos-15
     timeout-minutes: 45
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
     steps:
       - uses: actions/checkout@v6
+      - name: Verify Xcode toolchain
+        run: xcodebuild -version
       - name: Install build dependencies
         run: brew install cmake ninja python ruby pkg-config fmt libpng freetype zstd
       - name: Fetch pinned native dependency

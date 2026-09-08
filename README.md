@@ -40,9 +40,12 @@ Click the game window before playing. Logs are written to
 
 ## Build from source
 
-Install Xcode Command Line Tools (`xcode-select --install`) and Homebrew, then:
+Install **Xcode 26.2** and Homebrew. Select Xcode's toolchain rather than an
+older standalone Command Line Tools installation, then build:
 
 ```sh
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+xcodebuild -version
 brew install cmake ninja python ruby pkg-config fmt libpng freetype zstd
 python3 native/tools/bootstrap.py
 cmake -S native -B build/native-app -G Ninja \
