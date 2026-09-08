@@ -247,6 +247,21 @@ void gm_Scene_MemCard_OnFrame(void)
     int temp_r29;
     u8 _[0x14];
 
+#ifdef MELEE_NATIVE
+    extern int MeleeNativeSkipSavePrompt;
+    if (MeleeNativeSkipSavePrompt && gm_80480DA8.unk0.unk0 == 0 &&
+        gm_80480DA8.unk14 == 0)
+    {
+        // Initialize a fresh session, then take the existing "continue without
+        // saving" result. The launcher explains that progress is not saved.
+        gmMainLib_8015FA34(1);
+        gm_80480DA8.unk8.unk0 = 0;
+        gm_80480DA8.unk14 = 20;
+        lb_8001CBAC(4);
+        return;
+    }
+#endif
+
     if (DbLevel >= DbLKind_DebugRom && set_gm_804D6870_inline() != 0) {
         if (HSD_PadCopyStatus->trigger & HSD_PAD_L) {
             if (gm_804D6872 > 6) {
