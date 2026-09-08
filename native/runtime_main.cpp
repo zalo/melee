@@ -9,6 +9,7 @@
 #include <dolphin/dvd.h>
 #include <cstring>
 #include <SDL3/SDL.h>
+#include "disc_fonts.h"
 
 static std::string executable_path, disc_path;
 static void reset_game(int type) {
@@ -70,6 +71,8 @@ int main(int argc, char** argv) {
                 id->gameVersion != 2 || id->diskNumber != 0)
                 error = "This port requires Super Smash Bros. Melee US revision 1.02 (GALE01, revision 2). This image is a different game or version.";
         }
+        if (error.empty() && !MeleeLoadDiscFonts(disc_path.c_str()))
+            error = "Could not load the font data from this disc's main.dol.";
         if (error.empty()) {
             std::fprintf(stderr, "[launch] Loaded GALE01 revision 2 from %s\n", disc_path.c_str());
             break;

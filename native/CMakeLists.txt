@@ -11,7 +11,7 @@ execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/too
 file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS
   "${MELEE_ROOT}/src/melee/*.c" "${MELEE_ROOT}/src/sysdolphin/*.c")
 add_library(melee_game OBJECT ${GAME_SOURCES})
-target_include_directories(melee_game PRIVATE include "${MELEE_ROOT}/src" "${CMAKE_CURRENT_BINARY_DIR}/sdk" "${MELEE_ROOT}/build/GALE01/include")
+target_include_directories(melee_game PRIVATE include "${MELEE_ROOT}/src" "${CMAKE_CURRENT_BINARY_DIR}/sdk")
 target_compile_definitions(melee_game PRIVATE TARGET_PC MELEE_NATIVE BUILD_VERSION=0 VERSION_GALE01)
 target_compile_options(melee_game PRIVATE -include "${CMAKE_CURRENT_SOURCE_DIR}/include/compat.h"
   -fno-strict-aliasing -fgnu89-inline -ffp-contract=off -Wno-incompatible-pointer-types -Wno-int-conversion
@@ -39,7 +39,7 @@ add_library(melee_os_runtime OBJECT os_runtime.c)
 target_include_directories(melee_os_runtime PRIVATE $<TARGET_PROPERTY:melee_game,INCLUDE_DIRECTORIES>)
 target_compile_definitions(melee_os_runtime PRIVATE $<TARGET_PROPERTY:melee_game,COMPILE_DEFINITIONS>)
 target_compile_options(melee_os_runtime PRIVATE $<TARGET_PROPERTY:melee_game,COMPILE_OPTIONS>)
-add_executable(melee_mac EXCLUDE_FROM_ALL runtime_main.cpp gx_bridge.cpp vi_runtime.cpp pad_bridge.cpp "${MELEE_ROOT}/src/MSL/float.c" $<TARGET_OBJECTS:melee_game> $<TARGET_OBJECTS:melee_os_runtime>)
+add_executable(melee_mac EXCLUDE_FROM_ALL runtime_main.cpp disc_fonts.cpp gx_bridge.cpp vi_runtime.cpp pad_bridge.cpp "${MELEE_ROOT}/src/MSL/float.c" $<TARGET_OBJECTS:melee_game> $<TARGET_OBJECTS:melee_os_runtime>)
 target_link_libraries(melee_mac PRIVATE aurora::core aurora::gx aurora::os aurora::dvd
   aurora::card aurora::mtx aurora::pad aurora::vi aurora::thp)
 target_link_options(melee_mac PRIVATE -Wl,-dead_strip)

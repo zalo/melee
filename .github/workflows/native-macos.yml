@@ -1,0 +1,30 @@
+name: Native macOS
+
+on:
+  push:
+    branches: [native-macos]
+  pull_request:
+    branches: [native-macos]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install build dependencies
+        run: brew install cmake ninja python ruby pkg-config fmt libpng freetype zstd
+      - name: Fetch pinned native dependency
+        run: python3 native/tools/bootstrap.py
+      - name: Configure without game assets
+        run: cmake -S native -B build/native-app -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_OSX_DEPLOYMENT_TARGET=15.5
+      - name: Build app and component tests
+        run: cmake --build build/native-app --target melee_mac all --parallel 3
+      - name: Asset-free component tests
+        run: ctest --test-dir build/native-app -L melee --output-on-failure
+      - name: Verify portable package
+        run: ruby native/tools/package_app.rb build/native-app dist/ci

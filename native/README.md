@@ -2,7 +2,8 @@
 
 **The ARM64 port passes the current short-match matrix covering 29 selectable
 VS stages, 26 character entries and 35 common item kinds. It remains incomplete.**
-The latest results and per-case logs are in `dist/macos/validation/REPORT.md`.
+The recorded results are in [validation/2026-09-08/REPORT.md](validation/2026-09-08/REPORT.md).
+See the [main README](../README.md) for current build and packaging instructions.
 Earlier non-black framebuffer checks could accept a solid background; those
 results are not visual acceptance. Current reports also check camera finiteness
 and playfield color/edge variation after the countdown.

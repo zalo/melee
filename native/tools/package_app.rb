@@ -62,11 +62,11 @@ notices = File.join(resources, 'Third Party Notices')
 FileUtils.mkdir_p(notices)
 license_files = {
   'Aurora.txt' => 'build/native-deps/aurora/LICENSE',
-  'SDL.txt' => 'build/native/_deps/sdl-src/LICENSE.txt',
-  'ImGui.txt' => 'build/native/_deps/imgui-src/LICENSE.txt',
-  'Abseil.txt' => 'build/native/_deps/abseil-cpp-src/LICENSE',
-  'Tracy.txt' => 'build/native/_deps/tracy-src/LICENSE',
-  'xxHash.txt' => 'build/native/_deps/xxhash-src/LICENSE',
+  'SDL.txt' => File.join(build, "_deps/sdl-src/LICENSE.txt"),
+  'ImGui.txt' => File.join(build, "_deps/imgui-src/LICENSE.txt"),
+  'Abseil.txt' => File.join(build, "_deps/abseil-cpp-src/LICENSE"),
+  'Tracy.txt' => File.join(build, "_deps/tracy-src/LICENSE"),
+  'xxHash.txt' => File.join(build, "_deps/xxhash-src/LICENSE"),
   'Dawn.txt' => 'native/licenses/Dawn.txt',
   'nod.txt' => 'native/licenses/nod.txt',
   'FreeType.txt' => 'native/licenses/FreeType.txt',
