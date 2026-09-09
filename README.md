@@ -1,4 +1,30 @@
-# Melee Native for macOS and Linux
+<p align="center">
+  <img src="native/platform/macos/resources/SSBM.png" alt="Super Smash Bros. Melee" width="560">
+</p>
+
+<h1 align="center">Melee Native</h1>
+
+<p align="center">
+  <strong>Native ports for macOS and Linux.</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/jonrosner/melee-native/releases/download/v0.1.0/Melee-Native-macOS-arm64.dmg"><img src="https://img.shields.io/badge/Download-macOS-8b5cf6?style=for-the-badge&amp;logo=apple&amp;logoColor=white" alt="Download for macOS"></a>
+  <a href="https://github.com/jonrosner/melee-native/releases/download/v0.1.0-linux.1/Melee-Native-Linux-x86_64.tar.gz"><img src="https://img.shields.io/badge/Download-Linux-f4c542?style=for-the-badge&amp;logo=linux&amp;logoColor=black" alt="Download for Linux"></a>
+</p>
+
+<p align="center">
+  Apple Silicon + Metal &nbsp; · &nbsp; Linux x86-64 + Vulkan<br>
+  <sub>Experimental builds. Your own Melee US 1.02 image required. No game disc included.</sub>
+</p>
+
+<p align="center">
+  <a href="#play-on-macos">macOS setup</a> &nbsp; · &nbsp;
+  <a href="#play-on-linux">Linux setup</a> &nbsp; · &nbsp;
+  <a href="https://github.com/jonrosner/melee-native/releases">All releases</a>
+</p>
+
+---
 
 An experimental native port of Super Smash Bros. Melee for Apple Silicon macOS
 and x86-64 Linux, based on
@@ -10,6 +36,9 @@ Both platforms share the **`main` branch** and game code. This fork preserves
 the upstream history; original decompilation instructions are preserved in
 [the upstream README](.github/UPSTREAM_README.md).
 
+<details>
+<summary>Source layout</summary>
+
 ```text
 src/                       Shared recovered game code
 native/                    Shared native runtime and platform interface
@@ -19,6 +48,8 @@ native/                    Shared native runtime and platform interface
   tests/                   Component and gameplay tests
 .github/workflows/         macOS and Linux CI for main
 ```
+
+</details>
 
 ## Play on Linux
 
