@@ -1,4 +1,4 @@
-# Renderer iteration toward 60 FPS, 2026-09-10 (v79–v106)
+# Renderer iteration toward 60 FPS, 2026-09-10 (v79–v108)
 
 This report continues the Miyoo Flip work described in the earlier reports under
 `../2026-09-09-flip/`. It records what was measured, what changed in the renderer,
@@ -35,6 +35,12 @@ physical scanout capture (`3f2016a8522d…`) as the v77/v79 baseline.
 | v102 | moving Battlefield | async | 17.1 | 16.7 (p95 16.8) | 59–59 | n/a |
 | v106 swapchain pool | frozen Onett | async | | render worker 15.3 ms | 58.4 | yes |
 | v106 | moving Onett | async | 17.2 | 16.7 (p95 19.5) | 58–59 | n/a |
+| v108 line/point loaders | frozen Onett | async | | render worker 15.3 ms | 58 | yes |
+| v108 | moving Onett | async | 17.4 | 16.7 (p95 20.3) | 57–59 | n/a |
+| v108 | moving Battlefield | async | 17.0 | 16.7 (p95 16.8) | 58–59 | n/a |
+| v108 | moving Pokémon Stadium | async | 17.7 | 16.7 (p95 22.6) | 56–59 | n/a |
+| v106 | moving Fountain of Dreams | async | 47.2 | 45.7 | 21 | n/a |
+| v108 | moving Fountain of Dreams | async | 26.2 | 24.7 (p95 39.3) | 37–40 | n/a (frozen EFB unchanged) |
 
 Mean/median are the presentation intervals from `[flip-thread-present]`
 (`analyze_flip_profile.py --tail 300`); FPS is the game thread's `[perf]` line
@@ -227,7 +233,34 @@ so it can be A/B tested with the trial tool.
     item 11, ~4 times per second in moving Onett). The bytes now go into a fresh
     staging buffer and `glCopyBufferSubData` on the render thread before submit.
 
+14. **Specialized line/point expansion** (`flip_vertex.hpp`, v108). GX_POINTS and
+    GX_LINES went through the reference per-vertex decoder plus a struct-based
+    quad expansion. Fountain of Dreams draws ~25,000 point sprites per frame
+    (~1,850 GX_POINTS draws inside one display list that the resident cache refuses
+    because of the primitive type), which cost the FIFO worker ~30 ms per frame.
+    The specialized loader now decodes line/point formats too and the expansion
+    copies whole records; records are assembled in local memory because the
+    destination is write-combined mapped storage and reading it back on the FIFO
+    worker cost ~20 ms per frame on its own. FIFO worker 46 → 23 ms on Fountain,
+    frozen Fountain capture `cc2fea00f05f…` unchanged, Onett unchanged. The
+    per-vertex record region got a CPU shadow for the same reason.
+
 ## Findings worth keeping
+
+- **Other stages (v106/v108, moving matches):** Pokémon Stadium and Hyrule Temple
+  present at 16.7 ms median (p95 21–31 ms, the latter from mid-match pipeline
+  waits). Fountain of Dreams is GPU-bound: its main pass takes 16–17 ms of GPU
+  (`[flip-direct-gpu]`), of which dynamic uniform-record indexing is ~1.5 ms
+  (`MELEE_FLIP_GPU_TEST`); the rest is the fill of ~25k blended point sprites.
+  After the v108 FIFO fix it runs at ~37 fps and needs GPU-side work (smaller
+  or fewer fragments per sprite, per-draw constant records) to go further.
+- Fountain of Dreams also hit a game-side assertion twice in seven runs
+  (`synth.c:214`, "Can't load SFX file; bank buffer overflow", both times while
+  CPU sampling was active); unrelated to rendering, recorded here so it is not
+  mistaken for a renderer crash.
+- **Never read back from mapped vertex memory on the FIFO worker.** The
+  persistently mapped slots are write-combined; a single 4-byte read per record
+  in the point expansion cost ~20 ms per frame on Fountain.
 
 - **Present blit is not a win** (`MELEE_FLIP_PRESENT_BLIT=1`, v105, opt-in):
   replacing the full-screen copy draw with `glBlitFramebuffer` costs the same

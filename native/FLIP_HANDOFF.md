@@ -1,6 +1,6 @@
 # Miyoo Flip V2 port: consolidated handoff
 
-Snapshot: 2026-09-10 (second iteration, v79–v106). This is the entry point for
+Snapshot: 2026-09-10 (second iteration, v79–v108). This is the entry point for
 the ARM port, the renderer work, profiling results, and remaining work. Build and
 installation details are in [FLIP.md](FLIP.md). The detailed record of this
 iteration is [RENDERER_ITERATION.md](validation/2026-09-10-flip/RENDERER_ITERATION.md);
@@ -12,8 +12,9 @@ Onett, moving Onett and moving Battlefield all run at the 60 Hz boundary (median
 steady 5-second windows; frozen Onett bit-exact with the original reference EFB
 capture). Moving Onett's tail stalls were resident-geometry invalidation scans
 (v100) and an implicit GPU sync on vertex uploads (v102), not shader compilation.
-Moving Onett is render-worker bound at ~17.5 ms, so 60 FPS is reached but not yet
-with margin; other stages, four players and menus are unmeasured.
+Moving Onett is render-worker bound at ~15–15.5 ms. Pokémon Stadium and Hyrule
+Temple also present at 16.7 ms median; Fountain of Dreams is GPU-bound (~37 fps,
+25k blended point sprites). Four players and menus are unmeasured.
 
 ## Repository and device state
 
@@ -21,11 +22,11 @@ with margin; other stages, four players and menus are unmeasured.
 | --- | --- |
 | Hardware | Rockchip RK3566, Mali-G52, AArch64 Linux, 640×480, ~1 GiB RAM |
 | Firmware | Surwish / Buildroot, kernel 5.10.160; app-local Mali g29p1 GLES driver |
-| Device executable | v106 (`dist/flip/v106`), launcher with `MELEE_FLIP_ASYNC_FIFO=1` default |
+| Device executable | v108 (`dist/flip/v108`), launcher with `MELEE_FLIP_ASYNC_FIFO=1` default |
 | Local source | this tree; Aurora/Dawn working trees under ignored `build/`, patches regenerated and verified against pristine sources |
 | Device activity | game stopped between trials, MainUI running |
 | ROM | installed at `/mnt/SDCARD/Ports/melee-native/data/disc.img`; no ROM was transferred |
-| Symbols | `build/flip-tools/melee_native-v96..v106-symbols` (unstripped, for CPU samples) |
+| Symbols | `build/flip-tools/melee_native-v96..v108-symbols` (unstripped, for CPU samples) |
 
 Passwordless ADB at `10.0.0.178:5555` (`build/flip-tools/platform-tools/adb`).
 
@@ -49,6 +50,7 @@ mostly inside the Mali driver, not Dawn.
 | Pipeline-state memo | raw-state hash reuses config/shader-info/ref | FIFO 11.7 → 9.9 ms |
 | Resident invalidation index | pointer→entry multimap, range query per released region | moving Onett FIFO 20 → 15 ms, tail frames gone |
 | Swapchain texture pool | presenter recycles presented GL textures; framebuffer cache keeps hitting | render worker −1 ms (frozen 15.3 ms, moving Onett 15–15.5 ms) |
+| Specialized line/point expansion | loader-decoded records copied into quad corners, assembled in local memory | Fountain of Dreams FIFO 46 → 23 ms |
 | Mapped vertex stream | streamed vertices decoded into fenced persistently mapped GL storage; no `glBufferSubData` into in-flight buffers | moving Onett render 27 → 17.7 ms (mean frame 27.5 → 17.5), Battlefield 21 → 17.1 |
 
 Per-frame budget now (frozen Onett, async, v106): game thread ~5 ms, FIFO worker
@@ -123,10 +125,13 @@ render worker, and `[flip-resident]`. `MELEE_FLIP_DAWN_TIMING=1` adds
 2. **Compile stalls on a cold shader cache** (`pipeline_wait_ms` is ~0 when warm):
    non-blocking pipeline creation (skip the draw, Dolphin style), repaired
    prewarming, or a shipped cache from scripted matches.
-3. **GPU headroom.** Dynamic uniform-record indexing in TEV fragment shaders costs
+3. **Fountain of Dreams GPU fill** (~17 ms main pass): the point sprites' fragment
+   cost. Per-draw constant records save ~1.5 ms; beyond that only cheaper sprite
+   shading or fewer fragments help.
+4. **GPU headroom.** Dynamic uniform-record indexing in TEV fragment shaders costs
    ~2.7 ms of the ~13 ms GPU frame; consider per-draw constant records when the
    CPU side allows it.
-4. Validate more stages, four-player matches, menus and longer sessions before
+5. Validate more stages, four-player matches, menus and longer sessions before
    claiming solid 60 FPS.
 
 Design references remain Dolphin's ARM64 vertex loaders, vertex loader manager,
