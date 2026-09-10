@@ -1,287 +1,150 @@
 # Miyoo Flip V2 port: consolidated handoff
 
-Snapshot: 2026-09-10. This is the entry point for the ARM port, renderer work,
-profiling results, and remaining optimization work. Build and installation
-details are in [FLIP.md](FLIP.md).
+Snapshot: 2026-09-10 (second iteration, v79–v114). This is the entry point for
+the ARM port, the renderer work, profiling results, and remaining work. Build and
+installation details are in [FLIP.md](FLIP.md). The detailed record of this
+iteration is [RENDERER_ITERATION.md](validation/2026-09-10-flip/RENDERER_ITERATION.md);
+the first iteration's reports remain under `validation/2026-09-09-flip/`.
 
-**Publication correction:** the initial fork commit `959822528` accidentally
-contained a Melee diff in the Dawn patch file. The corrected patch recovers all
-ten modified Dawn files from the local working source against the checksum-pinned
-archive. The preparation tool now prevents Git from discovering the parent
-repository when patching an extracted dependency. See the
-[recovery and validation report](validation/2026-09-09-flip/DAWN_PATCH_RECOVERY.md).
-Existing clones must pull the correction before preparing/rebuilding Dawn.
-
-**The game renders and plays with working audio and controls, but solid 60 FPS
-has not been achieved.** The latest installed build averages about 30.1 ms on
-the frozen Onett reference. Earlier moving gameplay samples average about
-35.7 ms on Onett and 24.9 ms on Battlefield. The target is 16.67 ms per frame.
+**State:** the game renders and plays with working audio and controls. Frozen
+Onett, moving Onett and moving Battlefield all run at the 60 Hz boundary (median
+16.7 ms per presented frame, p95 16.8–20.3 ms, 52–59 presented FPS over
+steady 5-second windows; frozen Onett bit-exact with the original reference EFB
+capture). Moving Onett's tail stalls were resident-geometry invalidation scans
+(v100) and an implicit GPU sync on vertex uploads (v102), not shader compilation.
+Moving Onett is render-worker bound at ~15–15.5 ms. Pokémon Stadium and Hyrule
+Temple also present at 16.7 ms median; Fountain of Dreams is GPU-bound (~37 fps,
+25k blended point sprites). Four players and menus are unmeasured.
 
 ## Repository and device state
 
-The port is published on the `miyoo-flip` branch of
-[sh1ftmaker/melee-native-miyoo-flip](https://github.com/sh1ftmaker/melee-native-miyoo-flip),
-based on `jonrosner/melee-native` commit `76e6bb95f`. Upstream history is retained.
-The v71–v78 labels below identify development iterations, not release tags.
-
 | Item | State at handoff |
 | --- | --- |
-| Hardware | Rockchip RK3566, Mali-G52, AArch64 Linux, 640×480, approximately 1 GiB RAM |
-| Firmware | Surwish / Buildroot, kernel 5.10.160 |
-| Device game executable | v77, gameplay-tested; detailed timers compiled out |
-| Local executable and committed source | v78; cross-build and ARM decoder test pass; new opt-in paths not gameplay-tested |
-| Device activity | Game stopped, MainUI running |
-| Restored system state | CPUs 0–1; CPU `ondemand`, GPU `simple_ondemand`, DMC `dmc_ondemand` |
-| ROM | Already installed at `/mnt/SDCARD/Ports/melee-native/data/disc.img`; RVZ content supported directly |
-| Older package | Local `dist/flip/Melee-Native-Flip` retained as an older fallback; not the latest build |
+| Hardware | Rockchip RK3566, Mali-G52, AArch64 Linux, 640×480, ~1 GiB RAM |
+| Firmware | Surwish / Buildroot, kernel 5.10.160; app-local Mali g29p1 GLES driver |
+| Device executable | v114 (`dist/flip/v114`; v108 defaults, empty ImGui pass skipped, opt-in experiments), launcher with `MELEE_FLIP_ASYNC_FIFO=1` default |
+| Local source | this tree; Aurora/Dawn working trees under ignored `build/`, patches regenerated and verified against pristine sources |
+| Device activity | game stopped between trials, MainUI running |
+| ROM | installed at `/mnt/SDCARD/Ports/melee-native/data/disc.img`; no ROM was transferred |
+| Symbols | `build/flip-tools/melee_native-v96..v114-symbols` (unstripped, for CPU samples) |
 
-The installed v77 executable SHA-256 is
-`d582f44624c49caf925e2762b4958e0906bfccf2fe95e88e5ca7b6b77be0a999`.
-The final CPU test upload changed only `/tmp/melee_flip_vertex_test`, not the
-game executable. No ROM was transferred during optimization or handoff.
+Passwordless ADB at `10.0.0.178:5555` (`build/flip-tools/platform-tools/adb`).
 
-Source, dependency patches, tools, and written reports belong in the fork.
-ROMs, extracted assets, SDKs, proprietary driver binaries, executable builds,
-shader caches, and raw device captures remain local. Historical reports name
-local evidence files; those references are not downloads from the fork.
+## Where the time went, and what changed
 
-## What changed and why
+The first iteration left three roughly equal costs: the FIFO translation worker
+(28.6 ms busy per frame, joined by the game thread every frame), the render worker
+(25 ms), and the GPU (~11 ms main pass). Sampling showed the translator's time
+was mostly vertex decoding and texture hashing, and the render worker's time was
+mostly inside the Mali driver, not Dawn.
 
-The native port uses a cross SDK, a private compatible C++ runtime, ARM fixes
-in the recovered game/runtime code, RVZ reading through nod, and Flip controls,
-audio, display ownership, packaging, and incremental deployment.
+| Change | Mechanism | Effect (frozen Onett) |
+| --- | --- | --- |
+| Specialized vertex loaders | per-format decode plans, no memset, direct-to-frame | FIFO 28.6 → 24.4 ms |
+| Resident display-list geometry | HSD display lists decoded once into GPU arenas; per-call 32-bit indices only; per-frame record stream restores batching | FIFO → 16.4 ms, uploads ~3.8 MB → ~0.3 MB/frame |
+| Stable texture identities | identity from image description (incl. wrap/filter/LOD), sampled content verification | FIFO → 13.6 ms |
+| Persistently mapped uniform/index streams | FIFO writes GL storage directly; `glDrawRangeElements` required for mapped indices on Mali | render upload 4.1 → 0.2 ms |
+| Direct-path trimming | state filtering, persistent texture param memos, sampler state on textures, records via `glUniform1uiv`, no resample pass | ~2 ms render |
+| Dawn framebuffer cache | FBOs reused per attachment set | ~2 ms render |
+| Asynchronous frames | frame markers in the GX stream; no per-frame join; draw-done waits scoped to the last token | frame = max(game, FIFO, render) |
+| Pipeline-state memo | raw-state hash reuses config/shader-info/ref | FIFO 11.7 → 9.9 ms |
+| Resident invalidation index | pointer→entry multimap, range query per released region | moving Onett FIFO 20 → 15 ms, tail frames gone |
+| Swapchain texture pool | presenter recycles presented GL textures; framebuffer cache keeps hitting | render worker −1 ms (frozen 15.3 ms, moving Onett 15–15.5 ms) |
+| Specialized line/point expansion | loader-decoded records copied into quad corners, assembled in local memory | Fountain of Dreams FIFO 46 → 23 ms |
+| Mapped vertex stream | streamed vertices decoded into fenced persistently mapped GL storage; no `glBufferSubData` into in-flight buffers | moving Onett render 27 → 17.7 ms (mean frame 27.5 → 17.5), Battlefield 21 → 17.1 |
 
-The GPU **does support vertex buffers**. The original integer-texture vertex
-fetch path was a compatibility strategy, not a hardware limitation. The older
-g13 driver reproduced missing geometry and GPU faults when its per-draw
-texture-fetch barriers were removed. Conventional vertex inputs together with
-the app-local g29p1 driver render correctly without those barriers. This
-establishes a working combination; it does not identify a proprietary driver
-bug at source level or prove Surwish itself caused it. Firmware, kernel, and
-system graphics libraries were not replaced. The g13 fallback remains available.
+Per-frame budget now (frozen Onett, async, v106): game thread ~5 ms, FIFO worker
+~9–10 ms, render worker ~15.3 ms (moving Onett 15–15.5 ms), GPU ~12–13 ms. The render worker is the limiter; 62 % of its
+samples are inside the Mali driver (about 330 draws and 7 render passes per frame).
 
-The renderer now decodes GX attributes on the FIFO worker into compact vertex
-buffers, including NEON fixed-point conversion. Stable 64 KiB uniform windows
-hold sixteen 4 KiB draw records. Per-vertex record indices let adjacent compatible
-draws batch while preserving ordering. Correcting the front-face convention
-after clip-space Y inversion fixed missing/black surfaces.
+## Current defaults and switches
 
-Qualified GX passes use direct GLES draw submission with cached resource and
-pipeline bindings; their Dawn encoding records resources without issuing the
-same draws again. A shared-context presentation worker moves EGL/GBM/DRM
-presentation off the render worker, using a bounded queue, GL fences, and
-explicit texture ownership. Changed-range uploads avoid redundant data writes.
+The launcher (`platform/flip/launch.sh`) selects g29 with direct GLES submission,
+threaded presentation, and now `MELEE_FLIP_ASYNC_FIFO=1`. Everything added in this
+iteration is on by default and has an opt-out for A/B trials:
 
-**Dawn is still present:** it owns resources, shader generation/compilation,
-queue infrastructure, and reference passes. This is not a complete independent
-GLES backend. The experimental native GLSL generator has small image differences
-and was slower, so it is not the default.
+| Switch | Default | Purpose |
+| --- | --- | --- |
+| `MELEE_FLIP_LOADERS` | 1 | specialized vertex decoders |
+| `MELEE_FLIP_RESIDENT_DL`, `MELEE_FLIP_RESIDENT_MB` | 1, 64 | resident display-list geometry and its budget |
+| `MELEE_FLIP_RESIDENT_RECORDS` | 1 | per-vertex uniform records for resident draws (cross-record batching) |
+| `MELEE_FLIP_STABLE_TEXID`, `MELEE_FLIP_TEXTURE_VERIFY` | 1, `sampled` | derived texture identities; `full`/`none` verification |
+| `MELEE_FLIP_MAPPED_STREAM`, `MELEE_FLIP_MAPPED_USE`, `MELEE_FLIP_MAPPED_VERTICES` | 1, `all`, 1 | mapped uniform/index/vertex streams; `uniforms`/`indices`/`vertices` bind only one |
+| `MELEE_FLIP_RANGE_ELEMENTS` | 1 | `glDrawRangeElements` (needed with mapped indices) |
+| `MELEE_FLIP_STATE_CACHE`, `MELEE_FLIP_TEXTURE_SAMPLER_STATE`, `MELEE_FLIP_DIRECT_RECORD_MIN`, `MELEE_FLIP_DIRECT_PRESENT` | 1 | direct-path trimming |
+| `MELEE_FLIP_FBO_CACHE` | 1 (Dawn) | framebuffer object cache |
+| `MELEE_FLIP_ASYNC_FIFO` | launcher 1 | asynchronous frames |
+| `MELEE_FLIP_PIPELINE_MEMO` | 1 | pipeline-state memo |
+| `MELEE_FLIP_SWAPCHAIN_POOL`, `MELEE_FLIP_RESIDENT_COPY` | 1 | pooled swapchain textures; GPU-side copies for resident arena uploads |
+| `MELEE_FLIP_SKIP_EMPTY_IMGUI` | 1 | no ImGui render pass when the overlay is empty |
+| `MELEE_FLIP_LAYOUT_VAO` | off | one VAO per attribute layout; neutral on this driver (see report) |
+| `MELEE_FLIP_CONSTANT_RECORDS` | off | per-draw uniform record pipelines; −1 ms GPU, +5 ms render worker on this driver (see report) |
+| `MELEE_FLIP_PRESENT_BLIT` | off | blit instead of the present copy pass; no gain, ±1 scanout pixels |
+| `MELEE_FLIP_SORT_OPAQUE` | off | sort opaque depth-ordered runs by state in the direct path (−0.5–0.7 ms, exact on frozen Onett, order risk elsewhere) |
+| `MELEE_FLIP_TEXTURE_PAIRS` | off | texture-bank batching; measured slower (see report) |
+| `MELEE_FLIP_DAWN_TIMING`, `MELEE_FLIP_DRAW_TRACE`, `MELEE_FLIP_GPU_TEST`, `MELEE_FLIP_SKIP_POINTS`, `MELEE_FLIP_MAPPED_CHECK`, `MELEE_FLIP_MAPPED_VERIFY_GPU`, `MELEE_FLIP_MAPPED_MIRROR`, `MELEE_FLIP_MAPPED_BIND_DAWN` | off | diagnostics only |
 
-The launcher enables available cores and supported performance governors, then
-restores them on exit, failure, or handled termination. Supported maxima observed
-were CPU 1992 MHz, GPU 900 MHz, and DMC 1056 MHz; firmware often selected 780 MHz
-for DMC before the launcher changes. These are supported firmware settings.
+Earlier experiments (`MELEE_FLIP_STREAM_UPLOAD`, `MELEE_FLIP_NATIVE_SPECIALIZED`,
+`MELEE_FLIP_VERTEX_CACHE`, `MELEE_FLIP_MAP_UPLOAD`, `MELEE_FLIP_DECODE_DIRECT`,
+`MELEE_FLIP_RELEASE_TEXOBJ`) remain opt-in and were not re-evaluated.
+`MELEE_FLIP_PREWARM_PIPELINES=1` currently crashes at startup and must stay off.
 
-## Current defaults and experiments
+## Validation
 
-| Setting | g29 default / purpose |
-| --- | --- |
-| `MELEE_FLIP_VERTEX_INPUT=1`, `MELEE_FLIP_UNIFORM_TABLE=1` | Conventional vertices and stable draw parameter tables |
-| `MELEE_FLIP_BARRIER_EVERY=0`, `MELEE_FLIP_BATCH_DRAWS=1` | No old per-draw barriers; adjacent compatible batching |
-| `MELEE_FLIP_DIRECT_GLES=5`, `MELEE_FLIP_DIRECT_PACKET=1` | Direct submission for eligible GX passes |
-| `MELEE_FLIP_DIRECT_CHECKS=0`, `MELEE_FLIP_FAST_VALIDATION=1` | Qualified fast submission settings |
-| `MELEE_FLIP_ASYNC_PRESENT=1`, `MELEE_FLIP_PRESENT_THREAD=1` | Asynchronous presentation with a GLES worker |
-| `MELEE_FLIP_DIRTY_UPLOAD=1` | Compare and upload changed ranges |
-| `MELEE_FLIP_PERFORMANCE=0`, `MELEE_FLIP_ALL_CORES=0` | Optional opt-outs from launcher performance/core changes |
+- Frozen Onett EFB capture `da46d4a79a8f…` matches the v77/v79 reference for every
+  default-configuration build v80–v102 (async included). The scanout capture
+  changed at v99b (`eaf1f2147d79…`, 20 pixels differ by ±1); the EFB is the
+  criterion.
+- Moving Battlefield and moving Onett 60-second soaks complete without GL errors
+  or asserts; memory is stable after the FIFO compaction fix (v97).
+- `melee_flip_vertex_test` passes on the device with new mixed-format cases;
+  `test_flip_prepare.py`, `test_flip_launcher.py`, `test_flip_deploy.py` pass.
+- Both dependency patches apply to their pristine sources
+  (`git apply --check` against the extracted Dawn archive and a stashed Aurora
+  checkout).
 
-Explicit overrides are preserved. g13 defaults to barriers enabled, batching
-disabled, and reference submission. Setting `MELEE_FLIP_DIRECT_GLES=0` selects
-reference submission. The following experiments remain **off by default**:
+## Measurement
 
-- `MELEE_FLIP_STREAM_UPLOAD=1`: three persistently/coherently mapped native
-  vertex/index/uniform buffer sets, with a fence per submission protecting reuse.
-  Nonqualified consumers force reference uploads; transitions invalidate shadows.
-  `MELEE_FLIP_STREAM_EVERY=2` exercises alternating fallback. Onett showed no
-  convincing overall gain; frozen Battlefield improved by about 1 ms.
-- `MELEE_FLIP_NATIVE_SPECIALIZED=1`: independent native GLSL generation; fidelity
-  and performance still need work.
-- `MELEE_FLIP_VERTEX_CACHE=1`: decoded-vertex content cache; many hits but negligible
-  measured frame-time improvement.
-- `MELEE_FLIP_MAP_UPLOAD=1`: map/invalidate upload experiment; negligible gain.
-- **v78** `MELEE_FLIP_DECODE_DIRECT=1`: decode uncached, non-line primitives into
-  final frame vertex storage, eliminating the temporary vector and staging copy.
-  Cached and line paths keep their existing handling. Guarded differential ARM
-  decoder tests pass, but gameplay and performance validation are pending.
-- **v78** `MELEE_FLIP_RELEASE_TEXOBJ=1`: release temporary GX texture-object
-  identities after loading them in `HSD_TObjSetup`. Intended to reduce object-cache
-  churn while preserving content validation. Gameplay correctness and performance
-  are unverified; do not assume it eliminates texture hashing.
-
-## Performance evidence
-
-These are last-120-sample means unless otherwise stated. Frozen workloads are
-repeatable graphics tests, not proof of moving-game performance. Do not compare
-different stages, capture policies, or diagnostic workloads as controlled A/Bs.
-
-| Trial | Workload | Mean ms | Qualification |
-| --- | --- | ---: | --- |
-| v69-combined | Frozen Onett | 30.141 | Combined direct submission, upload and presentation changes |
-| v70-readback-stage31 | Frozen Battlefield | 19.702 | Production-style path; exact reference captures |
-| v70-launcher-moving-onett-clean | Moving Onett | 35.683 | Median 32.057; p95 39.931 |
-| v70-launcher-moving-stage31 | Moving Battlefield | 24.882 | Median 24.526; p95 29.758 |
-| v71-stream-control-onett | Frozen Onett | 30.190 | Reference for native upload experiment |
-| v71-native-stream-onett | Frozen Onett | 30.022 | Native full-copy streaming, opt-in |
-| v72-stream-stage31 | Frozen Battlefield | 18.761 | Native changed-range streaming, opt-in |
-| v77-timers-compiled-out | Frozen Onett | 30.099 | Installed build; median 29.750; p95 33.387 |
-
-The v77 EFB and scanout hashes exactly match their frozen Onett references, with
-no new fault/error/hang/reset lines in the marked kernel interval. The moving
-native/reference transition trial also completed without new marked faults, but
-its capture is a different simulation tick, so byte equality was not asserted.
-
-Earlier v61 direct/reference comparisons used repeated diagnostic capture:
-Onett improved from 49.59 to 38.63 ms and Battlefield from 29.95 to 24.52 ms.
-These establish improvement within that test, not a comparison with the newer
-capture-once timings. Initial stale scanout evidence was rejected; reliable
-fresh-scanout comparisons begin with the `batch-v7-*` trials.
-
-## What remains slow
-
-Recurring CPU GPU-readback is not the explanation in the measured scenes.
-Counters show exactly one `glReadPixels` and one read-map for the requested
-diagnostic screenshot, with no further increments through hundreds of frozen
-and moving frames. Normal play does not request that screenshot. GPU EFB copies
-remain GPU-local; write maps and fence waits are not CPU readback. Depth peek is
-disabled in this compatibility configuration, and no Melee/HSD `GXPeekZ` callers
-were found. Tracy timestamp readback is compiled out.
-
-Deep v75 Onett traces contain 2,095 primitive preparations, 6,866 attribute
-conversions, 350 actual GX GL draws, 393 pipeline builds, 471 uniform builds,
-and 366 texture hashes covering 3,998,944 bytes per sampled frame.
-
-| Instrumented host work | Inclusive wall ms/frame |
-| --- | ---: |
-| Vertex decoding | 10.837 |
-| Attribute conversion, included in decoding | 7.976 |
-| Pipeline configuration/build | 3.903 |
-| Texture hashing | 2.558 |
-| Vertex staging copy | 1.268 |
-| GL draw calls | 5.880 |
-| GL texture binding | 2.431 |
-| GL uniform binding | 0.099 |
-
-These scopes include instrumentation and scheduling costs, overlap when nested,
-and run on different workers. **Do not sum this table into a frame budget.**
-Common unchanged-program GL calls take roughly 12–14 microseconds; program-change
-groups often take 18–23 microseconds. The repeated ordinary costs matter more
-than one approximately 70-microsecond program used only twice per frame.
-
-Common expensive format groups include INDEX16 S16 XY texture coordinates,
-INDEX16 F32 XYZ positions, and INDEX16 S16 NBT normals. CPU return-address
-sampling attributes substantial hashing to `hash_texture_source` and memory
-comparison to `FlipStream::upload`. The persistent upload experiment reduced
-bytes written but retained the cost of comparing the full active data.
-
-Detailed profiling itself caused a regression: untraced v75 measured 32.099 ms,
-v76 31.071 ms, and v77 restored 30.099 ms by compiling hooks out. Production
-builds use `MELEE_FLIP_DEEP_TIMERS=OFF`. Detailed scopes require an ON build plus
-`MELEE_FLIP_DEEP_PROFILE=1`; optional `MELEE_FLIP_DEEP_CPU=1` adds substantial
-clock overhead. Use a separate timers-OFF build to qualify speedups. GPU timer
-queries currently attribute passes, not individual draw groups.
-
-## Reproduce and validate
-
-For a fresh SDK and package, follow [FLIP.md](FLIP.md). For the prepared local
-workspace, build without changing the installed executable:
-
-```sh
-export FLIP_TOOLCHAIN="$PWD/build/flip-tools/aarch64--glibc--stable-2023.08-1"
-export FLIP_DAWN_PREFIX="$PWD/build/flip-tools/dawn-install"
-export RUSTUP_HOME="$PWD/build/flip-tools/rustup"
-export CARGO_HOME="$PWD/build/flip-tools/cargo"
-export PATH="$PWD/build/flip-tools/cmake-3.31.6-linux-x86_64/bin:$CARGO_HOME/bin:$PATH"
-cmake --build build/native-flip --target melee_native melee_flip_vertex_test --parallel 6
-python3 native/tests/test_flip_launcher.py
-python3 native/tests/test_flip_deploy.py
-python3 native/tests/test_flip_prepare.py
-```
-
-Aurora revision `749d6ee7a22bdfab78c8ece9047bca5d79aa72ca` and Dawn revision
-`1155e0ed531126f33a1279afa029349651ca1c93` are modified through tracked patches:
-[Aurora](platform/flip/aurora-flip.patch) and
-[Dawn](platform/flip/dawn-egl-native-window.patch). Their working checkouts are
-under ignored `build/` directories; the patches are essential for reproduction.
-The initial Dawn reverse check was invalid because Git discovered the parent
-repository. After correction, applying the Dawn patch to a fresh pinned archive
-matches all 99,136 archive files in the working Dawn tree; isolated reverse and
-repeat-application checks pass. Aurora's patch also remains idempotent.
-v78 cross-builds successfully, all 20 preparation/launcher/deployment tests pass, and the
-v78 CPU vertex decoder test passes on the Flip, including poisoned output and
-guard regions for the new direct-output decoder.
-
-The working device connection is passwordless ADB at `10.0.0.178:5555`:
-
-```sh
-build/flip-tools/platform-tools/adb -s 10.0.0.178:5555 push build/native-flip/melee_flip_vertex_test /tmp/melee_flip_vertex_test
-build/flip-tools/platform-tools/adb -s 10.0.0.178:5555 shell 'cd /mnt/SDCARD/Ports/melee-native && LD_LIBRARY_PATH="$PWD/lib/mali-g29p1:$PWD/lib:/usr/lib" /tmp/melee_flip_vertex_test'
-```
-
-For future deployment, package into a fresh staging directory rather than
-overwriting the retained older fallback. Use `flip_deploy.py build` for runtime
-updates; it hashes allowlisted files and does not transfer the ROM. Do not rerun
-disc installation for each test. The launcher's `data/state/game.log` records
-ordinary sessions. Select+Start exits; choose No at the inherited incomplete
-memory-card creation prompt.
-
-Use `flip_backend_trial.py` with a unique name for controlled scene tests. It
-requires an idle game and MainUI for display handoff. Keep control and candidate
-stage, seed, freeze point, clocks, capture policy, and soak duration identical.
-The tool now stores device diagnostics on SD under `data/diagnostics/backend-trials`.
-Earlier accumulation in RAM-backed `/tmp` consumed about 290 MiB and triggered
-the memory guard; archived files were moved intact to
-`data/diagnostics/game-barrier-pre-v70-moving`.
-
-Local raw evidence is in `native/validation/2026-09-09-flip/staged-backend/`.
-Use `analyze_flip_profile.py`, `analyze_flip_deep.py`, and `analyze_flip_cpu.py`.
-The CPU sampler's x30 value is a return-address snapshot, not a full stack unwind.
-Match samples to their archived binary (`build/flip-tools/perf-v63-symbols`,
-`perf-v72-symbols`, or `perf-v73-symbols`), not a newly rebuilt executable.
-The diagnostic executable is archived as
-`build/flip-tools/melee_native-deep-profile-v76`.
+`MELEE_FLIP_PROFILE=1` (set by the trial tool) enables, besides the existing
+records, `[perf-breakdown]` on the game thread (game/FIFO/render/pipeline-wait
+split per presented frame), `[flip-render-phase]`/`[flip-render-callback]` on the
+render worker, and `[flip-resident]`. `MELEE_FLIP_DAWN_TIMING=1` adds
+`[flip-dawn-pass]` per-pass and `[flip-dawn-submit]` timing from the Dawn patch.
+`[flip-gl-calls]` counts the direct path's GL calls per frame and
+`[flip-batch-resident]` the first merge-failure reason per resident draw;
+`[flip-upload-phase]` splits the render-worker upload phase.
+`native/tools/flip_gl_bench.c` measures raw driver call costs. CPU samples
+(`--cpu-samples`) must be analyzed against the matching
+`build/flip-tools/melee_native-vNN-symbols` binary.
 
 ## Next work, in priority order
 
-1. Test the two v78 options independently against timers-OFF controls, then
-   together only if each preserves frozen captures and moving gameplay. Neither
-   candidate is accepted as a performance improvement yet.
-2. Specialize common complete vertex formats or generate ARM64 vertex loaders
-   to reduce repeated generic conversion and per-primitive setup.
-3. Address temporary texture-object lifetime and pipeline configuration churn.
-   Preserve mutable pixels, palettes, EFB copies, and memory reuse; replacing
-   content validation with blind pointer caching is unsafe.
-4. Add asynchronous GPU timing for draw groups to distinguish GPU shader cost
-   from CPU submission overhead. Existing host GL-call timings do not do this.
-5. Continue independent GLES work where measurements justify it. Native shader
-   fidelity and speed need proof before removing the reference implementation.
-6. Validate moving matches across stages, effects, menus, and longer sessions
-   against the 16.67 ms budget before claiming solid 60 FPS.
+1. **Render worker below ~14 ms** (moving Onett sits at 15–16 ms: main pass ~9 ms
+   of driver time for ~340 draws; the two shadow passes plus their copy/conversion
+   passes ~3 ms). Measured and rejected: per-draw uniform records (+5 ms), one VAO
+   per layout (neutral). The driver's cost tracks draws and passes, not GL calls,
+   so what remains is fusing the shadow passes into one (plus one conversion pass)
+   and cutting draws through texture-bank merging of resident geometry. Candidates: blit-based EFB copies instead of
+   conversion passes, a swapchain texture pool in `SwapChainEGL` (Dawn allocates a
+   fresh texture each frame), fusing the two pre-copy shadow passes, sorting opaque
+   draws by program/texture, reducing the ~7 Dawn pass setups.
+2. **Compile stalls on a cold shader cache** (`pipeline_wait_ms` is ~0 when warm):
+   non-blocking pipeline creation (skip the draw, Dolphin style), repaired
+   prewarming, or a shipped cache from scripted matches.
+3. **Fountain of Dreams** (~37 fps): ~25k blended point sprites cost ~8.4 ms of the
+   17 ms main-pass GPU time and half the FIFO time; without them the stage is still
+   at ~48 fps from ~490 draws per frame (the reflection is a second camera render
+   of the fighters copied to an 80×60 texture: ~150 draws, little GPU). Fewer
+   fragments per sprite (half-resolution particle pass) and cheaper draws are what
+   remain; per-draw constant records were measured and rejected.
+4. **GPU headroom.** Per-draw uniform records do not pay on this driver (any
+   per-draw uniform change costs ~15 µs of CPU). Remaining GPU levers are
+   partial clears at EFB copies and the shadow-pass fusion in item 1. Dynamic uniform-record indexing in TEV fragment shaders costs
+   ~2.7 ms of the ~13 ms GPU frame; consider per-draw constant records when the
+   CPU side allows it.
+5. Validate more stages, four-player matches, menus and longer sessions before
+   claiming solid 60 FPS.
 
-Useful precedents are Dolphin's
-[ARM64 vertex loaders](https://github.com/dolphin-emu/dolphin/blob/master/Source/Core/VideoCommon/VertexLoaderARM64.cpp),
-[loader cache](https://github.com/dolphin-emu/dolphin/blob/master/Source/Core/VideoCommon/VertexLoaderManager.cpp),
-[fenced GL streaming](https://github.com/dolphin-emu/dolphin/blob/master/Source/Core/VideoBackends/OGL/OGLStreamBuffer.cpp),
-and [hybrid ubershader design](https://ca.dolphin-emu.org/blog/2017/07/30/ubershaders/).
-The native streaming ownership rules follow
-[EXT_buffer_storage](https://registry.khronos.org/OpenGL/extensions/EXT/EXT_buffer_storage.txt).
-These are design references, not claims that Dolphin code was transplanted.
-
-## Detailed reports
-
-- [Initial port and validation](validation/2026-09-09-flip/REPORT.md)
-- [Driver and conventional-vertex backend rewrite](validation/2026-09-09-flip/BACKEND_REWRITE.md)
-- [Direct GLES iterations](validation/2026-09-09-flip/DIRECT_GLES_ITERATION.md)
-- [Pipelined presentation and readback audit, v62–v70](validation/2026-09-09-flip/PIPELINED_PRESENT_ITERATION.md)
-- [Native streaming and deep profiling, v71–v77](validation/2026-09-09-flip/DEEP_PROFILE_AND_STREAMING.md)
-
-The earlier reports preserve experiments and their limitations. This handoff
-supersedes their descriptions of the latest local/device state.
+Design references remain Dolphin's ARM64 vertex loaders, vertex loader manager,
+fenced GL streaming, and hybrid ubershaders; the resident display-list cache is
+the native-port analogue of uploading meshes once, which an emulator cannot do.

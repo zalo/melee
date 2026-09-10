@@ -188,5 +188,46 @@ int main()
     check(key==flip_vertex_key(c,far_indices,sizeof(far_indices),arrays,0),"sparse cache excludes unreferenced records");
     sparse[767]=42;
     check(key!=flip_vertex_key(c,far_indices,sizeof(far_indices),arrays,0),"sparse cache detects referenced tail edit");
+    // Specialized loaders: mixed multi-attribute records, batching matrices word,
+    // single-index NBT, and out-of-range indices must match the reference decoder.
+    for (unsigned variant = 0; variant < 4; ++variant) {
+        c = {}; arrays = {};
+        c.flipFlags = FlipVertexInput | FlipCompactVertices | FlipUniformTable | FlipBatchedDraws;
+        u8 off = 0;
+        c.attrs[GX_VA_PNMTXIDX] = {.attrType=GX_DIRECT,.cnt=1,.compType=GX_U8,.offset=off}; off += 1;
+        c.attrs[GX_VA_TEX0MTXIDX] = {.attrType=GX_DIRECT,.cnt=1,.compType=GX_U8,.offset=off}; off += 1;
+        c.attrs[GX_VA_POS] = {.attrType=GX_INDEX16,.cnt=3,.compType=variant&1 ? u8(GX_F32) : u8(GX_S16),.offset=off,.stride=12,.frac=variant&1 ? u8(0) : u8(5),.le=(variant&2)!=0}; off += 2;
+        c.attrs[GX_VA_NRM] = {.attrType=GX_INDEX16,.cnt=variant<2 ? u8(3) : u8(9),.compType=GX_S8,.offset=off,.stride=9,.frac=6,.le=false,.nbt3=false}; off += 2;
+        c.attrs[GX_VA_CLR0] = {.attrType=GX_INDEX8,.cnt=1,.compType=GX_RGBA8,.offset=off,.stride=4,.le=false}; off += 1;
+        c.attrs[GX_VA_TEX0] = {.attrType=GX_INDEX16,.cnt=2,.compType=GX_S16,.offset=off,.stride=4,.frac=8,.le=(variant&2)!=0}; off += 2;
+        c.attrs[GX_VA_TEX1] = {.attrType=GX_DIRECT,.cnt=1,.compType=GX_U8,.offset=off,.frac=7}; off += 1;
+        c.vtxStride = off;
+        std::array<u8, 64 * 12> pos{}, nrm{}, clr{}, tex{};
+        for (unsigned i = 0; i < pos.size(); ++i) { pos[i] = (i * 41 + 3) % 256; nrm[i] = (i * 13 + 5) % 256; clr[i] = (i * 7 + 1) % 256; tex[i] = (i * 31 + 9) % 256; }
+        arrays[GX_VA_POS] = {.data=pos.data(),.size=pos.size(),.stride=12};
+        arrays[GX_VA_NRM] = {.data=nrm.data(),.size=nrm.size(),.stride=9};
+        arrays[GX_VA_CLR0] = {.data=clr.data(),.size=clr.size(),.stride=4};
+        arrays[GX_VA_TEX0] = {.data=tex.data(),.size=tex.size(),.stride=4};
+        std::vector<u8> raw(c.vtxStride * 40);
+        for (unsigned i = 0; i < 40; ++i) {
+            u8* v = raw.data() + i * c.vtxStride;
+            v[0] = u8((i * 3) % 30); v[1] = u8(i % 7);
+            const unsigned posIndex = i < 36 ? i : 70 + i; // last records exceed the arrays
+            v[2] = u8(posIndex >> 8); v[3] = u8(posIndex);
+            v[4] = 0; v[5] = u8((i * 5) % 60);
+            v[6] = u8(i * 6);
+            v[7] = 0; v[8] = u8(i);
+            v[9] = u8(i * 9);
+        }
+        check_packed(c, raw.data(), 40, arrays, 4, "specialized loader mixed-attribute equivalence");
+        const auto& loader = flip_loader(c);
+        check(loader.ok && loader.hasMatrices, "specialized loader accepted the mixed format");
+        std::vector<u8> decoded(40 * loader.layout.stride, 0xee);
+        flip_decode_with(loader, raw.data(), 40, decoded.data(), arrays, 4, (5u << 8) | (1u << 12));
+        for (unsigned i = 0; i < 40; ++i) {
+            uint32_t word; std::memcpy(&word, decoded.data() + i * loader.layout.stride + loader.matrixOffset + 8, 4);
+            check(word == ((5u << 8) | (1u << 12)), "specialized loader writes the batch record word");
+        }
+    }
     std::puts("PASS Flip CPU vertex decoder");
 }

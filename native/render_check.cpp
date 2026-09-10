@@ -1,5 +1,6 @@
 #include "webgpu/gpu.hpp"
 #include "gfx/render_worker.hpp"
+#include "gx/fifo.hpp"
 #include <atomic>
 #include <cstdlib>
 #include <cstdio>
@@ -34,7 +35,14 @@ extern "C" void MeleeNativeCheckFrame() {
     MeleeNativeTraceCamera();
     const auto* stats = aurora_get_stats();
     std::fprintf(stderr, "[gpu-check] draws=%u vertices_bytes=%u\n", stats->drawCallCount, stats->lastVertSize);
-    aurora::gfx::render_worker::enqueue_work([] {
+    // With asynchronous frames the FIFO worker has not finished this frame yet;
+    // queue the readback behind the frame's own end-of-frame submission.
+    const auto schedule = [](auto work) {
+        if (aurora::gx::fifo::async_frames())
+            aurora::gx::fifo::run_after_frame([work] { aurora::gfx::render_worker::enqueue_work(work); });
+        else aurora::gfx::render_worker::enqueue_work(work);
+    };
+    schedule([] {
         using namespace aurora::webgpu;
         const auto& source = present_source();
         if (source.format != wgpu::TextureFormat::RGBA8Unorm &&

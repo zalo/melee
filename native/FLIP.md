@@ -1,7 +1,10 @@
 # Miyoo Flip V2 (experimental)
 
 Start with the [consolidated handoff](FLIP_HANDOFF.md) for the current source and
-device state, measured performance, validated defaults, and remaining work.
+device state, measured performance, validated defaults, and remaining work. The
+2026-09-10 renderer iteration (resident geometry, asynchronous frames, mapped
+streams) is documented in
+[validation/2026-09-10-flip/RENDERER_ITERATION.md](validation/2026-09-10-flip/RENDERER_ITERATION.md).
 
 This port targets the Flip's Linux AArch64 userspace and 640×480 panel. The
 tested device uses Surwish OS with a Buildroot userspace and kernel 5.10.160.
@@ -66,6 +69,12 @@ native/platform/flip/build.sh
 cmake --build build/native-flip --target melee_flip_gpu_probe --parallel 6
 python3 native/tools/package_flip.py --mali-g29 build/flip-tools/mali-g29p1-candidate/libmali.so.1
 ```
+
+A fresh clone needs no system Rust or ADB: `rustup` can be installed into the
+build tree (`RUSTUP_HOME=build/flip-tools/rustup CARGO_HOME=build/flip-tools/cargo`,
+target `aarch64-unknown-linux-gnu`) and Google's `platform-tools` zip extracted to
+`build/flip-tools/platform-tools`. With 24 host cores the whole preparation,
+including Dawn, takes about 15 minutes.
 
 `prepare_flip.py` downloads checksum-pinned Bootlin GCC 12.3 SDK and Dawn
 sources, checks/applies the tracked patches, reads graphics/audio libraries
