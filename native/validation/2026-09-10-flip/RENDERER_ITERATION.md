@@ -1,4 +1,4 @@
-# Renderer iteration toward 60 FPS, 2026-09-10 (v79–v102)
+# Renderer iteration toward 60 FPS, 2026-09-10 (v79–v104)
 
 This report continues the Miyoo Flip work described in the earlier reports under
 `../2026-09-09-flip/`. It records what was measured, what changed in the renderer,
@@ -236,6 +236,30 @@ so it can be A/B tested with the trial tool.
   TEV fragment shaders costs ~2.7 ms of GPU per frame. GPU total is ~13–15 ms per
   frame; this is the GPU headroom lever if it becomes limiting.
 - Disabling Dawn robustness made no measurable difference.
+- **Main-pass shape (moving Onett, v103 `[flip-gl-calls]`, per frame):** ~338
+  draws, ~147 program switches, ~293 texture binds, ~84 vertex-buffer binds, ~39
+  attribute-layout changes, ~30 uniform-window binds, ~66 immediate updates. At
+  the microbenchmark's per-call costs that is 6–7 ms of the 9 ms the main pass
+  takes on the CPU; the Mali driver's draw-time validation is the rest. Resident
+  draws fail to merge mostly on texture (~179 per frame) and pipeline (~104);
+  `[flip-batch-resident]` reports the first mismatch per draw.
+- **State-sorted opaque runs** (`MELEE_FLIP_SORT_OPAQUE=1`, v104, opt-in): the
+  direct path stable-sorts runs of consecutive opaque, depth-tested, depth-written
+  LESS/LEQUAL draws by pipeline, texture group and uniform window. Only ~79 of
+  ~340 draws per frame qualify (the rest blend, skip depth writes, or are split by
+  viewport/scissor changes); program switches 147 → 83, texture binds 293 → 220,
+  uniform-window binds 30 → 182. Render worker −0.5–0.7 ms, frozen Onett stays
+  bit-exact, moving Onett p95 20.3 → 19.4 ms. Left opt-in because coplanar opaque
+  surfaces (decals drawn after their base with LEQUAL) would change order on other
+  stages.
+- The g29p1 Mali blob exports no Vulkan entry points and does not advertise
+  `GL_EXT_multi_draw_indirect`; GLES 3.2 with `GL_EXT_buffer_storage`,
+  `GL_ARM_shader_framebuffer_fetch` and base-vertex draws is what this device has.
+- **Texture-pair batching is a dead end** (`MELEE_FLIP_TEXTURE_PAIRS=1`, v103):
+  bit-exact, but the bind-group layout grows to 15 banks and the direct path binds
+  every entry per draw (~4,800 texture binds per frame), render worker 17 → 19 ms.
+  Streamed merges gained only ~6 draws per frame because streamed geometry is a
+  small share of the frame.
 - Pipeline prewarming (`MELEE_FLIP_PREWARM_PIPELINES=1`) currently crashes at
   startup (`std::out_of_range` in `map::at` while loading 1257 cached configs) and
   stays off.

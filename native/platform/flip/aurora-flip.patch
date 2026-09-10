@@ -704,10 +704,10 @@ index 1b25b3d..01695a5 100644
  
 diff --git a/lib/gfx/flip_gles.cpp b/lib/gfx/flip_gles.cpp
 new file mode 100644
-index 0000000..602404d
+index 0000000..0d2ab35
 --- /dev/null
 +++ b/lib/gfx/flip_gles.cpp
-@@ -0,0 +1,942 @@
+@@ -0,0 +1,987 @@
 +#include "flip_gles.hpp"
 +
 +#ifdef MELEE_MIYOO_FLIP
@@ -756,6 +756,7 @@ index 0000000..602404d
 +  gx::DrawData draw{};
 +  clear::DrawData clear{};
 +  bool isClear=false;
++  bool sortable=false; // opaque, depth-tested and depth-written with LESS/LEQUAL: order-independent barring equal depths
 +};
 +struct PassPlan {
 +  wgpu::TextureView target;
@@ -774,6 +775,9 @@ index 0000000..602404d
 +GLuint sClearProgram=0;
 +uint32_t sEnabledAttributes=0;
 +uint64_t sFrameNumber=0;
++// Per-frame GL call counts for the direct path (MELEE_FLIP_PROFILE, [flip-gl-calls]).
++struct GlCallStats { unsigned programs=0,pipelineStates=0,textures=0,texParams=0,samplers=0,ubos=0,vbos=0,layouts=0,immediates=0,draws=0; };
++GlCallStats sGlCalls;
 +FlipStream sStream;
 +
 +struct TextureBinding {
@@ -1081,7 +1085,7 @@ index 0000000..602404d
 +  auto& st=sTextureSamplers[texture];
 +  if(st.sampler==sampler) return;
 +  const auto& p=sampler_params(sampler);
-+  glTexParameteri(target,GL_TEXTURE_WRAP_S,p.wrapS);
++  ++sGlCalls.texParams; glTexParameteri(target,GL_TEXTURE_WRAP_S,p.wrapS);
 +  glTexParameteri(target,GL_TEXTURE_WRAP_T,p.wrapT);
 +  glTexParameteri(target,GL_TEXTURE_MIN_FILTER,p.minFilter);
 +  glTexParameteri(target,GL_TEXTURE_MAG_FILTER,p.magFilter);
@@ -1109,7 +1113,7 @@ index 0000000..602404d
 +    state.valid=true;state.texture=texture;
 +  }
 +  if(!cache_enabled()||sActiveUnit!=unit) {glActiveTexture(GL_TEXTURE0+unit);sActiveUnit=unit;}
-+  glBindTexture(texture.target,texture.texture);
++  glBindTexture(texture.target,texture.texture); ++sGlCalls.textures;
 +  const TextureParams params{GLint(texture.baseMipLevel),GLint(texture.maxMipLevel),
 +    {texture.swizzle[0],texture.swizzle[1],texture.swizzle[2],texture.swizzle[3]}};
 +  if(cache_enabled()) {
@@ -1119,7 +1123,7 @@ index 0000000..602404d
 +      it->second=params;
 +    }
 +  }
-+  glTexParameteri(texture.target,GL_TEXTURE_BASE_LEVEL,texture.baseMipLevel);
++  ++sGlCalls.texParams; glTexParameteri(texture.target,GL_TEXTURE_BASE_LEVEL,texture.baseMipLevel);
 +  glTexParameteri(texture.target,GL_TEXTURE_MAX_LEVEL,texture.maxMipLevel);
 +  if(texture.swizzle[0]!=GL_NONE) {
 +    glTexParameteri(texture.target,GL_TEXTURE_SWIZZLE_R,texture.swizzle[0]);
@@ -1205,7 +1209,7 @@ index 0000000..602404d
 +    const uint32_t offset=(sMappedUniforms||sStream.current)?window*gx::FlipUniformWindow:0;
 +    const GLuint binding=p.uniformBinding;
 +    if(!cache_enabled()||sLastUniform!=buffer||sLastUniformBinding!=binding||sLastUniformOffset!=offset) {
-+      glBindBufferRange(GL_UNIFORM_BUFFER,binding,buffer,offset,gx::FlipUniformWindow);
++      glBindBufferRange(GL_UNIFORM_BUFFER,binding,buffer,offset,gx::FlipUniformWindow); ++sGlCalls.ubos;
 +      sLastUniform=buffer;sLastUniformBinding=binding;sLastUniformOffset=offset;
 +    }
 +    static const bool mappedCheck=[] {const char* v=std::getenv("MELEE_FLIP_MAPPED_CHECK");return v&&v[0]=='1';}();
@@ -1243,13 +1247,13 @@ index 0000000..602404d
 +        }
 +        for(auto unit:t.samplers) {
 +          if(!cache_enabled()||unit>=sTextureState.size()||sTextureState[unit].sampler!=0) {
-+            glBindSampler(unit,0);
++            glBindSampler(unit,0); ++sGlCalls.samplers;
 +            if(unit<sTextureState.size()) sTextureState[unit].sampler=0;
 +          }
 +        }
 +      } else for(auto unit:t.samplers) {
 +        if(!cache_enabled()||unit>=sTextureState.size()||sTextureState[unit].sampler!=sampler) {
-+          glBindSampler(unit,sampler);
++          glBindSampler(unit,sampler); ++sGlCalls.samplers;
 +          if(unit<sTextureState.size()) sTextureState[unit].sampler=sampler;
 +        }
 +      }
@@ -1268,7 +1272,7 @@ index 0000000..602404d
 +  const bool recordSlot=(p.config.shaderConfig.flipFlags&gx::FlipBatchedDraws)&&p.config.shaderConfig.lineMode==0;
 +  if(recordSlot) used|=(1u<<15)|(1u<<16); // distinct from line layouts that use location 15 in slot 0
 +  if(!cache_enabled()||sLastVertexBuffer!=vertex||sLastVertexOffset!=vertexOffset||sLastVertexStride!=layout.stride) {
-+    glBindVertexBuffer(0,vertex,vertexOffset,layout.stride);
++    glBindVertexBuffer(0,vertex,vertexOffset,layout.stride); ++sGlCalls.vbos;
 +    sLastVertexBuffer=vertex;sLastVertexOffset=vertexOffset;sLastVertexStride=layout.stride;
 +  }
 +  if(recordSlot) {
@@ -1277,7 +1281,7 @@ index 0000000..602404d
 +    if(gx::resident_per_vertex(d)) { recordBuffer=frameVertex; recordOffset=d.immediateData.vtxStart; }
 +    else { recordBuffer=zero_records_gl_buffer(); recordOffset=0; }
 +    if(!cache_enabled()||sLastRecordBuffer!=recordBuffer||sLastRecordOffset!=recordOffset) {
-+      glBindVertexBuffer(1,recordBuffer,recordOffset,4);
++      glBindVertexBuffer(1,recordBuffer,recordOffset,4); ++sGlCalls.vbos;
 +      sLastRecordBuffer=recordBuffer;sLastRecordOffset=recordOffset;
 +    }
 +  }
@@ -1301,7 +1305,7 @@ index 0000000..602404d
 +  for(unsigned loc=0;loc<16;++loc) if((sEnabledAttributes&(1u<<loc))&&!(used&(1u<<loc)))
 +    glDisableVertexAttribArray(loc);
 +  sEnabledAttributes=used;
-+  sLastLayout=used;
++  sLastLayout=used; ++sGlCalls.layouts;
 +  }
 +  }
 +
@@ -1315,12 +1319,12 @@ index 0000000..602404d
 +    if(p.immediatesUnused) {
 +      if(p.lastImmediatePad!=pad) {
 +        auto immediate=d.immediateData; immediate._pad=pad;
-+        glUniform1uiv(p.immediates,sizeof(immediate)/sizeof(uint32_t),reinterpret_cast<const GLuint*>(&immediate));
++        glUniform1uiv(p.immediates,sizeof(immediate)/sizeof(uint32_t),reinterpret_cast<const GLuint*>(&immediate)); ++sGlCalls.immediates;
 +        p.lastImmediatePad=pad;
 +      }
 +    } else {
 +      auto immediate=d.immediateData; immediate._pad=pad;
-+      glUniform1uiv(p.immediates,sizeof(immediate)/sizeof(uint32_t),reinterpret_cast<const GLuint*>(&immediate));
++      glUniform1uiv(p.immediates,sizeof(immediate)/sizeof(uint32_t),reinterpret_cast<const GLuint*>(&immediate)); ++sGlCalls.immediates;
 +      p.lastImmediatePad=pad;
 +    }
 +  }
@@ -1356,14 +1360,14 @@ index 0000000..602404d
 +  }
 +  {
 +  flip_profile::Scope profile("gl_pipeline_state");
-+  if(!cache_enabled()||sLastProgram!=native.program) {glUseProgram(native.program);sLastProgram=native.program;}
-+  if(!cache_enabled()||sLastPipeline!=d.pipeline) {apply_pipeline_state(prepared->config);sLastPipeline=d.pipeline;}
++  if(!cache_enabled()||sLastProgram!=native.program) {glUseProgram(native.program);sLastProgram=native.program;++sGlCalls.programs;}
++  if(!cache_enabled()||sLastPipeline!=d.pipeline) {apply_pipeline_state(prepared->config);sLastPipeline=d.pipeline;++sGlCalls.pipelineStates;}
 +  }
 +  if(!gl_ok("pipeline-state",passIndex,drawIndex)||mode<4) return true;
 +  bind_draw_resources(d,*prepared);
 +  if(!gl_ok("resources",passIndex,drawIndex)||mode<5||drawIndex>=draw_limit()) return true;
 +  {
-+  flip_profile::Scope profile("gl_draw_call");
++  flip_profile::Scope profile("gl_draw_call"); ++sGlCalls.draws;
 +  const GLenum indexType=d.resident?GL_UNSIGNED_INT:GL_UNSIGNED_SHORT;
 +  static const bool rangeElements=[] {const char* v=std::getenv("MELEE_FLIP_RANGE_ELEMENTS");return !v||std::strcmp(v,"0");}();
 +  if(d.instanceCount==1) {
@@ -1532,6 +1536,18 @@ index 0000000..602404d
 +
 +void prepare_flip_gles_frame(FramePacket& frame) {
 +  sPlans.clear();sNextPlan=0;++sFrameNumber;
++  static const bool glCallsProfile=std::getenv("MELEE_FLIP_PROFILE")!=nullptr;
++  if(glCallsProfile) {
++    static GlCallStats sum; static unsigned frames=0;
++    sum.programs+=sGlCalls.programs; sum.pipelineStates+=sGlCalls.pipelineStates; sum.textures+=sGlCalls.textures; sum.texParams+=sGlCalls.texParams;
++    sum.samplers+=sGlCalls.samplers; sum.ubos+=sGlCalls.ubos; sum.vbos+=sGlCalls.vbos; sum.layouts+=sGlCalls.layouts; sum.immediates+=sGlCalls.immediates; sum.draws+=sGlCalls.draws;
++    if(++frames%120==0) {
++      std::fprintf(stderr,"[flip-gl-calls] per frame: draws=%.1f programs=%.1f pipeline-states=%.1f textures=%.1f tex-params=%.1f samplers=%.1f ubos=%.1f vbos=%.1f layouts=%.1f immediates=%.1f\n",
++        sum.draws/120.0,sum.programs/120.0,sum.pipelineStates/120.0,sum.textures/120.0,sum.texParams/120.0,sum.samplers/120.0,sum.ubos/120.0,sum.vbos/120.0,sum.layouts/120.0,sum.immediates/120.0);
++      sum={};
++    }
++  }
++  sGlCalls={};
 +  // Texture-object parameter memos persist across passes and frames; forget
 +  // entries whose GL names died so a recycled name starts clean.
 +  GLuint dead[256];
@@ -1579,6 +1595,8 @@ index 0000000..602404d
 +          if(!gx::find_flip_pipeline_config(out.draw.pipeline,config)||
 +             config.shaderConfig.fogRangeEnabled||!(config.shaderConfig.flipFlags&gx::FlipBatchedDraws)||
 +             std::bit_cast<float>(config.polygonOffsetClampBits)!=0.f) plan.eligible=false;
++          else out.sortable=config.depthCompare&&config.depthUpdate&&(config.depthFunc==GX_LESS||config.depthFunc==GX_LEQUAL)&&
++                            config.blendMode==GX_BM_NONE&&config.colorUpdate&&config.polygonOffsetBits==0;
 +        }
 +        else if(decode_flip_clear_draw(command.data.draw,out.clear)) {out.isClear=true;++clearDraws;}
 +        else {plan.eligible=false;++otherDraws;}
@@ -1586,6 +1604,33 @@ index 0000000..602404d
 +      plan.commands.push_back(out);
 +    }
 +    plan.eligible&=hasGxDraw;
++    // Experiment (MELEE_FLIP_SORT_OPAQUE=1): issue runs of consecutive opaque,
++    // depth-ordered draws grouped by program, textures and uniform window so
++    // the driver sees fewer state changes. Not exact when opaque surfaces share
++    // depth values, hence opt-in; the frozen EFB capture is the check.
++    static const bool sortOpaque=[] {const char* v=std::getenv("MELEE_FLIP_SORT_OPAQUE");return v&&std::strcmp(v,"0");}();
++    if(sortOpaque&&plan.eligible) {
++      static unsigned runs=0,sorted=0,frames=0;
++      auto& cmds=plan.commands;
++      size_t i=0;
++      while(i<cmds.size()) {
++        if(cmds[i].type!=CommandType::Draw||cmds[i].isClear||!cmds[i].sortable) {++i;continue;}
++        size_t j=i;
++        while(j<cmds.size()&&cmds[j].type==CommandType::Draw&&!cmds[j].isClear&&cmds[j].sortable) ++j;
++        if(j-i>1) {
++          std::stable_sort(cmds.begin()+i,cmds.begin()+j,[](const PlanCommand& a,const PlanCommand& b) {
++            if(a.draw.pipeline!=b.draw.pipeline) return a.draw.pipeline<b.draw.pipeline;
++            if(a.draw.bindGroups.textureBindGroup!=b.draw.bindGroups.textureBindGroup) return a.draw.bindGroups.textureBindGroup<b.draw.bindGroups.textureBindGroup;
++            return a.draw.uniformRange.offset/gx::FlipUniformWindow<b.draw.uniformRange.offset/gx::FlipUniformWindow;
++          });
++          ++runs; sorted+=static_cast<unsigned>(j-i);
++        }
++        i=j;
++      }
++      if(std::getenv("MELEE_FLIP_PROFILE")&&++frames%360==0) {
++        std::fprintf(stderr,"[flip-sort] per pass: runs=%.1f sorted-draws=%.1f\n",runs/360.0,sorted/360.0); runs=sorted=0;
++      }
++    }
 +    AURORA_ASSERT(!pass.flipDirectResourcesOnly||plan.eligible,"Direct resource-only pass lost eligibility");
 +    if((sFrameNumber%120)==0)
 +      std::fprintf(stderr,"[flip-direct-plan] frame=%llu pass=%zu eligible=%u gx=%u clear=%u other=%u custom=%u commands=%zu\n",
@@ -3066,7 +3111,7 @@ index 3fdc0ee..ae33eff 100644
    wgpu::Buffer uniformBuffer;
    wgpu::Buffer indexBuffer;
 diff --git a/lib/gx/command_processor.cpp b/lib/gx/command_processor.cpp
-index b0dce17..c4eaf42 100644
+index b0dce17..25adb8a 100644
 --- a/lib/gx/command_processor.cpp
 +++ b/lib/gx/command_processor.cpp
 @@ -1,10 +1,19 @@
@@ -3098,7 +3143,7 @@ index b0dce17..c4eaf42 100644
  #include <cstdint>
  #include <span>
  #include <vector>
-@@ -23,6 +34,93 @@ namespace aurora::gx::fifo {
+@@ -23,6 +34,95 @@ namespace aurora::gx::fifo {
  namespace {
  constexpr Module Log{"aurora::gx::fifo"};
  
@@ -3106,6 +3151,8 @@ index b0dce17..c4eaf42 100644
 +struct FlipBatchStats {
 +  uint64_t attempts = 0;
 +  uint64_t merged = 0;
++  // Resident-draw merge failures, first mismatch only.
++  uint64_t rNoPrev = 0, rKind = 0, rPipeline = 0, rTexture = 0, rRecord = 0, rDstAlpha = 0, rFog = 0, rVtxStart = 0, rIndexGap = 0;
 +  uint64_t noPreviousDraw = 0;
 +  uint64_t pipeline = 0;
 +  uint64_t pipelineShader = 0;
@@ -3192,7 +3239,7 @@ index b0dce17..c4eaf42 100644
  u16 prepare_idx_buffer(ByteBuffer& buf, GXPrimitive prim, u16 vtxStart, u16 vtxCount) noexcept {
    u16 numIndices = 0;
    if (prim == GX_QUADS) {
-@@ -375,33 +473,93 @@ static u32 calc_vtx_size(GXVtxFmt fmt) noexcept {
+@@ -375,33 +475,93 @@ static u32 calc_vtx_size(GXVtxFmt fmt) noexcept {
    return vtxSize;
  }
  
@@ -3299,7 +3346,7 @@ index b0dce17..c4eaf42 100644
      cache.fmt = fmt;
      cache.lineMode = lineMode;
      cache.hasPipeline = true;
-@@ -415,6 +573,9 @@ static void push_gx_draw(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, gfx::Rang
+@@ -415,6 +575,9 @@ static void push_gx_draw(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, gfx::Rang
    const bool bindGroupsValid =
        (state.dirty & DirtyTextures) == 0 && cache.bindGeneration == texture::current_bind_generation();
    if (!bindGroupsValid) {
@@ -3309,7 +3356,7 @@ index b0dce17..c4eaf42 100644
      const auto prevBindGroup = cache.bindGroups.textureBindGroup;
      resolve_sampled_textures(cache.shaderInfo);
      cache.bindGroups = build_bind_groups(cache.shaderInfo);
-@@ -428,7 +589,10 @@ static void push_gx_draw(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, gfx::Rang
+@@ -428,7 +591,10 @@ static void push_gx_draw(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, gfx::Rang
  
    const bool uniformValid = (state.dirty & DirtyUniform) == 0 && cache.uniformRange.size != 0;
    if (!uniformValid) {
@@ -3321,7 +3368,7 @@ index b0dce17..c4eaf42 100644
      state.dirty &= ~DirtyUniform;
    }
    if (cache.config.shaderConfig.fogRangeEnabled) {
-@@ -442,6 +606,112 @@ static void push_gx_draw(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, gfx::Rang
+@@ -442,6 +608,112 @@ static void push_gx_draw(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, gfx::Rang
    immediates.fogRangeBase = cache.fogRange.offset / sizeof(u32);
  
    state.dirty &= ~DirtyImmediates;
@@ -3434,7 +3481,7 @@ index b0dce17..c4eaf42 100644
  
    uint32_t instanceCount = 1;
    if (prim == GX_LINES) {
-@@ -451,6 +721,21 @@ static void push_gx_draw(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, gfx::Rang
+@@ -451,6 +723,21 @@ static void push_gx_draw(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, gfx::Rang
    } else if (prim == GX_POINTS) {
      instanceCount = vtxCount;
    }
@@ -3456,7 +3503,7 @@ index b0dce17..c4eaf42 100644
    cache.lastDrawFmt = fmt;
    gfx::push_draw_command(DrawData{
        .pipeline = cache.pipelineRef,
-@@ -494,6 +779,13 @@ static void draw_prim(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, ByteReader&
+@@ -494,6 +781,13 @@ static void draw_prim(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, ByteReader&
    if (totalVtxBytes > reader.remaining())
      UNLIKELY { handle_draw_overrun(totalVtxBytes, reader); }
  
@@ -3470,7 +3517,7 @@ index b0dce17..c4eaf42 100644
    const bool cleanState = g_gxState.dirty == 0 && fmt == sDrawCache.lastDrawFmt && sDrawCache.lineMode == 0 &&
                            prim != GX_LINES && prim != GX_LINESTRIP && prim != GX_POINTS;
    auto* lastDraw = cleanState ? gfx::get_last_draw_command<DrawData>() : nullptr;
-@@ -501,7 +793,13 @@ static void draw_prim(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, ByteReader&
+@@ -501,7 +795,13 @@ static void draw_prim(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, ByteReader&
  
    // Push raw vertex data to buffer. Merged draws must remain contiguous with the previous range.
    const auto vertexData = reader.take(totalVtxBytes);
@@ -3485,7 +3532,7 @@ index b0dce17..c4eaf42 100644
  
    // Try to merge with previous draw call
    if (canMerge) {
-@@ -547,6 +845,252 @@ static void handle_draw(u8 cmd, ByteReader& reader) noexcept {
+@@ -547,6 +847,259 @@ static void handle_draw(u8 cmd, ByteReader& reader) noexcept {
    draw_prim(prim, fmt, reader.read<u16>(), reader);
  }
  
@@ -3625,14 +3672,21 @@ index b0dce17..c4eaf42 100644
 +  if (perVertex) immediates.vtxStart = frame.flipRecordOffset + frame.flipRecordArenaBase[entry.arena] * 4; // slot-1 byte offset
 +  auto* previous = gfx::get_last_draw_command<DrawData>();
 +  ++sFlipBatchStats.attempts;
-+  bool merge = previous && previous->resident == resident && previous->pipeline == cache.pipelineRef &&
-+               previous->bindGroups.textureBindGroup == cache.bindGroups.textureBindGroup &&
-+               (perVertex ? previous->uniformRange.offset / FlipUniformWindow == cache.uniformRange.offset / FlipUniformWindow
-+                          : previous->uniformRange.offset == cache.uniformRange.offset) &&
-+               previous->dstAlpha == state.dstAlpha &&
-+               previous->immediateData.fogRangeBase == immediates.fogRangeBase &&
-+               previous->immediateData.vtxStart == immediates.vtxStart &&
-+               gfx::flip_indices_follow(previous->idxRange);
++  bool merge = false;
++  {
++    auto& st = sFlipBatchStats;
++    if (!previous) ++st.rNoPrev;
++    else if (previous->resident != resident) ++st.rKind;
++    else if (previous->pipeline != cache.pipelineRef) ++st.rPipeline;
++    else if (previous->bindGroups.textureBindGroup != cache.bindGroups.textureBindGroup) ++st.rTexture;
++    else if (!(perVertex ? previous->uniformRange.offset / FlipUniformWindow == cache.uniformRange.offset / FlipUniformWindow
++                         : previous->uniformRange.offset == cache.uniformRange.offset)) ++st.rRecord;
++    else if (previous->dstAlpha != state.dstAlpha) ++st.rDstAlpha;
++    else if (previous->immediateData.fogRangeBase != immediates.fogRangeBase) ++st.rFog;
++    else if (previous->immediateData.vtxStart != immediates.vtxStart) ++st.rVtxStart;
++    else if (!gfx::flip_indices_follow(previous->idxRange)) ++st.rIndexGap;
++    else merge = true;
++  }
 +  // Entries hold absolute 32-bit arena indices: a straight copy per call.
 +  const auto& absolute = entry.indices;
 +  const auto idxRange = gfx::push_indices(reinterpret_cast<const u8*>(absolute.data()), absolute.size() * 4, merge ? 0 : 4);
@@ -3738,7 +3792,7 @@ index b0dce17..c4eaf42 100644
  void handle_aurora(ByteReader& reader) noexcept {
    ZoneScoped;
    const u16 subCmd = reader.read<u16>();
-@@ -729,7 +1273,11 @@ void handle_aurora(ByteReader& reader) noexcept {
+@@ -729,7 +1282,11 @@ void handle_aurora(ByteReader& reader) noexcept {
      const size_t idxBytes = static_cast<size_t>(indexCount) * sizeof(u16);
      // Index data is always host-endian; push it to the GPU buffer as-is
      const auto indexData = reader.take(idxBytes);
@@ -3751,7 +3805,7 @@ index b0dce17..c4eaf42 100644
      u32 vtxSize;
      if (g_gxState.lastVtxFmt == fmt) {
        vtxSize = g_gxState.lastVtxSize;
-@@ -738,10 +1286,40 @@ void handle_aurora(ByteReader& reader) noexcept {
+@@ -738,10 +1295,40 @@ void handle_aurora(ByteReader& reader) noexcept {
      }
      const u32 totalVtxBytes = vtxCount * vtxSize;
      const auto vertexData = reader.take(totalVtxBytes);
@@ -3793,7 +3847,7 @@ index b0dce17..c4eaf42 100644
    } else if (subCmd == GX_AURORA_DEBUG_GROUP_PUSH) {
      auto label = reader.read_string();
      gfx::push_debug_group(std::move(label));
-@@ -758,6 +1336,46 @@ void handle_aurora(ByteReader& reader) noexcept {
+@@ -758,6 +1345,52 @@ void handle_aurora(ByteReader& reader) noexcept {
  }
  
  void clear_draw_cache() noexcept {
@@ -3828,6 +3882,12 @@ index b0dce17..c4eaf42 100644
 +      static_cast<unsigned long long>(sFlipBatchStats.vertexGap),
 +      static_cast<unsigned long long>(sFlipBatchStats.vertexLimit),
 +      static_cast<unsigned long long>(sFlipBatchStats.indexGap));
++    std::fprintf(stderr,"[flip-batch-resident] no-prev=%llu kind=%llu pipeline=%llu texture=%llu record=%llu dst-alpha=%llu fog=%llu vtx-start=%llu index-gap=%llu\n",
++      static_cast<unsigned long long>(sFlipBatchStats.rNoPrev), static_cast<unsigned long long>(sFlipBatchStats.rKind),
++      static_cast<unsigned long long>(sFlipBatchStats.rPipeline), static_cast<unsigned long long>(sFlipBatchStats.rTexture),
++      static_cast<unsigned long long>(sFlipBatchStats.rRecord), static_cast<unsigned long long>(sFlipBatchStats.rDstAlpha),
++      static_cast<unsigned long long>(sFlipBatchStats.rFog), static_cast<unsigned long long>(sFlipBatchStats.rVtxStart),
++      static_cast<unsigned long long>(sFlipBatchStats.rIndexGap));
 +    sFlipBatchStats={};
 +    auto& rs=resident::state().stats;
 +    std::fprintf(stderr,"[flip-resident] calls=%llu hits=%llu misses=%llu fallbacks=%llu invalidations=%llu resets=%llu entries=%zu bytes=%zu\n",

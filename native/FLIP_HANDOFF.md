@@ -1,6 +1,6 @@
 # Miyoo Flip V2 port: consolidated handoff
 
-Snapshot: 2026-09-10 (second iteration, v79–v102). This is the entry point for
+Snapshot: 2026-09-10 (second iteration, v79–v104). This is the entry point for
 the ARM port, the renderer work, profiling results, and remaining work. Build and
 installation details are in [FLIP.md](FLIP.md). The detailed record of this
 iteration is [RENDERER_ITERATION.md](validation/2026-09-10-flip/RENDERER_ITERATION.md);
@@ -21,11 +21,11 @@ with margin; other stages, four players and menus are unmeasured.
 | --- | --- |
 | Hardware | Rockchip RK3566, Mali-G52, AArch64 Linux, 640×480, ~1 GiB RAM |
 | Firmware | Surwish / Buildroot, kernel 5.10.160; app-local Mali g29p1 GLES driver |
-| Device executable | v102 (`dist/flip/v102`), launcher with `MELEE_FLIP_ASYNC_FIFO=1` default |
+| Device executable | v104 (`dist/flip/v104`; same defaults as v102 plus opt-in `MELEE_FLIP_SORT_OPAQUE` and the `[flip-gl-calls]`/`[flip-batch-resident]` counters), launcher with `MELEE_FLIP_ASYNC_FIFO=1` default |
 | Local source | this tree; Aurora/Dawn working trees under ignored `build/`, patches regenerated and verified against pristine sources |
 | Device activity | game stopped between trials, MainUI running |
 | ROM | installed at `/mnt/SDCARD/Ports/melee-native/data/disc.img`; no ROM was transferred |
-| Symbols | `build/flip-tools/melee_native-v96..v102-symbols` (unstripped, for CPU samples) |
+| Symbols | `build/flip-tools/melee_native-v96..v104-symbols` (unstripped, for CPU samples) |
 
 Passwordless ADB at `10.0.0.178:5555` (`build/flip-tools/platform-tools/adb`).
 
@@ -72,6 +72,8 @@ iteration is on by default and has an opt-out for A/B trials:
 | `MELEE_FLIP_FBO_CACHE` | 1 (Dawn) | framebuffer object cache |
 | `MELEE_FLIP_ASYNC_FIFO` | launcher 1 | asynchronous frames |
 | `MELEE_FLIP_PIPELINE_MEMO` | 1 | pipeline-state memo |
+| `MELEE_FLIP_SORT_OPAQUE` | off | sort opaque depth-ordered runs by state in the direct path (−0.5–0.7 ms, exact on frozen Onett, order risk elsewhere) |
+| `MELEE_FLIP_TEXTURE_PAIRS` | off | texture-bank batching; measured slower (see report) |
 | `MELEE_FLIP_DAWN_TIMING`, `MELEE_FLIP_DRAW_TRACE`, `MELEE_FLIP_GPU_TEST`, `MELEE_FLIP_MAPPED_CHECK`, `MELEE_FLIP_MAPPED_VERIFY_GPU`, `MELEE_FLIP_MAPPED_MIRROR`, `MELEE_FLIP_MAPPED_BIND_DAWN` | off | diagnostics only |
 
 Earlier experiments (`MELEE_FLIP_STREAM_UPLOAD`, `MELEE_FLIP_NATIVE_SPECIALIZED`,
@@ -100,13 +102,18 @@ records, `[perf-breakdown]` on the game thread (game/FIFO/render/pipeline-wait
 split per presented frame), `[flip-render-phase]`/`[flip-render-callback]` on the
 render worker, and `[flip-resident]`. `MELEE_FLIP_DAWN_TIMING=1` adds
 `[flip-dawn-pass]` per-pass and `[flip-dawn-submit]` timing from the Dawn patch.
+`[flip-gl-calls]` counts the direct path's GL calls per frame and
+`[flip-batch-resident]` the first merge-failure reason per resident draw;
+`[flip-upload-phase]` splits the render-worker upload phase.
 `native/tools/flip_gl_bench.c` measures raw driver call costs. CPU samples
 (`--cpu-samples`) must be analyzed against the matching
 `build/flip-tools/melee_native-vNN-symbols` binary.
 
 ## Next work, in priority order
 
-1. **Render worker below ~14 ms.** Candidates: blit-based EFB copies instead of
+1. **Render worker below ~14 ms** (moving Onett sits at 16–17 ms: main pass ~9 ms
+   of driver time for ~340 draws with ~147 program switches and ~290 texture
+   binds; the two shadow passes plus their copy/conversion passes ~3 ms). Candidates: blit-based EFB copies instead of
    conversion passes, a swapchain texture pool in `SwapChainEGL` (Dawn allocates a
    fresh texture each frame), fusing the two pre-copy shadow passes, sorting opaque
    draws by program/texture, reducing the ~7 Dawn pass setups.
