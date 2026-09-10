@@ -1,6 +1,6 @@
 # Miyoo Flip V2 port: consolidated handoff
 
-Snapshot: 2026-09-10 (second iteration, v79–v108). This is the entry point for
+Snapshot: 2026-09-10 (second iteration, v79–v109). This is the entry point for
 the ARM port, the renderer work, profiling results, and remaining work. Build and
 installation details are in [FLIP.md](FLIP.md). The detailed record of this
 iteration is [RENDERER_ITERATION.md](validation/2026-09-10-flip/RENDERER_ITERATION.md);
@@ -22,11 +22,11 @@ Temple also present at 16.7 ms median; Fountain of Dreams is GPU-bound (~37 fps,
 | --- | --- |
 | Hardware | Rockchip RK3566, Mali-G52, AArch64 Linux, 640×480, ~1 GiB RAM |
 | Firmware | Surwish / Buildroot, kernel 5.10.160; app-local Mali g29p1 GLES driver |
-| Device executable | v108 (`dist/flip/v108`), launcher with `MELEE_FLIP_ASYNC_FIFO=1` default |
+| Device executable | v109 (`dist/flip/v109`; v108 plus the `MELEE_FLIP_SKIP_POINTS` diagnostic), launcher with `MELEE_FLIP_ASYNC_FIFO=1` default |
 | Local source | this tree; Aurora/Dawn working trees under ignored `build/`, patches regenerated and verified against pristine sources |
 | Device activity | game stopped between trials, MainUI running |
 | ROM | installed at `/mnt/SDCARD/Ports/melee-native/data/disc.img`; no ROM was transferred |
-| Symbols | `build/flip-tools/melee_native-v96..v108-symbols` (unstripped, for CPU samples) |
+| Symbols | `build/flip-tools/melee_native-v96..v109-symbols` (unstripped, for CPU samples) |
 
 Passwordless ADB at `10.0.0.178:5555` (`build/flip-tools/platform-tools/adb`).
 
@@ -79,7 +79,7 @@ iteration is on by default and has an opt-out for A/B trials:
 | `MELEE_FLIP_PRESENT_BLIT` | off | blit instead of the present copy pass; no gain, ±1 scanout pixels |
 | `MELEE_FLIP_SORT_OPAQUE` | off | sort opaque depth-ordered runs by state in the direct path (−0.5–0.7 ms, exact on frozen Onett, order risk elsewhere) |
 | `MELEE_FLIP_TEXTURE_PAIRS` | off | texture-bank batching; measured slower (see report) |
-| `MELEE_FLIP_DAWN_TIMING`, `MELEE_FLIP_DRAW_TRACE`, `MELEE_FLIP_GPU_TEST`, `MELEE_FLIP_MAPPED_CHECK`, `MELEE_FLIP_MAPPED_VERIFY_GPU`, `MELEE_FLIP_MAPPED_MIRROR`, `MELEE_FLIP_MAPPED_BIND_DAWN` | off | diagnostics only |
+| `MELEE_FLIP_DAWN_TIMING`, `MELEE_FLIP_DRAW_TRACE`, `MELEE_FLIP_GPU_TEST`, `MELEE_FLIP_SKIP_POINTS`, `MELEE_FLIP_MAPPED_CHECK`, `MELEE_FLIP_MAPPED_VERIFY_GPU`, `MELEE_FLIP_MAPPED_MIRROR`, `MELEE_FLIP_MAPPED_BIND_DAWN` | off | diagnostics only |
 
 Earlier experiments (`MELEE_FLIP_STREAM_UPLOAD`, `MELEE_FLIP_NATIVE_SPECIALIZED`,
 `MELEE_FLIP_VERTEX_CACHE`, `MELEE_FLIP_MAP_UPLOAD`, `MELEE_FLIP_DECODE_DIRECT`,
@@ -125,9 +125,12 @@ render worker, and `[flip-resident]`. `MELEE_FLIP_DAWN_TIMING=1` adds
 2. **Compile stalls on a cold shader cache** (`pipeline_wait_ms` is ~0 when warm):
    non-blocking pipeline creation (skip the draw, Dolphin style), repaired
    prewarming, or a shipped cache from scripted matches.
-3. **Fountain of Dreams GPU fill** (~17 ms main pass): the point sprites' fragment
-   cost. Per-draw constant records save ~1.5 ms; beyond that only cheaper sprite
-   shading or fewer fragments help.
+3. **Fountain of Dreams** (~37 fps): ~25k blended point sprites cost ~8.4 ms of the
+   17 ms main-pass GPU time and half the FIFO time; without them the stage is still
+   at ~48 fps from ~490 draws per frame (the reflection is a second camera render
+   of the fighters copied to an 80×60 texture: ~150 draws, little GPU). Per-draw
+   constant records save ~1.5 ms of GPU; beyond that, fewer fragments per sprite
+   and cheaper draws.
 4. **GPU headroom.** Dynamic uniform-record indexing in TEV fragment shaders costs
    ~2.7 ms of the ~13 ms GPU frame; consider per-draw constant records when the
    CPU side allows it.

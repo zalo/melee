@@ -1,4 +1,4 @@
-# Renderer iteration toward 60 FPS, 2026-09-10 (v79–v108)
+# Renderer iteration toward 60 FPS, 2026-09-10 (v79–v109)
 
 This report continues the Miyoo Flip work described in the earlier reports under
 `../2026-09-09-flip/`. It records what was measured, what changed in the renderer,
@@ -252,8 +252,14 @@ so it can be A/B tested with the trial tool.
   waits). Fountain of Dreams is GPU-bound: its main pass takes 16–17 ms of GPU
   (`[flip-direct-gpu]`), of which dynamic uniform-record indexing is ~1.5 ms
   (`MELEE_FLIP_GPU_TEST`); the rest is the fill of ~25k blended point sprites.
-  After the v108 FIFO fix it runs at ~37 fps and needs GPU-side work (smaller
-  or fewer fragments per sprite, per-draw constant records) to go further.
+  After the v108 FIFO fix it runs at ~37 fps. Dropping the sprites
+  (`MELEE_FLIP_SKIP_POINTS=1`, diagnostic, wrong image) puts the main pass at
+  8.9 ms of GPU and the FIFO worker at 14.6 ms, and the stage still only reaches
+  ~48 fps because of its ~490 draws per frame. The water reflection is not an
+  EFB-sized copy: `grizumi.c` renders the fighters through a second camera and
+  copies an 80×60 RGB565 texture (pass 0, ~150 draws, ~1.2 ms of GPU), so it
+  costs draw-call CPU rather than GPU fill. Going further needs GPU-side sprite
+  work (fewer fragments per sprite, per-draw constant records) and cheaper draws.
 - Fountain of Dreams also hit a game-side assertion twice in seven runs
   (`synth.c:214`, "Can't load SFX file; bank buffer overflow", both times while
   CPU sampling was active); unrelated to rendering, recorded here so it is not
