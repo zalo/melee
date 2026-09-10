@@ -51,7 +51,7 @@ index 1a312fb..ea9f8a2 100644
  
  
 diff --git a/lib/aurora.cpp b/lib/aurora.cpp
-index 9430842..d99d7c0 100644
+index 9430842..bfc0b69 100644
 --- a/lib/aurora.cpp
 +++ b/lib/aurora.cpp
 @@ -1,13 +1,27 @@
@@ -183,7 +183,19 @@ index 9430842..d99d7c0 100644
        }
        {
          const std::array attachments{
-@@ -369,9 +427,21 @@ void end_frame() noexcept {
+@@ -343,6 +401,11 @@ void end_frame() noexcept {
+         }
+         pass.End();
+       }
++#ifdef MELEE_MIYOO_FLIP
++      // An empty overlay still costs the driver a render pass; skip it in-game.
++      static const bool skipEmptyImgui = [] { const char* v = std::getenv("MELEE_FLIP_SKIP_EMPTY_IMGUI"); return !v || std::strcmp(v, "0"); }();
++      if (!skipEmptyImgui || imgui::has_draws(imguiDrawData))
++#endif
+       {
+         const std::array attachments{
+             wgpu::RenderPassColorAttachment{
+@@ -369,9 +432,21 @@ void end_frame() noexcept {
      webgpu::gpu_prof::frame_end(encoder);
      const wgpu::CommandBufferDescriptor cmdBufDescriptor{.label = "Redraw command buffer"};
      const auto buffer = encoder.Finish(&cmdBufDescriptor);
@@ -205,7 +217,7 @@ index 9430842..d99d7c0 100644
      }
      webgpu::gpu_prof::after_submit();
      if (canPresent && g_surface) {
-@@ -380,9 +450,26 @@ void end_frame() noexcept {
+@@ -380,9 +455,26 @@ void end_frame() noexcept {
        {
          window::SurfaceLock surfaceLock;
          if (window::is_presentable()) {
@@ -217,8 +229,8 @@ index 9430842..d99d7c0 100644
 +          MeleeFlipProfileSwap(false);
 +          MeleeFlipPresent();
 +#endif
-         }
-       }
++        }
++      }
 +#ifdef MELEE_MIYOO_FLIP
 +      if (phaseProfile) {
 +        phase(presentMs);
@@ -226,13 +238,13 @@ index 9430842..d99d7c0 100644
 +          std::fprintf(stderr, "[flip-render-callback] acquire_ms=%.3f encode_ms=%.3f submit_ms=%.3f present_ms=%.3f\n",
 +                       acquireMs / 120, encodeMs / 120, submitMs / 120, presentMs / 120);
 +          acquireMs = encodeMs = submitMs = presentMs = 0;
-+        }
-+      }
+         }
+       }
 +#endif
        if (status) {
          gfx::after_present();
        } else {
-@@ -439,7 +526,19 @@ void end_frame() noexcept {
+@@ -439,7 +531,19 @@ void end_frame() noexcept {
      TracyPlot("aurora: lastIndexSize", static_cast<int64_t>(stats.lastIndexSize));
      TracyPlot("aurora: lastStorageSize", static_cast<int64_t>(stats.lastStorageSize));
      TracyPlot("aurora: lastTextureUploadSize", static_cast<int64_t>(stats.lastTextureUploadSize));
@@ -253,7 +265,7 @@ index 9430842..d99d7c0 100644
  
  #endif
  }
-@@ -451,6 +550,13 @@ AuroraInfo aurora_initialize(int argc, char* argv[], const AuroraConfig* config)
+@@ -451,6 +555,13 @@ AuroraInfo aurora_initialize(int argc, char* argv[], const AuroraConfig* config)
    return aurora::initialize(argc, argv, *config);
  }
  void aurora_shutdown() { aurora::shutdown(); }
@@ -708,10 +720,10 @@ index 1b25b3d..01695a5 100644
  
 diff --git a/lib/gfx/flip_gles.cpp b/lib/gfx/flip_gles.cpp
 new file mode 100644
-index 0000000..6ba9d3b
+index 0000000..9c5233b
 --- /dev/null
 +++ b/lib/gfx/flip_gles.cpp
-@@ -0,0 +1,1067 @@
+@@ -0,0 +1,1109 @@
 +#include "flip_gles.hpp"
 +
 +#ifdef MELEE_MIYOO_FLIP
@@ -838,6 +850,19 @@ index 0000000..6ba9d3b
 +PipelineRef sLastPipeline=UINTPTR_MAX;
 +GLuint sLastVertexBuffer=Unknown; uint32_t sLastVertexOffset=UINT32_MAX,sLastVertexStride=UINT32_MAX;
 +GLuint sLastRecordBuffer=Unknown; uint32_t sLastRecordOffset=UINT32_MAX;
++// One vertex array object per attribute layout (MELEE_FLIP_LAYOUT_VAO=1,
++// experiment, off by default): a layout switch becomes glBindVertexArray instead
++// of ~10 attribute format calls and vertex-buffer binds drop 82 -> 21 per frame,
++// yet the render worker does not move (the driver's per-draw cost is not in
++// these calls). Buffer bindings are VAO state, so each VAO remembers its own.
++struct LayoutVao { GLuint vao=0,ebo=0; GLuint vertexBuffer=Unknown; uint32_t vertexOffset=UINT32_MAX,stride=UINT32_MAX; GLuint recordBuffer=Unknown; uint32_t recordOffset=UINT32_MAX; };
++std::unordered_map<uint32_t,LayoutVao> sLayoutVaos;
++LayoutVao* sCurrentVao=nullptr;
++GLuint sPassEbo=0;
++bool layout_vao_enabled() {
++  static const bool enabled=[] {const char* v=std::getenv("MELEE_FLIP_LAYOUT_VAO");return v&&std::strcmp(v,"0");}();
++  return enabled;
++}
 +GLuint zero_records_gl_buffer() {
 +  static GLuint name=0;
 +  if(!name) name=dawn::native::opengl::GetDirectGLBuffer(resources().flipZeroRecords.Get());
@@ -1302,41 +1327,66 @@ index 0000000..6ba9d3b
 +  for(unsigned a=0;a<layout.count;++a) used|=1u<<layout.attributes[a].shaderLocation;
 +  const bool recordSlot=(p.config.shaderConfig.flipFlags&gx::FlipBatchedDraws)&&p.config.shaderConfig.lineMode==0;
 +  if(recordSlot) used|=(1u<<15)|(1u<<16); // distinct from line layouts that use location 15 in slot 0
++  GLuint recordBuffer=0; uint32_t recordOffset=0;
++  if(recordSlot) {
++    // Slot 1: per-vertex uniform records for merged resident draws, else zeros.
++    if(gx::resident_per_vertex(d)) { recordBuffer=frameVertex; recordOffset=d.immediateData.vtxStart; }
++    else { recordBuffer=zero_records_gl_buffer(); recordOffset=0; }
++  }
++  const auto set_layout=[&]() {
++    for(unsigned a=0;a<layout.count;++a) {
++      const auto& attr=layout.attributes[a];
++      const GLuint loc=attr.shaderLocation;
++      if(loc==0) glVertexAttribIFormat(loc,3,GL_UNSIGNED_INT,attr.offset);
++      else {
++        const GLint count=loc==3||loc==4||loc==15?4:loc>=5&&loc<=12?2:3;
++        glVertexAttribFormat(loc,count,GL_FLOAT,GL_FALSE,attr.offset);
++      }
++      glVertexAttribBinding(loc,0);
++      glEnableVertexAttribArray(loc);
++    }
++    if(recordSlot) {
++      glVertexAttribIFormat(15,1,GL_UNSIGNED_INT,0);
++      glVertexAttribBinding(15,1);
++      glEnableVertexAttribArray(15);
++    }
++  };
++  if(layout_vao_enabled()&&cache_enabled()) {
++    if(sLastLayout!=used||!sCurrentVao) {
++      auto& v=sLayoutVaos[used];
++      if(!v.vao) {
++        glGenVertexArrays(1,&v.vao);
++        glBindVertexArray(v.vao);
++        set_layout();
++      } else glBindVertexArray(v.vao);
++      if(v.ebo!=sPassEbo) { glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,sPassEbo); v.ebo=sPassEbo; }
++      sCurrentVao=&v; sLastLayout=used; ++sGlCalls.layouts;
++    }
++    auto& v=*sCurrentVao;
++    if(v.vertexBuffer!=vertex||v.vertexOffset!=vertexOffset||v.stride!=layout.stride) {
++      glBindVertexBuffer(0,vertex,vertexOffset,layout.stride); ++sGlCalls.vbos;
++      v.vertexBuffer=vertex;v.vertexOffset=vertexOffset;v.stride=layout.stride;
++    }
++    if(recordSlot&&(v.recordBuffer!=recordBuffer||v.recordOffset!=recordOffset)) {
++      glBindVertexBuffer(1,recordBuffer,recordOffset,4); ++sGlCalls.vbos;
++      v.recordBuffer=recordBuffer;v.recordOffset=recordOffset;
++    }
++  } else {
 +  if(!cache_enabled()||sLastVertexBuffer!=vertex||sLastVertexOffset!=vertexOffset||sLastVertexStride!=layout.stride) {
 +    glBindVertexBuffer(0,vertex,vertexOffset,layout.stride); ++sGlCalls.vbos;
 +    sLastVertexBuffer=vertex;sLastVertexOffset=vertexOffset;sLastVertexStride=layout.stride;
 +  }
-+  if(recordSlot) {
-+    // Slot 1: per-vertex uniform records for merged resident draws, else zeros.
-+    GLuint recordBuffer; uint32_t recordOffset;
-+    if(gx::resident_per_vertex(d)) { recordBuffer=frameVertex; recordOffset=d.immediateData.vtxStart; }
-+    else { recordBuffer=zero_records_gl_buffer(); recordOffset=0; }
-+    if(!cache_enabled()||sLastRecordBuffer!=recordBuffer||sLastRecordOffset!=recordOffset) {
-+      glBindVertexBuffer(1,recordBuffer,recordOffset,4); ++sGlCalls.vbos;
-+      sLastRecordBuffer=recordBuffer;sLastRecordOffset=recordOffset;
-+    }
++  if(recordSlot&&(!cache_enabled()||sLastRecordBuffer!=recordBuffer||sLastRecordOffset!=recordOffset)) {
++    glBindVertexBuffer(1,recordBuffer,recordOffset,4); ++sGlCalls.vbos;
++    sLastRecordBuffer=recordBuffer;sLastRecordOffset=recordOffset;
 +  }
 +  if(!cache_enabled()||sLastLayout!=used) {
-+  for(unsigned a=0;a<layout.count;++a) {
-+    const auto& attr=layout.attributes[a];
-+    const GLuint loc=attr.shaderLocation;
-+    if(loc==0) glVertexAttribIFormat(loc,3,GL_UNSIGNED_INT,attr.offset);
-+    else {
-+      const GLint count=loc==3||loc==4||loc==15?4:loc>=5&&loc<=12?2:3;
-+      glVertexAttribFormat(loc,count,GL_FLOAT,GL_FALSE,attr.offset);
-+    }
-+    glVertexAttribBinding(loc,0);
-+    glEnableVertexAttribArray(loc);
-+  }
-+  if(recordSlot) {
-+    glVertexAttribIFormat(15,1,GL_UNSIGNED_INT,0);
-+    glVertexAttribBinding(15,1);
-+    glEnableVertexAttribArray(15);
-+  }
++  set_layout();
 +  for(unsigned loc=0;loc<16;++loc) if((sEnabledAttributes&(1u<<loc))&&!(used&(1u<<loc)))
 +    glDisableVertexAttribArray(loc);
 +  sEnabledAttributes=used;
 +  sLastLayout=used; ++sGlCalls.layouts;
++  }
 +  }
 +  }
 +
@@ -1483,8 +1533,10 @@ index 0000000..6ba9d3b
 +  if(mode>=2) {
 +    if(!sVao) glGenVertexArrays(1,&sVao);
 +    glBindVertexArray(sVao);
-+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,sMappedIndices?sMappedIndices->indices:sStream.current?sStream.current->indices.name:
-+        dawn::native::opengl::GetDirectGLBuffer(resources().indexBuffer.Get()));
++    sPassEbo=sMappedIndices?sMappedIndices->indices:sStream.current?sStream.current->indices.name:
++        dawn::native::opengl::GetDirectGLBuffer(resources().indexBuffer.Get());
++    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,sPassEbo);
++    sCurrentVao=nullptr; // Dawn may have changed VAO/buffer state between passes
 +    sLastProgram=sLastUniform=sLastUniformBinding=sLastLayout=Unknown;
 +    sLastUniformOffset=Unknown;
 +    sLastPipeline=UINTPTR_MAX;sTextureState={};
@@ -1772,6 +1824,8 @@ index 0000000..6ba9d3b
 +    PassTimer::pending.clear();PassTimer::get64=nullptr;PassTimer::initialized=false;
 +    gx::shutdown_flip_gles_uber();
 +    if(sVao) glDeleteVertexArrays(1,&sVao);
++    for(auto& [key,v]:sLayoutVaos) if(v.vao) glDeleteVertexArrays(1,&v.vao);
++    sLayoutVaos.clear(); sCurrentVao=nullptr;
 +    if(sClearProgram) glDeleteProgram(sClearProgram);
 +    sVao=sClearProgram=sEnabledAttributes=0;
 +  },nullptr);
@@ -7040,6 +7094,40 @@ index 29c9a48..bd88f6a 100644
  constexpr bool AsyncTextureReplacements = true;
  constexpr uint32_t ReplacementThumbnailDim = 64;
  constexpr uint64_t ReplacementPublishBudgetBytes = 12ull * 1024ull * 1024ull;
+diff --git a/lib/imgui.cpp b/lib/imgui.cpp
+index 494640b..b166a1d 100644
+--- a/lib/imgui.cpp
++++ b/lib/imgui.cpp
+@@ -220,6 +220,10 @@ DrawData freeze() noexcept {
+   return DrawData{std::move(frozen)};
+ }
+ 
++bool has_draws(const DrawData& drawData) noexcept {
++  return drawData.m_impl && drawData.m_impl->drawData.CmdListsCount > 0;
++}
++
+ void render(const wgpu::RenderPassEncoder& pass, const DrawData& drawData) noexcept {
+   ZoneScoped;
+ 
+diff --git a/lib/imgui.hpp b/lib/imgui.hpp
+index a11a7f8..e173f0d 100644
+--- a/lib/imgui.hpp
++++ b/lib/imgui.hpp
+@@ -25,6 +25,7 @@ private:
+ 
+   friend DrawData freeze() noexcept;
+   friend void render(const wgpu::RenderPassEncoder& pass, const DrawData& drawData) noexcept;
++  friend bool has_draws(const DrawData& drawData) noexcept;
+ };
+ 
+ void create_context() noexcept;
+@@ -35,5 +36,6 @@ void process_event(const SDL_Event& event) noexcept;
+ bool wants_capture_event(const SDL_Event& event) noexcept;
+ void new_frame(const AuroraWindowSize& size) noexcept;
+ DrawData freeze() noexcept;
++bool has_draws(const DrawData& drawData) noexcept;
+ void render(const wgpu::RenderPassEncoder& pass, const DrawData& drawData) noexcept;
+ } // namespace aurora::imgui
 diff --git a/lib/webgpu/gpu.cpp b/lib/webgpu/gpu.cpp
 index 592b8ab..c250b3d 100644
 --- a/lib/webgpu/gpu.cpp

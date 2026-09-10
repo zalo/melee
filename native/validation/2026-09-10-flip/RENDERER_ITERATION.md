@@ -1,4 +1,4 @@
-# Renderer iteration toward 60 FPS, 2026-09-10 (v79–v112)
+# Renderer iteration toward 60 FPS, 2026-09-10 (v79–v114)
 
 This report continues the Miyoo Flip work described in the earlier reports under
 `../2026-09-09-flip/`. It records what was measured, what changed in the renderer,
@@ -280,6 +280,16 @@ so it can be A/B tested with the trial tool.
   vertex-embedded record index therefore stays; the same cost explains the earlier
   constant-attribute dead end. The variant machinery (`FlipConstantRecord`,
   `pipeline_ref_async`, `flip_constant_variant`) remains for experiments.
+- **GL call count is not the render worker's cost either** (v113,
+  `MELEE_FLIP_LAYOUT_VAO=1`, opt-in). One vertex array object per attribute
+  layout cuts vertex-buffer binds from ~82 to ~21 per frame and turns each
+  layout switch into a single call; the render worker stayed at 15.6–16.1 ms in
+  a two-run A/B (exact). Together with the constant-record result this pins the
+  per-draw cost on the driver's draw-time descriptor build, which reacts only
+  to the number of draws and passes. Fewer draws (merging, sorting) and fewer
+  passes (shadow fusion) are the remaining CPU levers.
+- The empty ImGui overlay pass is skipped in-game (`MELEE_FLIP_SKIP_EMPTY_IMGUI`,
+  default on, exact); one fewer render pass per frame.
 - **Present blit is not a win** (`MELEE_FLIP_PRESENT_BLIT=1`, v105, opt-in):
   replacing the full-screen copy draw with `glBlitFramebuffer` costs the same
   ~0.8 ms (the pass setup, not the draw, is the cost) and moves 20 scanout

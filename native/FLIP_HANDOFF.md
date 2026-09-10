@@ -1,6 +1,6 @@
 # Miyoo Flip V2 port: consolidated handoff
 
-Snapshot: 2026-09-10 (second iteration, v79–v112). This is the entry point for
+Snapshot: 2026-09-10 (second iteration, v79–v114). This is the entry point for
 the ARM port, the renderer work, profiling results, and remaining work. Build and
 installation details are in [FLIP.md](FLIP.md). The detailed record of this
 iteration is [RENDERER_ITERATION.md](validation/2026-09-10-flip/RENDERER_ITERATION.md);
@@ -22,11 +22,11 @@ Temple also present at 16.7 ms median; Fountain of Dreams is GPU-bound (~37 fps,
 | --- | --- |
 | Hardware | Rockchip RK3566, Mali-G52, AArch64 Linux, 640×480, ~1 GiB RAM |
 | Firmware | Surwish / Buildroot, kernel 5.10.160; app-local Mali g29p1 GLES driver |
-| Device executable | v112 (`dist/flip/v112`; v108 defaults plus opt-in experiments), launcher with `MELEE_FLIP_ASYNC_FIFO=1` default |
+| Device executable | v114 (`dist/flip/v114`; v108 defaults, empty ImGui pass skipped, opt-in experiments), launcher with `MELEE_FLIP_ASYNC_FIFO=1` default |
 | Local source | this tree; Aurora/Dawn working trees under ignored `build/`, patches regenerated and verified against pristine sources |
 | Device activity | game stopped between trials, MainUI running |
 | ROM | installed at `/mnt/SDCARD/Ports/melee-native/data/disc.img`; no ROM was transferred |
-| Symbols | `build/flip-tools/melee_native-v96..v112-symbols` (unstripped, for CPU samples) |
+| Symbols | `build/flip-tools/melee_native-v96..v114-symbols` (unstripped, for CPU samples) |
 
 Passwordless ADB at `10.0.0.178:5555` (`build/flip-tools/platform-tools/adb`).
 
@@ -76,6 +76,8 @@ iteration is on by default and has an opt-out for A/B trials:
 | `MELEE_FLIP_ASYNC_FIFO` | launcher 1 | asynchronous frames |
 | `MELEE_FLIP_PIPELINE_MEMO` | 1 | pipeline-state memo |
 | `MELEE_FLIP_SWAPCHAIN_POOL`, `MELEE_FLIP_RESIDENT_COPY` | 1 | pooled swapchain textures; GPU-side copies for resident arena uploads |
+| `MELEE_FLIP_SKIP_EMPTY_IMGUI` | 1 | no ImGui render pass when the overlay is empty |
+| `MELEE_FLIP_LAYOUT_VAO` | off | one VAO per attribute layout; neutral on this driver (see report) |
 | `MELEE_FLIP_CONSTANT_RECORDS` | off | per-draw uniform record pipelines; −1 ms GPU, +5 ms render worker on this driver (see report) |
 | `MELEE_FLIP_PRESENT_BLIT` | off | blit instead of the present copy pass; no gain, ±1 scanout pixels |
 | `MELEE_FLIP_SORT_OPAQUE` | off | sort opaque depth-ordered runs by state in the direct path (−0.5–0.7 ms, exact on frozen Onett, order risk elsewhere) |
@@ -117,9 +119,12 @@ render worker, and `[flip-resident]`. `MELEE_FLIP_DAWN_TIMING=1` adds
 
 ## Next work, in priority order
 
-1. **Render worker below ~14 ms** (moving Onett sits at 15–15.5 ms: main pass ~9 ms
-   of driver time for ~340 draws with ~147 program switches and ~290 texture
-   binds; the two shadow passes plus their copy/conversion passes ~3 ms). Candidates: blit-based EFB copies instead of
+1. **Render worker below ~14 ms** (moving Onett sits at 15–16 ms: main pass ~9 ms
+   of driver time for ~340 draws; the two shadow passes plus their copy/conversion
+   passes ~3 ms). Measured and rejected: per-draw uniform records (+5 ms), one VAO
+   per layout (neutral). The driver's cost tracks draws and passes, not GL calls,
+   so what remains is fusing the shadow passes into one (plus one conversion pass)
+   and cutting draws through texture-bank merging of resident geometry. Candidates: blit-based EFB copies instead of
    conversion passes, a swapchain texture pool in `SwapChainEGL` (Dawn allocates a
    fresh texture each frame), fusing the two pre-copy shadow passes, sorting opaque
    draws by program/texture, reducing the ~7 Dawn pass setups.
