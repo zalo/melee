@@ -37,11 +37,20 @@ def fetch_archive(filename, url, checksum, expected):
 
 
 def apply_patch(directory, patch):
+    directory = Path(directory).resolve()
+    patch = Path(patch).resolve()
+    # Dawn is an extracted archive, not a Git checkout. Without this boundary,
+    # Git discovers the enclosing Melee repository and can silently skip every
+    # patch path outside the dependency's prefix, even for --check.
+    env = {key: value for key, value in os.environ.items()
+           if key not in ('GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE',
+                          'GIT_COMMON_DIR', 'GIT_PREFIX')}
+    env['GIT_CEILING_DIRECTORIES'] = str(directory.parent)
     command = ['git', '-C', str(directory), 'apply']
-    if subprocess.run(command + ['--reverse', '--check', str(patch)], capture_output=True).returncode == 0:
+    if subprocess.run(command + ['--reverse', '--check', str(patch)], env=env, capture_output=True).returncode == 0:
         return
-    subprocess.run(command + ['--check', str(patch)], check=True)
-    subprocess.run(command + [str(patch)], check=True)
+    subprocess.run(command + ['--check', str(patch)], env=env, check=True)
+    subprocess.run(command + [str(patch)], env=env, check=True)
 
 
 def main():

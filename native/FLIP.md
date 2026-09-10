@@ -125,6 +125,7 @@ Readback is saved to `/tmp/melee-flip-probe/frame.ppm` on the device.
 ```sh
 adb -s 10.0.0.178:5555 shell 'cd /mnt/SDCARD/Ports/melee-native && LD_LIBRARY_PATH="$PWD/lib" ./melee_flip_gpu_probe --present'
 python3 native/tests/test_flip_deploy.py
+python3 native/tests/test_flip_prepare.py
 ```
 
 The probe changes the active display temporarily and restores the previous

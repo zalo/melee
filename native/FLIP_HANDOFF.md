@@ -4,6 +4,14 @@ Snapshot: 2026-09-10. This is the entry point for the ARM port, renderer work,
 profiling results, and remaining optimization work. Build and installation
 details are in [FLIP.md](FLIP.md).
 
+**Publication correction:** the initial fork commit `959822528` accidentally
+contained a Melee diff in the Dawn patch file. The corrected patch recovers all
+ten modified Dawn files from the local working source against the checksum-pinned
+archive. The preparation tool now prevents Git from discovering the parent
+repository when patching an extracted dependency. See the
+[recovery and validation report](validation/2026-09-09-flip/DAWN_PATCH_RECOVERY.md).
+Existing clones must pull the correction before preparing/rebuilding Dawn.
+
 **The game renders and plays with working audio and controls, but solid 60 FPS
 has not been achieved.** The latest installed build averages about 30.1 ms on
 the frozen Onett reference. Earlier moving gameplay samples average about
@@ -195,6 +203,7 @@ export PATH="$PWD/build/flip-tools/cmake-3.31.6-linux-x86_64/bin:$CARGO_HOME/bin
 cmake --build build/native-flip --target melee_native melee_flip_vertex_test --parallel 6
 python3 native/tests/test_flip_launcher.py
 python3 native/tests/test_flip_deploy.py
+python3 native/tests/test_flip_prepare.py
 ```
 
 Aurora revision `749d6ee7a22bdfab78c8ece9047bca5d79aa72ca` and Dawn revision
@@ -202,8 +211,11 @@ Aurora revision `749d6ee7a22bdfab78c8ece9047bca5d79aa72ca` and Dawn revision
 [Aurora](platform/flip/aurora-flip.patch) and
 [Dawn](platform/flip/dawn-egl-native-window.patch). Their working checkouts are
 under ignored `build/` directories; the patches are essential for reproduction.
-At handoff both patches pass reverse-application checks against those checkouts.
-v78 cross-builds successfully, all 16 launcher/deployment tests pass, and the
+The initial Dawn reverse check was invalid because Git discovered the parent
+repository. After correction, applying the Dawn patch to a fresh pinned archive
+matches all 99,136 archive files in the working Dawn tree; isolated reverse and
+repeat-application checks pass. Aurora's patch also remains idempotent.
+v78 cross-builds successfully, all 20 preparation/launcher/deployment tests pass, and the
 v78 CPU vertex decoder test passes on the Flip, including poisoned output and
 guard regions for the new direct-output decoder.
 
