@@ -708,10 +708,10 @@ index 1b25b3d..01695a5 100644
  
 diff --git a/lib/gfx/flip_gles.cpp b/lib/gfx/flip_gles.cpp
 new file mode 100644
-index 0000000..e9bf7b7
+index 0000000..6ba9d3b
 --- /dev/null
 +++ b/lib/gfx/flip_gles.cpp
-@@ -0,0 +1,1057 @@
+@@ -0,0 +1,1067 @@
 +#include "flip_gles.hpp"
 +
 +#ifdef MELEE_MIYOO_FLIP
@@ -780,7 +780,7 @@ index 0000000..e9bf7b7
 +uint32_t sEnabledAttributes=0;
 +uint64_t sFrameNumber=0;
 +// Per-frame GL call counts for the direct path (MELEE_FLIP_PROFILE, [flip-gl-calls]).
-+struct GlCallStats { unsigned programs=0,pipelineStates=0,textures=0,texParams=0,samplers=0,ubos=0,vbos=0,layouts=0,immediates=0,draws=0; };
++struct GlCallStats { unsigned programs=0,pipelineStates=0,textures=0,texParams=0,samplers=0,ubos=0,vbos=0,layouts=0,immediates=0,draws=0,constantDraws=0; };
 +GlCallStats sGlCalls;
 +struct PresentBlit { wgpu::TextureView source; uint32_t width=0,height=0; bool pending=false; };
 +PresentBlit sPresentBlit;
@@ -1228,7 +1228,7 @@ index 0000000..e9bf7b7
 +  return &sPrepared.emplace(ref,std::move(p)).first->second;
 +}
 +
-+void bind_draw_resources(const gx::DrawData& d,PreparedPipeline& p) {
++void bind_draw_resources(const gx::DrawData& d,PreparedPipeline& p,bool constantRecord) {
 +  flip_profile::Scope resourcesProfile("gl_resources");
 +  using namespace dawn::native::opengl;
 +  auto& res=resources();
@@ -1296,7 +1296,7 @@ index 0000000..e9bf7b7
 +  const auto& layout=p.layout;
 +  GLuint vertex; uint32_t vertexOffset;
 +  const GLuint frameVertex=sMappedVertices?sMappedVertices->vertices:sStream.current?sStream.current->vertices.name:GetDirectGLBuffer(res.vertexBuffer.Get());
-+  if(d.resident) { vertex=resident_gl_buffer(gx::resident_arena(d)); vertexOffset=0; }
++  if(gx::resident_arena(d)) { vertex=resident_gl_buffer(gx::resident_arena(d)); vertexOffset=0; }
 +  else { vertex=frameVertex; vertexOffset=d.vertRange.offset; }
 +  uint32_t used=0;
 +  for(unsigned a=0;a<layout.count;++a) used|=1u<<layout.attributes[a].shaderLocation;
@@ -1346,7 +1346,8 @@ index 0000000..e9bf7b7
 +    // draws pass their record. glUniform1uiv costs ~0.4 us here, a UBO rebind ~5 us.
 +    const uint32_t record=(d.uniformRange.offset%gx::FlipUniformWindow)/gx::FlipUniformStride;
 +    const bool batched=(p.config.shaderConfig.flipFlags&gx::FlipBatchedDraws)!=0;
-+    const uint32_t pad=(!batched||(d.resident&&!gx::resident_per_vertex(d)))?record:0;
++    // Constant-record programs take the record from the immediates in both stages.
++    const uint32_t pad=(!batched||constantRecord||(gx::resident_arena(d)&&!gx::resident_per_vertex(d)))?record:0;
 +    if(p.immediatesUnused) {
 +      if(p.lastImmediatePad!=pad) {
 +        auto immediate=d.immediateData; immediate._pad=pad;
@@ -1379,7 +1380,16 @@ index 0000000..e9bf7b7
 +                 static_cast<unsigned long long>(sFrameNumber),passIndex,drawIndex);
 +    return false;
 +  }
-+  const auto& native=prepared->gl;
++  // Unmerged draws use the material's constant-record variant once it has
++  // compiled (queued without blocking on the FIFO worker); until then, or for
++  // merged draws, the dynamic-record program stays in use.
++  PreparedPipeline* program=prepared; bool constantRecord=false;
++  if(gx::resident_constant_record(d)) {
++    if(const auto cref=gx::flip_constant_variant(d.pipeline)) {
++      if(auto* cp=prepare_pipeline(cref)) { program=cp; constantRecord=true; ++sGlCalls.constantDraws; }
++    }
++  }
++  const auto& native=program->gl;
 +  if(flip_profile::active()) {
 +    const auto& c=prepared->config.shaderConfig;
 +    char text[512];
@@ -1395,18 +1405,18 @@ index 0000000..e9bf7b7
 +  if(!cache_enabled()||sLastPipeline!=d.pipeline) {apply_pipeline_state(prepared->config);sLastPipeline=d.pipeline;++sGlCalls.pipelineStates;}
 +  }
 +  if(!gl_ok("pipeline-state",passIndex,drawIndex)||mode<4) return true;
-+  bind_draw_resources(d,*prepared);
++  bind_draw_resources(d,*program,constantRecord);
 +  if(!gl_ok("resources",passIndex,drawIndex)||mode<5||drawIndex>=draw_limit()) return true;
 +  {
 +  flip_profile::Scope profile("gl_draw_call"); ++sGlCalls.draws;
-+  const GLenum indexType=d.resident?GL_UNSIGNED_INT:GL_UNSIGNED_SHORT;
++  const GLenum indexType=gx::resident_arena(d)?GL_UNSIGNED_INT:GL_UNSIGNED_SHORT;
 +  static const bool rangeElements=[] {const char* v=std::getenv("MELEE_FLIP_RANGE_ELEMENTS");return !v||std::strcmp(v,"0");}();
 +  if(d.instanceCount==1) {
 +    if(d.indexCount) {
 +      if(rangeElements) {
 +        // Explicit vertex range: the driver need not scan the index data.
 +        GLuint start=0,end=d.vtxCount?d.vtxCount-1:0;
-+        if(d.resident) {const uint32_t stride=prepared->layout.stride; start=d.vertRange.offset/stride; end=(d.vertRange.offset+d.vertRange.size)/stride; end=end?end-1:0;}
++        if(gx::resident_arena(d)) {const uint32_t stride=prepared->layout.stride; start=d.vertRange.offset/stride; end=(d.vertRange.offset+d.vertRange.size)/stride; end=end?end-1:0;}
 +        glDrawRangeElements(native.topology,start,end,d.indexCount,indexType,reinterpret_cast<const void*>(uintptr_t(d.idxRange.offset)));
 +      } else glDrawElements(native.topology,d.indexCount,indexType,reinterpret_cast<const void*>(uintptr_t(d.idxRange.offset)));
 +    }
@@ -1554,7 +1564,7 @@ index 0000000..e9bf7b7
 +    }
 +    if(d.bindGroups.textureBindGroup) textures.insert(d.bindGroups.textureBindGroup);
 +    windows.insert(d.uniformRange.offset/gx::FlipUniformWindow);
-+    if(d.resident) arenas.insert(gx::resident_arena(d));
++    if(gx::resident_arena(d)) arenas.insert(gx::resident_arena(d));
 +  }
 +  if(!hasDraw) return false;
 +  const auto& res=resources();
@@ -1586,10 +1596,10 @@ index 0000000..e9bf7b7
 +  if(glCallsProfile) {
 +    static GlCallStats sum; static unsigned frames=0;
 +    sum.programs+=sGlCalls.programs; sum.pipelineStates+=sGlCalls.pipelineStates; sum.textures+=sGlCalls.textures; sum.texParams+=sGlCalls.texParams;
-+    sum.samplers+=sGlCalls.samplers; sum.ubos+=sGlCalls.ubos; sum.vbos+=sGlCalls.vbos; sum.layouts+=sGlCalls.layouts; sum.immediates+=sGlCalls.immediates; sum.draws+=sGlCalls.draws;
++    sum.samplers+=sGlCalls.samplers; sum.ubos+=sGlCalls.ubos; sum.vbos+=sGlCalls.vbos; sum.layouts+=sGlCalls.layouts; sum.immediates+=sGlCalls.immediates; sum.draws+=sGlCalls.draws; sum.constantDraws+=sGlCalls.constantDraws;
 +    if(++frames%120==0) {
-+      std::fprintf(stderr,"[flip-gl-calls] per frame: draws=%.1f programs=%.1f pipeline-states=%.1f textures=%.1f tex-params=%.1f samplers=%.1f ubos=%.1f vbos=%.1f layouts=%.1f immediates=%.1f\n",
-+        sum.draws/120.0,sum.programs/120.0,sum.pipelineStates/120.0,sum.textures/120.0,sum.texParams/120.0,sum.samplers/120.0,sum.ubos/120.0,sum.vbos/120.0,sum.layouts/120.0,sum.immediates/120.0);
++      std::fprintf(stderr,"[flip-gl-calls] per frame: draws=%.1f constant=%.1f programs=%.1f pipeline-states=%.1f textures=%.1f tex-params=%.1f samplers=%.1f ubos=%.1f vbos=%.1f layouts=%.1f immediates=%.1f\n",
++        sum.draws/120.0,sum.constantDraws/120.0,sum.programs/120.0,sum.pipelineStates/120.0,sum.textures/120.0,sum.texParams/120.0,sum.samplers/120.0,sum.ubos/120.0,sum.vbos/120.0,sum.layouts/120.0,sum.immediates/120.0);
 +      sum={};
 +    }
 +  }
@@ -2667,7 +2677,7 @@ index d50ce6a..f6287c9 100644
 +
  } // namespace aurora::gfx::detail
 diff --git a/lib/gfx/pipeline_cache.cpp b/lib/gfx/pipeline_cache.cpp
-index bff9b47..e157649 100644
+index bff9b47..dcd4388 100644
 --- a/lib/gfx/pipeline_cache.cpp
 +++ b/lib/gfx/pipeline_cache.cpp
 @@ -1,4 +1,5 @@
@@ -2700,7 +2710,7 @@ index bff9b47..e157649 100644
      auto pipelineIt = g_pipelines.find(hash);
      if (pipelineIt != g_pipelines.end() && persist && firstFrameUsed < pipelineIt->second.firstFrameUsed) {
        pipelineIt->second.firstFrameUsed = firstFrameUsed;
-@@ -1106,7 +1115,12 @@ PipelineRef find_pipeline(ShaderType type, const clear::PipelineConfig& config,
+@@ -1106,9 +1115,21 @@ PipelineRef find_pipeline(ShaderType type, const clear::PipelineConfig& config,
  
  template <>
  PipelineRef find_pipeline(ShaderType type, const gx::PipelineConfig& config, NewPipelineCallback&& cb) {
@@ -2712,8 +2722,17 @@ index bff9b47..e157649 100644
 +#endif
  }
  
++#ifdef MELEE_MIYOO_FLIP
++template <>
++PipelineRef find_pipeline_async(ShaderType type, const gx::PipelineConfig& config, NewPipelineCallback&& cb) {
++  return find_pipeline_impl(type, config, std::move(cb), PipelinePriority::Normal);
++}
++#endif
++
  #ifdef AURORA_ENABLE_RMLUI
-@@ -1129,7 +1143,15 @@ void initialize_pipeline_cache() {
+ template <>
+ PipelineRef find_pipeline(ShaderType type, const rmlui::PipelineConfig& config, NewPipelineCallback&& cb) {
+@@ -1129,7 +1150,15 @@ void initialize_pipeline_cache() {
      g_pipelineThread = std::thread(pipeline_worker);
    }
  
@@ -2729,7 +2748,7 @@ index bff9b47..e157649 100644
    if (!g_pipelineCacheBroken && loadedCount > 0) {
      g_gpuCachePrunePending = true;
    }
-@@ -1162,7 +1184,19 @@ void shutdown_pipeline_cache() {
+@@ -1162,7 +1191,19 @@ void shutdown_pipeline_cache() {
    createdPipelines = 0;
  }
  
@@ -2750,10 +2769,10 @@ index bff9b47..e157649 100644
      g_pipelinesPerFrame = 0;
    }
 diff --git a/lib/gfx/pipeline_cache.hpp b/lib/gfx/pipeline_cache.hpp
-index 7eb4723..21b0615 100644
+index 7eb4723..52f638e 100644
 --- a/lib/gfx/pipeline_cache.hpp
 +++ b/lib/gfx/pipeline_cache.hpp
-@@ -29,6 +29,8 @@ using NewPipelineCallback = std::function<wgpu::RenderPipeline()>;
+@@ -29,11 +29,18 @@ using NewPipelineCallback = std::function<wgpu::RenderPipeline()>;
  void initialize_pipeline_cache();
  void shutdown_pipeline_cache();
  void begin_pipeline_frame();
@@ -2762,8 +2781,18 @@ index 7eb4723..21b0615 100644
  void end_pipeline_frame();
  
  template <typename Config>
+ PipelineRef find_pipeline(ShaderType type, const Config& config, NewPipelineCallback&& cb);
+ 
+ bool get_pipeline(PipelineRef ref, wgpu::RenderPipeline& pipeline);
++#ifdef MELEE_MIYOO_FLIP
++// Queue a pipeline without waiting for its compile (draws fall back until it exists).
++template <typename Config>
++PipelineRef find_pipeline_async(ShaderType type, const Config& config, NewPipelineCallback&& cb);
++#endif
+ 
+ } // namespace aurora::gfx
 diff --git a/lib/gfx/recording.cpp b/lib/gfx/recording.cpp
-index d04db0f..37aae9b 100644
+index d04db0f..1f6494a 100644
 --- a/lib/gfx/recording.cpp
 +++ b/lib/gfx/recording.cpp
 @@ -13,6 +13,11 @@
@@ -2835,30 +2864,42 @@ index d04db0f..37aae9b 100644
  #ifdef AURORA_ENABLE_RMLUI
  template <>
  void push_draw_command(rmlui::DrawData data) {
-@@ -1072,6 +1106,22 @@ void push_draw_command(rmlui::DrawData data) {
+@@ -1070,8 +1104,34 @@ void push_draw_command(rmlui::DrawData data) {
+ }
+ #endif
  
++#ifdef MELEE_MIYOO_FLIP
++static gx::PipelineConfig flip_canonical_config(const gx::PipelineConfig& config) {
++  auto canonical=config;
++  if (canonical.shaderConfig.flipFlags & gx::FlipUberShader)
++    gx::flip_uber_canonicalize(canonical.shaderConfig);
++  canonical.shaderConfig.vtxStride=0;
++  for (auto& attr : canonical.shaderConfig.attrs) {
++    if (attr.attrType == GX_NONE) continue;
++    attr.attrType=GX_DIRECT;
++    attr.compType=GX_F32;
++    attr.offset=attr.stride=attr.frac=0;
++    attr.le=attr.nbt3=false;
++  }
++  return canonical;
++}
++PipelineRef pipeline_ref_async(const gx::PipelineConfig& config) {
++  const auto canonical = (config.shaderConfig.flipFlags & gx::FlipVertexInput) ? flip_canonical_config(config) : config;
++  return find_pipeline_async(ShaderType::GX, canonical, [=] { return create_pipeline(canonical); });
++}
++#endif
  template <>
  PipelineRef pipeline_ref(const gx::PipelineConfig& config) {
 +#ifdef MELEE_MIYOO_FLIP
 +  if (config.shaderConfig.flipFlags & gx::FlipVertexInput) {
-+    auto canonical=config;
-+    if (canonical.shaderConfig.flipFlags & gx::FlipUberShader)
-+      gx::flip_uber_canonicalize(canonical.shaderConfig);
-+    canonical.shaderConfig.vtxStride=0;
-+    for (auto& attr : canonical.shaderConfig.attrs) {
-+      if (attr.attrType == GX_NONE) continue;
-+      attr.attrType=GX_DIRECT;
-+      attr.compType=GX_F32;
-+      attr.offset=attr.stride=attr.frac=0;
-+      attr.le=attr.nbt3=false;
-+    }
++    const auto canonical = flip_canonical_config(config);
 +    return find_pipeline(ShaderType::GX, canonical, [=] { return create_pipeline(canonical); });
 +  }
 +#endif
    return find_pipeline(ShaderType::GX, config, [=] { return create_pipeline(config); });
  }
  
-@@ -1114,12 +1164,41 @@ Range push_indices(const uint8_t* data, size_t length, size_t alignment) {
+@@ -1114,12 +1174,41 @@ Range push_indices(const uint8_t* data, size_t length, size_t alignment) {
    return push(current_frame_packet().indices, data, length, alignment);
  }
  
@@ -2902,7 +2943,7 @@ index d04db0f..37aae9b 100644
  
  Range push_storage(const uint8_t* data, size_t length) {
 diff --git a/lib/gfx/recording.hpp b/lib/gfx/recording.hpp
-index cd2b794..75cf786 100644
+index cd2b794..f931895 100644
 --- a/lib/gfx/recording.hpp
 +++ b/lib/gfx/recording.hpp
 @@ -16,6 +16,8 @@ struct RecordedFrame {
@@ -2914,7 +2955,15 @@ index cd2b794..75cf786 100644
  void shutdown_recording();
  void increment_merged_draw_count() noexcept;
  
-@@ -76,6 +78,11 @@ Range push_indices(ArrayRef<T> data, size_t alignment) {
+@@ -27,6 +29,7 @@ void seed_offscreen_cache(uint32_t width, uint32_t height, wgpu::TextureFormat c
+ 
+ } // namespace aurora::gfx::detail
+ 
++namespace aurora::gx { struct PipelineConfig; }
+ namespace aurora::gfx {
+ struct ColorPassDescriptor {
+   const char* label = nullptr;
+@@ -76,6 +79,11 @@ Range push_indices(ArrayRef<T> data, size_t alignment) {
    return push_indices(reinterpret_cast<const uint8_t*>(data.data()), data.size() * sizeof(T), alignment);
  }
  Range push_uniform(const uint8_t* data, size_t length);
@@ -2926,6 +2975,16 @@ index cd2b794..75cf786 100644
  template <typename T>
  Range push_uniform(const T& data) {
    return push_uniform(reinterpret_cast<const uint8_t*>(&data), sizeof(T));
+@@ -97,6 +105,9 @@ template <typename DrawData>
+ DrawData* get_last_draw_command();
+ template <typename PipelineConfig>
+ PipelineRef pipeline_ref(const PipelineConfig& config);
++#ifdef MELEE_MIYOO_FLIP
++PipelineRef pipeline_ref_async(const gx::PipelineConfig& config);
++#endif
+ 
+ void resolve_pass_into(TextureHandle texture, ClipRect rect, bool clearColor, bool clearAlpha, bool clearDepth,
+                        Vec4<float> clearColorValue, float clearDepthValue, GXTexFmt resolveFormat = GX_TF_RGBA8);
 diff --git a/lib/gfx/render_worker.cpp b/lib/gfx/render_worker.cpp
 index 85783b6..0359368 100644
 --- a/lib/gfx/render_worker.cpp
@@ -3193,7 +3252,7 @@ index 3fdc0ee..ae33eff 100644
    wgpu::Buffer uniformBuffer;
    wgpu::Buffer indexBuffer;
 diff --git a/lib/gx/command_processor.cpp b/lib/gx/command_processor.cpp
-index b0dce17..a0aefeb 100644
+index b0dce17..dcd4705 100644
 --- a/lib/gx/command_processor.cpp
 +++ b/lib/gx/command_processor.cpp
 @@ -1,10 +1,19 @@
@@ -3321,7 +3380,15 @@ index b0dce17..a0aefeb 100644
  u16 prepare_idx_buffer(ByteBuffer& buf, GXPrimitive prim, u16 vtxStart, u16 vtxCount) noexcept {
    u16 numIndices = 0;
    if (prim == GX_QUADS) {
-@@ -375,33 +475,93 @@ static u32 calc_vtx_size(GXVtxFmt fmt) noexcept {
+@@ -130,6 +230,7 @@ struct DrawCache {
+   PipelineConfig config{};
+   ShaderInfo shaderInfo{};
+   gfx::PipelineRef pipelineRef{};
++  gfx::PipelineRef constantRef{};
+   GXBindGroups bindGroups{};
+   uint64_t bindGeneration = 0;
+   GXVtxFmt fmt = GX_MAX_VTXFMT;
+@@ -375,33 +476,116 @@ static u32 calc_vtx_size(GXVtxFmt fmt) noexcept {
    return vtxSize;
  }
  
@@ -3334,7 +3401,25 @@ index b0dce17..a0aefeb 100644
 +  PipelineConfig config;
 +  ShaderInfo shaderInfo;
 +  gfx::PipelineRef pipelineRef;
++  gfx::PipelineRef constantRef;
 +};
++// Constant-record pipeline variant for draws that never merge
++// (MELEE_FLIP_CONSTANT_RECORDS=1, experiment). Off by default: on the g29 Mali
++// driver every per-draw uniform change (UBO range rebind or glUniform) costs
++// ~15 us, so the render worker lost ~5 ms per frame for ~1 ms of GPU; the
++// vertex-embedded record index stays the default.
++static bool flip_constant_records_enabled() {
++  static const bool enabled = [] { const char* v = std::getenv("MELEE_FLIP_CONSTANT_RECORDS"); return v && std::strcmp(v, "0"); }();
++  return enabled;
++}
++static gfx::PipelineRef request_constant_variant(const PipelineConfig& config, gfx::PipelineRef pipelineRef) {
++  if (!flip_constant_records_enabled() || !(config.shaderConfig.flipFlags & FlipUniformTable) || !(config.shaderConfig.flipFlags & FlipBatchedDraws)) return {};
++  PipelineConfig constant = config;
++  constant.shaderConfig.flipFlags |= FlipConstantRecord;
++  const auto ref = gfx::pipeline_ref_async(constant);
++  register_flip_constant_variant(pipelineRef, ref);
++  return ref;
++}
 +static absl::flat_hash_map<uint64_t, PipelineMemo> sPipelineMemo;
  
 -  DrawImmediateData immediates{.vtxStart = vertRange.offset, .currentPnMtx = state.currentPnMtx};
@@ -3408,13 +3493,15 @@ index b0dce17..a0aefeb 100644
 +        cache.config = it->second.config;
 +        cache.shaderInfo = it->second.shaderInfo;
 +        cache.pipelineRef = it->second.pipelineRef;
++        cache.constantRef = it->second.constantRef;
 +        resolved = true;
 +      } else {
 +        populate_pipeline_config(cache.config, prim, fmt);
 +        cache.shaderInfo = build_shader_info(cache.config.shaderConfig);
 +        cache.pipelineRef = gfx::pipeline_ref(cache.config);
++        cache.constantRef = request_constant_variant(cache.config, cache.pipelineRef);
 +        if (memo.size() >= 1024) memo.clear();
-+        memo.emplace(key, PipelineMemo{cache.config, cache.shaderInfo, cache.pipelineRef});
++        memo.emplace(key, PipelineMemo{cache.config, cache.shaderInfo, cache.pipelineRef, cache.constantRef});
 +        resolved = true;
 +      }
 +    }
@@ -3424,11 +3511,14 @@ index b0dce17..a0aefeb 100644
      populate_pipeline_config(cache.config, prim, fmt);
      cache.shaderInfo = build_shader_info(cache.config.shaderConfig);
      cache.pipelineRef = gfx::pipeline_ref(cache.config);
++#ifdef MELEE_MIYOO_FLIP
++    cache.constantRef = request_constant_variant(cache.config, cache.pipelineRef);
++#endif
 +    }
      cache.fmt = fmt;
      cache.lineMode = lineMode;
      cache.hasPipeline = true;
-@@ -415,6 +575,9 @@ static void push_gx_draw(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, gfx::Rang
+@@ -415,6 +599,9 @@ static void push_gx_draw(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, gfx::Rang
    const bool bindGroupsValid =
        (state.dirty & DirtyTextures) == 0 && cache.bindGeneration == texture::current_bind_generation();
    if (!bindGroupsValid) {
@@ -3438,7 +3528,7 @@ index b0dce17..a0aefeb 100644
      const auto prevBindGroup = cache.bindGroups.textureBindGroup;
      resolve_sampled_textures(cache.shaderInfo);
      cache.bindGroups = build_bind_groups(cache.shaderInfo);
-@@ -428,7 +591,10 @@ static void push_gx_draw(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, gfx::Rang
+@@ -428,7 +615,10 @@ static void push_gx_draw(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, gfx::Rang
  
    const bool uniformValid = (state.dirty & DirtyUniform) == 0 && cache.uniformRange.size != 0;
    if (!uniformValid) {
@@ -3450,7 +3540,7 @@ index b0dce17..a0aefeb 100644
      state.dirty &= ~DirtyUniform;
    }
    if (cache.config.shaderConfig.fogRangeEnabled) {
-@@ -442,6 +608,116 @@ static void push_gx_draw(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, gfx::Rang
+@@ -442,6 +632,118 @@ static void push_gx_draw(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, gfx::Rang
    immediates.fogRangeBase = cache.fogRange.offset / sizeof(u32);
  
    state.dirty &= ~DirtyImmediates;
@@ -3553,11 +3643,13 @@ index b0dce17..a0aefeb 100644
 +      previous->vertRange.size+=vertRange.size;
 +      previous->idxRange.size+=idxRange.size;
 +      previous->vtxCount+=vtxCount;previous->indexCount+=numIndices;
++      previous->resident&=~ResidentConstantRecord; // records now differ within the draw
 +      gfx::detail::increment_merged_draw_count();
 +    } else {
 +      gfx::push_draw_command(DrawData{.pipeline=cache.pipelineRef,.vertRange=vertRange,.idxRange=idxRange,
 +        .uniformRange=cache.uniformRange,.immediateData=immediates,.vtxCount=vtxCount,.indexCount=numIndices,
-+        .instanceCount=1,.bindGroups=cache.bindGroups,.dstAlpha=state.dstAlpha});
++        .instanceCount=1,.bindGroups=cache.bindGroups,.dstAlpha=state.dstAlpha,
++        .resident=cache.constantRef?ResidentConstantRecord:0u});
 +    }
 +    sFlipPreviousPipeline=cache.config;
 +    sFlipHasPreviousPipeline=true;
@@ -3567,7 +3659,7 @@ index b0dce17..a0aefeb 100644
  
    uint32_t instanceCount = 1;
    if (prim == GX_LINES) {
-@@ -451,6 +727,21 @@ static void push_gx_draw(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, gfx::Rang
+@@ -451,6 +753,21 @@ static void push_gx_draw(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, gfx::Rang
    } else if (prim == GX_POINTS) {
      instanceCount = vtxCount;
    }
@@ -3589,7 +3681,7 @@ index b0dce17..a0aefeb 100644
    cache.lastDrawFmt = fmt;
    gfx::push_draw_command(DrawData{
        .pipeline = cache.pipelineRef,
-@@ -494,6 +785,13 @@ static void draw_prim(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, ByteReader&
+@@ -494,6 +811,13 @@ static void draw_prim(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, ByteReader&
    if (totalVtxBytes > reader.remaining())
      UNLIKELY { handle_draw_overrun(totalVtxBytes, reader); }
  
@@ -3603,7 +3695,7 @@ index b0dce17..a0aefeb 100644
    const bool cleanState = g_gxState.dirty == 0 && fmt == sDrawCache.lastDrawFmt && sDrawCache.lineMode == 0 &&
                            prim != GX_LINES && prim != GX_LINESTRIP && prim != GX_POINTS;
    auto* lastDraw = cleanState ? gfx::get_last_draw_command<DrawData>() : nullptr;
-@@ -501,7 +799,13 @@ static void draw_prim(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, ByteReader&
+@@ -501,7 +825,13 @@ static void draw_prim(GXPrimitive prim, GXVtxFmt fmt, u16 vtxCount, ByteReader&
  
    // Push raw vertex data to buffer. Merged draws must remain contiguous with the previous range.
    const auto vertexData = reader.take(totalVtxBytes);
@@ -3618,7 +3710,7 @@ index b0dce17..a0aefeb 100644
  
    // Try to merge with previous draw call
    if (canMerge) {
-@@ -547,6 +851,263 @@ static void handle_draw(u8 cmd, ByteReader& reader) noexcept {
+@@ -547,6 +877,264 @@ static void handle_draw(u8 cmd, ByteReader& reader) noexcept {
    draw_prim(prim, fmt, reader.read<u16>(), reader);
  }
  
@@ -3766,7 +3858,7 @@ index b0dce17..a0aefeb 100644
 +  {
 +    auto& st = sFlipBatchStats;
 +    if (!previous) ++st.rNoPrev;
-+    else if (previous->resident != resident) ++st.rKind;
++    else if ((previous->resident & ~ResidentConstantRecord) != resident) ++st.rKind;
 +    else if (previous->pipeline != cache.pipelineRef) ++st.rPipeline;
 +    else if (previous->bindGroups.textureBindGroup != cache.bindGroups.textureBindGroup) ++st.rTexture;
 +    else if (!(perVertex ? previous->uniformRange.offset / FlipUniformWindow == cache.uniformRange.offset / FlipUniformWindow
@@ -3788,6 +3880,7 @@ index b0dce17..a0aefeb 100644
 +  const gfx::Range vertRange{entry.firstVertex * stride, entry.vertexCount * stride};
 +  if (merge) {
 +    ++sFlipBatchStats.merged;
++    previous->resident &= ~ResidentConstantRecord; // records may now differ within the draw
 +    previous->idxRange.size += idxRange.size;
 +    previous->indexCount += static_cast<uint32_t>(absolute.size());
 +    previous->vtxCount += entry.vertexCount;
@@ -3799,7 +3892,7 @@ index b0dce17..a0aefeb 100644
 +    gfx::push_draw_command(DrawData{.pipeline = cache.pipelineRef, .vertRange = vertRange, .idxRange = idxRange,
 +      .uniformRange = cache.uniformRange, .immediateData = immediates, .vtxCount = entry.vertexCount,
 +      .indexCount = static_cast<uint32_t>(absolute.size()), .instanceCount = 1, .bindGroups = cache.bindGroups,
-+      .dstAlpha = state.dstAlpha, .resident = resident});
++      .dstAlpha = state.dstAlpha, .resident = resident | (cache.constantRef ? ResidentConstantRecord : 0u)});
 +  }
 +  cache.lastDrawFmt = fmt;
 +  sFlipPreviousPipeline = cache.config;
@@ -3882,7 +3975,7 @@ index b0dce17..a0aefeb 100644
  void handle_aurora(ByteReader& reader) noexcept {
    ZoneScoped;
    const u16 subCmd = reader.read<u16>();
-@@ -729,7 +1290,11 @@ void handle_aurora(ByteReader& reader) noexcept {
+@@ -729,7 +1317,11 @@ void handle_aurora(ByteReader& reader) noexcept {
      const size_t idxBytes = static_cast<size_t>(indexCount) * sizeof(u16);
      // Index data is always host-endian; push it to the GPU buffer as-is
      const auto indexData = reader.take(idxBytes);
@@ -3895,7 +3988,7 @@ index b0dce17..a0aefeb 100644
      u32 vtxSize;
      if (g_gxState.lastVtxFmt == fmt) {
        vtxSize = g_gxState.lastVtxSize;
-@@ -738,10 +1303,40 @@ void handle_aurora(ByteReader& reader) noexcept {
+@@ -738,10 +1330,40 @@ void handle_aurora(ByteReader& reader) noexcept {
      }
      const u32 totalVtxBytes = vtxCount * vtxSize;
      const auto vertexData = reader.take(totalVtxBytes);
@@ -3937,7 +4030,7 @@ index b0dce17..a0aefeb 100644
    } else if (subCmd == GX_AURORA_DEBUG_GROUP_PUSH) {
      auto label = reader.read_string();
      gfx::push_debug_group(std::move(label));
-@@ -758,6 +1353,55 @@ void handle_aurora(ByteReader& reader) noexcept {
+@@ -758,6 +1380,55 @@ void handle_aurora(ByteReader& reader) noexcept {
  }
  
  void clear_draw_cache() noexcept {
@@ -6299,7 +6392,7 @@ index b12b327..b6a352c 100644
      };
      g_emptyTextureBindGroup = g_device.CreateBindGroup(&desc);
 diff --git a/lib/gx/gx.hpp b/lib/gx/gx.hpp
-index a97b987..46a39e1 100644
+index a97b987..387cf74 100644
 --- a/lib/gx/gx.hpp
 +++ b/lib/gx/gx.hpp
 @@ -66,7 +66,7 @@ constexpr u32 MaxIndTexMtxs = 3;
@@ -6311,7 +6404,7 @@ index a97b987..46a39e1 100644
  constexpr u32 XfRegCount = 0x58; // 0x1000-0x1057
  
  enum DirtyFlag : u8 {
-@@ -486,13 +486,21 @@ struct AttrConfig {
+@@ -486,13 +486,22 @@ struct AttrConfig {
    bool le = true;
    bool nbt3 = false; // GX_NRM_NBT3
  };
@@ -6322,6 +6415,7 @@ index a97b987..46a39e1 100644
 +  FlipBatchedDraws = 8,
 +  FlipTexturePairs = 16,
 +  FlipUberShader = 32,
++  FlipConstantRecord = 64, // uniform record bound per draw; no dynamic UBO indexing
 +};
  struct ShaderConfig {
    u8 fogType = GX_FOG_NONE;
@@ -6335,7 +6429,7 @@ index a97b987..46a39e1 100644
    std::array<TevSwap, MaxTevSwap> tevSwapTable;
    std::array<TevStage, MaxTevStages> tevStages;
 diff --git a/lib/gx/pipeline.cpp b/lib/gx/pipeline.cpp
-index 0c3631c..615a8d6 100644
+index 0c3631c..ef919e8 100644
 --- a/lib/gx/pipeline.cpp
 +++ b/lib/gx/pipeline.cpp
 @@ -1,3 +1,7 @@
@@ -6346,7 +6440,7 @@ index 0c3631c..615a8d6 100644
  #include "pipeline.hpp"
  
  #include "../gfx/encoding.hpp"
-@@ -9,15 +13,51 @@
+@@ -9,15 +13,61 @@
  #include "shader_info.hpp"
  
  #include <tracy/Tracy.hpp>
@@ -6361,6 +6455,16 @@ index 0c3631c..615a8d6 100644
 +namespace {
 +std::mutex sFlipPipelineConfigMutex;
 +absl::flat_hash_map<gfx::PipelineRef,PipelineConfig> sFlipPipelineConfigs;
++absl::flat_hash_map<gfx::PipelineRef,gfx::PipelineRef> sFlipConstantVariants;
++}
++void register_flip_constant_variant(gfx::PipelineRef pipeline,gfx::PipelineRef constant) {
++  std::lock_guard lock{sFlipPipelineConfigMutex};
++  sFlipConstantVariants[pipeline]=constant;
++}
++gfx::PipelineRef flip_constant_variant(gfx::PipelineRef pipeline) {
++  std::lock_guard lock{sFlipPipelineConfigMutex};
++  const auto it=sFlipConstantVariants.find(pipeline);
++  return it==sFlipConstantVariants.end()?gfx::PipelineRef{}:it->second;
 +}
 +
 +bool find_flip_pipeline_config(gfx::PipelineRef ref,PipelineConfig& config) {
@@ -6398,7 +6502,7 @@ index 0c3631c..615a8d6 100644
    return build_pipeline(config, {}, shader, label.c_str());
  }
  
-@@ -27,13 +67,45 @@ void render(const DrawData& data, const wgpu::RenderPassEncoder& pass) {
+@@ -27,13 +77,45 @@ void render(const DrawData& data, const wgpu::RenderPassEncoder& pass) {
    }
  
    const auto& resources = gfx::detail::resources();
@@ -6406,7 +6510,7 @@ index 0c3631c..615a8d6 100644
 -  const std::array offsets{data.uniformRange.offset};
 -  pass.SetBindGroup(1, resources.uniformBindGroup, offsets.size(), offsets.data());
 +  #ifdef MELEE_MIYOO_FLIP
-+  if(data.resident) pass.SetVertexBuffer(0,resident::buffer(resident_arena(data)),0,resident::gpu_bytes(resident_arena(data)));
++  if(resident_arena(data)) pass.SetVertexBuffer(0,resident::buffer(resident_arena(data)),0,resident::gpu_bytes(resident_arena(data)));
 +  else if(flip_vertex_enabled()) pass.SetVertexBuffer(0,resources.vertexBuffer,data.vertRange.offset,data.vertRange.size);
 +  if(flip_batch_enabled()) {
 +    // Slot 1: per-vertex uniform records (resident, merged) or the zero stream.
@@ -6423,7 +6527,7 @@ index 0c3631c..615a8d6 100644
 +    // Batched shaders add imm._pad to the per-vertex record bits: streamed draws
 +    // carry the record in their vertices (pad 0); resident draws carry 0 there.
 +    const bool batched=flip_batch_enabled();
-+    immediate._pad=(!batched||(data.resident&&!resident_per_vertex(data))) ? record : 0;
++    immediate._pad=(!batched||(resident_arena(data)&&!resident_per_vertex(data))) ? record : 0;
 +    uniformOffset=uniformOffset/FlipUniformWindow*FlipUniformWindow;
 +    uniformGroup=resources.flipUniformBindGroup;
 +    if (flip_uniform_windows_enabled()) {
@@ -6439,7 +6543,7 @@ index 0c3631c..615a8d6 100644
      pass.SetBindGroup(2, gfx::find_bind_group(data.bindGroups.textureBindGroup));
    }
 +#ifdef MELEE_MIYOO_FLIP
-+  pass.SetIndexBuffer(resources.indexBuffer, data.resident ? wgpu::IndexFormat::Uint32 : wgpu::IndexFormat::Uint16,
++  pass.SetIndexBuffer(resources.indexBuffer, resident_arena(data) ? wgpu::IndexFormat::Uint32 : wgpu::IndexFormat::Uint16,
 +                      data.idxRange.offset, data.idxRange.size);
 +#else
    pass.SetIndexBuffer(resources.indexBuffer, wgpu::IndexFormat::Uint16, data.idxRange.offset, data.idxRange.size);
@@ -6448,10 +6552,10 @@ index 0c3631c..615a8d6 100644
      const wgpu::Color color{0.f, 0.f, 0.f, data.dstAlpha / 255.f};
      pass.SetBlendConstant(&color);
 diff --git a/lib/gx/pipeline.hpp b/lib/gx/pipeline.hpp
-index 1abcbd5..5027eb3 100644
+index 1abcbd5..ae2636f 100644
 --- a/lib/gx/pipeline.hpp
 +++ b/lib/gx/pipeline.hpp
-@@ -15,7 +15,16 @@ struct DrawData {
+@@ -15,7 +15,24 @@ struct DrawData {
    uint32_t instanceCount;
    GXBindGroups bindGroups;
    uint32_t dstAlpha;
@@ -6463,12 +6567,20 @@ index 1abcbd5..5027eb3 100644
  };
 +static_assert(sizeof(DrawData) <= 128);
 +inline constexpr uint32_t ResidentPerVertexRecord = 0x80000000u;
-+inline uint32_t resident_arena(const DrawData& d) { return d.resident & ~ResidentPerVertexRecord; }
++// Bit 30: the draw never merged, so the direct path may use the material's
++// constant-record pipeline variant with its uniform record bound directly.
++inline constexpr uint32_t ResidentConstantRecord = 0x40000000u;
++inline constexpr uint32_t ResidentFlagMask = ResidentPerVertexRecord | ResidentConstantRecord;
++inline uint32_t resident_arena(const DrawData& d) { return d.resident & ~ResidentFlagMask; }
 +inline bool resident_per_vertex(const DrawData& d) { return (d.resident & ResidentPerVertexRecord) != 0; }
++inline bool resident_constant_record(const DrawData& d) { return (d.resident & ResidentConstantRecord) != 0; }
++// Constant-record variant of a material pipeline (0 when none was requested).
++void register_flip_constant_variant(gfx::PipelineRef pipeline, gfx::PipelineRef constant);
++gfx::PipelineRef flip_constant_variant(gfx::PipelineRef pipeline);
  
  constexpr uint32_t GXPipelineConfigVersion = 13;
  struct PipelineConfig {
-@@ -37,6 +46,9 @@ static_assert(std::has_unique_object_representations_v<PipelineConfig>);
+@@ -37,6 +54,9 @@ static_assert(std::has_unique_object_representations_v<PipelineConfig>);
  
  wgpu::RenderPipeline create_pipeline([[maybe_unused]] const PipelineConfig& config);
  void render(const DrawData& data, const wgpu::RenderPassEncoder& pass);
@@ -6511,7 +6623,7 @@ index 0c3925b..1e31965 100644
    }
  }
 diff --git a/lib/gx/shader.cpp b/lib/gx/shader.cpp
-index 92f358b..9a921c7 100644
+index 92f358b..7a9449a 100644
 --- a/lib/gx/shader.cpp
 +++ b/lib/gx/shader.cpp
 @@ -1,3 +1,7 @@
@@ -6658,7 +6770,7 @@ index 92f358b..9a921c7 100644
  fn bswap32(v: u32, le: bool) -> u32 {{
    if (le) {{
      return v;
-@@ -1998,6 +2073,54 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {{{6}{5}
+@@ -1998,6 +2073,59 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {{{6}{5}
  )""",
                                          uniBufAttrs, texBindings, vtxOutAttrs, vtxInAttrs, vtxXfrAttrs, fragmentFn,
                                          fragmentFnPre, vtxXfrAttrsPre, uniformPre);
@@ -6679,6 +6791,10 @@ index 92f358b..9a921c7 100644
 +    // The wrapper fixes the stride without duplicating Uniform's WGSL layout.
 +    replace("@group(1) @binding(0)\nvar<uniform> ubuf: Uniform;",
 +      "struct FlipUniformRecord { @size(4096) value: Uniform };\n@group(1) @binding(0)\nvar<uniform> flip_uniform_table: array<FlipUniformRecord, 16>;");
++    // Constant-record variant (unmerged draws): the record index comes from the
++    // immediates in both stages, so every table access is dynamically uniform
++    // instead of indexed by a per-fragment varying.
++    const bool constantRecord = (config.flipFlags & FlipConstantRecord) != 0;
 +    replace("ubuf.", (config.flipFlags & FlipBatchedDraws) ? "flip_uniform_table[flip_record_index].value." : "flip_uniform_table[imm._pad].value.");
 +    if(config.flipFlags & FlipBatchedDraws) {
 +      replace("struct VertexOutput {", "var<private> flip_record_index: u32;\nstruct VertexOutput {");
@@ -6688,9 +6804,10 @@ index 92f358b..9a921c7 100644
 +      // renders incorrectly but shows what dynamic UBO indexing costs the GPU.
 +      static const bool gpuTest = [] { const char* v = std::getenv("MELEE_FLIP_GPU_TEST"); return v && v[0] == '1'; }();
 +      if (gpuTest) replace("var out: VertexOutput;", "var out: VertexOutput; flip_record_index = 0u; out.flip_record = 0u;");
++      else if (constantRecord) replace("var out: VertexOutput;", "var out: VertexOutput; flip_record_index = imm._pad & 15u; out.flip_record = flip_record_index;");
 +      else if (config.lineMode == 0) replace("var out: VertexOutput;", "var out: VertexOutput; flip_record_index = ((flip_matrices.z >> 8u) & 15u) + (imm._pad & 15u) + (flip_record_in & 15u); out.flip_record = flip_record_index;");
 +      else replace("var out: VertexOutput;", "var out: VertexOutput; flip_record_index = ((flip_matrices.z >> 8u) & 15u) + (imm._pad & 15u); out.flip_record = flip_record_index;");
-+      replace("fn fs_main(in: VertexOutput) -> @location(0) vec4f {", "fn fs_main(in: VertexOutput) -> @location(0) vec4f { flip_record_index = in.flip_record;");
++      replace("fn fs_main(in: VertexOutput) -> @location(0) vec4f {", constantRecord ? "fn fs_main(in: VertexOutput) -> @location(0) vec4f { flip_record_index = imm._pad & 15u;" : "fn fs_main(in: VertexOutput) -> @location(0) vec4f { flip_record_index = in.flip_record;");
 +    }
 +    if(config.flipFlags & FlipTexturePairs) {
 +      shaderSource.insert(0,"diagnostic(off, derivative_uniformity);\n");

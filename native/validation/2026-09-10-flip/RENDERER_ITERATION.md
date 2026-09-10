@@ -1,4 +1,4 @@
-# Renderer iteration toward 60 FPS, 2026-09-10 (v79–v109)
+# Renderer iteration toward 60 FPS, 2026-09-10 (v79–v112)
 
 This report continues the Miyoo Flip work described in the earlier reports under
 `../2026-09-09-flip/`. It records what was measured, what changed in the renderer,
@@ -268,6 +268,18 @@ so it can be A/B tested with the trial tool.
   persistently mapped slots are write-combined; a single 4-byte read per record
   in the point expansion cost ~20 ms per frame on Fountain.
 
+- **Per-draw uniform records are a dead end on this driver** (v110/v111,
+  `MELEE_FLIP_CONSTANT_RECORDS=1`, opt-in). Two variants gave unmerged draws a
+  pipeline whose record index is not a per-vertex value: binding the uniform range
+  at the draw's record (v110) and reading the index from the immediates in both
+  stages (v111). Both cut the main-pass GPU time only ~1 ms (not the 2.7 ms the
+  literal-index diagnostic suggested), moved 137 pixels of the frozen capture by
+  one unit (compiler precision), and raised the render worker from 15.3 to
+  20.5 ms: on the g29 blob any per-draw uniform change, a `glBindBufferRange` or
+  a `glUniform` update alike, costs ~15 µs, as much as the draw itself. The
+  vertex-embedded record index therefore stays; the same cost explains the earlier
+  constant-attribute dead end. The variant machinery (`FlipConstantRecord`,
+  `pipeline_ref_async`, `flip_constant_variant`) remains for experiments.
 - **Present blit is not a win** (`MELEE_FLIP_PRESENT_BLIT=1`, v105, opt-in):
   replacing the full-screen copy draw with `glBlitFramebuffer` costs the same
   ~0.8 ms (the pass setup, not the draw, is the cost) and moves 20 scanout
