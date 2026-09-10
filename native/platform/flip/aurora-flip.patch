@@ -51,7 +51,7 @@ index 1a312fb..ea9f8a2 100644
  
  
 diff --git a/lib/aurora.cpp b/lib/aurora.cpp
-index 9430842..37e36d1 100644
+index 9430842..d99d7c0 100644
 --- a/lib/aurora.cpp
 +++ b/lib/aurora.cpp
 @@ -1,13 +1,27 @@
@@ -147,7 +147,7 @@ index 9430842..37e36d1 100644
      {
        window::SurfaceLock surfaceLock;
        if (window::is_presentable() && g_surface) {
-@@ -305,14 +344,29 @@ void end_frame() noexcept {
+@@ -305,14 +344,33 @@ void end_frame() noexcept {
        }
      }
  
@@ -170,6 +170,10 @@ index 9430842..37e36d1 100644
 +        const auto& efbSource = webgpu::present_source();
 +        if (directPresent && efbSource.size.width == vw && efbSource.size.height == vh) {
 +          presentBindGroup = webgpu::create_copy_bind_group(efbSource);
++          // Whole-surface copy without overlays: let the direct path blit it.
++          if (gfx::detail::flip_present_blit_enabled() && !(rmlBindGroup && rmlOverlay) && viewport.left == 0.f && viewport.top == 0.f &&
++              vw == webgpu::g_graphicsConfig.surfaceConfiguration.width && vh == webgpu::g_graphicsConfig.surfaceConfiguration.height)
++            gfx::detail::flip_request_present_blit(efbSource.view, vw, vh);
 +        } else
 +#endif
 +        {
@@ -179,7 +183,7 @@ index 9430842..37e36d1 100644
        }
        {
          const std::array attachments{
-@@ -369,9 +423,21 @@ void end_frame() noexcept {
+@@ -369,9 +427,21 @@ void end_frame() noexcept {
      webgpu::gpu_prof::frame_end(encoder);
      const wgpu::CommandBufferDescriptor cmdBufDescriptor{.label = "Redraw command buffer"};
      const auto buffer = encoder.Finish(&cmdBufDescriptor);
@@ -201,7 +205,7 @@ index 9430842..37e36d1 100644
      }
      webgpu::gpu_prof::after_submit();
      if (canPresent && g_surface) {
-@@ -380,9 +446,26 @@ void end_frame() noexcept {
+@@ -380,9 +450,26 @@ void end_frame() noexcept {
        {
          window::SurfaceLock surfaceLock;
          if (window::is_presentable()) {
@@ -228,7 +232,7 @@ index 9430842..37e36d1 100644
        if (status) {
          gfx::after_present();
        } else {
-@@ -439,7 +522,19 @@ void end_frame() noexcept {
+@@ -439,7 +526,19 @@ void end_frame() noexcept {
      TracyPlot("aurora: lastIndexSize", static_cast<int64_t>(stats.lastIndexSize));
      TracyPlot("aurora: lastStorageSize", static_cast<int64_t>(stats.lastStorageSize));
      TracyPlot("aurora: lastTextureUploadSize", static_cast<int64_t>(stats.lastTextureUploadSize));
@@ -249,7 +253,7 @@ index 9430842..37e36d1 100644
  
  #endif
  }
-@@ -451,6 +546,13 @@ AuroraInfo aurora_initialize(int argc, char* argv[], const AuroraConfig* config)
+@@ -451,6 +550,13 @@ AuroraInfo aurora_initialize(int argc, char* argv[], const AuroraConfig* config)
    return aurora::initialize(argc, argv, *config);
  }
  void aurora_shutdown() { aurora::shutdown(); }
@@ -704,10 +708,10 @@ index 1b25b3d..01695a5 100644
  
 diff --git a/lib/gfx/flip_gles.cpp b/lib/gfx/flip_gles.cpp
 new file mode 100644
-index 0000000..0d2ab35
+index 0000000..e9bf7b7
 --- /dev/null
 +++ b/lib/gfx/flip_gles.cpp
-@@ -0,0 +1,987 @@
+@@ -0,0 +1,1057 @@
 +#include "flip_gles.hpp"
 +
 +#ifdef MELEE_MIYOO_FLIP
@@ -778,6 +782,33 @@ index 0000000..0d2ab35
 +// Per-frame GL call counts for the direct path (MELEE_FLIP_PROFILE, [flip-gl-calls]).
 +struct GlCallStats { unsigned programs=0,pipelineStates=0,textures=0,texParams=0,samplers=0,ubos=0,vbos=0,layouts=0,immediates=0,draws=0; };
 +GlCallStats sGlCalls;
++struct PresentBlit { wgpu::TextureView source; uint32_t width=0,height=0; bool pending=false; };
++PresentBlit sPresentBlit;
++GLuint sPresentReadFbo=0,sPresentReadAttachment=0;
++// Dawn has bound and cleared the swapchain framebuffer when the pass callback
++// runs; copying the EFB with glBlitFramebuffer replaces a full-screen textured
++// draw and its pass setup (~0.8 ms of driver time per frame).
++bool present_blit() {
++  const auto src=dawn::native::opengl::GetDirectGLTextureView(sPresentBlit.source.Get());
++  const GLuint name=src.texture?src.texture:src.renderbuffer;
++  if(!name) return false;
++  if(!sPresentReadFbo) glGenFramebuffers(1,&sPresentReadFbo);
++  glBindFramebuffer(GL_READ_FRAMEBUFFER,sPresentReadFbo);
++  if(sPresentReadAttachment!=name) {
++    if(src.texture) glFramebufferTexture2D(GL_READ_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,src.texture,0);
++    else glFramebufferRenderbuffer(GL_READ_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_RENDERBUFFER,src.renderbuffer);
++    if(glCheckFramebufferStatus(GL_READ_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE) { glBindFramebuffer(GL_READ_FRAMEBUFFER,0); sPresentReadAttachment=0; return false; }
++    sPresentReadAttachment=name;
++  }
++  const GLboolean scissor=glIsEnabled(GL_SCISSOR_TEST);
++  if(scissor) glDisable(GL_SCISSOR_TEST);
++  glBlitFramebuffer(0,0,GLint(sPresentBlit.width),GLint(sPresentBlit.height),0,0,GLint(sPresentBlit.width),GLint(sPresentBlit.height),GL_COLOR_BUFFER_BIT,GL_NEAREST);
++  if(scissor) glEnable(GL_SCISSOR_TEST);
++  glBindFramebuffer(GL_READ_FRAMEBUFFER,0);
++  const GLenum err=glGetError();
++  if(err!=GL_NO_ERROR) { static bool once=false; if(!once) { once=true; std::fprintf(stderr,"[flip-present-blit] GL error 0x%x\n",err); } return true; }
++  return true;
++}
 +FlipStream sStream;
 +
 +struct TextureBinding {
@@ -1420,6 +1451,12 @@ index 0000000..0d2ab35
 +
 +bool render_pass(void*,uint32_t passIndex,const char* label) {
 +  flip_profile::Scope profile("gl_pass",passIndex);
++  if(sPresentBlit.pending&&label&&!std::strcmp(label,"EFB copy render pass")) {
++    sPresentBlit.pending=false;
++    const bool done=direct_mode()>=5&&present_blit();
++    sPresentBlit.source=nullptr;
++    return done;
++  }
 +  if(sNextPlan>=sPlans.size()) return false;
 +  auto& plan=sPlans[sNextPlan];
 +  if(!label||plan.label!=label) return false;
@@ -1480,6 +1517,15 @@ index 0000000..0d2ab35
 +}
 +}
 +
++bool flip_present_blit_enabled() {
++  // Off by default: the blit costs the same as the copy pass on this driver and
++  // moves 20 scanout pixels by one unit (EFB unchanged).
++  static const bool enabled=[] {const char* v=std::getenv("MELEE_FLIP_PRESENT_BLIT");return v&&std::strcmp(v,"0")&&direct_mode()>=5;}();
++  return enabled;
++}
++void flip_request_present_blit(const wgpu::TextureView& source,uint32_t width,uint32_t height) {
++  sPresentBlit={source,width,height,true};
++}
 +bool encode_flip_gles_resources(const wgpu::RenderPassEncoder& encoder,RenderPass& pass,std::string_view label) {
 +  pass.flipDirectLabel=label;
 +  static const bool enabled=[] {const char* v=std::getenv("MELEE_FLIP_DIRECT_PACKET");return v&&std::strcmp(v,"0");}();
@@ -1571,6 +1617,7 @@ index 0000000..0d2ab35
 +  sMappedUniforms=sMapped&&(mappedUse&1)?sMapped:nullptr;
 +  sMappedIndices=sMapped&&(mappedUse&2)?sMapped:nullptr;
 +  sMappedVertices=sMapped&&(mappedUse&4)&&sMapped->vertexData?sMapped:nullptr;
++  sPresentBlit=PresentBlit{}; // a request is valid for one frame only
 +  if(!direct_mode()) return;
 +  for(auto& pass:frame.renderPasses) {
 +    if(!pass.sealed||pass.discardable||!pass.colorAttachmentCount) continue;
@@ -1640,8 +1687,35 @@ index 0000000..0d2ab35
 +  }
 +}
 +
++// Resident arena partial uploads: stage the bytes in a fresh GL buffer (never in
++// use, so no implicit sync) and copy GPU-side. Runs on the render worker before
++// the frame's submit, i.e. ordered after the previous frame's draws.
++struct ResidentUploadRequest { GLuint target; const uint8_t* data; const std::pair<size_t,size_t>* ranges; size_t count; };
++void resident_direct_upload(const wgpu::Buffer& buffer,const uint8_t* data,const std::pair<size_t,size_t>* ranges,size_t count) {
++  if(!count) return;
++  ResidentUploadRequest request{dawn::native::opengl::GetDirectGLBuffer(buffer.Get()),data,ranges,count};
++  const bool ran=request.target&&dawn::native::opengl::RunDirectGL(webgpu::g_device.Get(),[](void* p) {
++    const auto& r=*static_cast<ResidentUploadRequest*>(p);
++    size_t total=0; for(size_t i=0;i<r.count;++i) total+=r.ranges[i].second;
++    GLuint staging=0; glGenBuffers(1,&staging);
++    glBindBuffer(GL_COPY_READ_BUFFER,staging);
++    glBufferData(GL_COPY_READ_BUFFER,GLsizeiptr(total),nullptr,GL_STREAM_DRAW);
++    size_t cursor=0;
++    for(size_t i=0;i<r.count;++i) { glBufferSubData(GL_COPY_READ_BUFFER,GLintptr(cursor),GLsizeiptr(r.ranges[i].second),r.data+r.ranges[i].first); cursor+=r.ranges[i].second; }
++    glBindBuffer(GL_COPY_WRITE_BUFFER,r.target);
++    cursor=0;
++    for(size_t i=0;i<r.count;++i) { glCopyBufferSubData(GL_COPY_READ_BUFFER,GL_COPY_WRITE_BUFFER,GLintptr(cursor),GLintptr(r.ranges[i].first),GLsizeiptr(r.ranges[i].second)); cursor+=r.ranges[i].second; }
++    glBindBuffer(GL_COPY_READ_BUFFER,0); glBindBuffer(GL_COPY_WRITE_BUFFER,0);
++    glDeleteBuffers(1,&staging);
++    const GLenum err=glGetError();
++    if(err!=GL_NO_ERROR) { static bool once=false; if(!once) { once=true; std::fprintf(stderr,"[flip-resident-copy] GL error 0x%x\n",err); } }
++  },&request);
++  if(!ran) for(size_t i=0;i<count;++i) webgpu::g_queue.WriteBuffer(buffer,ranges[i].first,data+ranges[i].first,ranges[i].second);
++}
 +void install_flip_gles_frame() {
 +  if(direct_mode()) dawn::native::opengl::SetDirectGLRenderPassCallback(render_pass,nullptr);
++  static const bool residentCopy=[] {const char* v=std::getenv("MELEE_FLIP_RESIDENT_COPY");return !v||std::strcmp(v,"0");}();
++  if(direct_mode()>=5&&residentCopy) gx::resident::state().directUpload=resident_direct_upload;
 +}
 +void uninstall_flip_gles_frame() {
 +  dawn::native::opengl::SetDirectGLRenderPassCallback(nullptr,nullptr);
@@ -1697,10 +1771,10 @@ index 0000000..0d2ab35
 +#endif
 diff --git a/lib/gfx/flip_gles.hpp b/lib/gfx/flip_gles.hpp
 new file mode 100644
-index 0000000..af1147b
+index 0000000..336f59c
 --- /dev/null
 +++ b/lib/gfx/flip_gles.hpp
-@@ -0,0 +1,16 @@
+@@ -0,0 +1,21 @@
 +#pragma once
 +
 +#ifdef MELEE_MIYOO_FLIP
@@ -1713,6 +1787,11 @@ index 0000000..af1147b
 +void prepare_flip_gles_frame(FramePacket& frame);
 +bool upload_flip_gles_stream(FramePacket& frame);
 +void install_flip_gles_frame();
++// Present: ask the direct path to replace the next "EFB copy render pass" with a
++// framebuffer blit of `source` (already the swapchain-sized EFB) into the pass's
++// attached target. Falls back to the recorded pass when the blit is unavailable.
++void flip_request_present_blit(const wgpu::TextureView& source, uint32_t width, uint32_t height);
++bool flip_present_blit_enabled();
 +void uninstall_flip_gles_frame();
 +void shutdown_flip_gles();
 +}
@@ -4411,10 +4490,10 @@ index 0000000..5c67018
 +#endif
 diff --git a/lib/gx/flip_resident.hpp b/lib/gx/flip_resident.hpp
 new file mode 100644
-index 0000000..c50d618
+index 0000000..14b823e
 --- /dev/null
 +++ b/lib/gx/flip_resident.hpp
-@@ -0,0 +1,209 @@
+@@ -0,0 +1,216 @@
 +#pragma once
 +// Resident display-list geometry (Flip). HSD models draw static GX display
 +// lists that index static vertex arrays inside archive memory. Instead of
@@ -4477,6 +4556,10 @@ index 0000000..c50d618
 +  // a memory region is a range query instead of a scan of all entries. Moving
 +  // scenes release regions hundreds of times per frame.
 +  std::multimap<uintptr_t, uint64_t> pointerIndex;
++  // Optional render-thread uploader for partial ranges (GPU-side copy ordered in
++  // the GL stream). Dawn's WriteBuffer becomes glBufferSubData into a buffer the
++  // GPU is still reading, which stalls the CPU for a frame on this driver.
++  void (*directUpload)(const wgpu::Buffer& buffer, const uint8_t* data, const std::pair<size_t, size_t>* ranges, size_t count) = nullptr;
 +  Stats stats;
 +  size_t budget = [] {
 +    const char* v = std::getenv("MELEE_FLIP_RESIDENT_MB");
@@ -4576,11 +4659,14 @@ index 0000000..c50d618
 +      a.pending.clear();
 +      continue;
 +    }
++    std::vector<std::pair<size_t, size_t>> aligned;
 +    for (const auto& [offset, bytes] : a.pending) {
 +      const size_t begin = offset & ~size_t(3);
 +      const size_t end = std::min(a.mirror.size(), (offset + bytes + 3) & ~size_t(3));
-+      if (end > begin) webgpu::g_queue.WriteBuffer(a.buffer, begin, a.mirror.data() + begin, end - begin);
++      if (end > begin) aligned.emplace_back(begin, end - begin);
 +    }
++    if (s.directUpload) s.directUpload(a.buffer, a.mirror.data(), aligned.data(), aligned.size());
++    else for (const auto& [begin, bytes] : aligned) webgpu::g_queue.WriteBuffer(a.buffer, begin, a.mirror.data() + begin, bytes);
 +    a.pending.clear();
 +  }
 +}

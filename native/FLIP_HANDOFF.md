@@ -1,6 +1,6 @@
 # Miyoo Flip V2 port: consolidated handoff
 
-Snapshot: 2026-09-10 (second iteration, v79–v104). This is the entry point for
+Snapshot: 2026-09-10 (second iteration, v79–v106). This is the entry point for
 the ARM port, the renderer work, profiling results, and remaining work. Build and
 installation details are in [FLIP.md](FLIP.md). The detailed record of this
 iteration is [RENDERER_ITERATION.md](validation/2026-09-10-flip/RENDERER_ITERATION.md);
@@ -21,11 +21,11 @@ with margin; other stages, four players and menus are unmeasured.
 | --- | --- |
 | Hardware | Rockchip RK3566, Mali-G52, AArch64 Linux, 640×480, ~1 GiB RAM |
 | Firmware | Surwish / Buildroot, kernel 5.10.160; app-local Mali g29p1 GLES driver |
-| Device executable | v104 (`dist/flip/v104`; same defaults as v102 plus opt-in `MELEE_FLIP_SORT_OPAQUE` and the `[flip-gl-calls]`/`[flip-batch-resident]` counters), launcher with `MELEE_FLIP_ASYNC_FIFO=1` default |
+| Device executable | v106 (`dist/flip/v106`), launcher with `MELEE_FLIP_ASYNC_FIFO=1` default |
 | Local source | this tree; Aurora/Dawn working trees under ignored `build/`, patches regenerated and verified against pristine sources |
 | Device activity | game stopped between trials, MainUI running |
 | ROM | installed at `/mnt/SDCARD/Ports/melee-native/data/disc.img`; no ROM was transferred |
-| Symbols | `build/flip-tools/melee_native-v96..v104-symbols` (unstripped, for CPU samples) |
+| Symbols | `build/flip-tools/melee_native-v96..v106-symbols` (unstripped, for CPU samples) |
 
 Passwordless ADB at `10.0.0.178:5555` (`build/flip-tools/platform-tools/adb`).
 
@@ -48,10 +48,11 @@ mostly inside the Mali driver, not Dawn.
 | Asynchronous frames | frame markers in the GX stream; no per-frame join; draw-done waits scoped to the last token | frame = max(game, FIFO, render) |
 | Pipeline-state memo | raw-state hash reuses config/shader-info/ref | FIFO 11.7 → 9.9 ms |
 | Resident invalidation index | pointer→entry multimap, range query per released region | moving Onett FIFO 20 → 15 ms, tail frames gone |
+| Swapchain texture pool | presenter recycles presented GL textures; framebuffer cache keeps hitting | render worker −1 ms (frozen 15.3 ms, moving Onett 15–15.5 ms) |
 | Mapped vertex stream | streamed vertices decoded into fenced persistently mapped GL storage; no `glBufferSubData` into in-flight buffers | moving Onett render 27 → 17.7 ms (mean frame 27.5 → 17.5), Battlefield 21 → 17.1 |
 
-Per-frame budget now (frozen Onett, async): game thread ~5 ms, FIFO worker ~10 ms,
-render worker ~17–18 ms, GPU ~13 ms. The render worker is the limiter; 62 % of its
+Per-frame budget now (frozen Onett, async, v106): game thread ~5 ms, FIFO worker
+~9–10 ms, render worker ~15.3 ms (moving Onett 15–15.5 ms), GPU ~12–13 ms. The render worker is the limiter; 62 % of its
 samples are inside the Mali driver (about 330 draws and 7 render passes per frame).
 
 ## Current defaults and switches
@@ -72,6 +73,8 @@ iteration is on by default and has an opt-out for A/B trials:
 | `MELEE_FLIP_FBO_CACHE` | 1 (Dawn) | framebuffer object cache |
 | `MELEE_FLIP_ASYNC_FIFO` | launcher 1 | asynchronous frames |
 | `MELEE_FLIP_PIPELINE_MEMO` | 1 | pipeline-state memo |
+| `MELEE_FLIP_SWAPCHAIN_POOL`, `MELEE_FLIP_RESIDENT_COPY` | 1 | pooled swapchain textures; GPU-side copies for resident arena uploads |
+| `MELEE_FLIP_PRESENT_BLIT` | off | blit instead of the present copy pass; no gain, ±1 scanout pixels |
 | `MELEE_FLIP_SORT_OPAQUE` | off | sort opaque depth-ordered runs by state in the direct path (−0.5–0.7 ms, exact on frozen Onett, order risk elsewhere) |
 | `MELEE_FLIP_TEXTURE_PAIRS` | off | texture-bank batching; measured slower (see report) |
 | `MELEE_FLIP_DAWN_TIMING`, `MELEE_FLIP_DRAW_TRACE`, `MELEE_FLIP_GPU_TEST`, `MELEE_FLIP_MAPPED_CHECK`, `MELEE_FLIP_MAPPED_VERIFY_GPU`, `MELEE_FLIP_MAPPED_MIRROR`, `MELEE_FLIP_MAPPED_BIND_DAWN` | off | diagnostics only |
@@ -111,22 +114,19 @@ render worker, and `[flip-resident]`. `MELEE_FLIP_DAWN_TIMING=1` adds
 
 ## Next work, in priority order
 
-1. **Render worker below ~14 ms** (moving Onett sits at 16–17 ms: main pass ~9 ms
+1. **Render worker below ~14 ms** (moving Onett sits at 15–15.5 ms: main pass ~9 ms
    of driver time for ~340 draws with ~147 program switches and ~290 texture
    binds; the two shadow passes plus their copy/conversion passes ~3 ms). Candidates: blit-based EFB copies instead of
    conversion passes, a swapchain texture pool in `SwapChainEGL` (Dawn allocates a
    fresh texture each frame), fusing the two pre-copy shadow passes, sorting opaque
    draws by program/texture, reducing the ~7 Dawn pass setups.
-2. **Resident arena uploads** still use partial `WriteBuffer` on cache misses
-   (implicit GPU sync on this driver, see the iteration report); move them to a
-   mapped staging ring plus `glCopyBufferSubData` if moving-scene tails return.
-3. **Compile stalls on a cold shader cache** (`pipeline_wait_ms` is ~0 when warm):
+2. **Compile stalls on a cold shader cache** (`pipeline_wait_ms` is ~0 when warm):
    non-blocking pipeline creation (skip the draw, Dolphin style), repaired
    prewarming, or a shipped cache from scripted matches.
-4. **GPU headroom.** Dynamic uniform-record indexing in TEV fragment shaders costs
+3. **GPU headroom.** Dynamic uniform-record indexing in TEV fragment shaders costs
    ~2.7 ms of the ~13 ms GPU frame; consider per-draw constant records when the
    CPU side allows it.
-5. Validate more stages, four-player matches, menus and longer sessions before
+4. Validate more stages, four-player matches, menus and longer sessions before
    claiming solid 60 FPS.
 
 Design references remain Dolphin's ARM64 vertex loaders, vertex loader manager,

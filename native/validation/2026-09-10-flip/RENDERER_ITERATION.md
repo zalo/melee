@@ -1,4 +1,4 @@
-# Renderer iteration toward 60 FPS, 2026-09-10 (v79–v104)
+# Renderer iteration toward 60 FPS, 2026-09-10 (v79–v106)
 
 This report continues the Miyoo Flip work described in the earlier reports under
 `../2026-09-09-flip/`. It records what was measured, what changed in the renderer,
@@ -33,6 +33,8 @@ physical scanout capture (`3f2016a8522d…`) as the v77/v79 baseline.
 | v102 mapped vertices | frozen Onett | async | 17.4 | 16.7 | 57.6 | yes |
 | v102 | moving Onett | async | 17.5 | 16.7 (p95 20.3) | 52–59 | n/a |
 | v102 | moving Battlefield | async | 17.1 | 16.7 (p95 16.8) | 59–59 | n/a |
+| v106 swapchain pool | frozen Onett | async | | render worker 15.3 ms | 58.4 | yes |
+| v106 | moving Onett | async | 17.2 | 16.7 (p95 19.5) | 58–59 | n/a |
 
 Mean/median are the presentation intervals from `[flip-thread-present]`
 (`analyze_flip_profile.py --tail 300`); FPS is the game thread's `[perf]` line
@@ -211,7 +213,26 @@ so it can be A/B tested with the trial tool.
     moving Onett 27 → 17.5 ms mean, Battlefield 21 → 17.1 ms. Diagnostics:
     `[flip-upload-phase]` splits the render-worker upload phase.
 
+12. **Swapchain texture pool** (Dawn patch `SwapChainEGL.cpp`/`TextureGL.cpp`,
+    `native/platform/flip/present_worker.cpp`, `MELEE_FLIP_SWAPCHAIN_POOL`, default
+    on). The presenter returns consumed textures to a pool that the swapchain wraps
+    (`DirectGLPresentCallbacks::acquire`) instead of allocating a texture per frame;
+    released handles keep their framebuffer-cache entries. Acquire 0.29 → 0.12 ms,
+    present pass 0.8 → 0.6 ms; render worker 16.3 → 15.3 ms frozen, 16–17 → 15–15.5
+    ms moving Onett.
+
+13. **Resident arena uploads as GPU copies** (`flip_resident.hpp` `directUpload`,
+    `flip_gles.cpp`, `MELEE_FLIP_RESIDENT_COPY`, default on). Cache misses used to
+    `WriteBuffer` into an arena the GPU was reading (the same implicit sync as
+    item 11, ~4 times per second in moving Onett). The bytes now go into a fresh
+    staging buffer and `glCopyBufferSubData` on the render thread before submit.
+
 ## Findings worth keeping
+
+- **Present blit is not a win** (`MELEE_FLIP_PRESENT_BLIT=1`, v105, opt-in):
+  replacing the full-screen copy draw with `glBlitFramebuffer` costs the same
+  ~0.8 ms (the pass setup, not the draw, is the cost) and moves 20 scanout
+  pixels by one unit. The pass cost was the per-frame swapchain texture (item 12).
 
 - **Never write into a buffer the GPU may still read.** On this Mali driver a
   partial `glBufferSubData` (Dawn `WriteBuffer`) into an in-flight buffer blocks

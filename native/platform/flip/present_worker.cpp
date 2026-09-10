@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <deque>
+#include <vector>
 #include <mutex>
 #include <thread>
 #include <atomic>
@@ -27,6 +28,7 @@ const bool profiling = std::getenv("MELEE_FLIP_PROFILE") != nullptr;
 std::atomic_bool disabled = false;
 thread_local bool inWorker = false;
 struct Frame { GLuint texture; GLsync ready; uint32_t width, height; };
+void recycle_texture(const Frame& frame);
 std::mutex mutex;
 std::condition_variable wake;
 std::deque<Frame> frames;
@@ -93,7 +95,7 @@ void run() {
         if (result == GL_WAIT_FAILED) fail("Presentation completion fence failed");
         glDeleteSync(consumed);
         glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
-        glDeleteTextures(1, &frame.texture);
+        recycle_texture(frame);
         const auto now = Clock::now();
         if (profiling) std::fprintf(stderr, "[flip-thread-present] frame_ms=%.3f present_ms=%.3f\n",
             std::chrono::duration<double, std::milli>(now-previous).count(),
@@ -104,6 +106,25 @@ void run() {
     eglMakeCurrent(workerDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 }
 
+// Presented textures return to a small pool the swapchain draws from, so the
+// producer neither allocates storage nor validates a new framebuffer each frame.
+struct Recycled { GLuint texture; uint32_t width, height; };
+std::mutex poolMutex;
+std::vector<Recycled> pool;
+const bool poolEnabled = [] { const char* v = std::getenv("MELEE_FLIP_SWAPCHAIN_POOL"); return !v || std::strcmp(v, "0"); }();
+void recycle_texture(const Frame& frame) {
+    if (!poolEnabled) { glDeleteTextures(1, &frame.texture); return; }
+    std::lock_guard lock(poolMutex);
+    if (pool.size() >= 4) { glDeleteTextures(1, &frame.texture); return; }
+    pool.push_back({frame.texture, frame.width, frame.height});
+}
+GLuint acquire(uint32_t width, uint32_t height) {
+    std::lock_guard lock(poolMutex);
+    for (auto it = pool.begin(); it != pool.end(); ++it) {
+        if (it->width == width && it->height == height) { const GLuint t = it->texture; pool.erase(it); return t; }
+    }
+    return 0;
+}
 bool submit(GLuint texture, uint32_t width, uint32_t height, void* surface) {
     if (!worker.joinable()) {
         workerDisplay = eglGetCurrentDisplay();
@@ -183,6 +204,6 @@ void MeleeFlipShutdownPresenter() {
 
 void MeleeFlipInitPresenter() {
     static const dawn::native::opengl::DirectGLPresentCallbacks callbacks{
-        submit, MeleeFlipShutdownPresenter};
+        submit, MeleeFlipShutdownPresenter, acquire};
     if (enabled) dawn::native::opengl::SetDirectGLPresentCallbacks(&callbacks);
 }
