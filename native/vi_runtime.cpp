@@ -29,6 +29,19 @@ auto previous_present = Clock::now();
 std::vector<double> present_intervals;
 auto next_retrace = Clock::now();
 constexpr auto frame_period = std::chrono::nanoseconds(16666667);
+// Critical-path breakdown for the [perf] line (MELEE_FLIP_PROFILE only).
+const bool breakdown = [] { const char* v = std::getenv("MELEE_FLIP_PROFILE"); return v && v[0] != '0'; }();
+double sum_game_ms, sum_end_ms, sum_sleep_ms, sum_begin_ms;
+auto segment_start = Clock::now(); // time VIWaitForRetrace last returned to the game
+uint64_t last_drain_ns, last_fifo_ns, last_render_ns, last_pipe_ns, last_pipe_count;
+double ms(Clock::duration d) { return std::chrono::duration<double, std::milli>(d).count(); }
+}
+extern "C" uint64_t aurora_fifo_drain_wait_ns(void);
+extern "C" uint64_t aurora_fifo_process_ns(void);
+extern "C" uint64_t aurora_render_worker_busy_ns(void);
+extern "C" uint64_t aurora_pipeline_wait_ns(void);
+extern "C" uint64_t aurora_pipeline_wait_count(void);
+namespace {
 }
 extern "C" {
 void MeleeNativeGameFrame(void) { ++measured_game_frames; }
@@ -51,6 +64,8 @@ VIRetraceCallback VISetPostRetraceCallback(VIRetraceCallback callback) {
     auto previous = after_retrace; after_retrace = callback; return previous;
 }
 void VIWaitForRetrace(void) {
+    const auto entered = Clock::now();
+    if (breakdown) sum_game_ms += ms(entered - segment_start);
     // A VI tick can occur while the game waits for input or a free XFB.
     // Keep the recording frame open until an EFB copy finishes; submitting
     // an empty Aurora frame clears the displayed image and causes a flash.
@@ -59,6 +74,7 @@ void VIWaitForRetrace(void) {
         if (black) ImGui::GetForegroundDrawList()->AddRectFilled(
             ImVec2(0,0), ImGui::GetIO().DisplaySize, IM_COL32(0,0,0,255));
         aurora_end_frame(); frame_active = false;
+        if (breakdown) sum_end_ms += ms(Clock::now() - entered);
         MeleeNativeCheckFrame();
         frame_ready = false;
         presented_black = black;
@@ -70,6 +86,20 @@ void VIWaitForRetrace(void) {
         if (seconds >= 5.0) {
             std::fprintf(stderr, "[perf] presented_fps=%.2f game_render_fps=%.2f frames=%u seconds=%.3f held_retraces=%u target_hz=60\n",
                          measured_frames / seconds, measured_game_frames / seconds, measured_frames, seconds, held_retraces);
+            if (breakdown) {
+                // Per presented frame, game-thread wall time: outside VI (simulation + GX recording),
+                // aurora_end_frame (mostly the FIFO join), the 60 Hz sleep, and begin_frame (slot wait).
+                // Worker figures are busy time per presented frame on their own threads.
+                const uint64_t drain = aurora_fifo_drain_wait_ns(), fifo = aurora_fifo_process_ns(), render = aurora_render_worker_busy_ns();
+                const uint64_t pipeWait = aurora_pipeline_wait_ns(), pipeCount = aurora_pipeline_wait_count();
+                const double n = measured_frames ? measured_frames : 1;
+                std::fprintf(stderr, "[perf-breakdown] game_ms=%.3f end_ms=%.3f drain_wait_ms=%.3f sleep_ms=%.3f begin_ms=%.3f fifo_busy_ms=%.3f render_busy_ms=%.3f pipeline_wait_ms=%.3f pipeline_waits=%u\n",
+                             sum_game_ms / n, sum_end_ms / n, (drain - last_drain_ns) / 1e6 / n, sum_sleep_ms / n, sum_begin_ms / n,
+                             (fifo - last_fifo_ns) / 1e6 / n, (render - last_render_ns) / 1e6 / n, (pipeWait - last_pipe_ns) / 1e6 / n,
+                             unsigned(pipeCount - last_pipe_count));
+                last_drain_ns = drain; last_fifo_ns = fifo; last_render_ns = render; last_pipe_ns = pipeWait; last_pipe_count = pipeCount;
+                sum_game_ms = sum_end_ms = sum_sleep_ms = sum_begin_ms = 0;
+            }
             std::sort(present_intervals.begin(), present_intervals.end());
             const auto percentile = [&](double p) { return present_intervals[static_cast<size_t>((present_intervals.size()-1)*p)]; };
             std::fprintf(stderr, "[pacing] samples=%zu median_ms=%.3f p95_ms=%.3f p99_ms=%.3f max_ms=%.3f\n",
@@ -85,6 +115,8 @@ void VIWaitForRetrace(void) {
     const auto now = Clock::now();
     if (next_retrace < now) next_retrace = now;
     std::this_thread::sleep_until(next_retrace);
+    const auto woke = Clock::now();
+    if (breakdown) sum_sleep_ms += ms(woke - now);
     for (;;) {
         for (auto event = aurora_update(); event && event->type != AURORA_NONE; ++event) {
             if (event->type == AURORA_SDL_EVENT) MeleeNativeKeyboardEvent(&event->sdl);
@@ -95,6 +127,7 @@ void VIWaitForRetrace(void) {
         if (frame_active || aurora_begin_frame()) { frame_active = true; break; }
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
+    if (breakdown) sum_begin_ms += ms(Clock::now() - woke);
     MeleeNativeSampleKeyboard();
     ++retraces;
     const auto enabled = OSDisableInterrupts();
@@ -102,5 +135,6 @@ void VIWaitForRetrace(void) {
     current_buffer = next_buffer;
     if (after_retrace) after_retrace(retraces);
     OSRestoreInterrupts(enabled);
+    segment_start = Clock::now();
 }
 }

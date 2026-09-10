@@ -1,0 +1,277 @@
+# Renderer iteration toward 60 FPS, 2026-09-10 (v79–v102)
+
+This report continues the Miyoo Flip work described in the earlier reports under
+`../2026-09-09-flip/`. It records what was measured, what changed in the renderer,
+what each change bought, and what remains. Device: Miyoo Flip V2 (RK3566, Mali-G52,
+Surwish firmware), app-local Mali g29p1 GLES driver, 640×480 panel.
+
+Frozen Onett (`flip_backend_trial.py`, stage 9, freeze after 45 ticks, capture frame
+120) is the controlled reference throughout. Every step below that claims
+"bit-exact" produced the same EFB capture (`sha256 da46d4a79a8f…`) and the same
+physical scanout capture (`3f2016a8522d…`) as the v77/v79 baseline.
+
+## Result
+
+| Build | Scene | Mode | Mean ms | Median ms | Presented FPS | EFB exact |
+| --- | --- | --- | ---: | ---: | ---: | --- |
+| v79 (handoff state) | frozen Onett | sync | 30.7 | 30.1 | 32.7 | reference |
+| v80 loaders | frozen Onett | sync | 27.2 | 26.5 | | yes |
+| v83 resident geometry | frozen Onett | sync | 25.7 | 25.0 | | yes |
+| v85 stable texture ids | frozen Onett | sync | 22.6 | 21.8 | | yes (after mode0 fix) |
+| v90 mapped uniforms | frozen Onett | sync | 24.5 | 23.7 | | yes |
+| v92 mapped uniforms+indices | frozen Onett | sync | 20.9 | 19.9 | | yes |
+| v95 record stream | frozen Onett | sync | 19.3 | 18.8 | | yes |
+| v95 + FBO cache | frozen Onett | sync | 17.4 | 16.7 | | yes |
+| v96 | frozen Onett | async | 17.7 | 17.0 | 56.0 | yes |
+| v97 | frozen Onett | async | 17.4 | 16.8 | 55.8 | yes |
+| v96 | moving Battlefield | async | 17.6 | 16.7 | 56.9 | n/a (moving) |
+| v98 | moving Battlefield | async | 20.2 | 16.7 | 50.0 | n/a |
+| v98 | moving Onett | async | 38.5 | 25.8 | 24.5 | n/a |
+| v99b | frozen Onett | async | 17.7 | 17.2 | 57.0 | yes |
+| v100 invalidate index | moving Onett | async | 27.5 | 26.4 | 34–36 | n/a |
+| v100 | moving Battlefield | async | 21.2 | 21.6 | 44–47 | n/a |
+| v102 mapped vertices | frozen Onett | async | 17.4 | 16.7 | 57.6 | yes |
+| v102 | moving Onett | async | 17.5 | 16.7 (p95 20.3) | 52–59 | n/a |
+| v102 | moving Battlefield | async | 17.1 | 16.7 (p95 16.8) | 59–59 | n/a |
+
+Mean/median are the presentation intervals from `[flip-thread-present]`
+(`analyze_flip_profile.py --tail 300`); FPS is the game thread's `[perf]` line
+(ranges exclude the match-start and capture windows).
+
+Frozen Onett and moving Battlefield now sit at the 60 Hz boundary: median frames
+are 16.7–17.0 ms with the game thread idle-waiting part of the time. Moving Onett
+is still slow. Its tail (p95 ≥ 60 ms through v99) was first attributed to shader
+compilation; `pipeline_wait_ms` (v99) disproved that (≤0.2 ms per frame). A CPU
+sample of the FIFO worker on its own symbols showed 43 % of the worker inside
+`resident::invalidate`, a linear scan of every resident entry and its 26 array
+pointers for each released vertex buffer region (effect archives churn constantly
+in moving Onett). v100 indexes entries by pointer so a release is a range query.
+That exposed the real moving-scene cost: the render worker spent 9–10 ms per frame
+in its upload phase, all of it in a few kilobytes of `WriteBuffer` into the shared
+vertex buffer. Dawn's GL backend turns that into `glBufferSubData`, and the Mali
+driver waits for the previous frame's GPU work before touching a buffer it is
+still reading (frozen frames wrote nothing, so they never paid it). v102 records
+the streamed vertices into the fenced persistently mapped slots too, and every
+scene measured now sits at the 60 Hz boundary with sub-21 ms p95.
+
+## Measurement additions
+
+- `[perf-breakdown]` (game thread, printed with `[perf]` when `MELEE_FLIP_PROFILE=1`):
+  per presented frame, game-thread time outside VI (simulation + GX recording),
+  time in `aurora_end_frame`, time blocked in the FIFO join (`drain_wait_ms`),
+  60 Hz sleep, `begin_frame` slot wait, and the *busy* time of the FIFO worker and
+  render worker on their own threads (`fifo_busy_ms`, `render_busy_ms`), plus the
+  time the FIFO worker spent blocked on pipeline compilation (`pipeline_wait_ms`).
+  Implemented in `native/vi_runtime.cpp`, `lib/gx/fifo.cpp`, `lib/gfx/render_worker.cpp`,
+  `lib/gfx/pipeline_cache.cpp`.
+- `[flip-render-phase]` / `[flip-render-callback]`: render-worker end-of-frame
+  split into upload, plan preparation, texture acquisition, encoding, submit,
+  present (`lib/gfx/frame.cpp`, `lib/aurora.cpp`).
+- `[flip-dawn-pass]`, `[flip-dawn-submit]` (`MELEE_FLIP_DAWN_TIMING=1`, Dawn patch):
+  wall time per labelled render pass and Dawn's submit overhead outside command
+  execution.
+- `[flip-resident]`: resident geometry cache hits/misses/bytes; `[flip-efb-copy]`:
+  unique EFB copy rectangles/formats.
+- `native/tools/flip_gl_bench.c`: a standalone surfaceless GLES micro-benchmark
+  for per-call driver costs (build with the cross `cc`, run under the g29 library
+  path with the CPU governor set to `performance`).
+- CPU samples are only meaningful against the binary that produced them; the
+  matching unstripped executables are kept as `build/flip-tools/melee_native-vNN-symbols`.
+
+## What the profile said
+
+Baseline (v79) per 30.6 ms frame: game thread 6.5 ms of simulation and GX
+recording, then 22.4 ms blocked joining the FIFO translation worker. FIFO worker
+busy 28.6 ms, render worker busy 25.1 ms, GPU 11.3 ms for the main pass. The
+frame was therefore *serialized* game + translation, with the render worker only
+slightly shorter, and the GPU not limiting.
+
+FIFO worker samples (v79): vertex decoding and its memsets ≈ 35 %, texture
+hashing ≈ 10 %, pipeline configuration ≈ 6 %, uniform building ≈ 4 %, draw
+bookkeeping ≈ 10 %. Render worker samples (v93): Mali driver 62 %, libc 13 %,
+direct submission code 9 %, Dawn 7.7 %. Dawn's own overhead was therefore
+already small; the GLES driver's per-draw and per-pass cost is what remains.
+
+Micro-benchmark (performance governor, 3000 iterations): plain draw 6–8 µs;
+`glBindBufferRange` at a new offset +1–2 µs (earlier run +5); `glBindTexture`
++4 µs, two textures +7; `glBindSampler` +2–3; `glUseProgram` +5–10;
+`glTexParameteri` +1 (earlier run +8); `glUniform1uiv` +0.4; `glDrawRangeElements`
+about 1.5 µs slower than `glDrawElements`. The two runs differ because the first
+ran under the idle governor.
+
+## Changes
+
+All Flip-only, in the Aurora patch unless noted. Each has an environment switch
+so it can be A/B tested with the trial tool.
+
+1. **Specialized vertex loaders** (`lib/gx/flip_vertex.hpp`, `MELEE_FLIP_LOADERS`).
+   One decode plan per attribute configuration (cached by XXH3 of the attribute
+   config), monomorphic per-attribute conversion routines with hoisted invariants,
+   every output byte written exactly once (no memset), batch record bits written
+   in place, decoding straight into frame storage. The differential test
+   (`melee_flip_vertex_test`) gained mixed-format and record-word cases. FIFO
+   28.6 → 24.4 ms.
+
+2. **Resident display-list geometry** (`lib/gx/flip_resident.hpp`,
+   `GX_AURORA_CALL_DL`, `GX_AURORA_INVALIDATE_RESIDENT`, `MELEE_FLIP_RESIDENT_DL`,
+   `MELEE_FLIP_RESIDENT_MB`). `GXCallDisplayList` now emits a reference instead of
+   copying the list into the FIFO. The processor decodes each (list, vertex
+   format, array identities, matrix slot) once into a per-stride GPU arena
+   (`wgpu::Buffer` uploaded on the render worker before the pass that uses it) and
+   later calls only append 32-bit indices. Lists are validated per call by a cheap
+   hash of their first/last 64 bytes and length; archive regions are invalidated
+   through the GX stream when `MeleeNativeUnregisterVertexBuffer` releases them.
+   Onett: 447 list calls per frame, all resident after warm-up, about 2 MB
+   resident. FIFO → 16.4 ms; vertex uploads shrink from ~3.8 MB to a few hundred KB
+   per frame. Per-vertex uniform records for resident draws come from a per-frame
+   record stream (vertex slot 1, location 15, `MELEE_FLIP_RESIDENT_RECORDS`) so
+   resident draws merge across uniform records exactly like streamed geometry;
+   an entry drawn twice in one frame with different records falls back to passing
+   its record through the immediates.
+
+3. **Stable texture identities** (`lib/dolphin/gx/GXTexture.cpp`,
+   `lib/gx/texture.cpp`, `MELEE_FLIP_STABLE_TEXID`, `MELEE_FLIP_TEXTURE_VERIFY`).
+   HSD builds a temporary `GXTexObj` per material per frame, so counter identities
+   never repeated and every load re-hashed the whole image (~4 MB/frame). The
+   identity is now derived from the image description including `mode0`
+   (wrap/filter/bias), `mode1` (LOD), flags and TLUT slot; object-cache hits are
+   verified with a sampled content hash (full for ≤ 2 KB, 32 spread samples + tail
+   otherwise). Leaving `mode0` out produced a 35-pixel HUD difference because the
+   bound-texture cache then kept stale sampler state. FIFO → 13.6 ms. The
+   main-thread object-cache sweep also shrank.
+
+4. **Persistently mapped uniform and index streams** (`lib/gfx/frame.cpp`
+   `FlipMappedSlot`, `MELEE_FLIP_MAPPED_STREAM`, `MELEE_FLIP_MAPPED_USE`). The FIFO
+   worker records uniform records and indices directly into `GL_EXT_buffer_storage`
+   mappings (one slot per staging slot, recycled behind a fence created after the
+   frame's submit; slot release waits at most one frame). The direct path binds
+   those GL names; only frames with a reference-renderer pass copy them into
+   Dawn's buffers. Render upload phase 4.1 → 0.2 ms. Two Mali specifics were
+   learned the hard way: coherent mappings written from another thread were not
+   the problem (bind-time checks and a GPU read-back compare both matched), but
+   **index data consumed from a persistently mapped element buffer produced stale
+   draws with `glDrawElements`; `glDrawRangeElements` with explicit vertex ranges
+   renders correctly** (`MELEE_FLIP_RANGE_ELEMENTS`). Uniform windows are 128 KiB
+   Dawn buffers (one window of slack).
+
+5. **Direct GL path trimming** (`lib/gfx/flip_gles.cpp`): redundant fixed-function
+   state filtering (`MELEE_FLIP_STATE_CACHE`), texture parameter memo persisting
+   across passes/frames and purged through Dawn's destroyed-texture drain, sampler
+   state folded into texture objects (`MELEE_FLIP_TEXTURE_SAMPLER_STATE`), uniform
+   record selection for resident draws through `glUniform1uiv` instead of a UBO
+   rebind, resolved texture units cached per bind group (dropped on bind-group
+   cache eviction), plain `glDrawElements`/`glDrawRangeElements` for single
+   instances, minimal Dawn resource recording for direct passes
+   (`MELEE_FLIP_DIRECT_RECORD_MIN`), and no intermediate present resample pass when
+   the EFB already matches the viewport (`MELEE_FLIP_DIRECT_PRESENT`).
+
+6. **Framebuffer object cache in Dawn** (Dawn patch, `CommandBufferGL.cpp`,
+   `MELEE_FLIP_FBO_CACHE`, default on). Render passes reuse FBOs keyed by
+   attachment GL names instead of gen/attach/check/delete per pass; entries are
+   dropped when a texture is destroyed. Destroy notifications are queued from any
+   thread and purged on the render thread; calling Dawn's `GetGL()` from another
+   thread caused `EGL_BAD_ACCESS` crashes and must be avoided. About 2 ms/frame.
+
+7. **Asynchronous frames** (`MELEE_FLIP_ASYNC_FIFO`, launcher default 1 for g29).
+   `aurora_begin_frame`/`aurora_end_frame` no longer join the FIFO worker. The
+   frame slot is reserved on the game thread; `GX_AURORA_FRAME_BEGIN(slot)` and
+   `GX_AURORA_FRAME_END` travel through the stream, and the FIFO worker begins
+   recording, finishes the frame, and hands the presentation closure
+   (`gfx::defer_end_frame`) to the render worker. `GXWaitDrawDone` waits only for
+   the most recent draw-done token (`fifo::mark_draw_done`/`wait_draw_done`), as
+   on real hardware. The FIFO buffer is compacted between frames
+   (`fifo::recycle`); before that fix a lagging worker made it grow without bound
+   (moving Onett lost 600 MB in 44 s). Readbacks for captures are queued behind the
+   frame end (`fifo::run_after_frame`). With this the frame time becomes the
+   maximum of the three workers instead of game + translation.
+
+8. **Pipeline-state memo** (`lib/gx/command_processor.cpp`,
+   `MELEE_FLIP_PIPELINE_MEMO`): an XXH3 of the raw pipeline-relevant GX state
+   selects a cached config/shader-info/pipeline-ref, skipping
+   `populate_pipeline_config`, `build_shader_info` and the canonical hash for the
+   ~460 dirty-pipeline events per frame that re-send identical materials.
+   FIFO 11.7 → 9.9 ms.
+
+9. **Dawn glue** (Dawn patch): `GetDirectGLDestroyedTextures`, submit and per-pass
+   timing under `MELEE_FLIP_DAWN_TIMING`, FBO cache; the previously lost direct-GL
+   hooks were recovered by the parallel workspace and are unchanged.
+
+10. **Resident invalidation index** (`lib/gx/flip_resident.hpp`, v100). Entries are
+    indexed by every pointer they depend on (display list and array bases) in a
+    `std::multimap`; `MeleeNativeUnregisterVertexBuffer` releases became a range
+    query instead of a scan of all entries × 26 arrays. This was 43 % of the FIFO
+    worker in moving Onett and the source of its 60–120 ms tail frames.
+
+11. **Mapped vertex stream** (`lib/gfx/frame.cpp`, `flip_gles.cpp`, `encoding.cpp`,
+    `MELEE_FLIP_MAPPED_VERTICES`, default on; `MELEE_FLIP_MAPPED_USE=all` now covers
+    vertices). Each fenced slot owns a persistently mapped GL vertex buffer that the
+    FIFO worker decodes into directly; the direct path binds it, Dawn's vertex
+    buffer is refreshed whole only when a pass falls back to the reference
+    renderer. Removes the 9–10 ms implicit-sync stall described above:
+    moving Onett 27 → 17.5 ms mean, Battlefield 21 → 17.1 ms. Diagnostics:
+    `[flip-upload-phase]` splits the render-worker upload phase.
+
+## Findings worth keeping
+
+- **Never write into a buffer the GPU may still read.** On this Mali driver a
+  partial `glBufferSubData` (Dawn `WriteBuffer`) into an in-flight buffer blocks
+  the CPU until the previous frame's GPU work finishes, about one GPU frame. Any
+  streamed data must go through fenced, persistently mapped storage (Dolphin's
+  stream-buffer discipline). The resident arenas still take partial `WriteBuffer`
+  uploads on cache misses (~4 per second in moving Onett); if tail frames return,
+  that is the first suspect.
+- The scanout capture hash changed at v99b (20 pixels differ by ±1 from the
+  v79 reference, EFB identical); the EFB hash is the exactness criterion.
+
+- The user-visible Dawn/WebGPU overhead was small once direct submission existed;
+  the *architecture* it imposed (translate everything every frame, join the
+  translator every frame) was the cost. Resident geometry and asynchronous frames
+  address that directly.
+- GX only clears the copied rectangle on EFB copies; Aurora clears the whole
+  frame at each copy (three full clears per frame, two 256×256 shadow copies in
+  Onett). Fusing those passes is possible but invasive; making the clears partial
+  saves GPU tile traffic but not CPU. Not done.
+- `MELEE_FLIP_GPU_TEST=1` renders with a constant uniform-record index (wrong image)
+  and cuts the main pass GPU time from 11.8 to 9.1 ms: dynamic UBO indexing in the
+  TEV fragment shaders costs ~2.7 ms of GPU per frame. GPU total is ~13–15 ms per
+  frame; this is the GPU headroom lever if it becomes limiting.
+- Disabling Dawn robustness made no measurable difference.
+- Pipeline prewarming (`MELEE_FLIP_PREWARM_PIPELINES=1`) currently crashes at
+  startup (`std::out_of_range` in `map::at` while loading 1257 cached configs) and
+  stays off.
+
+## Open issues
+
+1. **Moving-scene tails were not compile stalls.** `pipeline_wait_ms` in
+   `[perf-breakdown]` (v99) shows ≤0.2 ms per frame of pipeline-creation waits on a
+   warm cache (2–6 waits per 120 frames), so the 35–120 ms p95 frames through v99
+   came from the FIFO worker itself: `resident::invalidate` scanned all entries per
+   released region (fixed in v100, see below). Compile stalls still exist on a cold
+   `dawn_cache.db`; Dolphin-style non-blocking creation or repaired prewarming
+   remain the answer for first-run matches.
+2. **Render worker at ~17 ms.** Remaining per frame (Onett): main pass ~8 ms of
+   driver time for ~330 draws, two 256×256 shadow passes and their two conversion
+   passes ~2.5 ms, present pass 0.45 ms, Dawn pass setup ~0.3 ms × 7, plan
+   preparation 0.8 ms, encode 0.35 ms. Ideas not yet done: blit-based EFB copies
+   (loses 4-bit quantization), a swapchain texture pool (Dawn allocates a new
+   texture per frame), fusing the pre-copy passes, sorting opaque draws by
+   program/texture (changes draw order semantics).
+3. **Moving Onett** is render-bound at ~17.5 ms (render worker 17.7 ms with ~340
+   draws and the two shadow copies); the FIFO worker is at ~10 ms and the game
+   thread idles ~3 ms per frame. Item 2 is what remains.
+4. Game logic itself is ~5–6 ms per simulated tick on this CPU; it doubles when
+   the pad queue catches up after slow frames.
+
+## Reproduce
+
+Build/deploy/measure as in [FLIP.md](../../FLIP.md). Typical trials:
+
+```sh
+python3 native/tools/flip_backend_trial.py my-frozen --batch 1 --soak 20 --env MELEE_FLIP_ASYNC_FIFO=1
+python3 native/tools/flip_backend_trial.py my-battle --batch 1 --stage 31 --freeze-after 0 --soak 60 --env MELEE_FLIP_ASYNC_FIFO=1
+sha256sum native/validation/2026-09-09-flip/staged-backend/my-frozen.ppm   # da46d4a79a8f… expected
+```
+
+Raw evidence for every vNN trial named in this report is under
+`native/validation/2026-09-09-flip/staged-backend/` locally (logs, captures,
+memory/sensor samples). It is not committed.

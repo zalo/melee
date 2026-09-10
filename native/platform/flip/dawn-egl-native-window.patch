@@ -1,6 +1,6 @@
-diff --git a/include/dawn/native/OpenGLBackend.h b/include/dawn/native/OpenGLBackend.h
---- a/include/dawn/native/OpenGLBackend.h
-+++ b/include/dawn/native/OpenGLBackend.h
+diff -ruN a/include/dawn/native/OpenGLBackend.h b/include/dawn/native/OpenGLBackend.h
+--- a/include/dawn/native/OpenGLBackend.h	2026-08-07 15:55:40.000000000 -0700
++++ b/include/dawn/native/OpenGLBackend.h	2026-09-10 13:01:43.253033476 -0700
 @@ -37,6 +37,7 @@
  using EGLImage = void*;
  using GLuint = unsigned int;
@@ -9,7 +9,7 @@ diff --git a/include/dawn/native/OpenGLBackend.h b/include/dawn/native/OpenGLBac
  
  // Define a GetProc function pointer that mirrors the one in egl.h
  #if defined(_WIN32)
-@@ -84,6 +85,59 @@
+@@ -84,6 +85,63 @@
  DAWN_NATIVE_EXPORT WGPUTexture
  WrapExternalGLTexture(WGPUDevice device, const ExternalImageDescriptorGLTexture* descriptor);
  
@@ -44,6 +44,10 @@ diff --git a/include/dawn/native/OpenGLBackend.h b/include/dawn/native/OpenGLBac
 +DAWN_NATIVE_EXPORT GLuint GetDirectGLBuffer(WGPUBuffer buffer);
 +DAWN_NATIVE_EXPORT GLuint GetDirectGLSampler(WGPUSampler sampler);
 +DAWN_NATIVE_EXPORT DirectGLTextureInfo GetDirectGLTextureView(WGPUTextureView view);
++// Drains the GL texture/renderbuffer names destroyed since the last call (any
++// thread may destroy; call from the render thread). Lets callers drop caches
++// keyed by GL name before the name is recycled.
++DAWN_NATIVE_EXPORT uint32_t GetDirectGLDestroyedTextures(WGPUDevice device, GLuint* out, uint32_t maxCount);
 +DAWN_NATIVE_EXPORT DirectGLTextureInfo GetDirectGLBindGroupTexture(WGPUBindGroup group,
 +                                                                    uint32_t binding);
 +DAWN_NATIVE_EXPORT GLuint GetDirectGLBindGroupSampler(WGPUBindGroup group, uint32_t binding);
@@ -69,9 +73,8 @@ diff --git a/include/dawn/native/OpenGLBackend.h b/include/dawn/native/OpenGLBac
  }  // namespace dawn::native::opengl
  
  #endif  // INCLUDE_DAWN_NATIVE_OPENGLBACKEND_H_
-diff --git a/src/dawn/dawn.json b/src/dawn/dawn.json
---- a/src/dawn/dawn.json
-+++ b/src/dawn/dawn.json
+--- a/src/dawn/dawn.json	2026-08-07 15:55:40.000000000 -0700
++++ b/src/dawn/dawn.json	2026-09-10 11:36:32.693457262 -0700
 @@ -4009,6 +4009,15 @@
              {"name": "window", "type": "void", "annotation": "*"}
          ]
@@ -96,9 +99,8 @@ diff --git a/src/dawn/dawn.json b/src/dawn/dawn.json
  
              {"value": 0, "name": "emscripten surface source canvas HTML selector", "tags": ["emscripten"]},
  
-diff --git a/src/dawn/native/Surface.cpp b/src/dawn/native/Surface.cpp
---- a/src/dawn/native/Surface.cpp
-+++ b/src/dawn/native/Surface.cpp
+--- a/src/dawn/native/Surface.cpp	2026-08-07 15:55:40.000000000 -0700
++++ b/src/dawn/native/Surface.cpp	2026-09-10 11:36:32.693457262 -0700
 @@ -61,6 +61,9 @@
      const absl::FormatConversionSpec& spec,
      absl::FormatSink* s) {
@@ -142,21 +144,20 @@ diff --git a/src/dawn/native/Surface.cpp b/src/dawn/native/Surface.cpp
          case wgpu::SType::SurfaceSourceAndroidNativeWindow: {
              auto* subDesc = descriptor.Get<SurfaceSourceAndroidNativeWindow>();
              mType = Type::AndroidWindow;
-@@ -418,6 +433,11 @@
-     DAWN_CHECK(!IsError());
-     DAWN_CHECK(mType == Type::MetalLayer);
+@@ -420,6 +435,11 @@
      return mMetalLayer;
-+}
-+
+ }
+ 
 +void* Surface::GetEGLNativeWindow() const {
 +    DAWN_CHECK(mType == Type::EGLNativeWindow);
 +    return mEGLNativeWindow;
- }
- 
++}
++
  void* Surface::GetWaylandDisplay() const {
-diff --git a/src/dawn/native/Surface.h b/src/dawn/native/Surface.h
---- a/src/dawn/native/Surface.h
-+++ b/src/dawn/native/Surface.h
+     DAWN_CHECK(mType == Type::WaylandSurface);
+     return mWaylandDisplay;
+--- a/src/dawn/native/Surface.h	2026-08-07 15:55:40.000000000 -0700
++++ b/src/dawn/native/Surface.h	2026-09-10 11:36:32.693502988 -0700
 @@ -77,6 +77,7 @@
      // These are valid to call on all Surfaces.
      enum class Type {
@@ -182,10 +183,24 @@ diff --git a/src/dawn/native/Surface.h b/src/dawn/native/Surface.h
      // ANativeWindow
      raw_ptr<void> mAndroidNativeWindow = nullptr;
  
-diff --git a/src/dawn/native/opengl/CommandBufferGL.cpp b/src/dawn/native/opengl/CommandBufferGL.cpp
---- a/src/dawn/native/opengl/CommandBufferGL.cpp
-+++ b/src/dawn/native/opengl/CommandBufferGL.cpp
-@@ -55,6 +55,7 @@
+diff -ruN a/src/dawn/native/opengl/CommandBufferGL.cpp b/src/dawn/native/opengl/CommandBufferGL.cpp
+--- a/src/dawn/native/opengl/CommandBufferGL.cpp	2026-08-07 15:55:40.000000000 -0700
++++ b/src/dawn/native/opengl/CommandBufferGL.cpp	2026-09-10 13:13:27.818016463 -0700
+@@ -28,6 +28,13 @@
+ #include "src/dawn/native/opengl/CommandBufferGL.h"
+ 
+ #include <algorithm>
++#include <chrono>
++#include <map>
++#include <mutex>
++#include <unordered_map>
++#include <string>
++#include <cstdio>
++#include <cstdlib>
+ #include <cstring>
+ #include <utility>
+ #include <vector>
+@@ -55,6 +62,7 @@
  #include "src/dawn/native/opengl/SamplerGL.h"
  #include "src/dawn/native/opengl/TextureGL.h"
  #include "src/dawn/native/opengl/UtilsGL.h"
@@ -193,7 +208,156 @@ diff --git a/src/dawn/native/opengl/CommandBufferGL.cpp b/src/dawn/native/opengl
  #include "src/utils/compiler.h"
  #include "src/utils/numeric.h"
  
-@@ -1611,8 +1612,13 @@
+@@ -837,7 +845,28 @@
+     PassIndex nextRenderPassNumber{0u};
+ 
+     Command type;
++    // Melee Flip diagnostics: per-command-type wall time, summarized every 120 submits.
++    static const bool kFlipTiming = [] { const char* v = getenv("MELEE_FLIP_DAWN_TIMING"); return v && v[0] != '0'; }();
++    static double flipTimeMs[32] = {}; static uint64_t flipCount[32] = {}; static uint64_t flipSubmits = 0;
++    std::chrono::steady_clock::time_point flipStart;
++    auto flipAccount = [&](Command t) {
++        if (!kFlipTiming) return;
++        const auto now = std::chrono::steady_clock::now();
++        const unsigned i = std::min<unsigned>(static_cast<unsigned>(t), 31);
++        flipTimeMs[i] += std::chrono::duration<double, std::milli>(now - flipStart).count();
++        flipCount[i]++;
++        flipStart = now;
++    };
++    if (kFlipTiming) flipStart = std::chrono::steady_clock::now();
++    struct FlipReport { ~FlipReport() {
++        if (!kFlipTiming || ++flipSubmits % 120) return;
++        fprintf(stderr, "[flip-dawn-exec] submits=120");
++        for (unsigned i = 0; i < 32; ++i) if (flipCount[i]) fprintf(stderr, " cmd%u=%.3fms/%llu", i, flipTimeMs[i] / 120.0, (unsigned long long)flipCount[i] / 120);
++        fprintf(stderr, "\n");
++        for (auto& v : flipTimeMs) v = 0; for (auto& c : flipCount) c = 0;
++    } } flipReport;
+     while (mCommands.NextCommandId(&type)) {
++        struct FlipScope { Command t; decltype(flipAccount)& f; ~FlipScope() { f(t); } } flipScope{type, flipAccount};
+         switch (type) {
+             case Command::BeginComputePass: {
+                 mCommands.NextCommand<BeginComputePassCmd>();
+@@ -857,6 +886,15 @@
+ 
+             case Command::BeginRenderPass: {
+                 auto* cmd = mCommands.NextCommand<BeginRenderPassCmd>();
++                struct FlipPassTimer {
++                    const char* label; std::chrono::steady_clock::time_point start;
++                    ~FlipPassTimer() {
++                        if (!kFlipTiming) return;
++                        static std::map<std::string, std::pair<double, uint64_t>> passes; static uint64_t n = 0;
++                        auto& e = passes[label]; e.first += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count(); e.second++;
++                        if (++n % 840 == 0) { fprintf(stderr, "[flip-dawn-pass]"); for (auto& [k, v] : passes) fprintf(stderr, " \"%s\"=%.3fms/%llu", k.c_str(), v.first / 120.0, (unsigned long long)v.second); fprintf(stderr, " (per 120 submits)\n"); passes.clear(); }
++                    }
++                } flipPassTimer{cmd->label.c_str(), std::chrono::steady_clock::now()};
+                 for (TextureBase* texture :
+                      this->GetResourceUsages().renderPasses[nextRenderPassNumber].textures) {
+                     DAWN_TRY(ToBackend(texture)->SynchronizeTextureBeforeUse());
+@@ -1312,6 +1350,45 @@
+     DAWN_UNREACHABLE();
+ }
+ 
++struct FlipCachedFramebuffer { GLuint fbo; std::vector<GLuint> handles; };
++std::unordered_map<uint64_t, FlipCachedFramebuffer>& FlipFramebufferCache() {
++    static std::unordered_map<uint64_t, FlipCachedFramebuffer> cache;
++    return cache;
++}
++// Called from Texture::DestroyImpl on any thread: queue the handle for purging.
++// Two consumers, two lists: the render pass purges its framebuffer cache with GL
++// access; the application drains names for its own caches without touching GL.
++std::mutex& FlipForgetMutex() { static std::mutex m; return m; }
++std::vector<GLuint>& FlipForgetListFbo() { static std::vector<GLuint> list; return list; }
++std::vector<GLuint>& FlipForgetListExternal() { static std::vector<GLuint> list; return list; }
++void FlipForgetFramebuffers(GLuint handle) {
++    if (!handle) return;
++    std::lock_guard<std::mutex> lock(FlipForgetMutex());
++    FlipForgetListFbo().push_back(handle);
++    FlipForgetListExternal().push_back(handle);
++}
++std::vector<GLuint> FlipDrainDestroyedTextures() {
++    std::lock_guard<std::mutex> lock(FlipForgetMutex());
++    std::vector<GLuint> handles;
++    handles.swap(FlipForgetListExternal());
++    return handles;
++}
++// Render thread, context current: drop cached framebuffers referencing dead objects.
++void FlipPurgeFramebuffers(const OpenGLFunctions& gl) {
++    std::vector<GLuint> handles;
++    {
++        std::lock_guard<std::mutex> lock(FlipForgetMutex());
++        handles.swap(FlipForgetListFbo());
++    }
++    if (handles.empty()) return;
++    auto& cache = FlipFramebufferCache();
++    for (auto it = cache.begin(); it != cache.end();) {
++        bool hit = false;
++        for (GLuint h : it->second.handles) for (GLuint dead : handles) hit |= h == dead;
++        if (hit) { gl.DeleteFramebuffers(1, &it->second.fbo); it = cache.erase(it); } else ++it;
++    }
++}
++
+ MaybeError CommandBuffer::ExecuteRenderPass(BeginRenderPassCmd* renderPass,
+                                             const OpenGLFunctions& gl,
+                                             PassIndex renderPassIndex) {
+@@ -1320,8 +1397,44 @@
+     const IndirectDrawMetadata& metadata = GetIndirectDrawMetadata()[renderPassIndex];
+     IndirectDrawIndex indirectDrawIndex{0u};
+ 
++    // Melee Flip: framebuffer objects are cached by attachment identity. Mali's
++    // completeness validation and FBO churn are expensive; passes over the same
++    // EFB targets recur every frame. Entries are forgotten when a texture dies.
++    static const bool kFlipFboCache = [] { const char* v = getenv("MELEE_FLIP_FBO_CACHE"); return !v || v[0] != '0'; }();
++    FlipPurgeFramebuffers(gl); // also keeps the pending list from growing when caching is off
++    bool fboCached = false;
++    uint64_t fboKey = 1469598103934665603ull;
++    std::vector<GLuint> fboHandles;
++    if (kFlipFboCache) {
++        auto mix = [&](uint64_t v) { fboKey ^= v; fboKey *= 1099511628211ull; };
++        for (auto i : renderPass->attachmentState->GetColorAttachmentsMask()) {
++            TextureView* view = ToBackend(renderPass->colorAttachments[i].view.Get());
++            Texture* tex = ToBackend(view->GetTexture());
++            mix(static_cast<uint8_t>(i)); mix(tex->GetTextureHandle()); mix(tex->GetRenderbufferHandle());
++            mix(view->GetTextureHandle()); mix(view->GetBaseMipLevel()); mix(view->GetBaseArrayLayer());
++            mix(renderPass->colorAttachments[i].depthSlice);
++            fboHandles.push_back(tex->GetTextureHandle()); fboHandles.push_back(tex->GetRenderbufferHandle()); fboHandles.push_back(view->GetTextureHandle());
++        }
++        if (renderPass->attachmentState->HasDepthStencilAttachment()) {
++            TextureView* view = ToBackend(renderPass->depthStencilAttachment.view.Get());
++            Texture* tex = ToBackend(view->GetTexture());
++            mix(0xD5); mix(tex->GetTextureHandle()); mix(tex->GetRenderbufferHandle()); mix(view->GetTextureHandle());
++            mix(view->GetBaseMipLevel()); mix(view->GetBaseArrayLayer());
++            fboHandles.push_back(tex->GetTextureHandle()); fboHandles.push_back(tex->GetRenderbufferHandle()); fboHandles.push_back(view->GetTextureHandle());
++        }
++        mix(renderPass->attachmentState->GetSampleCount());
++        auto& cache = FlipFramebufferCache();
++        if (auto it = cache.find(fboKey); it != cache.end()) {
++            fbo = it->second.fbo;
++            fboCached = true;
++        }
++    }
++
+     // Create the framebuffer used for this render pass and calls the correct glDrawBuffers
+-    {
++    if (fboCached) {
++        DAWN_GL_TRY(gl, BindFramebuffer(GL_READ_FRAMEBUFFER, 0));
++        DAWN_GL_TRY(gl, BindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo));
++    } else {
+         // TODO(kainino@chromium.org): This is added to possibly work around an issue seen on
+         // Windows/Intel. It should break any feedback loop before the clears, even if there
+         // shouldn't be any negative effects from this. Investigate whether it's actually
+@@ -1365,7 +1478,10 @@
+         }
+     }
+ 
+-    DAWN_TRY(CheckFramebufferComplete(gl, GL_DRAW_FRAMEBUFFER));
++    if (!fboCached) {
++        DAWN_TRY(CheckFramebufferComplete(gl, GL_DRAW_FRAMEBUFFER));
++        if (kFlipFboCache) FlipFramebufferCache().emplace(fboKey, FlipCachedFramebuffer{fbo, std::move(fboHandles)});
++    }
+ 
+     // Set defaults for dynamic state before executing clears and commands.
+     PersistentPipelineState persistentPipelineState;
+@@ -1611,8 +1727,13 @@
          return {};
      };
  
@@ -207,16 +371,26 @@ diff --git a/src/dawn/native/opengl/CommandBufferGL.cpp b/src/dawn/native/opengl
          switch (type) {
              case Command::EndRenderPass: {
                  mCommands.NextCommand<EndRenderPassCmd>();
-diff --git a/src/dawn/native/opengl/OpenGLBackend.cpp b/src/dawn/native/opengl/OpenGLBackend.cpp
---- a/src/dawn/native/opengl/OpenGLBackend.cpp
-+++ b/src/dawn/native/opengl/OpenGLBackend.cpp
-@@ -30,11 +30,61 @@
+@@ -1653,7 +1774,7 @@
+                                         checked_cast<GLsizei>(attachmentsToDiscard.size()),
+                                         attachmentsToDiscard.data()));
+                 }
+-                DAWN_GL_TRY(gl, DeleteFramebuffers(1, &fbo));
++                if (!kFlipFboCache) DAWN_GL_TRY(gl, DeleteFramebuffers(1, &fbo));
+                 return {};
+             }
+ 
+diff -ruN a/src/dawn/native/opengl/OpenGLBackend.cpp b/src/dawn/native/opengl/OpenGLBackend.cpp
+--- a/src/dawn/native/opengl/OpenGLBackend.cpp	2026-08-07 15:55:40.000000000 -0700
++++ b/src/dawn/native/opengl/OpenGLBackend.cpp	2026-09-10 13:08:42.574723875 -0700
+@@ -30,12 +30,63 @@
  
  #include "dawn/native/OpenGLBackend.h"
  
 +#include <algorithm>
 +#include <atomic>
  #include <utility>
++#include <vector>
  
  #include "src/dawn/native/opengl/DeviceGL.h"
 +#include "src/dawn/native/BindGroupLayoutInternal.h"
@@ -228,7 +402,7 @@ diff --git a/src/dawn/native/opengl/OpenGLBackend.cpp b/src/dawn/native/opengl/O
 +#include "src/dawn/native/opengl/TextureGL.h"
  
  namespace dawn::native::opengl {
-+
+ 
 +namespace {
 +std::atomic<DirectGLRenderPassCallback> gDirectRenderPassCallback = nullptr;
 +std::atomic<void*> gDirectRenderPassUserdata = nullptr;
@@ -269,10 +443,11 @@ diff --git a/src/dawn/native/opengl/OpenGLBackend.cpp b/src/dawn/native/opengl/O
 +                        DirectComponentSwizzle(swizzle.b), DirectComponentSwizzle(swizzle.a)}};
 +}
 +}  // namespace
- 
++
  RequestAdapterOptionsGetGLProc::RequestAdapterOptionsGetGLProc() {
      sType = wgpu::SType::RequestAdapterOptionsGetGLProc;
-@@ -66,4 +116,118 @@
+ }
+@@ -66,4 +117,128 @@
      return ToAPI(ReturnToAPI(std::move(texture)));
  }
  
@@ -374,6 +549,16 @@ diff --git a/src/dawn/native/opengl/OpenGLBackend.cpp b/src/dawn/native/opengl/O
 +    return static_cast<uint32_t>(layout->GetBindingIndexInfo()[groupIndex][index]);
 +}
 +
++std::vector<GLuint> FlipDrainDestroyedTextures();
++uint32_t GetDirectGLDestroyedTextures(WGPUDevice, GLuint* out, uint32_t maxCount) {
++    // No GL calls here: this may be called outside Dawn's scoped-current regions.
++    static thread_local std::vector<GLuint> pending;
++    if (pending.empty()) pending = FlipDrainDestroyedTextures();
++    uint32_t n = 0;
++    while (n < maxCount && !pending.empty()) { out[n++] = pending.back(); pending.pop_back(); }
++    return n;
++}
++
 +void SetDirectGLRenderPassCallback(DirectGLRenderPassCallback callback, void* userdata) {
 +    if (callback == nullptr) {
 +        gDirectRenderPassCallback.store(nullptr, std::memory_order_release);
@@ -391,11 +576,16 @@ diff --git a/src/dawn/native/opengl/OpenGLBackend.cpp b/src/dawn/native/opengl/O
 +}
 +
  }  // namespace dawn::native::opengl
-diff --git a/src/dawn/native/opengl/QueueGL.cpp b/src/dawn/native/opengl/QueueGL.cpp
---- a/src/dawn/native/opengl/QueueGL.cpp
-+++ b/src/dawn/native/opengl/QueueGL.cpp
-@@ -28,6 +28,8 @@
+diff -ruN a/src/dawn/native/opengl/QueueGL.cpp b/src/dawn/native/opengl/QueueGL.cpp
+--- a/src/dawn/native/opengl/QueueGL.cpp	2026-08-07 15:55:40.000000000 -0700
++++ b/src/dawn/native/opengl/QueueGL.cpp	2026-09-10 12:35:01.832550098 -0700
+@@ -26,8 +26,13 @@
+ // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ 
  #include "src/dawn/native/opengl/QueueGL.h"
++#include <chrono>
++#include <cstdio>
++#include <cstdlib>
  
  #include <vector>
 +#include <cstdlib>
@@ -403,7 +593,37 @@ diff --git a/src/dawn/native/opengl/QueueGL.cpp b/src/dawn/native/opengl/QueueGL
  
  #include "dawn/platform/DawnPlatform.h"
  #include "src/dawn/native/BlitBufferToDepthStencil.h"
-@@ -100,6 +102,26 @@
+@@ -80,14 +85,28 @@
+ 
+ MaybeError Queue::SubmitImpl(Span<CommandBufferBase* const> commands) {
+     Device* device = ToBackend(GetDevice());
+-    return device->EnqueueAndFlushGL([this, commands](const OpenGLFunctions& gl) -> MaybeError {
++    // Melee Flip diagnostics: time spent executing commands vs. the rest of the submit.
++    static const bool kFlipTiming = [] { const char* v = getenv("MELEE_FLIP_DAWN_TIMING"); return v && v[0] != '0'; }();
++    static double flipExecMs = 0, flipTotalMs = 0; static unsigned flipSubmits = 0;
++    const auto submitStart = std::chrono::steady_clock::now();
++    MaybeError result = device->EnqueueAndFlushGL([this, commands](const OpenGLFunctions& gl) -> MaybeError {
++        const auto execStart = std::chrono::steady_clock::now();
+         TRACE_EVENT_BEGIN0(GetDevice()->GetPlatform(), Recording, "CommandBufferGL::Execute");
+         for (CommandBufferBase* commandBuffer : commands) {
+             DAWN_TRY(ToBackend(commandBuffer)->Execute(gl));
+         }
+         TRACE_EVENT_END0(GetDevice()->GetPlatform(), Recording, "CommandBufferGL::Execute");
++        if (kFlipTiming) flipExecMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - execStart).count();
+         return {};
+     });
++    if (kFlipTiming) {
++        flipTotalMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - submitStart).count();
++        if (++flipSubmits % 120 == 0) {
++            fprintf(stderr, "[flip-dawn-submit] execute_ms=%.3f other_ms=%.3f (per submit, 120 submits)\n", flipExecMs / 120, (flipTotalMs - flipExecMs) / 120);
++            flipExecMs = flipTotalMs = 0;
++        }
++    }
++    return result;
+ }
+ 
+ MaybeError Queue::WriteBufferImpl(BufferBase* buffer,
+@@ -100,6 +119,26 @@
                      [buffer = Ref<Buffer>(ToBackend(buffer)), bufferOffset](
                          const OpenGLFunctions& gl, Span<const std::byte> data) -> MaybeError {
                          DAWN_GL_TRY(gl, BindBuffer(GL_ARRAY_BUFFER, buffer->GetHandle()));
@@ -430,9 +650,9 @@ diff --git a/src/dawn/native/opengl/QueueGL.cpp b/src/dawn/native/opengl/QueueGL
                          DAWN_GL_TRY(
                              gl, BufferSubData(GL_ARRAY_BUFFER, checked_cast<GLintptr>(bufferOffset),
                                                checked_cast<GLsizeiptr>(data.size()), data.data()));
-diff --git a/src/dawn/native/opengl/SwapChainEGL.cpp b/src/dawn/native/opengl/SwapChainEGL.cpp
---- a/src/dawn/native/opengl/SwapChainEGL.cpp
-+++ b/src/dawn/native/opengl/SwapChainEGL.cpp
+diff -ruN a/src/dawn/native/opengl/SwapChainEGL.cpp b/src/dawn/native/opengl/SwapChainEGL.cpp
+--- a/src/dawn/native/opengl/SwapChainEGL.cpp	2026-08-07 15:55:40.000000000 -0700
++++ b/src/dawn/native/opengl/SwapChainEGL.cpp	2026-09-10 11:36:32.693539416 -0700
 @@ -28,6 +28,7 @@
  #include "src/dawn/native/opengl/SwapChainEGL.h"
  
@@ -487,25 +707,38 @@ diff --git a/src/dawn/native/opengl/SwapChainEGL.cpp b/src/dawn/native/opengl/Sw
  #if DAWN_PLATFORM_IS(ANDROID)
              case Surface::Type::AndroidWindow:
                  mEGLSurface = egl.CreateWindowSurface(
-diff --git a/src/dawn/native/opengl/TextureGL.cpp b/src/dawn/native/opengl/TextureGL.cpp
---- a/src/dawn/native/opengl/TextureGL.cpp
-+++ b/src/dawn/native/opengl/TextureGL.cpp
-@@ -348,6 +348,12 @@
- }
+diff -ruN a/src/dawn/native/opengl/TextureGL.cpp b/src/dawn/native/opengl/TextureGL.cpp
+--- a/src/dawn/native/opengl/TextureGL.cpp	2026-08-07 15:55:40.000000000 -0700
++++ b/src/dawn/native/opengl/TextureGL.cpp	2026-09-10 12:23:00.793575938 -0700
+@@ -349,13 +349,25 @@
  
  Texture::~Texture() {}
-+
+ 
 +GLuint Texture::ReleaseHandleForPresent() {
 +    DAWN_ASSERT(mOwnsHandle == OwnsHandle::Yes && !IsRenderbuffer() && mTarget == GL_TEXTURE_2D);
 +    mOwnsHandle = OwnsHandle::No;
 +    return mTextureHandle;
 +}
- 
++
  bool Texture::IsRenderbuffer() const {
      return ((GetUsage() & wgpu::TextureUsage::TransientAttachment) != 0) &&
-diff --git a/src/dawn/native/opengl/TextureGL.h b/src/dawn/native/opengl/TextureGL.h
---- a/src/dawn/native/opengl/TextureGL.h
-+++ b/src/dawn/native/opengl/TextureGL.h
+            GetFormat().HasDepthOrStencil();
+ }
+ 
++void FlipForgetFramebuffers(GLuint handle);
++
+ void Texture::DestroyImpl(DestroyReason reason) {
+     TextureBase::DestroyImpl(reason);
++    // Melee Flip: cached framebuffers must not outlive their attachments. This
++    // may run on any thread, so only record the handles; the render thread purges.
++    FlipForgetFramebuffers(mTextureHandle);
++    FlipForgetFramebuffers(mRenderbufferHandle);
+     if (mOwnsHandle == OwnsHandle::Yes) {
+         if (IsRenderbuffer()) {
+             IgnoreErrors(ToBackend(GetDevice())
+diff -ruN a/src/dawn/native/opengl/TextureGL.h b/src/dawn/native/opengl/TextureGL.h
+--- a/src/dawn/native/opengl/TextureGL.h	2026-08-07 15:55:40.000000000 -0700
++++ b/src/dawn/native/opengl/TextureGL.h	2026-09-10 11:36:32.693553643 -0700
 @@ -57,6 +57,7 @@
              OwnsHandle ownsHandle);
  

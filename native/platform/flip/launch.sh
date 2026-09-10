@@ -23,6 +23,9 @@ case "$driver" in
             export MELEE_FLIP_DIRECT_CHECKS="${MELEE_FLIP_DIRECT_CHECKS:-0}"
             export MELEE_FLIP_PRESENT_THREAD="${MELEE_FLIP_PRESENT_THREAD:-1}"
             export MELEE_FLIP_DIRTY_UPLOAD="${MELEE_FLIP_DIRTY_UPLOAD:-1}"
+            # Asynchronous frames: the game thread no longer joins the GX
+            # translation worker at frame end (see FLIP_HANDOFF.md).
+            export MELEE_FLIP_ASYNC_FIFO="${MELEE_FLIP_ASYNC_FIFO:-1}"
         fi
         ;;
     g13)
