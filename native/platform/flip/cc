@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+: "${FLIP_TOOLCHAIN:?Set FLIP_TOOLCHAIN to the AArch64 GNU SDK root}"
+exec "${MELEE_CLANG:-clang}" --target=aarch64-buildroot-linux-gnu \
+    --gcc-toolchain="$FLIP_TOOLCHAIN" \
+    --sysroot="$FLIP_TOOLCHAIN/aarch64-buildroot-linux-gnu/sysroot" \
+    -fuse-ld="$FLIP_TOOLCHAIN/bin/aarch64-linux-ld" "$@"

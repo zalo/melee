@@ -10,6 +10,9 @@
 #include <cstring>
 #include <SDL3/SDL.h>
 #include "disc_fonts.h"
+#ifdef MELEE_MIYOO_FLIP
+#include "platform/flip/display.h"
+#endif
 
 static std::string executable_path, disc_path;
 static bool graphical_launch;
@@ -47,6 +50,14 @@ static std::string validateDisc(const std::string& path) {
 }
 
 int main(int argc, char** argv) {
+#ifdef MELEE_MIYOO_FLIP
+    if (argc != 2 || std::strcmp(argv[1], "--setup") == 0) {
+        std::fprintf(stderr, "Usage: %s Melee-US-1.02-disc-image\n", argv[0]);
+        return 2;
+    }
+    // EGL/DRM owns presentation; SDL supplies controllers, audio and events.
+    setenv("SDL_VIDEODRIVER", "dummy", 1);
+#endif
     if (argc > 2) {
         std::fprintf(stderr, "Usage: %s [--setup | Melee-US-1.02-disc-image]\n", argv[0]);
         return 2;
@@ -72,6 +83,8 @@ int main(int argc, char** argv) {
     config.appName = "Melee Native";
 #ifdef __APPLE__
     config.desiredBackend = BACKEND_METAL;
+#elif defined(MELEE_MIYOO_FLIP)
+    config.desiredBackend = BACKEND_OPENGLES;
 #else
     config.desiredBackend = BACKEND_VULKAN;
 #endif
@@ -83,6 +96,16 @@ int main(int argc, char** argv) {
     config.vsync = true;
     config.windowWidth = 960;
     config.windowHeight = 720;
+#ifdef MELEE_MIYOO_FLIP
+    // DRM page flips provide the display cadence. Immediate mode asks Dawn to
+    // set EGL's swap interval once when it creates the surface, avoiding a
+    // second pacing queue and a per-frame eglSwapInterval workaround.
+    config.vsync = false;
+    config.windowWidth = 640;
+    config.windowHeight = 480;
+    config.allowJoystickBackgroundEvents = true;
+    MeleeFlipInitDisplay();
+#endif
     config.logCallback = log_message;
     config.mem1Size = MEM1_DEFAULT_SIZE;
     config.mem2Size = ARAM_DEFAULT_SIZE;

@@ -1,3 +1,14 @@
+# Melee Native — Miyoo Flip V2 fork
+
+Experimental ARM64 port for the Rockchip RK3566 / Mali-G52 Miyoo Flip V2.
+Rendering, audio, and controls work; **solid 60 FPS is not yet achieved**.
+
+Start with the [consolidated handoff](native/FLIP_HANDOFF.md) and
+[Flip build and installation instructions](native/FLIP.md). The `miyoo-flip`
+branch contains the port, renderer patches, profiling tools, and validation
+reports. No ROM or Flip binary release is included. The original macOS/Linux
+project documentation and download links follow below.
+
 <p align="center">
   <img src="native/platform/macos/resources/SSBM.png" alt="Super Smash Bros. Melee" width="560">
 </p>

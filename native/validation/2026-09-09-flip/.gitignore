@@ -1,0 +1,4 @@
+# Publish written reports; preserve bulky raw device evidence only locally.
+/*
+!/.gitignore
+!/*.md

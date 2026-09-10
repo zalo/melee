@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+export MELEE_CLANG=clang++
+exec "$(dirname "$0")/cc" "$@"

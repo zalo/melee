@@ -302,6 +302,12 @@ void gm_801A4D34(void (*on_frame)(void), UNUSED GameSceneInfo* info)
         for (i = 0; i < pad_queue_count; i++) {
             HSD_PerfSetStartTime();
             lb_800198E0();
+#ifdef MELEE_NATIVE
+            {
+                int MeleeNativeTestFreeze(void);
+                if (MeleeNativeTestFreeze()) continue;
+            }
+#endif
             if (DbLevel >= DbLKind_DebugRom) {
                 gm_801A4970(temp_r25->unk_10.x4);
             }

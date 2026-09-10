@@ -12,6 +12,11 @@
 #include "tev.h"
 #include <dolphin/gx.h>
 #include <dolphin/mtx.h>
+#ifdef MELEE_MIYOO_FLIP
+#include <stdlib.h>
+/* Native Aurora extension; absent from the original console SDK headers. */
+extern void GXDestroyTexObj(GXTexObj* obj);
+#endif
 
 #define FLT_EPSILON 1.00000001335e-10F
 
@@ -1244,6 +1249,18 @@ void HSD_TObjSetup(HSD_TObj* tobj)
                         lod->edgeLODEnable, lod->max_anisotropy);
 
         GXLoadTexObj(&texobj, tobj->id);
+#ifdef MELEE_MIYOO_FLIP
+        {
+            static int release_temporary = -1;
+            if (release_temporary < 0) {
+                const char* value = getenv("MELEE_FLIP_RELEASE_TEXOBJ");
+                release_temporary = value && strcmp(value, "1") == 0;
+            }
+            /* Loading copies GX state into the FIFO. This stack object's
+             * lifetime ends here; its cache identity must not live for frames. */
+            if (release_temporary) GXDestroyTexObj(&texobj);
+        }
+#endif
     }
 }
 

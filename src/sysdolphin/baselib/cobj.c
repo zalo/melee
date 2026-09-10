@@ -296,7 +296,11 @@ static bool setupTopHalfCamera(HSD_CObj* cobj)
     /// @todo Should be an `Mtx44` like the other three: `makeProjectionMtx`
     /// writes 4 rows. Changing it here does not match, so the extra row
     /// currently lands in `unused` above.
+#ifdef MELEE_NATIVE
+    Mtx44 p;
+#else
     Mtx p;
+#endif
 
     f32 h_scale;
     f32 t;

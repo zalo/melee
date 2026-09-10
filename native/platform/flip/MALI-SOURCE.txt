@@ -1,0 +1,7 @@
+The optional, unmodified Mali g29p1 GLES driver is provided by Rockchip's mirror:
+https://github.com/JeffyCN/mirrors/tree/1a082323f1001874a007e4e522029d6c46d75ae9
+File: lib/aarch64-linux-gnu/libmali-bifrost-g52-g29p1-gles.so
+SHA-256: 02d42b4a49007d8b99865653105783034df9adbd502ccef035038a0c3756c027
+Arm release g29p1-12eac0; Rockchip revision 5.
+See Mali.txt for the accompanying end-user licence.
+The library is loaded only by this application; no firmware files are replaced.

@@ -106,6 +106,17 @@ static bool replayInput() {
     MeleeNativeSetKeyboard(buttons,x,y,cx,cy);--remaining;return true;
 }
 extern "C" void MeleeNativeKeyboardEvent(const SDL_Event* event) {
+#ifdef MELEE_MIYOO_FLIP
+    if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
+        auto* pad = SDL_GetGamepadFromID(event->gbutton.which);
+        if (pad && SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_BACK) &&
+            SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_START)) {
+            SDL_Event quit{};
+            quit.type = SDL_EVENT_QUIT;
+            SDL_PushEvent(&quit);
+        }
+    }
+#endif
     if (std::getenv("MELEE_TRACE_INPUT") && (event->type == SDL_EVENT_KEY_DOWN || event->type == SDL_EVENT_KEY_UP))
         std::fprintf(stderr, "[keyboard] %s scancode=%d\n", event->type == SDL_EVENT_KEY_DOWN ? "down" : "up", int(event->key.scancode));
     if(event->type==SDL_EVENT_KEY_DOWN && event->key.scancode>SDL_SCANCODE_UNKNOWN && event->key.scancode<SDL_SCANCODE_COUNT)

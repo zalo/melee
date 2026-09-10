@@ -84,10 +84,12 @@ void MeleeNativeTestPrepareCss(CSSData* css)
 
 static int matrix_scene = -1;
 static unsigned matrix_frames;
+static unsigned freeze_frames;
 void MeleeNativeMatrixScene(int scene)
 {
     matrix_scene = scene;
     matrix_frames = 0;
+    freeze_frames = 0;
     if (scene == 2 && getenv("MELEE_MATRIX_TEST")) {
         int expected = setting("MELEE_TEST_CHARACTER", 32, CKIND_FOX);
         int actual = Player_GetPlayerCharacter(0);
@@ -100,6 +102,18 @@ void MeleeNativeMatrixScene(int scene)
             OSPanic(__FILE__, __LINE__, "Matrix selection mismatch");
     }
 }
+// Diagnostic fixed simulation state; real GX display callbacks still run.
+int MeleeNativeTestFreeze(void)
+{
+    if (!getenv("MELEE_MATRIX_TEST") || matrix_scene != 2 ||
+        !getenv("MELEE_TEST_FREEZE_AFTER")) return 0;
+    unsigned limit = setting("MELEE_TEST_FREEZE_AFTER", 36000, 60);
+    if (freeze_frames++ < limit) return 0;
+    if (freeze_frames == limit + 1)
+        fprintf(stderr, "[matrix-freeze] simulation frozen after %u updates\n", limit);
+    return 1;
+}
+
 void MeleeNativeMatrixTick(void)
 {
     if (!getenv("MELEE_MATRIX_TEST") || matrix_scene != 2 ||

@@ -5,6 +5,9 @@
 #include <dolphin/ar.h>
 #include <dolphin/os.h>
 #include <sysdolphin/baselib/debug.h>
+#ifdef MELEE_NATIVE
+#include <sched.h>
+#endif
 
 typedef enum lbArqState {
     LB_ARQ_STATE_FREE = 0,
@@ -40,7 +43,19 @@ typedef struct lbArqHandle {
 #endif
 static lbArqState lbArq_80014ABC(lbArqNode* arg0)
 {
+#ifdef MELEE_NATIVE
+    /* DMA completion runs on a host worker. Synchronize with its interrupt
+     * lock so optimized builds reload the state and observe the copied data. */
+    BOOL intr = OSDisableInterrupts();
+    lbArqState state = arg0->state;
+    OSRestoreInterrupts(intr);
+    if (state != LB_ARQ_STATE_DONE) {
+        sched_yield();
+    }
+    return state;
+#else
     return arg0->state;
+#endif
 }
 #ifdef __MWERKS__
 #pragma pop

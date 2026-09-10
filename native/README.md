@@ -4,6 +4,8 @@ Both platforms are developed on `main`. Shared runtime code stays in this
 directory; platform launchers and resources live in `platform/macos` and
 `platform/linux`. Build, packaging and test scripts stay in `tools`.
 
+Experimental Miyoo Flip V2 ARM64 instructions: [FLIP.md](FLIP.md).
+
 Linux x86-64/Vulkan instructions: [LINUX.md](LINUX.md). The validation described
 below is the existing macOS ARM64 result; it is not Linux or Omarchy coverage.
 

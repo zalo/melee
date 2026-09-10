@@ -1,0 +1,506 @@
+diff --git a/native/CMakeLists.txt b/native/CMakeLists.txt
+index 75ec73400..fd20b0cca 100644
+--- a/native/CMakeLists.txt
++++ b/native/CMakeLists.txt
+@@ -1,5 +1,12 @@
+ cmake_minimum_required(VERSION 3.25)
+ project(MeleeNative LANGUAGES C CXX)
++option(MELEE_MIYOO_FLIP "Build the experimental Miyoo Flip EGL/DRM port" OFF)
++if(MELEE_MIYOO_FLIP)
++  if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" OR NOT CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
++    message(FATAL_ERROR "The Miyoo Flip build requires Linux AArch64")
++  endif()
++  add_compile_definitions(MELEE_MIYOO_FLIP)
++endif()
+ if(APPLE)
+   enable_language(OBJCXX)
+ endif()
+@@ -38,15 +45,23 @@ target_compile_options(melee_game PRIVATE -include "${CMAKE_CURRENT_SOURCE_DIR}/
+ # Aurora is pinned because its native SDK ABI is part of the port.
+ set(MELEE_AURORA_DIR "${MELEE_ROOT}/build/native-deps/aurora" CACHE PATH "Aurora source checkout")
+ find_package(Git REQUIRED)
++find_package(Threads REQUIRED)
+ execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${MELEE_AURORA_DIR}" rev-parse HEAD
+   OUTPUT_VARIABLE MELEE_AURORA_REV OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+ if(NOT MELEE_AURORA_REV STREQUAL "749d6ee7a22bdfab78c8ece9047bca5d79aa72ca")
+   message(FATAL_ERROR "Unexpected Aurora revision. Run native/tools/bootstrap.py in a fresh dependency directory.")
+ endif()
+-set(AURORA_DAWN_PROVIDER package CACHE STRING "" FORCE)
+-set(AURORA_SDL3_PROVIDER vendor CACHE STRING "" FORCE)
+-set(AURORA_NOD_PROVIDER package CACHE STRING "" FORCE)
++set(AURORA_DAWN_PROVIDER package CACHE STRING "Dawn dependency provider")
++set(AURORA_SDL3_PROVIDER vendor CACHE STRING "SDL dependency provider")
++set(AURORA_NOD_PROVIDER package CACHE STRING "Disc reader dependency provider")
+ add_subdirectory("${MELEE_AURORA_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/aurora" EXCLUDE_FROM_ALL)
++if(MELEE_MIYOO_FLIP)
++  find_path(MELEE_DRM_INCLUDE_DIR drm.h PATH_SUFFIXES libdrm REQUIRED)
++  add_executable(melee_flip_gpu_probe EXCLUDE_FROM_ALL
++    platform/flip/gpu_probe.cpp platform/flip/display.cpp platform/flip/present_worker.cpp)
++  target_include_directories(melee_flip_gpu_probe PRIVATE "${MELEE_DRM_INCLUDE_DIR}" "${MELEE_AURORA_DIR}/lib")
++  target_link_libraries(melee_flip_gpu_probe PRIVATE aurora::core aurora::gx aurora::mtx aurora::vi EGL gbm drm mali)
++endif()
+ # Record the actual dependency sources, including FetchContent source overrides.
+ file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/package-licenses.txt" "")
+ foreach(entry "SDL|SDL|LICENSE.txt" "ImGui|imgui|LICENSE.txt" "Abseil|abseil-cpp|LICENSE"
+@@ -135,6 +150,10 @@ set_target_properties(melee_asset_probe PROPERTIES MACOSX_BUNDLE TRUE
+ endif()
+ add_test(NAME native_disc COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_disc.py")
+ set_tests_properties(native_disc PROPERTIES LABELS melee)
++add_test(NAME native_flip_deploy COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_flip_deploy.py")
++set_tests_properties(native_flip_deploy PROPERTIES LABELS melee)
++add_test(NAME native_flip_launcher COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_flip_launcher.py")
++set_tests_properties(native_flip_launcher PROPERTIES LABELS melee)
+ add_executable(native_os_test tests/os_test.c os_runtime.c)
+ target_include_directories(native_os_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" $<TARGET_PROPERTY:melee_game,INCLUDE_DIRECTORIES>)
+ target_compile_definitions(native_os_test PRIVATE $<TARGET_PROPERTY:melee_game,COMPILE_DEFINITIONS>)
+@@ -150,6 +169,13 @@ target_compile_definitions(native_devcom_test PRIVATE $<TARGET_PROPERTY:melee_ga
+ target_compile_options(native_devcom_test PRIVATE $<TARGET_PROPERTY:melee_game,COMPILE_OPTIONS> -fsanitize=address,undefined)
+ target_link_options(native_devcom_test PRIVATE -fsanitize=address,undefined)
+ add_test(NAME native_devcom COMMAND native_devcom_test)
++add_executable(native_lbarq_test tests/lbarq_test.c arq_runtime.c os_runtime.c
++  "${MELEE_ROOT}/src/melee/lb/lbarq.c")
++target_include_directories(native_lbarq_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" $<TARGET_PROPERTY:melee_game,INCLUDE_DIRECTORIES>)
++target_compile_definitions(native_lbarq_test PRIVATE $<TARGET_PROPERTY:melee_game,COMPILE_DEFINITIONS>)
++target_compile_options(native_lbarq_test PRIVATE $<TARGET_PROPERTY:melee_game,COMPILE_OPTIONS> -O3)
++add_test(NAME native_lbarq COMMAND native_lbarq_test)
++set_tests_properties(native_lbarq PROPERTIES TIMEOUT 15 LABELS melee)
+ set_tests_properties(native_devcom PROPERTIES LABELS melee)
+ 
+ add_library(melee_gx_probe OBJECT gx_port_probe.c)
+@@ -185,7 +211,23 @@ add_library(melee_audio_runtime OBJECT audio_runtime.c audio_decode.c arq_runtim
+ target_include_directories(melee_audio_runtime PRIVATE $<TARGET_PROPERTY:melee_game,INCLUDE_DIRECTORIES>)
+ target_compile_definitions(melee_audio_runtime PRIVATE $<TARGET_PROPERTY:melee_game,COMPILE_DEFINITIONS>)
+ target_compile_options(melee_audio_runtime PRIVATE $<TARGET_PROPERTY:melee_game,COMPILE_OPTIONS>)
++if(MELEE_MIYOO_FLIP)
++  find_path(MELEE_DRM_INCLUDE_DIR drm.h PATH_SUFFIXES libdrm REQUIRED)
++  add_executable(melee_flip_scanout tools/flip_scanout.c)
++  target_include_directories(melee_flip_scanout PRIVATE "${MELEE_DRM_INCLUDE_DIR}")
++  target_link_libraries(melee_flip_scanout PRIVATE drm)
++  add_executable(melee_flip_vertex_test tests/flip_vertex_test.cpp)
++  target_include_directories(melee_flip_vertex_test PRIVATE "${MELEE_AURORA_DIR}/lib" $<TARGET_PROPERTY:aurora_gx,INCLUDE_DIRECTORIES>)
++  target_link_libraries(melee_flip_vertex_test PRIVATE aurora_gx absl::flat_hash_map)
++endif()
++
+ foreach(target melee_native melee_boot_probe)
++  if(MELEE_MIYOO_FLIP)
++    find_path(MELEE_DRM_INCLUDE_DIR drm.h PATH_SUFFIXES libdrm REQUIRED)
++    target_sources(${target} PRIVATE platform/flip/display.cpp platform/flip/present_worker.cpp)
++    target_include_directories(${target} PRIVATE "${MELEE_DRM_INCLUDE_DIR}")
++    target_link_libraries(${target} PRIVATE EGL gbm drm mali)
++  endif()
+   if(APPLE)
+     target_sources(${target} PRIVATE platform/macos/launcher.mm)
+     target_link_libraries(${target} PRIVATE "-framework AppKit" "-framework UniformTypeIdentifiers")
+diff --git a/native/README.md b/native/README.md
+index 28d1cea03..99c41fc54 100644
+--- a/native/README.md
++++ b/native/README.md
+@@ -4,6 +4,8 @@ Both platforms are developed on `main`. Shared runtime code stays in this
+ directory; platform launchers and resources live in `platform/macos` and
+ `platform/linux`. Build, packaging and test scripts stay in `tools`.
+ 
++Experimental Miyoo Flip V2 ARM64 instructions: [FLIP.md](FLIP.md).
++
+ Linux x86-64/Vulkan instructions: [LINUX.md](LINUX.md). The validation described
+ below is the existing macOS ARM64 result; it is not Linux or Omarchy coverage.
+ 
+diff --git a/native/keyboard_input.cpp b/native/keyboard_input.cpp
+index ec3227f86..f8a3d27e7 100644
+--- a/native/keyboard_input.cpp
++++ b/native/keyboard_input.cpp
+@@ -106,6 +106,17 @@ static bool replayInput() {
+     MeleeNativeSetKeyboard(buttons,x,y,cx,cy);--remaining;return true;
+ }
+ extern "C" void MeleeNativeKeyboardEvent(const SDL_Event* event) {
++#ifdef MELEE_MIYOO_FLIP
++    if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
++        auto* pad = SDL_GetGamepadFromID(event->gbutton.which);
++        if (pad && SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_BACK) &&
++            SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_START)) {
++            SDL_Event quit{};
++            quit.type = SDL_EVENT_QUIT;
++            SDL_PushEvent(&quit);
++        }
++    }
++#endif
+     if (std::getenv("MELEE_TRACE_INPUT") && (event->type == SDL_EVENT_KEY_DOWN || event->type == SDL_EVENT_KEY_UP))
+         std::fprintf(stderr, "[keyboard] %s scancode=%d\n", event->type == SDL_EVENT_KEY_DOWN ? "down" : "up", int(event->key.scancode));
+     if(event->type==SDL_EVENT_KEY_DOWN && event->key.scancode>SDL_SCANCODE_UNKNOWN && event->key.scancode<SDL_SCANCODE_COUNT)
+diff --git a/native/matrix_runtime.c b/native/matrix_runtime.c
+index de276df6a..3995bf933 100644
+--- a/native/matrix_runtime.c
++++ b/native/matrix_runtime.c
+@@ -84,10 +84,12 @@ void MeleeNativeTestPrepareCss(CSSData* css)
+ 
+ static int matrix_scene = -1;
+ static unsigned matrix_frames;
++static unsigned freeze_frames;
+ void MeleeNativeMatrixScene(int scene)
+ {
+     matrix_scene = scene;
+     matrix_frames = 0;
++    freeze_frames = 0;
+     if (scene == 2 && getenv("MELEE_MATRIX_TEST")) {
+         int expected = setting("MELEE_TEST_CHARACTER", 32, CKIND_FOX);
+         int actual = Player_GetPlayerCharacter(0);
+@@ -100,6 +102,18 @@ void MeleeNativeMatrixScene(int scene)
+             OSPanic(__FILE__, __LINE__, "Matrix selection mismatch");
+     }
+ }
++// Diagnostic fixed simulation state; real GX display callbacks still run.
++int MeleeNativeTestFreeze(void)
++{
++    if (!getenv("MELEE_MATRIX_TEST") || matrix_scene != 2 ||
++        !getenv("MELEE_TEST_FREEZE_AFTER")) return 0;
++    unsigned limit = setting("MELEE_TEST_FREEZE_AFTER", 36000, 60);
++    if (freeze_frames++ < limit) return 0;
++    if (freeze_frames == limit + 1)
++        fprintf(stderr, "[matrix-freeze] simulation frozen after %u updates\n", limit);
++    return 1;
++}
++
+ void MeleeNativeMatrixTick(void)
+ {
+     if (!getenv("MELEE_MATRIX_TEST") || matrix_scene != 2 ||
+diff --git a/native/render_check.cpp b/native/render_check.cpp
+index 8a2eda7cc..c7fbc40f5 100644
+--- a/native/render_check.cpp
++++ b/native/render_check.cpp
+@@ -6,18 +6,31 @@
+ #include <algorithm>
+ #include <array>
+ #include <cmath>
++#include <string>
++#include <vector>
+ #include <aurora/gfx.h>
+ extern "C" void MeleeNativeTraceCamera(void);
+ 
+ static int current_scene = -1;
+ static std::atomic<bool> pending;
++static std::atomic<bool> captured_once;
+ extern "C" void MeleeNativeRenderCheckScene(int scene) { current_scene = scene; }
+ 
+-// Numeric GPU framebuffer coverage only. No image, screenshot, or video is saved.
++// Numeric coverage by default; an explicit path enables a diagnostic PPM.
+ extern "C" void MeleeNativeCheckFrame() {
+     if ((!std::getenv("MELEE_MATRIX_TEST") && !std::getenv("MELEE_RENDER_CHECK")) || current_scene != 2) return;
++    static const bool once = [] {
++        const char* value = std::getenv("MELEE_FLIP_CAPTURE_ONCE");
++        return value && std::atoi(value) != 0;
++    }();
++    if (once && captured_once.load(std::memory_order_relaxed)) return;
+     static unsigned frames;
+-    if (++frames % 120 || pending.exchange(true)) return;
++    static const unsigned interval = [] {
++        const char* text = std::getenv("MELEE_CAPTURE_INTERVAL");
++        unsigned n = text ? std::strtoul(text, nullptr, 10) : 120;
++        return n >= 1 && n <= 36000 ? n : 120;
++    }();
++    if (++frames % interval || pending.exchange(true)) return;
+     MeleeNativeTraceCamera();
+     const auto* stats = aurora_get_stats();
+     std::fprintf(stderr, "[gpu-check] draws=%u vertices_bytes=%u\n", stats->drawCallCount, stats->lastVertSize);
+@@ -29,7 +42,9 @@ extern "C" void MeleeNativeCheckFrame() {
+             std::fprintf(stderr, "[render-check] unsupported-format=%u\n", unsigned(source.format));
+             pending = false; return;
+         }
+-        unsigned width = source.size.width * 3 / 4, height = source.size.height / 2;
++        const char* capture = std::getenv("MELEE_CAPTURE_FRAME");
++        unsigned width = capture ? source.size.width : source.size.width * 3 / 4;
++        unsigned height = capture ? source.size.height : source.size.height / 2;
+         unsigned pitch = (width * 4 + 255) & ~255U;
+         const uint64_t size = uint64_t(pitch) * height;
+         wgpu::BufferDescriptor desc{};
+@@ -39,7 +54,8 @@ extern "C" void MeleeNativeCheckFrame() {
+         auto encoder = g_device.CreateCommandEncoder();
+         wgpu::TexelCopyTextureInfo input{};
+         input.texture = source.texture;
+-        input.origin = {source.size.width / 8, source.size.height / 4, 0};
++        input.origin = capture ? wgpu::Origin3D{0, 0, 0}
++                               : wgpu::Origin3D{source.size.width / 8, source.size.height / 4, 0};
+         wgpu::TexelCopyBufferInfo output{};
+         output.buffer = buffer;
+         output.layout.bytesPerRow = pitch;
+@@ -49,9 +65,28 @@ extern "C" void MeleeNativeCheckFrame() {
+         auto commands = encoder.Finish();
+         g_queue.Submit(1, &commands);
+         buffer.MapAsync(wgpu::MapMode::Read, 0, size, wgpu::CallbackMode::AllowSpontaneous,
+-            [buffer, size, width, height, pitch](wgpu::MapAsyncStatus status, wgpu::StringView) {
++            [buffer, size, width, height, pitch, capture, format = source.format](wgpu::MapAsyncStatus status, wgpu::StringView) {
+                 if (status == wgpu::MapAsyncStatus::Success) {
+                     auto data = static_cast<const unsigned char*>(buffer.GetConstMappedRange(0, size));
++                    if (capture) {
++                        const std::string partial = std::string(capture) + ".partial";
++                        if (auto* file = std::fopen(partial.c_str(), "wb")) {
++                            std::fprintf(file, "P6\n%u %u\n255\n", width, height);
++                            std::vector<unsigned char> row(width * 3);
++                            for (unsigned y = 0; y < height; ++y) {
++                                for (unsigned x = 0; x < width; ++x) {
++                                    const auto* p = data + y * pitch + x * 4;
++                                    const bool bgra = format == wgpu::TextureFormat::BGRA8Unorm;
++                                    row[x * 3] = p[bgra ? 2 : 0];
++                                    row[x * 3 + 1] = p[1];
++                                    row[x * 3 + 2] = p[bgra ? 0 : 2];
++                                }
++                                std::fwrite(row.data(), 1, row.size(), file);
++                            }
++                            const bool ok = !std::ferror(file);
++                            if (std::fclose(file) == 0 && ok) std::rename(partial.c_str(), capture);
++                        }
++                    }
+                     unsigned lit = 0, samples = 0, edges = 0, pairs = 0;
+                     std::array<unsigned, 4096> histogram{};
+                     for (unsigned y = 0; y < height; y += 8)
+@@ -74,6 +109,7 @@ extern "C" void MeleeNativeCheckFrame() {
+                     const double edge_fraction = pairs ? double(edges) / pairs : 0;
+                     std::fprintf(stderr, "[render-detail] colors=%zu dominant=%.6f edges=%.6f\n", size_t(colors), dominant, edge_fraction);
+                     buffer.Unmap();
++                    captured_once.store(true, std::memory_order_relaxed);
+                 } else std::fprintf(stderr, "[render-check] map-failed\n");
+                 pending = false;
+             });
+diff --git a/native/runtime_main.cpp b/native/runtime_main.cpp
+index df6af6341..b15cf727a 100644
+--- a/native/runtime_main.cpp
++++ b/native/runtime_main.cpp
+@@ -10,6 +10,9 @@
+ #include <cstring>
+ #include <SDL3/SDL.h>
+ #include "disc_fonts.h"
++#ifdef MELEE_MIYOO_FLIP
++#include "platform/flip/display.h"
++#endif
+ 
+ static std::string executable_path, disc_path;
+ static bool graphical_launch;
+@@ -47,6 +50,14 @@ static std::string validateDisc(const std::string& path) {
+ }
+ 
+ int main(int argc, char** argv) {
++#ifdef MELEE_MIYOO_FLIP
++    if (argc != 2 || std::strcmp(argv[1], "--setup") == 0) {
++        std::fprintf(stderr, "Usage: %s Melee-US-1.02-disc-image\n", argv[0]);
++        return 2;
++    }
++    // EGL/DRM owns presentation; SDL supplies controllers, audio and events.
++    setenv("SDL_VIDEODRIVER", "dummy", 1);
++#endif
+     if (argc > 2) {
+         std::fprintf(stderr, "Usage: %s [--setup | Melee-US-1.02-disc-image]\n", argv[0]);
+         return 2;
+@@ -72,6 +83,8 @@ int main(int argc, char** argv) {
+     config.appName = "Melee Native";
+ #ifdef __APPLE__
+     config.desiredBackend = BACKEND_METAL;
++#elif defined(MELEE_MIYOO_FLIP)
++    config.desiredBackend = BACKEND_OPENGLES;
+ #else
+     config.desiredBackend = BACKEND_VULKAN;
+ #endif
+@@ -83,6 +96,16 @@ int main(int argc, char** argv) {
+     config.vsync = true;
+     config.windowWidth = 960;
+     config.windowHeight = 720;
++#ifdef MELEE_MIYOO_FLIP
++    // DRM page flips provide the display cadence. Immediate mode asks Dawn to
++    // set EGL's swap interval once when it creates the surface, avoiding a
++    // second pacing queue and a per-frame eglSwapInterval workaround.
++    config.vsync = false;
++    config.windowWidth = 640;
++    config.windowHeight = 480;
++    config.allowJoystickBackgroundEvents = true;
++    MeleeFlipInitDisplay();
++#endif
+     config.logCallback = log_message;
+     config.mem1Size = MEM1_DEFAULT_SIZE;
+     config.mem2Size = ARAM_DEFAULT_SIZE;
+diff --git a/src/melee/ef/efalt.c b/src/melee/ef/efalt.c
+index 1b2685f76..3cfea9883 100644
+--- a/src/melee/ef/efalt.c
++++ b/src/melee/ef/efalt.c
+@@ -12,8 +12,10 @@
+ #ifdef MELEE_NATIVE
+ #include <melee/ft/types.h>
+ #define EFALT_VA_ARG(t) va_arg(vlist, t)
++#define EFALT_VA_LIST vlist
+ #else
+ #define EFALT_VA_ARG(t) (*((t*) __va_arg(vlist_arg, _var_arg_typeof(t))))
++#define EFALT_VA_LIST vlist_arg
+ #endif
+ 
+ extern volatile u32 efLib_LoadKind;
+@@ -29,9 +31,11 @@ void* efAlt_Spawn(s32 gfx_id, HSD_GObj* gobj, va_list vlist)
+     Vec3 scale;
+     f32* value_ptr;
+     void* ret_obj;
++#ifndef MELEE_NATIVE
+     void* vlist_arg;
+ 
+     vlist_arg = vlist;
++#endif
+     ret_obj = NULL;
+     efLib_LoadKind = EF_LOADKIND_SYNC;
+     PAD_STACK(80);
+@@ -144,7 +148,7 @@ void* efAlt_Spawn(s32 gfx_id, HSD_GObj* gobj, va_list vlist)
+         }
+         break;
+     case 0x48D:
+-        ret_obj = efLib_CreateGenerator_AppSRT_SetFacingDir(0xBC0, vlist_arg);
++        ret_obj = efLib_CreateGenerator_AppSRT_SetFacingDir(0xBC0, EFALT_VA_LIST);
+         break;
+     case 0x48E: {
+         ret_obj = efLib_Create_Attach_Pos(0xBBDU, gobj, EFALT_VA_ARG(Vec3*));
+@@ -297,7 +301,7 @@ void* efAlt_Spawn(s32 gfx_id, HSD_GObj* gobj, va_list vlist)
+             efLib_Create_AttachChild(0x138FU, gobj, EFALT_VA_ARG(HSD_JObj*));
+         break;
+     case 0x49A:
+-        ret_obj = efLib_CreateGenerator_AppSRT_SetFacingDir(0x138B, vlist_arg);
++        ret_obj = efLib_CreateGenerator_AppSRT_SetFacingDir(0x138B, EFALT_VA_LIST);
+         break;
+     case 0x49B:
+         ret_obj = hsd_8039EFAC(0, 5, 0x138F, EFALT_VA_ARG(HSD_JObj*));
+@@ -357,16 +361,16 @@ void* efAlt_Spawn(s32 gfx_id, HSD_GObj* gobj, va_list vlist)
+         ret_obj = efLib_CreateGenerator(0x7D02, EFALT_VA_ARG(Vec3*));
+         break;
+     case 0x4A5:
+-        ret_obj = efLib_CreateGenerator_Attach_Scale(0xA028, vlist_arg, gobj);
++        ret_obj = efLib_CreateGenerator_Attach_Scale(0xA028, EFALT_VA_LIST, gobj);
+         break;
+     case 0x4A6:
+-        ret_obj = efLib_CreateGenerator_Attach_Scale(0xA029, vlist_arg, gobj);
++        ret_obj = efLib_CreateGenerator_Attach_Scale(0xA029, EFALT_VA_LIST, gobj);
+         break;
+     case 0x4A7:
+-        ret_obj = efLib_CreateGenerator_Attach_Scale(0xA02A, vlist_arg, gobj);
++        ret_obj = efLib_CreateGenerator_Attach_Scale(0xA02A, EFALT_VA_LIST, gobj);
+         break;
+     case 0x4A8:
+-        ret_obj = efLib_CreateGenerator_Attach_Scale(0xA02B, vlist_arg, gobj);
++        ret_obj = efLib_CreateGenerator_Attach_Scale(0xA02B, EFALT_VA_LIST, gobj);
+         break;
+     case 0x4A1:
+         jobj = EFALT_VA_ARG(HSD_JObj*);
+@@ -470,7 +474,7 @@ void* efAlt_Spawn(s32 gfx_id, HSD_GObj* gobj, va_list vlist)
+         ret_obj = hsd_8039EFAC(0, 0x2E, 0xB3B1, jobj);
+         break;
+     case 0x4B0:
+-        ret_obj = efLib_CreateGenerator_AppSRT_SetFacingDir(0xB3B6, vlist_arg);
++        ret_obj = efLib_CreateGenerator_AppSRT_SetFacingDir(0xB3B6, EFALT_VA_LIST);
+         break;
+     case 0x4B1: {
+         HSD_JObj* input_jobj;
+diff --git a/src/melee/gm/gm_1832.c b/src/melee/gm/gm_1832.c
+index 06ea1b989..e6a8fba89 100644
+--- a/src/melee/gm/gm_1832.c
++++ b/src/melee/gm/gm_1832.c
+@@ -614,7 +614,11 @@ static inline void gm_1832_sdata2_order(int unused)
+ void fn_80185408(int x, float arg8, float arg9, float argA, float argB)
+ {
+     u8 _[0x30];
++#ifdef MELEE_NATIVE
++    Mtx44 sp1C;
++#else
+     Mtx sp1C;
++#endif
+     GXSetNumChans(1);
+     GXSetChanCtrl(GX_COLOR0A0, 0, GX_SRC_REG, GX_SRC_VTX, 0, GX_DF_NONE,
+                   GX_AF_NONE);
+diff --git a/src/melee/gm/gm_1A45.c b/src/melee/gm/gm_1A45.c
+index e65b062a7..d0b858ae7 100644
+--- a/src/melee/gm/gm_1A45.c
++++ b/src/melee/gm/gm_1A45.c
+@@ -302,6 +302,12 @@ void gm_801A4D34(void (*on_frame)(void), UNUSED GameSceneInfo* info)
+         for (i = 0; i < pad_queue_count; i++) {
+             HSD_PerfSetStartTime();
+             lb_800198E0();
++#ifdef MELEE_NATIVE
++            {
++                int MeleeNativeTestFreeze(void);
++                if (MeleeNativeTestFreeze()) continue;
++            }
++#endif
+             if (DbLevel >= DbLKind_DebugRom) {
+                 gm_801A4970(temp_r25->unk_10.x4);
+             }
+diff --git a/src/melee/lb/lbarq.c b/src/melee/lb/lbarq.c
+index 473938b69..125486e23 100644
+--- a/src/melee/lb/lbarq.c
++++ b/src/melee/lb/lbarq.c
+@@ -5,6 +5,9 @@
+ #include <dolphin/ar.h>
+ #include <dolphin/os.h>
+ #include <sysdolphin/baselib/debug.h>
++#ifdef MELEE_NATIVE
++#include <sched.h>
++#endif
+ 
+ typedef enum lbArqState {
+     LB_ARQ_STATE_FREE = 0,
+@@ -40,7 +43,19 @@ typedef struct lbArqHandle {
+ #endif
+ static lbArqState lbArq_80014ABC(lbArqNode* arg0)
+ {
++#ifdef MELEE_NATIVE
++    /* DMA completion runs on a host worker. Synchronize with its interrupt
++     * lock so optimized builds reload the state and observe the copied data. */
++    BOOL intr = OSDisableInterrupts();
++    lbArqState state = arg0->state;
++    OSRestoreInterrupts(intr);
++    if (state != LB_ARQ_STATE_DONE) {
++        sched_yield();
++    }
++    return state;
++#else
+     return arg0->state;
++#endif
+ }
+ #ifdef __MWERKS__
+ #pragma pop
+diff --git a/src/melee/lb/lbvector.c b/src/melee/lb/lbvector.c
+index e85b461fa..95eebb893 100644
+--- a/src/melee/lb/lbvector.c
++++ b/src/melee/lb/lbvector.c
+@@ -368,7 +368,11 @@ Vec3* lbVector_WorldToScreen(HSD_CObj* cobj, const Vec3* pos3d,
+ {
+     u8 _[16];
+ 
++#ifdef MELEE_NATIVE
++    Mtx44 projMtx;
++#else
+     Mtx projMtx;
++#endif
+     float projection[7]; // projection params
+     float viewport[6];   // viewport params
+     Mtx m;
+diff --git a/src/sysdolphin/baselib/cobj.c b/src/sysdolphin/baselib/cobj.c
+index 64698492d..7c79cb9d0 100644
+--- a/src/sysdolphin/baselib/cobj.c
++++ b/src/sysdolphin/baselib/cobj.c
+@@ -296,7 +296,11 @@ static bool setupTopHalfCamera(HSD_CObj* cobj)
+     /// @todo Should be an `Mtx44` like the other three: `makeProjectionMtx`
+     /// writes 4 rows. Changing it here does not match, so the extra row
+     /// currently lands in `unused` above.
++#ifdef MELEE_NATIVE
++    Mtx44 p;
++#else
+     Mtx p;
++#endif
+ 
+     f32 h_scale;
+     f32 t;
+diff --git a/src/sysdolphin/baselib/hsd_3A76.c b/src/sysdolphin/baselib/hsd_3A76.c
+index db524c487..cb37c6df1 100644
+--- a/src/sysdolphin/baselib/hsd_3A76.c
++++ b/src/sysdolphin/baselib/hsd_3A76.c
+@@ -518,7 +518,11 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, int pass)
+             }
+             HSD_CObjGetViewingMtx(HSD_CObjGetCurrent(), (MtxPtr)&m);
+         } else {
++#ifdef MELEE_NATIVE
++            Mtx44 projection_m;
++#else
+             Mtx projection_m;
++#endif
+ 
+             GXSetZMode(0U, 0U, 0U);
+             GXSetViewport(0.0F, 0.0F, 640.0F, 480.0F, 0.0F, 1.0F);
