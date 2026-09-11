@@ -1,6 +1,6 @@
 # Miyoo Flip V2 port: consolidated handoff
 
-Snapshot: 2026-09-11 (second iteration, v79–v142). This is the entry point for
+Snapshot: 2026-09-11 (second iteration, v79–v143). This is the entry point for
 the ARM port, the renderer work, profiling results, and remaining work. Build and
 installation details are in [FLIP.md](FLIP.md). The detailed record of this
 iteration is [RENDERER_ITERATION.md](validation/2026-09-10-flip/RENDERER_ITERATION.md);
@@ -24,11 +24,11 @@ unmeasured.
 | --- | --- |
 | Hardware | Rockchip RK3566, Mali-G52, AArch64 Linux, 640×480, ~1 GiB RAM |
 | Firmware | Surwish / Buildroot, kernel 5.10.160; app-local Mali g29p1 GLES driver |
-| Device executable | v142 (`dist/flip/v142`; v140 plus the reflection pass rendered every other frame), launcher with `MELEE_FLIP_ASYNC_FIFO=1` default |
+| Device executable | v143 (`dist/flip/v143`; v140 plus the reflection pass every other frame and half-res sprites for sprite-heavy frames), launcher with `MELEE_FLIP_ASYNC_FIFO=1` default; launcher shader cache seeded from the trial cache |
 | Local source | this tree; Aurora/Dawn working trees under ignored `build/`, patches regenerated and verified against pristine sources |
 | Device activity | game stopped between trials, MainUI running |
 | ROM | installed at `/mnt/SDCARD/Ports/melee-native/data/disc.img`; no ROM was transferred |
-| Symbols | `build/flip-tools/melee_native-v96..v142-symbols` (unstripped, for CPU samples) |
+| Symbols | `build/flip-tools/melee_native-v96..v143-symbols` (unstripped, for CPU samples) |
 
 Passwordless ADB at `10.0.0.178:5555` (`build/flip-tools/platform-tools/adb`).
 
@@ -65,9 +65,10 @@ Per-frame budget now (Onett, async, v140): game thread ~5 ms, FIFO worker
 ~8.5 ms, render worker ~12.3–14 ms, GPU ~11–12 ms. The render worker is the
 limiter; most of its time is inside the Mali driver (about 271 moving / 306
 frozen draws and 3 render passes per frame: fused shadows, main scene on the
-presented texture, dual conversion). Fountain of Dreams: render worker ~22 ms
-(369 draws, 8 passes), FIFO ~18 ms, GPU 19–24 ms (9–13 with half-res sprites),
-so it needs draws and passes cut further before the GPU-side lever pays.
+presented texture, dual conversion). Fountain of Dreams (v143): mean frame ~24 ms,
+render worker ~22 ms (356 draws, reflection pass every other frame, half-res
+sprites), FIFO ~18–20 ms, GPU 12–14 ms; the FIFO worker and the driver's
+per-draw cost are now its limiters.
 
 ## Current defaults and switches
 

@@ -1,4 +1,4 @@
-# Renderer iteration toward 60 FPS, 2026-09-10 (v79–v142)
+# Renderer iteration toward 60 FPS, 2026-09-10 (v79–v143)
 
 This report continues the Miyoo Flip work described in the earlier reports under
 `../2026-09-09-flip/`. It records what was measured, what changed in the renderer,
@@ -62,6 +62,9 @@ physical scanout capture (`3f2016a8522d…`) as the v77/v79 baseline.
 | v140 | frozen Fountain of Dreams | async | 28.5 | 22.5 | 369 draws | ±1 on 172 px (`87712e4c1eab`) |
 | v140 | moving Onett | async | 17.5 | 16.7 (p95 16.9) | 271 draws, render worker 12.3–14.0 ms | n/a |
 | v140 | moving Fountain of Dreams | async | 27.2 | 20.4 (p95 51.6) | 356 draws (was 447), main pass CPU 10.3 → 8.7 ms | n/a |
+| v142 reflection every other frame | moving Fountain of Dreams | async | 26.6 | 24.9 (p95 49.7) | reflection pass 105 of 210 submits | frozen hash unchanged |
+| v142 + `MELEE_FLIP_HALFRES_SPRITES=4000` | moving Fountain of Dreams | async | 23.9 | 24.0 (p95 36.2) | main pass GPU 25 → 12.5–14.4 ms | n/a |
+| v143 (half-res sprites default) | frozen Onett / moving Fountain | async | 17.1 / 23.9 | 16.7 / 24.0 (p95 36.3) | Onett unaffected (no sprite frames) | Onett `8a3713fa00a5` |
 
 Mean/median are the presentation intervals from `[flip-thread-present]`
 (`analyze_flip_profile.py --tail 300`); FPS is the game thread's `[perf]` line
@@ -412,9 +415,10 @@ so it can be A/B tested with the trial tool.
     alpha-tested cutouts with depth write (`psdisp.c` TexEdge), not blends; depth
     written by sprites stays in the half-res buffer, so geometry drawn after them
     is not occluded by them. Result on Fountain: main pass GPU 19–24 → 9–13 ms,
-    but the scene is render-worker bound (447 draws, 8 passes, ~23 ms), and the
-    three added passes made the frame ~2 ms slower, so the pass is off by default.
-    It becomes useful once Fountain's CPU side drops below its GPU time. The
+    but at v133 the scene was render-worker bound (447 draws, 8 passes, ~23 ms)
+    and the three added passes made the frame ~2 ms slower. After the atlas and
+    the reflection skip (v142) it is a net gain (mean frame 26.6 → 23.9 ms, p95
+    50 → 36 ms) and is on by default from v143 with the 4000-point threshold. The
     encoder tasks are exempt from the "encoder task present → upload streams
     through Dawn" rule (`is_sprite_task`), which otherwise cost 20 ms per frame.
 
