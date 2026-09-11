@@ -1,4 +1,4 @@
-# Renderer iteration toward 60 FPS, 2026-09-10 (v79–v134)
+# Renderer iteration toward 60 FPS, 2026-09-10 (v79–v140)
 
 This report continues the Miyoo Flip work described in the earlier reports under
 `../2026-09-09-flip/`. It records what was measured, what changed in the renderer,
@@ -56,7 +56,12 @@ physical scanout capture (`3f2016a8522d…`) as the v77/v79 baseline.
 | v129 | moving Fountain of Dreams | async | 26.4 | 21.8 (p95 53) | render 22–25 ms, FIFO 19.5 ms, main pass GPU 19–24 ms | n/a |
 | v129 `MELEE_FLIP_FS_VARYING_CONSTANTS=1` | frozen Onett | async | 17.2 | 16.7 | main pass GPU 10.6 ms vs 10.5 default | yes (no gain) |
 | v133 `MELEE_FLIP_HALFRES_SPRITES=4000` | moving Fountain of Dreams | async | 23.8 | 23.9 (p95 36) | main pass GPU 19–24 → 9–13 ms; render worker 22–24 ms (CPU-bound), frame +2 ms | n/a (half-res sprites) |
-| v134 defaults | frozen Onett / frozen Fountain / moving Onett | async | see handoff | | | yes / yes / n/a |
+| v134 defaults | frozen Onett / frozen Fountain / moving Onett | async | 17.1 / 26.2 / 17.5 | 16.7 / 20.8 / 16.7 (p95 18.2) | render worker 13.0–14.7 ms moving Onett | yes / yes / n/a |
+| v136 larger initial slabs | frozen Onett / Fountain | async | | | 337 / 431 draws | yes / yes |
+| v140 clamp-texture atlas | frozen Onett | async | 17.1 | 16.7 (p95 16.9) | 306 draws | ±1 on 109 px (`8a3713fa00a5`) |
+| v140 | frozen Fountain of Dreams | async | 28.5 | 22.5 | 369 draws | ±1 on 172 px (`87712e4c1eab`) |
+| v140 | moving Onett | async | 17.5 | 16.7 (p95 16.9) | 271 draws, render worker 12.3–14.0 ms | n/a |
+| v140 | moving Fountain of Dreams | async | 27.2 | 20.4 (p95 51.6) | 356 draws (was 447), main pass CPU 10.3 → 8.7 ms | n/a |
 
 Mean/median are the presentation intervals from `[flip-thread-present]`
 (`analyze_flip_profile.py --tail 300`); FPS is the game thread's `[perf]` line
@@ -340,6 +345,34 @@ so it can be A/B tested with the trial tool.
     surface is copied into it with a plain texture copy. Onett: 4 → 3 passes,
     render callback 13.8 → 11.8 ms, exact.
 
+22. **Texture atlas for clamp textures** (`gfx/texture.cpp` `allocate_atlas_rect`,
+    `MELEE_FLIP_TEXTURE_ATLAS`, default on, v137–v140). A per-draw trace with a
+    texture bind-group dump (`MELEE_FLIP_DRAW_TRACE=1 MELEE_FLIP_TEXGROUP_TRACE=1`)
+    showed 178 (Fountain) and 162 (Onett) adjacent same-pipeline draws per frame
+    that differed only in texture: mostly textures of different *sizes*, which
+    per-size array slabs cannot share. Every texture in these frames is
+    single-mip and 79 % are clamp-wrapped on both axes. Such textures now share
+    1024×1024 atlas layers (a shelf packer per layer, one-texel replicated
+    gutter around each cell, cells reused when a layer empties), grouped by
+    format and the filter/anisotropy bits that still matter for a single level;
+    `TextureBind::get_descriptor` normalizes mip filter and LOD clamps for
+    single-level textures so the class shares one sampler object. The uniform
+    record carries `tex{i}_atlas` (offset, scale) and the shader samples
+    `clamp(uv) * scale + offset`, which reproduces clamp filtering exactly up to
+    fp32 rounding of the texel coordinate. Repeat/mirror textures keep their
+    per-size slabs (a repeat atlas would need shader-side wrapping and gutters).
+    Bugs on the way: the content-dedupe cache shared one GPU texture between
+    CLAMP and REPEAT users of the same image (flat brick walls); the atlas class
+    now lives in the content key. The eligibility flag in bit 63 of the class
+    key aliased mode1 bit 31 of some texture objects, atlasing repeat textures
+    and spawning 29 bogus classes (free RAM 836 → 270 MB); the plain class masks
+    the bit. The `tex{i}_atlas` field must be counted in `ShaderInfo::uniformSize`.
+    Result: Onett frozen 337 → 306 draws, moving 333 → 271 (render worker
+    12.3–14.0 ms), Fountain 431 → 369; 11 atlas slabs (~44 MB). The frozen
+    captures now differ from the references by ±1 on 109 (Onett) and 172
+    (Fountain) pixels, the sub-texel rounding of the remapped coordinate;
+    `MELEE_FLIP_TEXTURE_ATLAS=0` restores bit exactness.
+
 21. **Half-resolution sprite pass** (`flip_sprites.cpp`, `recording.cpp`
     `FlipSpriteSegment`, `MELEE_FLIP_HALFRES_SPRITES=<points>`, opt-in, v130–v133).
     When the previous frame drew at least that many points, runs of eligible
@@ -369,6 +402,11 @@ so it can be A/B tested with the trial tool.
 
 ## Findings worth keeping
 
+- **Dead ends re-measured on v134/v135:** the uber shader (`MELEE_FLIP_UBERSHADER=1`)
+  renders at 245–260 ms per frame with 260–280 ms of GPU time and ~3,000 texture
+  binds, and is not exact; texture pairs (`MELEE_FLIP_TEXTURE_PAIRS=1`) merge 4
+  (Onett) to 20 (Fountain) draws while raising texture binds to 4,600–5,700 per
+  frame and losing Fountain exactness. Neither is a path forward as is.
 - **TEV constants as flat varyings do not pay** (`MELEE_FLIP_FS_VARYING_CONSTANTS=1`,
   v129): reading konst colors and register initial values in the vertex stage
   and passing them flat leaves the main pass GPU time unchanged (10.6 vs 10.5

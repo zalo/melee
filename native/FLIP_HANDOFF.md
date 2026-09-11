@@ -1,6 +1,6 @@
 # Miyoo Flip V2 port: consolidated handoff
 
-Snapshot: 2026-09-11 (second iteration, v79–v134). This is the entry point for
+Snapshot: 2026-09-11 (second iteration, v79–v140). This is the entry point for
 the ARM port, the renderer work, profiling results, and remaining work. Build and
 installation details are in [FLIP.md](FLIP.md). The detailed record of this
 iteration is [RENDERER_ITERATION.md](validation/2026-09-10-flip/RENDERER_ITERATION.md);
@@ -24,11 +24,11 @@ unmeasured.
 | --- | --- |
 | Hardware | Rockchip RK3566, Mali-G52, AArch64 Linux, 640×480, ~1 GiB RAM |
 | Firmware | Surwish / Buildroot, kernel 5.10.160; app-local Mali g29p1 GLES driver |
-| Device executable | v134 (`dist/flip/v134`; v124 plus instanced points, texture arrays, scene on the presented texture, texture verification interval; half-res sprites opt-in), launcher with `MELEE_FLIP_ASYNC_FIFO=1` default |
+| Device executable | v140 (`dist/flip/v140`; v134 plus the clamp-texture atlas and larger array slabs), launcher with `MELEE_FLIP_ASYNC_FIFO=1` default |
 | Local source | this tree; Aurora/Dawn working trees under ignored `build/`, patches regenerated and verified against pristine sources |
 | Device activity | game stopped between trials, MainUI running |
 | ROM | installed at `/mnt/SDCARD/Ports/melee-native/data/disc.img`; no ROM was transferred |
-| Symbols | `build/flip-tools/melee_native-v96..v134-symbols` (unstripped, for CPU samples) |
+| Symbols | `build/flip-tools/melee_native-v96..v140-symbols` (unstripped, for CPU samples) |
 
 Passwordless ADB at `10.0.0.178:5555` (`build/flip-tools/platform-tools/adb`).
 
@@ -61,13 +61,13 @@ mostly inside the Mali driver, not Dawn.
 | Scene on the presented texture | EFB passes render into the swapchain texture acquired at encode time; present copy skipped | Onett 4 → 3 passes, render callback 13.8 → 11.8 ms; moving Onett render worker 13.4–14.9 ms |
 | Texture verification interval | sampled content re-hash once per 4 frames per texture object | FIFO −1 to −3 ms (Fountain) |
 
-Per-frame budget now (Onett, async, v134): game thread ~5 ms, FIFO worker
-~9 ms, render worker ~13.5–15 ms, GPU ~11–12 ms. The render worker is the
-limiter; most of its time is inside the Mali driver (about 343 draws and 3 render
-passes per frame: fused shadows, main scene on the presented texture, dual
-conversion). Fountain of Dreams: render worker ~23 ms (447 draws, 8 passes),
-FIFO ~19 ms, GPU 19–24 ms (9–13 with half-res sprites), so it needs draws and
-passes cut before the GPU-side lever pays.
+Per-frame budget now (Onett, async, v140): game thread ~5 ms, FIFO worker
+~8.5 ms, render worker ~12.3–14 ms, GPU ~11–12 ms. The render worker is the
+limiter; most of its time is inside the Mali driver (about 271 moving / 306
+frozen draws and 3 render passes per frame: fused shadows, main scene on the
+presented texture, dual conversion). Fountain of Dreams: render worker ~22 ms
+(369 draws, 8 passes), FIFO ~18 ms, GPU 19–24 ms (9–13 with half-res sprites),
+so it needs draws and passes cut further before the GPU-side lever pays.
 
 ## Current defaults and switches
 
@@ -93,6 +93,8 @@ iteration is on by default and has an opt-out for A/B trials:
 | `MELEE_FLIP_DUAL_CONV` | 1 | convert both shadow copies of a fused pass in one two-target pass |
 | `MELEE_FLIP_INSTANCED_POINTS` | 1 | one record per GX point, quad corner from the vertex index (Fountain sprites) |
 | `MELEE_FLIP_TEXTURE_ARRAYS` | 1 | GX textures as layers of shared array textures; layer in the uniform record |
+| `MELEE_FLIP_TEXTURE_ATLAS` | 1 | clamp-wrapped single-mip textures share 1024² atlas layers (±1 on ~100 pixels of the frozen captures; 0 restores bit exactness) |
+| `MELEE_FLIP_TEXGROUP_TRACE` | off | diagnostic: describe each distinct texture bind group once (pair with `MELEE_FLIP_DRAW_TRACE`) |
 | `MELEE_FLIP_SCENE_ON_SURFACE` | 1 | EFB passes render into the presented texture; no present copy pass |
 | `MELEE_FLIP_FS_VARYING_CONSTANTS` | off | experiment: TEV constants as flat varyings; measured no GPU gain (see report) |
 | `MELEE_FLIP_TEXTURE_VERIFY_INTERVAL` | 4 | frames between content re-hashes of a texture object (1 = every bind) |
@@ -112,8 +114,10 @@ Earlier experiments (`MELEE_FLIP_STREAM_UPLOAD`, `MELEE_FLIP_NATIVE_SPECIALIZED`
 ## Validation
 
 - Frozen Onett EFB capture `da46d4a79a8f…` matches the v77/v79 reference for every
-  default-configuration build v80–v124 (async included); frozen Fountain of Dreams
-  `cc2fea00f05f…` matches through v124 (one v117 run differed in the player
+  default-configuration build v80–v136 (async included); frozen Fountain of Dreams
+  `cc2fea00f05f…` matches through v136. From v140 the default configuration
+  (texture atlas) differs by ±1 on 109 / 172 pixels (`8a3713fa00a5…` /
+  `87712e4c1eab…`); `MELEE_FLIP_TEXTURE_ATLAS=0` reproduces the references (one v117 run differed in the player
   indicators and never reproduced; see the report). The scanout capture
   changed at v99b (`eaf1f2147d79…`, 20 pixels differ by ±1); the EFB is the
   criterion.
@@ -141,20 +145,24 @@ render worker, and `[flip-resident]`. `MELEE_FLIP_DAWN_TIMING=1` adds
 
 ## Next work, in priority order
 
-1. **Render worker below ~13 ms** (moving Onett sits at 13.5–15 ms: main pass
-   ~9–10 ms of driver time for ~343 draws; fused shadows and dual conversion ~1 ms
+1. **Render worker below ~12 ms** (moving Onett sits at 12.3–14 ms: main pass
+   ~8–9 ms of driver time for ~271 draws; fused shadows and dual conversion ~1 ms
    each). Measured and rejected: per-draw uniform records (+5 ms), one VAO per
-   layout (neutral), TEV constants as flat varyings (no GPU gain). Done: swapchain
-   pool, shadow-pass fusion, two-target conversion, texture arrays, scene rendered
-   into the presented texture (7 → 3 passes). What remains is the draw count:
-   pipeline breaks (~42 per frame; an uber-shader variant for the most common
-   TEV configurations), the remaining texture breaks (textures of different
-   sizes/samplers in one draw run), opaque sorting (opt-in, −0.5 ms), fewer HUD
-   draws. **Fountain of Dreams** is render-worker bound at ~23 ms with 447 draws
-   and 8 passes (the reflection pass alone is ~150 draws, 3 ms); its GPU lever
-   (half-res sprites, −8 ms GPU) is implemented and opt-in until the CPU side
-   drops below the GPU time. Its FIFO worker (~19 ms) splits into indexed s16
-   decoding, memcpy of display-list indices, uniform builds and texture hashing.
+   layout (neutral), TEV constants as flat varyings (no GPU gain), the existing
+   uber shader (250 ms frames, not exact), texture pairs (no merges, 5,000 binds).
+   Done: swapchain pool, shadow-pass fusion, two-target conversion, texture
+   arrays, clamp-texture atlas, scene rendered into the presented texture
+   (7 → 3 passes, 360 → ~280 draws). What remains: pipeline breaks (~220
+   adjacent pipeline changes per Fountain frame, mostly TEV/channel/vertex-layout
+   differences; a purpose-built uber path or a "superset vertex layout" would be
+   needed), repeat/mirror textures (21 % of textures; an atlas for them needs
+   shader-side wrapping with gutters), opaque sorting (opt-in, −0.5 ms), fewer
+   HUD draws. **Fountain of Dreams** is render-worker bound at ~22 ms with 369
+   draws and 8 passes (the reflection pass alone is ~150 draws, 3 ms); its GPU
+   lever (half-res sprites, −8 ms GPU) is implemented and opt-in until the CPU
+   side drops below the GPU time. Its FIFO worker (~18 ms) splits into indexed
+   s16 decoding, memcpy of display-list indices, uniform builds and texture
+   hashing.
 2. **Compile stalls on a cold shader cache** (`pipeline_wait_ms` is ~0 when warm):
    non-blocking pipeline creation (skip the draw, Dolphin style), repaired
    prewarming, or a shipped cache from scripted matches.

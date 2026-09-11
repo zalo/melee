@@ -4959,13 +4959,16 @@ index 392dcc8..a0914c7 100644
        },
        wgpu::BindGroupLayoutEntry{
 diff --git a/lib/gfx/texture.cpp b/lib/gfx/texture.cpp
-index 029a3d0..cbd2c5e 100644
+index 029a3d0..6065767 100644
 --- a/lib/gfx/texture.cpp
 +++ b/lib/gfx/texture.cpp
-@@ -10,8 +10,13 @@
+@@ -9,9 +9,16 @@
+ #include "../gx/gx_fmt.hpp"
  
  #include <algorithm>
++#include <cmath>
  #include <cstdint>
++#include <cstdio>
 +#include <cstdlib>
 +#include <cstring>
  #include <memory>
@@ -4976,7 +4979,7 @@ index 029a3d0..cbd2c5e 100644
  
  #include <fmt/format.h>
  #include <tracy/Tracy.hpp>
-@@ -21,9 +26,124 @@ namespace aurora::gfx {
+@@ -21,9 +28,241 @@ namespace aurora::gfx {
  using webgpu::g_device;
  using webgpu::g_queue;
  
@@ -5027,6 +5030,7 @@ index 029a3d0..cbd2c5e 100644
 +
 +bool setup_swizzle(wgpu::TextureComponentSwizzleDescriptor& swizzle, u32 format) noexcept;
 +const wgpu::TextureBindingViewDimension* array_binding_chain();
++bool texture_atlas_enabled() noexcept;
 +
 +std::pair<std::shared_ptr<ArraySlab>, uint32_t> allocate_array_layer(const ArrayKey& key, const char* label) {
 +  std::lock_guard lock{g_arrayMutex};
@@ -5045,8 +5049,10 @@ index 029a3d0..cbd2c5e 100644
 +  const uint32_t byBudget = static_cast<uint32_t>(std::clamp<uint64_t>((2u << 20) / layerBytes, 1, 32));
 +  // First slab: small textures start with room for neighbours (merges need
 +  // textures of one class in one slab), large ones start alone.
++  // Adjacent draws often use same-class textures that landed in different
++  // slabs (30/frame on Fountain with 4/2/1); start larger for small classes.
 +  const uint64_t area = uint64_t(key.width) * key.height;
-+  uint32_t layers = area <= 64 * 64 ? 4 : area <= 128 * 128 ? 2 : 1;
++  uint32_t layers = area <= 64 * 64 ? 8 : area <= 128 * 128 ? 4 : area <= 256 * 256 ? 2 : 1;
 +  if (!slabs.empty()) layers = std::min<uint32_t>(slabs.back()->layers * 2, 32);
 +  layers = std::max<uint32_t>(std::min(layers, byBudget), 1);
 +  auto slab = std::make_shared<ArraySlab>();
@@ -5088,6 +5094,120 @@ index 029a3d0..cbd2c5e 100644
 +  --g_arrayStats.layersUsed;
 +}
 +
++// ---- Atlas layers for clamp-wrapped single-mip textures -------------------
++bool texture_atlas_enabled() noexcept {
++  static const bool enabled = [] {
++    const char* v = std::getenv("MELEE_FLIP_TEXTURE_ATLAS");
++    return v == nullptr || std::strcmp(v, "0") != 0;
++  }();
++  return texture_arrays_enabled() && enabled;
++}
++constexpr uint32_t AtlasSize = 1024;
++constexpr uint32_t AtlasGutter = 1;
++struct AtlasShelf { uint32_t y, height, nextX; };
++struct AtlasLayer {
++  std::vector<AtlasShelf> shelves;
++  uint32_t nextY = 0;
++  uint32_t live = 0;
++};
++struct AtlasSlabInfo {
++  std::vector<AtlasLayer> layers; // one per array layer of the slab
++};
++std::unordered_map<ArraySlab*, AtlasSlabInfo> g_atlasInfo; // guarded by g_arrayMutex
++
++bool atlas_place(AtlasLayer& layer, uint32_t w, uint32_t h, uint32_t& x, uint32_t& y) {
++  const uint32_t cw = w + 2 * AtlasGutter, ch = h + 2 * AtlasGutter;
++  if (cw > AtlasSize || ch > AtlasSize) return false;
++  for (auto& shelf : layer.shelves) {
++    if (ch <= shelf.height && ch * 2 > shelf.height && shelf.nextX + cw <= AtlasSize) {
++      x = shelf.nextX; y = shelf.y; shelf.nextX += cw; ++layer.live; return true;
++    }
++  }
++  if (layer.nextY + ch > AtlasSize) return false;
++  layer.shelves.push_back({layer.nextY, ch, cw});
++  x = 0; y = layer.nextY; layer.nextY += ch; ++layer.live;
++  return true;
++}
++
++struct AtlasPlacement { std::shared_ptr<ArraySlab> slab; uint32_t layer, x, y; };
++AtlasPlacement allocate_atlas_rect(const ArrayKey& key, uint32_t w, uint32_t h, const char* label) {
++  std::lock_guard lock{g_arrayMutex};
++  auto& slabs = g_arraySlabs[key];
++  for (auto& slab : slabs) {
++    auto& info = g_atlasInfo[slab.get()];
++    info.layers.resize(slab->layers);
++    for (uint32_t l = 0; l < slab->layers; ++l) {
++      uint32_t x, y;
++      if (atlas_place(info.layers[l], w, h, x, y)) return {slab, l, x, y};
++    }
++  }
++  // New slab: layers double per class (1, 2, 4, ...), each 1024x1024.
++  const uint32_t layers = slabs.empty() ? 1u : std::min<uint32_t>(slabs.back()->layers * 2, 8);
++  auto slab = std::make_shared<ArraySlab>();
++  slab->layers = layers;
++  const std::string slabLabel = fmt::format("{} atlas x{}", label, layers);
++  const wgpu::TextureDescriptor textureDescriptor{
++      .nextInChain = array_binding_chain(),
++      .label = slabLabel.c_str(),
++      .usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst,
++      .dimension = wgpu::TextureDimension::e2D,
++      .size = {AtlasSize, AtlasSize, layers},
++      .format = key.format,
++      .mipLevelCount = 1,
++      .sampleCount = 1,
++  };
++  slab->texture = g_device.CreateTexture(&textureDescriptor);
++  wgpu::TextureViewDescriptor viewDescriptor{
++      .label = slabLabel.c_str(),
++      .format = key.format,
++      .dimension = wgpu::TextureViewDimension::e2DArray,
++      .mipLevelCount = 1,
++      .arrayLayerCount = layers,
++  };
++  wgpu::TextureComponentSwizzleDescriptor swizzle;
++  if (setup_swizzle(swizzle, key.gxFormat)) viewDescriptor.nextInChain = &swizzle;
++  slab->view = slab->texture.CreateView(&viewDescriptor);
++  slabs.push_back(slab);
++  ++g_arrayStats.slabs;
++  static unsigned atlasSlabs = 0;
++  ++atlasSlabs;
++  std::fprintf(stderr, "[flip-atlas] new slab layers=%u class_slabs=%zu total_atlas_slabs=%u fmt=%u gx=%x key=%llx (%ux%u)\n",
++               layers, slabs.size(), atlasSlabs, static_cast<unsigned>(key.format), key.gxFormat,
++               static_cast<unsigned long long>(key.groupKey), w, h);
++  auto& info = g_atlasInfo[slab.get()];
++  info.layers.resize(layers);
++  uint32_t x, y;
++  const bool placed = atlas_place(info.layers[0], w, h, x, y);
++  (void)placed;
++  return {slab, 0u, x, y};
++}
++
++void release_atlas_rect(const std::shared_ptr<ArraySlab>& slab, uint32_t layer) {
++  std::lock_guard lock{g_arrayMutex};
++  auto it = g_atlasInfo.find(slab.get());
++  if (it == g_atlasInfo.end() || layer >= it->second.layers.size()) return;
++  auto& l = it->second.layers[layer];
++  if (l.live > 0 && --l.live == 0) { l.shelves.clear(); l.nextY = 0; } // whole layer free again
++}
++
++// Copies a w x h image into a (w+2) x (h+2) buffer with replicated edges.
++void pad_with_gutter(const uint8_t* src, uint32_t srcBytesPerRow, uint32_t w, uint32_t h, uint32_t bpp,
++                     std::vector<uint8_t>& out, uint32_t& outBytesPerRow) {
++  const uint32_t pw = w + 2 * AtlasGutter, ph = h + 2 * AtlasGutter;
++  outBytesPerRow = pw * bpp;
++  out.resize(size_t(outBytesPerRow) * ph);
++  for (uint32_t y = 0; y < ph; ++y) {
++    const uint32_t sy = y < AtlasGutter ? 0 : y >= h + AtlasGutter ? h - 1 : y - AtlasGutter;
++    const uint8_t* srow = src + size_t(sy) * srcBytesPerRow;
++    uint8_t* drow = out.data() + size_t(y) * outBytesPerRow;
++    std::memcpy(drow + AtlasGutter * bpp, srow, size_t(w) * bpp);
++    for (uint32_t g = 0; g < AtlasGutter; ++g) {
++      std::memcpy(drow + g * bpp, srow, bpp);
++      std::memcpy(drow + (w + AtlasGutter + g) * bpp, srow + size_t(w - 1) * bpp, bpp);
++    }
++  }
++}
++
 +// Compatibility mode (GLES): declare the texture's binding view dimension so
 +// Dawn creates a GL_TEXTURE_2D_ARRAY object even for a single layer, matching
 +// the array samplers in GX shaders without wasting a second layer.
@@ -5101,9 +5221,11 @@ index 029a3d0..cbd2c5e 100644
  wgpu::Extent3D physical_size(wgpu::Extent3D size, TextureFormatInfo info) {
    const uint32_t width = ((size.width + info.blockWidth - 1) / info.blockWidth) * info.blockWidth;
    const uint32_t height = ((size.height + info.blockHeight - 1) / info.blockHeight) * info.blockHeight;
-@@ -98,10 +218,11 @@ u16 wgpu_aniso(GXAnisotropy aniso) {
+@@ -97,11 +336,13 @@ u16 wgpu_aniso(GXAnisotropy aniso) {
+ }
  } // namespace
  
++static void upload_atlas_texture(TextureRef& ref, ArrayRef<uint8_t> data, const char* label);
  TextureHandle new_static_texture_2d(uint32_t width, uint32_t height, uint32_t mips, u32 format, ArrayRef<uint8_t> data,
 -                                    bool tlut, const char* label) noexcept {
 +                                    bool tlut, const char* label, uint64_t groupKey) noexcept {
@@ -5115,7 +5237,18 @@ index 029a3d0..cbd2c5e 100644
    auto& ref = *handle;
  
    ConvertedTexture converted;
-@@ -137,6 +258,7 @@ TextureHandle new_static_texture_2d(uint32_t width, uint32_t height, uint32_t mi
+@@ -119,6 +360,10 @@ TextureHandle new_static_texture_2d(uint32_t width, uint32_t height, uint32_t mi
+     }
+   }
+ 
++  if (ref.atlas) {
++    upload_atlas_texture(ref, data, label);
++    return handle;
++  }
+   uint32_t offset = 0;
+   for (uint32_t mip = 0; mip < mips; ++mip) {
+     const wgpu::Extent3D mipSize{
+@@ -137,6 +382,7 @@ TextureHandle new_static_texture_2d(uint32_t width, uint32_t height, uint32_t mi
      const wgpu::TexelCopyTextureInfo dstView{
          .texture = ref.texture,
          .mipLevel = mip,
@@ -5123,7 +5256,7 @@ index 029a3d0..cbd2c5e 100644
      };
      if constexpr (UseTextureBuffer) {
        queue_texture_upload_data(data.data() + offset, bytesPerRow, heightBlocks, std::move(dstView), physicalSize);
-@@ -156,7 +278,7 @@ TextureHandle new_static_texture_2d(uint32_t width, uint32_t height, uint32_t mi
+@@ -156,7 +402,7 @@ TextureHandle new_static_texture_2d(uint32_t width, uint32_t height, uint32_t mi
  }
  
  TextureHandle new_dynamic_texture_2d(uint32_t width, uint32_t height, uint32_t mips, u32 gxFormat,
@@ -5132,12 +5265,30 @@ index 029a3d0..cbd2c5e 100644
    ZoneScopedS(3);
    const auto wgpuFormat = to_wgpu(gxFormat);
    const wgpu::Extent3D size{
-@@ -164,6 +286,15 @@ TextureHandle new_dynamic_texture_2d(uint32_t width, uint32_t height, uint32_t m
+@@ -164,6 +410,33 @@ TextureHandle new_dynamic_texture_2d(uint32_t width, uint32_t height, uint32_t m
        .height = height,
        .depthOrArrayLayers = 1,
    };
++  const auto formatInfo = format_info(wgpuFormat);
++  if (texture_atlas_enabled() && groupKey != UINT64_MAX && (groupKey & TextureAtlasEligible) && mips == 1 &&
++      formatInfo.blockWidth == 1 && formatInfo.blockHeight == 1 && width + 2 <= 1024 && height + 2 <= 1024) {
++    const ArrayKey key{1024, 1024, 1, wgpuFormat, gxFormat, groupKey};
++    auto placement = allocate_atlas_rect(key, width, height, label);
++    auto handle = std::make_shared<TextureRef>(placement.slab->texture, placement.slab->view, wgpu::TextureView{}, size,
++                                               wgpuFormat, mips, gxFormat);
++    handle->layer = placement.layer;
++    handle->atlas = true;
++    handle->atlasOffsetX = static_cast<float>(placement.x + 1) / 1024.f;
++    handle->atlasOffsetY = static_cast<float>(placement.y + 1) / 1024.f;
++    handle->atlasScaleX = static_cast<float>(width) / 1024.f;
++    handle->atlasScaleY = static_cast<float>(height) / 1024.f;
++    auto slab = placement.slab;
++    const uint32_t layer = placement.layer;
++    handle->onRelease = [slab, layer] { release_atlas_rect(slab, layer); };
++    return handle;
++  }
 +  if (texture_arrays_enabled() && groupKey != UINT64_MAX) {
-+    const ArrayKey key{width, height, mips, wgpuFormat, gxFormat, groupKey};
++    const ArrayKey key{width, height, mips, wgpuFormat, gxFormat, groupKey & ~TextureAtlasEligible};
 +    auto [slab, layer] = allocate_array_layer(key, label);
 +    auto handle = std::make_shared<TextureRef>(slab->texture, slab->view, wgpu::TextureView{}, size, wgpuFormat, mips,
 +                                               gxFormat);
@@ -5148,7 +5299,7 @@ index 029a3d0..cbd2c5e 100644
    const wgpu::TextureDescriptor textureDescriptor{
        .label = label,
        .usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst,
-@@ -190,18 +321,18 @@ TextureHandle new_dynamic_texture_2d(uint32_t width, uint32_t height, uint32_t m
+@@ -190,18 +463,18 @@ TextureHandle new_dynamic_texture_2d(uint32_t width, uint32_t height, uint32_t m
                                        mips, gxFormat);
  }
  
@@ -5172,7 +5323,7 @@ index 029a3d0..cbd2c5e 100644
        .dimension = wgpu::TextureDimension::e2D,
        .size = size,
        .format = wgpuFormat,
-@@ -210,50 +341,43 @@ TextureHandle new_render_texture(uint32_t width, uint32_t height, u32 gxFormat,
+@@ -210,50 +483,70 @@ TextureHandle new_render_texture(uint32_t width, uint32_t height, u32 gxFormat,
    };
    auto texture = g_device.CreateTexture(&textureDescriptor);
  
@@ -5229,26 +5380,62 @@ index 029a3d0..cbd2c5e 100644
 -      .sampleCount = 1,
 -  };
 -  auto texture = g_device.CreateTexture(&textureDescriptor);
--
++TextureHandle new_conv_texture(uint32_t width, uint32_t height, u32 gxFormat, const char* label) noexcept {
++  ZoneScoped;
++  return new_sampled_target(width, height, to_wgpu(gxFormat), gxFormat,
++                            wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::RenderAttachment, label);
++}
+ 
 -  // Create texture view for color attachments
 -  const auto viewLabel = fmt::format("{} view", label);
 -  wgpu::TextureViewDescriptor textureViewDescriptor{
 -      .label = viewLabel.c_str(),
 -      .format = wgpuFormat,
 -      .dimension = wgpu::TextureViewDimension::e2D,
--  };
++// Atlas textures: level 0 only, padded with a replicated one-texel gutter and
++// written at the texture's cell in its layer.
++static void upload_atlas_texture(TextureRef& ref, ArrayRef<uint8_t> data, const char* label) {
++  const auto info = format_info(ref.format);
++  const uint32_t bpp = info.blockSize;
++  const uint32_t bytesPerRow = ref.size.width * bpp;
++  const size_t need = size_t(bytesPerRow) * ref.size.height;
++  CHECK(need <= data.size(), "{}: atlas texture expected {} bytes, got {}", label, need, data.size());
++  static thread_local std::vector<uint8_t> padded;
++  uint32_t paddedBytesPerRow = 0;
++  pad_with_gutter(data.data(), bytesPerRow, ref.size.width, ref.size.height, bpp, padded, paddedBytesPerRow);
++  const uint32_t x = static_cast<uint32_t>(std::lround(ref.atlasOffsetX * 1024.f)) - 1;
++  const uint32_t y = static_cast<uint32_t>(std::lround(ref.atlasOffsetY * 1024.f)) - 1;
++  const wgpu::Extent3D size{ref.size.width + 2, ref.size.height + 2, 1};
++  const wgpu::TexelCopyTextureInfo dstView{
++      .texture = ref.texture,
++      .mipLevel = 0,
++      .origin = {x, y, ref.layer},
+   };
 -  auto attachmentTextureView = texture.CreateView(&textureViewDescriptor);
 -  wgpu::TextureView sampleTextureView = attachmentTextureView;
 -  return std::make_shared<TextureRef>(std::move(texture), std::move(sampleTextureView),
 -                                      std::move(attachmentTextureView), size, wgpuFormat, 1, gxFormat);
-+TextureHandle new_conv_texture(uint32_t width, uint32_t height, u32 gxFormat, const char* label) noexcept {
-+  ZoneScoped;
-+  return new_sampled_target(width, height, to_wgpu(gxFormat), gxFormat,
-+                            wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::RenderAttachment, label);
++  if constexpr (UseTextureBuffer) {
++    queue_texture_upload_data(padded.data(), paddedBytesPerRow, size.height, dstView, size);
++  } else {
++    const wgpu::TexelCopyBufferLayout dataLayout{.bytesPerRow = paddedBytesPerRow, .rowsPerImage = size.height};
++    g_queue.WriteTexture(&dstView, padded.data(), padded.size(), &dataLayout, &size);
++  }
  }
  
  void write_texture(TextureRef& ref, ArrayRef<uint8_t> data) noexcept {
-@@ -286,6 +410,7 @@ void write_texture(TextureRef& ref, ArrayRef<uint8_t> data) noexcept {
+@@ -267,6 +560,10 @@ void write_texture(TextureRef& ref, ArrayRef<uint8_t> data) noexcept {
+       data = converted.data;
+     }
+   }
++  if (ref.atlas) {
++    upload_atlas_texture(ref, data, "write_texture");
++    return;
++  }
+ 
+   uint32_t offset = 0;
+   for (uint32_t mip = 0; mip < ref.mipCount; ++mip) {
+@@ -286,6 +583,7 @@ void write_texture(TextureRef& ref, ArrayRef<uint8_t> data) noexcept {
      const wgpu::TexelCopyTextureInfo dstView{
          .texture = ref.texture,
          .mipLevel = mip,
@@ -5256,8 +5443,22 @@ index 029a3d0..cbd2c5e 100644
      };
      if constexpr (UseTextureBuffer) {
        queue_texture_upload_data(data.data() + offset, bytesPerRow, heightBlocks, std::move(dstView), physicalSize);
+@@ -316,6 +614,13 @@ wgpu::SamplerDescriptor TextureBind::get_descriptor() const noexcept {
+     if (!mipsEnabled) {
+       mipFilter = wgpu::MipmapFilterMode::Nearest;
+     }
++  } else if (ref && ref->mipCount == 1 && mipFilter != wgpu::MipmapFilterMode::Undefined) {
++    // A single level: mip filtering and LOD clamps cannot change the result,
++    // so use the same sampler as a non-mipmapped texture (fewer sampler
++    // objects, and atlas/array classes merge).
++    mipFilter = wgpu::MipmapFilterMode::Undefined;
++    minLod = 0.f;
++    maxLod = 0.f;
+   } else if (mipFilter == wgpu::MipmapFilterMode::Undefined) {
+     minLod = 0.f;
+     maxLod = 0.f;
 diff --git a/lib/gfx/texture.hpp b/lib/gfx/texture.hpp
-index 0a5ca83..57071e4 100644
+index 0a5ca83..3ae3745 100644
 --- a/lib/gfx/texture.hpp
 +++ b/lib/gfx/texture.hpp
 @@ -1,4 +1,6 @@
@@ -5267,13 +5468,18 @@ index 0a5ca83..57071e4 100644
  #include <dolphin/gx.h>
  
  #include <utility>
-@@ -43,6 +45,13 @@ struct TextureRef {
+@@ -43,6 +45,18 @@ struct TextureRef {
    u32 gxFormat;
    bool hasArbitraryMips = false;
    bool isReplacement = false;
 +  // Texture arrays (Flip): this texture lives in `layer` of a shared 2D array
 +  // texture; `sampleTextureView` is the array view shared by all its layers.
 +  uint32_t layer = 0;
++  // Atlas placement (clamp-wrapped single-mip textures share 1024x1024 layers,
++  // each texture surrounded by a one-texel replicated gutter): sampling uses
++  // clamp(uv) * atlasScale + atlasOffset. atlas == false: identity.
++  bool atlas = false;
++  float atlasOffsetX = 0.f, atlasOffsetY = 0.f, atlasScaleX = 1.f, atlasScaleY = 1.f;
 +  std::function<void()> onRelease;
 +  ~TextureRef() {
 +    if (onRelease) onRelease();
@@ -5281,7 +5487,7 @@ index 0a5ca83..57071e4 100644
  
    TextureRef(wgpu::Texture texture, wgpu::TextureView sampleTextureView, wgpu::TextureView attachmentTextureView,
               wgpu::Extent3D size, wgpu::TextureFormat format, uint32_t mipCount, u32 gxFormat)
-@@ -55,10 +64,15 @@ struct TextureRef {
+@@ -55,10 +69,18 @@ struct TextureRef {
    , gxFormat(gxFormat) {}
  };
  
@@ -5289,6 +5495,9 @@ index 0a5ca83..57071e4 100644
 +// of shared 2D array textures grouped by size/format/sampler (`groupKey`), so
 +// draws that differ only by texture share a bind group and can merge.
 +bool texture_arrays_enabled() noexcept;
++// groupKey bit 63: the texture is clamp-wrapped and single-mip and may share an
++// atlas layer with others of its class (MELEE_FLIP_TEXTURE_ATLAS, default on).
++constexpr uint64_t TextureAtlasEligible = 1ull << 63;
  TextureHandle new_static_texture_2d(uint32_t width, uint32_t height, uint32_t mips, u32 gxFormat,
 -                                    ArrayRef<uint8_t> data, bool tlut, const char* label) noexcept;
 +                                    ArrayRef<uint8_t> data, bool tlut, const char* label,
@@ -8318,7 +8527,7 @@ index 0000000..b4049dc
 +}
 +} // namespace aurora::gx
 diff --git a/lib/gx/gx.cpp b/lib/gx/gx.cpp
-index b12b327..d30400d 100644
+index b12b327..11b2f68 100644
 --- a/lib/gx/gx.cpp
 +++ b/lib/gx/gx.cpp
 @@ -1,3 +1,7 @@
@@ -8329,7 +8538,18 @@ index b12b327..d30400d 100644
  #include "gx.hpp"
  
  #include "pipeline.hpp"
-@@ -42,6 +46,16 @@ wgpu::BindGroupLayout sTextureBindGroupLayout;
+@@ -15,6 +19,10 @@
+ #include <absl/container/flat_hash_map.h>
+ #include <tracy/Tracy.hpp>
+ 
++#include <unordered_set>
++#include <cstdio>
++#include <cstdlib>
++#include <string>
+ #include <atomic>
+ #include <bit>
+ #include <cfloat>
+@@ -42,6 +50,16 @@ wgpu::BindGroupLayout sTextureBindGroupLayout;
  wgpu::BindGroupLayout sSamplerBindGroupLayout;
  wgpu::PipelineLayout sPipelineLayout;
  
@@ -8346,7 +8566,7 @@ index b12b327..d30400d 100644
  std::atomic<int> sPendingViewportPolicy{-1};
  
  template <typename T>
-@@ -313,6 +327,14 @@ void set_render_scissor(const gfx::ClipRect& scissor) noexcept {
+@@ -313,6 +331,14 @@ void set_render_scissor(const gfx::ClipRect& scissor) noexcept {
  
  const gfx::TextureBind& get_texture(GXTexMapID id) noexcept { return g_gxState.textures[static_cast<size_t>(id)]; }
  
@@ -8361,7 +8581,7 @@ index b12b327..d30400d 100644
  wgpu::RenderPipeline build_pipeline(const PipelineConfig& config, ArrayRef<wgpu::VertexBufferLayout> vtxBuffers,
                                      wgpu::ShaderModule shader, const char* label) noexcept {
    ZoneScoped;
-@@ -327,12 +349,34 @@ wgpu::RenderPipeline build_pipeline(const PipelineConfig& config, ArrayRef<wgpu:
+@@ -327,12 +353,34 @@ wgpu::RenderPipeline build_pipeline(const PipelineConfig& config, ArrayRef<wgpu:
        .depthBiasSlopeScale = depthBiasSlopeScale,
        .depthBiasClamp = depthBiasClamp,
    };
@@ -8398,7 +8618,7 @@ index b12b327..d30400d 100644
    }};
    const wgpu::FragmentState fragmentState{
        .module = shader,
-@@ -366,6 +410,12 @@ void populate_pipeline_config(PipelineConfig& config, GXPrimitive primitive, GXV
+@@ -366,6 +414,12 @@ void populate_pipeline_config(PipelineConfig& config, GXPrimitive primitive, GXV
  
    const auto& vtxFmt = g_gxState.vtxFmts[fmt];
    config.shaderConfig = {};
@@ -8411,7 +8631,7 @@ index b12b327..d30400d 100644
    config.shaderConfig.fogType = g_gxState.fog.type;
    config.shaderConfig.fogRangeEnabled = g_gxState.fog.rangeEnabled;
    u8 vtxOffset = 0;
-@@ -416,6 +466,12 @@ void populate_pipeline_config(PipelineConfig& config, GXPrimitive primitive, GXV
+@@ -416,6 +470,12 @@ void populate_pipeline_config(PipelineConfig& config, GXPrimitive primitive, GXV
      config.shaderConfig.lineMode = 2;
    } else if (primitive == GX_POINTS) {
      config.shaderConfig.lineMode = 3;
@@ -8424,7 +8644,7 @@ index b12b327..d30400d 100644
    } else {
      config.shaderConfig.lineMode = 0;
    }
-@@ -445,6 +501,10 @@ void populate_pipeline_config(PipelineConfig& config, GXPrimitive primitive, GXV
+@@ -445,6 +505,10 @@ void populate_pipeline_config(PipelineConfig& config, GXPrimitive primitive, GXV
    if (g_gxState.alphaCompare) {
      config.shaderConfig.alphaCompare = g_gxState.alphaCompare;
    }
@@ -8435,7 +8655,7 @@ index b12b327..d30400d 100644
    const auto cullMode = config.shaderConfig.lineMode == 0 ? g_gxState.cullMode : GX_CULL_NONE;
    const auto [polygonOffset, polygonOffsetScale] = polygon_offset_for_cull_mode(cullMode);
    config = {
-@@ -468,6 +528,9 @@ void populate_pipeline_config(PipelineConfig& config, GXPrimitive primitive, GXV
+@@ -468,6 +532,9 @@ void populate_pipeline_config(PipelineConfig& config, GXPrimitive primitive, GXV
  }
  
  GXBindGroups build_bind_groups(const ShaderInfo& info) noexcept {
@@ -8445,7 +8665,7 @@ index b12b327..d30400d 100644
    ZoneScoped;
  
    if (!info.sampledTextures.any() && !info.sampledIndTextures.any()) {
-@@ -476,14 +539,33 @@ GXBindGroups build_bind_groups(const ShaderInfo& info) noexcept {
+@@ -476,14 +543,33 @@ GXBindGroups build_bind_groups(const ShaderInfo& info) noexcept {
    }
  
    // Using C WGPU types instead of C++ wrappers to avoid destructor overhead
@@ -8485,7 +8705,7 @@ index b12b327..d30400d 100644
        textureEntry.textureView = tex.ref->sampleTextureView.Get();
        samplerEntry.sampler = gfx::sampler_ref(tex.get_descriptor()).Get();
      } else {
-@@ -494,25 +576,33 @@ GXBindGroups build_bind_groups(const ShaderInfo& info) noexcept {
+@@ -494,25 +580,53 @@ GXBindGroups build_bind_groups(const ShaderInfo& info) noexcept {
    const WGPUBindGroupDescriptor textureBindGroupDescriptor{
        .label = {"GX Texture Bind Group", WGPU_STRLEN},
        .layout = sTextureBindGroupLayout.Get(),
@@ -8494,6 +8714,26 @@ index b12b327..d30400d 100644
        .entries = textureEntries.data(),
    };
 +  const auto textureBindGroup = gfx::bind_group_ref(textureBindGroupDescriptor);
++#ifdef MELEE_MIYOO_FLIP
++  // Diagnostic (MELEE_FLIP_TEXGROUP_TRACE=1): describe each distinct texture
++  // bind group once so draw traces can be correlated with texture classes.
++  static const bool traceGroups = [] { const char* v = std::getenv("MELEE_FLIP_TEXGROUP_TRACE"); return v && v[0] == '1'; }();
++  if (traceGroups) {
++    static std::unordered_set<uint64_t> printed;
++    if (printed.insert(static_cast<uint64_t>(textureBindGroup)).second) {
++      std::string text = fmt::format("[flip-texgroup] id={:x}", static_cast<uint64_t>(textureBindGroup));
++      for (u32 i = 0; i < MaxTextures; ++i) {
++        const auto& tex = g_gxState.textures[i];
++        const bool sampled = info.sampledTextures[i] || info.sampledIndTextures[i];
++        if (!tex || !sampled) continue;
++        text += fmt::format(" s{}={}x{}m{}f{:x}g{:x}mode0={:x}mode1={:x}L{}", i, tex.texObj.width(), tex.texObj.height(),
++                            tex.texObj.mip_count(), static_cast<unsigned>(tex.ref->format), tex.texObj.format(),
++                            tex.texObj.mode0, tex.texObj.mode1, tex.ref->layer);
++      }
++      std::fprintf(stderr, "%s\n", text.c_str());
++    }
++  }
++#endif
    return {
 -      .textureBindGroup = gfx::bind_group_ref(textureBindGroupDescriptor),
 +      .textureBindGroup = textureBindGroup,
@@ -8524,7 +8764,7 @@ index b12b327..d30400d 100644
                },
        };
        textureEntries[i * 2 + 1] = {
-@@ -523,7 +613,7 @@ void initialize() noexcept {
+@@ -523,7 +637,7 @@ void initialize() noexcept {
      }
      const wgpu::BindGroupLayoutDescriptor descriptor{
          .label = "GX Texture Bind Group Layout",
@@ -8533,7 +8773,7 @@ index b12b327..d30400d 100644
          .entries = textureEntries.data(),
      };
      sTextureBindGroupLayout = g_device.CreateBindGroupLayout(&descriptor);
-@@ -533,18 +623,33 @@ void initialize() noexcept {
+@@ -533,18 +647,33 @@ void initialize() noexcept {
      sEmptySampler = gfx::sampler_ref(descriptor);
    }
    {
@@ -8572,7 +8812,7 @@ index b12b327..d30400d 100644
        entries[i * 2] = {
            .binding = i * 2,
            .textureView = sEmptyTextureView,
-@@ -557,7 +662,7 @@ void initialize() noexcept {
+@@ -557,7 +686,7 @@ void initialize() noexcept {
      const wgpu::BindGroupDescriptor desc{
          .label = "GX Empty Texture Bind Group",
          .layout = sTextureBindGroupLayout,
@@ -8820,7 +9060,7 @@ index 0c3925b..1e31965 100644
    }
  }
 diff --git a/lib/gx/shader.cpp b/lib/gx/shader.cpp
-index 92f358b..b7052fa 100644
+index 92f358b..a6e1f2b 100644
 --- a/lib/gx/shader.cpp
 +++ b/lib/gx/shader.cpp
 @@ -1,11 +1,18 @@
@@ -8882,7 +9122,7 @@ index 92f358b..b7052fa 100644
    const auto hash = xxh3_hash(config);
    const auto info = build_shader_info(config);
    if (EnableDebugPrints && !s_seenShaders.contains(hash)) {
-@@ -950,7 +976,35 @@ std::string build_shader_source(const ShaderConfig& config) noexcept {
+@@ -950,7 +976,37 @@ std::string build_shader_source(const ShaderConfig& config) noexcept {
    std::string vtxXfrAttrsPre;
    std::string vtxXfrAttrs;
    size_t vtxOutIdx = 0;
@@ -8916,10 +9156,12 @@ index 92f358b..b7052fa 100644
 +  const auto layerArg = [&](unsigned t) {
 +    return texArrays ? fmt::format(" i32(ubuf.tex{}_size_bias.w),", t) : std::string{};
 +  };
++  const auto atlasOpen = [&](unsigned) { return texArrays ? std::string{"flip_atlas_uv("} : std::string{}; };
++  const auto atlasClose = [&](unsigned t) { return texArrays ? fmt::format(", ubuf.tex{}_atlas)", t) : std::string{}; };
    // Load points for line/point expansion
    std::string_view vidxAttr = "vidx"sv;
    if (config.lineMode != 0) {
-@@ -990,6 +1044,10 @@ std::string build_shader_source(const ShaderConfig& config) noexcept {
+@@ -990,6 +1046,10 @@ std::string build_shader_source(const ShaderConfig& config) noexcept {
      }
      vidxAttr = "in_vidx"sv;
    } else if (config.attrs[GX_VA_PNMTXIDX].attrType == GX_NONE) {
@@ -8930,40 +9172,47 @@ index 92f358b..b7052fa 100644
      vtxXfrAttrsPre += "\n    let in_pnmtxidx = imm.current_pnmtx;";
    }
  
-@@ -1335,9 +1393,9 @@ std::string build_shader_source(const ShaderConfig& config) noexcept {
+@@ -1335,9 +1395,9 @@ std::string build_shader_source(const ShaderConfig& config) noexcept {
                      ind_scale(indStage.scaleS), ind_scale(indStage.scaleT), texMapId);
      fragmentFnPre += fmt::format(
          "\n    // Indirect stage {0}"
 -        "\n    var t_IndTexCoord{0} = 255.0 * textureSampleBias(tex{1}, tex{1}_samp, {2}, "
-+        "\n    var t_IndTexCoord{0} = 255.0 * textureSampleBias(tex{1}, tex{1}_samp, {2},{3} "
++        "\n    var t_IndTexCoord{0} = 255.0 * textureSampleBias(tex{1}, tex{1}_samp, {4}{2}{5},{3} "
          "ubuf.tex{1}_size_bias.z).abg;",
 -        i, texMapId, scaleExpr);
-+        i, texMapId, scaleExpr, layerArg(texMapId));
++        i, texMapId, scaleExpr, layerArg(texMapId), atlasOpen(texMapId), atlasClose(texMapId));
    }
    if (info.usedIndStages.any()) {
      fragmentFnPre += "\n    var t_TexCoord = vec2f(0.0);";
-@@ -1515,8 +1573,8 @@ std::string build_shader_source(const ShaderConfig& config) noexcept {
+@@ -1515,8 +1575,9 @@ std::string build_shader_source(const ShaderConfig& config) noexcept {
        uvIn = fmt::format("tex{0}_uv", underlying(stage.texCoordId));
      }
      fragmentFnPre +=
 -        fmt::format("\n    var sampled{0} = textureSampleBias(tex{1}, tex{1}_samp, {2}, ubuf.tex{1}_size_bias.z);", i,
 -                    underlying(stage.texMapId), uvIn);
-+        fmt::format("\n    var sampled{0} = textureSampleBias(tex{1}, tex{1}_samp, {2},{3} ubuf.tex{1}_size_bias.z);", i,
-+                    underlying(stage.texMapId), uvIn, layerArg(underlying(stage.texMapId)));
++        fmt::format("\n    var sampled{0} = textureSampleBias(tex{1}, tex{1}_samp, {4}{2}{5},{3} ubuf.tex{1}_size_bias.z);", i,
++                    underlying(stage.texMapId), uvIn, layerArg(underlying(stage.texMapId)),
++                    atlasOpen(underlying(stage.texMapId)), atlasClose(underlying(stage.texMapId)));
    }
    if (info.usesPTTexMtx.any()) {
      uniBufAttrs += fmt::format("\n    postmtx: array<mat3x4f, {}>,", MaxPTTexMtx);
-@@ -1576,17 +1634,42 @@ std::string build_shader_source(const ShaderConfig& config) noexcept {
+@@ -1576,17 +1637,48 @@ std::string build_shader_source(const ShaderConfig& config) noexcept {
    if (info.usedIndTexMtxs.any()) {
      uniBufAttrs += fmt::format("\n    ind_mtx: array<mat2x4f, {}>,", MaxIndTexMtxs);
    }
 +  const unsigned flipTextureCount=static_cast<unsigned>(info.sampledTextures.count());
 +  unsigned flipTextureRank=0;
++  if (texArrays) {
++    // Atlas textures: sample inside the texture's cell (one-texel gutter of
++    // replicated edge texels makes clamp filtering identical).
++    texBindings += "\nfn flip_atlas_uv(uv: vec2f, a: vec4f) -> vec2f {\n  if (a.w > 0.0) { return clamp(uv, vec2f(0.0), vec2f(1.0)) * a.zw + a.xy; }\n  return uv;\n}";
++  }
    for (int i = 0; i < info.sampledTextures.size(); ++i) {
      if (!info.sampledTextures.test(i)) {
        continue;
      }
      uniBufAttrs += fmt::format("\n    tex{}_size_bias: vec4f,", i);
++    uniBufAttrs += fmt::format("\n    tex{}_atlas: vec4f,", i);
 +#ifdef MELEE_MIYOO_FLIP
 +    if(config.flipFlags & FlipTexturePairs) {
 +      const unsigned bankCount=15/flipTextureCount;
@@ -8998,7 +9247,7 @@ index 92f358b..b7052fa 100644
    }
    if (!prevColorNormalized && !prevAlphaNormalized) {
      fragmentFn += "\n    prev = tev_overflow_vec4f(prev);";
-@@ -1628,7 +1711,7 @@ std::string build_shader_source(const ShaderConfig& config) noexcept {
+@@ -1628,7 +1720,7 @@ std::string build_shader_source(const ShaderConfig& config) noexcept {
      fragmentFn += "\n    prev = vec4f(in.nrm, prev.a);";
    }
  
@@ -9007,7 +9256,7 @@ index 92f358b..b7052fa 100644
  fn bswap32(v: u32, le: bool) -> u32 {{
    if (le) {{
      return v;
-@@ -1998,6 +2081,99 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {{{6}{5}
+@@ -1998,6 +2090,99 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4f {{{6}{5}
  )""",
                                          uniBufAttrs, texBindings, vtxOutAttrs, vtxInAttrs, vtxXfrAttrs, fragmentFn,
                                          fragmentFnPre, vtxXfrAttrsPre, uniformPre);
@@ -9108,7 +9357,7 @@ index 92f358b..b7052fa 100644
      Log.info("Generated shader (hash {:x}): {}", hash, shaderSource);
    }
 diff --git a/lib/gx/shader_info.cpp b/lib/gx/shader_info.cpp
-index c74bd6d..2a453ef 100644
+index c74bd6d..e3baf93 100644
 --- a/lib/gx/shader_info.cpp
 +++ b/lib/gx/shader_info.cpp
 @@ -1,3 +1,7 @@
@@ -9146,7 +9395,27 @@ index c74bd6d..2a453ef 100644
    ShaderInfo info{
        // render/logical viewport size, proj
        .uniformSize = 8 + 8 + 64,
-@@ -492,11 +507,19 @@ static void fill_uniform(ByteBuffer& buf, const ShaderInfo& info) noexcept {
+@@ -361,7 +376,8 @@ ShaderInfo build_shader_info(const ShaderConfig& config) noexcept {
+   if (info.usedIndTexMtxs.any()) {
+     info.uniformSize += MaxIndTexMtxs * sizeof(Mat2x4<float>);
+   }
+-  info.uniformSize += info.sampledTextures.count() * sizeof(Vec4<float>);
++  // tex{i}_size_bias and tex{i}_atlas per sampled texture.
++  info.uniformSize += info.sampledTextures.count() * sizeof(Vec4<float>) * 2;
+   info.uniformSize = gfx::align_uniform(info.uniformSize);
+   if (info.uniformSize > MaxUniformSize) {
+     Log.fatal("Uniform size exceeds maximum: {} > {}", info.uniformSize, MaxUniformSize);
+@@ -488,15 +504,28 @@ static void fill_uniform(ByteBuffer& buf, const ShaderInfo& info) noexcept {
+     if (!info.sampledTextures.test(i)) {
+       continue;
+     }
+-    buf.append(texture_size_bias(get_texture(static_cast<GXTexMapID>(i))));
++    const auto& texture = get_texture(static_cast<GXTexMapID>(i));
++    buf.append(texture_size_bias(texture));
++    // Atlas remap: clamp(uv) * zw + xy when w > 0, identity otherwise.
++    const auto* ref = texture ? texture.ref.get() : nullptr;
++    buf.append(ref && ref->atlas ? Vec4{ref->atlasOffsetX, ref->atlasOffsetY, ref->atlasScaleX, ref->atlasScaleY}
++                                 : Vec4{0.f, 0.f, 1.f, 0.f});
    }
  }
  
@@ -9180,7 +9449,7 @@ index 24d431b..51a5c84 100644
  u8 color_channel(GXChannelID id) noexcept;
  }; // namespace aurora::gx
 diff --git a/lib/gx/texture.cpp b/lib/gx/texture.cpp
-index a56709a..604da55 100644
+index a56709a..e23f8bb 100644
 --- a/lib/gx/texture.cpp
 +++ b/lib/gx/texture.cpp
 @@ -10,6 +10,9 @@
@@ -9265,7 +9534,51 @@ index a56709a..604da55 100644
  struct CachedTlutTextureEntry {
    gfx::TextureHandle handle;
    u32 tlutDataVersion = 0;
-@@ -126,6 +192,7 @@ uint64_t s_contentCacheBytes = 0;
+@@ -74,20 +140,41 @@ struct TextureContentKey {
+   XXH128_hash_t tlutHash{};
+   u32 tlutFormat = 0;
+   u16 tlutEntries = 0;
++  // Texture atlas class (0 = plain array/2D texture). An atlas texture bakes
++  // clamp sampling into its placement, so objects of another sampler class
++  // (e.g. REPEAT users of the same image) must not share it.
++  u64 samplerClass = 0;
+ 
+   bool operator==(const TextureContentKey& rhs) const noexcept {
+     return textureHash.low64 == rhs.textureHash.low64 && textureHash.high64 == rhs.textureHash.high64 &&
+            width == rhs.width && height == rhs.height && format == rhs.format && mipCount == rhs.mipCount &&
+            tlutHash.low64 == rhs.tlutHash.low64 && tlutHash.high64 == rhs.tlutHash.high64 &&
+-           tlutFormat == rhs.tlutFormat && tlutEntries == rhs.tlutEntries;
++           tlutFormat == rhs.tlutFormat && tlutEntries == rhs.tlutEntries && samplerClass == rhs.samplerClass;
+   }
+ 
+   template <typename H>
+   friend H AbslHashValue(H h, const TextureContentKey& key) {
+     return H::combine(std::move(h), key.textureHash.low64, key.textureHash.high64, key.width, key.height, key.format,
+-                      key.mipCount, key.tlutHash.low64, key.tlutHash.high64, key.tlutFormat, key.tlutEntries);
++                      key.mipCount, key.tlutHash.low64, key.tlutHash.high64, key.tlutFormat, key.tlutEntries,
++                      key.samplerClass);
+   }
+ };
++// Array/atlas class of a texture: sampler state, plus atlas eligibility for
++// clamp-wrapped single-mip textures (their sampling can be remapped exactly).
++static uint64_t texture_group_key(const GXTexObj_& obj) {
++  if (obj.wrap_s() == GX_CLAMP && obj.wrap_t() == GX_CLAMP && obj.mip_count() == 1) {
++    // Single-mip clamp textures: the sampler reduces to mag/min filter and
++    // anisotropy (TextureBind::get_descriptor normalizes the rest), so all such
++    // textures of one format share an atlas class.
++    const auto minFilter = obj.min_filter();
++    const bool minLinear = minFilter == GX_LINEAR || minFilter == GX_LIN_MIP_NEAR || minFilter == GX_LIN_MIP_LIN;
++    return gfx::TextureAtlasEligible | (obj.mag_filter() == GX_LINEAR ? 1u : 0u) | (minLinear ? 2u : 0u) |
++           (static_cast<uint64_t>(obj.max_aniso()) << 2);
++  }
++  // Plain class: the sampler-relevant mode bits, with the atlas flag bit kept
++  // clear (mode1 bit 31 would otherwise alias it).
++  return (obj.mode0 | (static_cast<uint64_t>(obj.mode1) << 32)) & ~gfx::TextureAtlasEligible;
++}
+ 
+ struct ContentCacheEntry {
+   gfx::TextureHandle handle;
+@@ -126,6 +213,7 @@ uint64_t s_contentCacheBytes = 0;
  uint64_t s_contentCacheBudgetBytes = texture::ContentCacheBudgetBytes;
  uint64_t s_frameCount = 0;
  uint64_t s_bindGeneration = 1;
@@ -9273,7 +9586,7 @@ index a56709a..604da55 100644
  std::atomic<uint64_t> s_pendingInvalidations = 0;
  std::atomic<uint64_t> s_pendingCacheClears = 0;
  TextureStats s_stats;
-@@ -211,6 +278,14 @@ void store_cached_texture(const GXTexObj_& obj, gfx::TextureHandle handle, u32 t
+@@ -211,6 +299,14 @@ void store_cached_texture(const GXTexObj_& obj, gfx::TextureHandle handle, u32 t
    entry.tlutDataVersion = tlutDataVersion;
    entry.replacementId = replacementId;
    entry.lastUsedFrame = s_frameCount;
@@ -9288,7 +9601,7 @@ index a56709a..604da55 100644
  
    if (tlutObjId != 0) {
      auto& cache = s_tlutObjectCaches[tlutObjId];
-@@ -281,6 +356,9 @@ struct TextureKeys {
+@@ -281,15 +377,20 @@ struct TextureKeys {
  TextureKeys hash_texture_source(const GXTexObj_& obj, const GXTlutObj_* tlut, bool buildSourceKey) {
    ZoneScoped;
    const size_t textureBytes = texture::texture_source_size(obj.format(), obj.width(), obj.height(), obj.mip_count());
@@ -9298,7 +9611,18 @@ index a56709a..604da55 100644
    CHECK(obj.has_data() && textureBytes != 0, "invalid texture source for content hash");
  
    TextureKeys keys;
-@@ -598,7 +676,11 @@ gfx::TextureHandle resolve_static_texture(const GXTexObj_& obj) {
++  const uint64_t groupKey = texture_group_key(obj);
+   keys.contentKey = {
+       .textureHash = XXH3_128bits(obj.data, textureBytes),
+       .width = obj.width(),
+       .height = obj.height(),
+       .format = obj.format(),
+       .mipCount = obj.mip_count(),
++      .samplerClass = (groupKey & gfx::TextureAtlasEligible) ? groupKey : 0,
+   };
+   s_stats.hashedBytes += textureBytes;
+ 
+@@ -598,7 +699,11 @@ gfx::TextureHandle resolve_static_texture(const GXTexObj_& obj) {
    if (obj.texObjId != 0) {
      if (const auto it = s_textureObjectCaches.find(obj.texObjId); it != s_textureObjectCaches.end()) {
        auto& entry = it->second;
@@ -9311,17 +9635,17 @@ index a56709a..604da55 100644
          entry.lastUsedFrame = s_frameCount;
          ++s_stats.objectHits;
          return entry.handle;
-@@ -630,7 +712,8 @@ gfx::TextureHandle resolve_static_texture(const GXTexObj_& obj) {
+@@ -630,7 +735,8 @@ gfx::TextureHandle resolve_static_texture(const GXTexObj_& obj) {
  #endif
        const size_t sourceBytes = texture_source_size(obj.format(), obj.width(), obj.height(), obj.mip_count());
        handle = gfx::new_static_texture_2d(obj.width(), obj.height(), obj.mip_count(), obj.format(),
 -                                          {static_cast<const uint8_t*>(obj.data), sourceBytes}, false, nameStr);
 +                                          {static_cast<const uint8_t*>(obj.data), sourceBytes}, false, nameStr,
-+                                          obj.mode0 | (static_cast<uint64_t>(obj.mode1) << 32));
++                                          texture_group_key(obj));
        ++s_stats.misses;
        s_stats.uploadBytes += texture_handle_size(handle);
        cache_content_texture(std::move(keys->contentKey), handle);
-@@ -649,7 +732,11 @@ gfx::TextureHandle resolve_static_palette_texture(const GXTexObj_& obj, const GX
+@@ -649,7 +755,11 @@ gfx::TextureHandle resolve_static_palette_texture(const GXTexObj_& obj, const GX
      if (const auto it = s_textureObjectCaches.find(obj.texObjId); it != s_textureObjectCaches.end()) {
        auto& entry = it->second;
        if (entry.handle && entry.texDataVersion == obj.texDataVersion && entry.tlutObjId == tlut.tlutObjId &&
@@ -9334,16 +9658,16 @@ index a56709a..604da55 100644
          entry.lastUsedFrame = s_frameCount;
          if (auto tlutIt = s_tlutObjectCaches.find(tlut.tlutObjId); tlutIt != s_tlutObjectCaches.end()) {
            tlutIt->second.lastUsedFrame = s_frameCount;
-@@ -685,7 +772,7 @@ gfx::TextureHandle resolve_static_palette_texture(const GXTexObj_& obj, const GX
+@@ -685,7 +795,7 @@ gfx::TextureHandle resolve_static_palette_texture(const GXTexObj_& obj, const GX
        }
        handle = gfx::new_static_texture_2d(obj.width(), obj.height(), obj.mip_count(), GX_TF_RGBA8_PC,
                                            {converted.data.data(), converted.data.size()}, false,
 -                                          "GX Static Palette Texture");
-+                                          "GX Static Palette Texture", obj.mode0 | (static_cast<uint64_t>(obj.mode1) << 32));
++                                          "GX Static Palette Texture", texture_group_key(obj));
        handle->hasArbitraryMips = converted.hasArbitraryMips;
        ++s_stats.misses;
        s_stats.uploadBytes += texture_handle_size(handle);
-@@ -835,6 +922,9 @@ void evict_copy_texture(const void* dest) noexcept {
+@@ -835,6 +945,9 @@ void evict_copy_texture(const void* dest) noexcept {
  }
  
  void resolve_sampled_textures(const ShaderInfo& info) noexcept {
@@ -9353,7 +9677,7 @@ index a56709a..604da55 100644
    ZoneScoped;
    apply_pending_invalidations();
  
-@@ -854,6 +944,11 @@ void resolve_sampled_textures(const ShaderInfo& info) noexcept {
+@@ -854,6 +967,11 @@ void resolve_sampled_textures(const ShaderInfo& info) noexcept {
      gfx::TextureHandle handle;
      const auto copyIt = g_gxState.copyTextures.find(obj.data);
      const GXState::CopyTextureRef* copyRef = copyIt != g_gxState.copyTextures.end() ? &copyIt->second : nullptr;
@@ -9365,7 +9689,7 @@ index a56709a..604da55 100644
      if (is_palette_format(obj.format())) {
        const auto tlutIdx = static_cast<size_t>(obj.tlut);
        if (tlutIdx < g_gxState.loadedTluts.size()) {
-@@ -873,7 +968,16 @@ void resolve_sampled_textures(const ShaderInfo& info) noexcept {
+@@ -873,7 +991,16 @@ void resolve_sampled_textures(const ShaderInfo& info) noexcept {
      }
  
      obj.mFormat = resolved_format_for_handle(handle);
