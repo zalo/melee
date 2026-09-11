@@ -1,4 +1,4 @@
-# Renderer iteration toward 60 FPS, 2026-09-10 (v79–v124)
+# Renderer iteration toward 60 FPS, 2026-09-10 (v79–v134)
 
 This report continues the Miyoo Flip work described in the earlier reports under
 `../2026-09-09-flip/`. It records what was measured, what changed in the renderer,
@@ -49,6 +49,14 @@ physical scanout capture (`3f2016a8522d…`) as the v77/v79 baseline.
 | v122 | moving Fountain of Dreams | async | 27.0 | 25.9 (p95 34.8) | 37–39 | n/a |
 | v124 fusion predicate fixes | frozen Onett / frozen Fountain | async | 17.2 / 26.3 | 16.7 / 24.7 | 4 / 6 passes per frame | yes / yes |
 | v124 | moving Onett | async | 17.1 | 16.7 (p95 18.1) | 58–59; render worker 14.4–15.3 ms | n/a |
+| v125 instanced point sprites | frozen Fountain of Dreams | async | 23.3 | 21.7 | FIFO worker 25 → 21 ms | yes |
+| v128 texture arrays + scene on surface | frozen Onett | async | 17.1 | 16.7 (p95 16.8) | 3 passes, 343 draws, render callback 13.8 → 11.8 ms | yes |
+| v128 | frozen Fountain of Dreams | async | | | 5 passes, 445 draws | yes |
+| v129 | moving Onett | async | 18.2 | 16.7 (p95 16.9) | render worker 13.4–14.9 ms, 333 draws, 3 passes | n/a |
+| v129 | moving Fountain of Dreams | async | 26.4 | 21.8 (p95 53) | render 22–25 ms, FIFO 19.5 ms, main pass GPU 19–24 ms | n/a |
+| v129 `MELEE_FLIP_FS_VARYING_CONSTANTS=1` | frozen Onett | async | 17.2 | 16.7 | main pass GPU 10.6 ms vs 10.5 default | yes (no gain) |
+| v133 `MELEE_FLIP_HALFRES_SPRITES=4000` | moving Fountain of Dreams | async | 23.8 | 23.9 (p95 36) | main pass GPU 19–24 → 9–13 ms; render worker 22–24 ms (CPU-bound), frame +2 ms | n/a (half-res sprites) |
+| v134 defaults | frozen Onett / frozen Fountain / moving Onett | async | see handoff | | | yes / yes / n/a |
 
 Mean/median are the presentation intervals from `[flip-thread-present]`
 (`analyze_flip_profile.py --tail 300`); FPS is the game thread's `[perf]` line
@@ -292,8 +300,83 @@ so it can be A/B tested with the trial tool.
     one 32-byte uniform pushed at fusion completion). Passes 5 → 4 per Onett
     frame (fused shadows, main, present copy, dual conversion). Exact.
 
+17. **Instanced point sprites** (`FlipInstancedPoints`, `MELEE_FLIP_INSTANCED_POINTS`,
+    default on, v125). The HSD particle system (`psdisp.c`) emits Fountain's
+    ~25k sprites as immediate-mode `GX_POINTS`, sixteen per `GXBegin`. The FIFO
+    worker used to write every point four times as quad corners (~3 MB per
+    frame). Point draws now keep one record per point: the vertex layout steps
+    per instance (`glVertexBindingDivisor(0, 1)` in the direct path, instance
+    step mode in the Dawn pipeline), a shared six-index quad supplies the
+    corner through the vertex index, and merged point draws add instances
+    instead of copying indices. Exact on Fountain and Onett; Fountain FIFO
+    worker 25 → 21 ms. A CPU sample afterwards shows the remaining FIFO time
+    spread over indexed s16 decoding (9 %), memcpy (15 %), texture identity
+    hashing (~15 %: `sample_hash`/XXH3) and per-draw uniform builds (6 %); the
+    particle simulation itself is only 2.6 % of the game thread.
+
+18. **Texture arrays** (`gfx/texture.cpp` layer pool, `MELEE_FLIP_TEXTURE_ARRAYS`,
+    default on, v126–v128). GX-sampled textures are layers of shared 2D array
+    textures grouped by size, mip count, format and sampler state (the texture
+    object's mode0/mode1); the layer travels in `tex{i}_size_bias.w` of the
+    uniform record and every GX sampler is `texture_2d_array`. Draws that
+    differ only by texture share a bind group and merge. Slabs grow
+    geometrically per class (4/2/1 layers to start by texture size, doubling to
+    32, ≤2 MiB); the first version allocated 32 layers per class and tripped the
+    device memory guard (free RAM 840 → 170 MB). Dawn's compatibility-mode
+    `TextureBindingViewDimension` makes single-layer textures GL array objects,
+    so EFB copy, conversion and palette textures are one-layer arrays and the
+    palette conversion reads layer 0. Bug found on the way: a texture change
+    within one array left the bind group unchanged, so the uniform (size, bias,
+    layer) was not rebuilt; `texture_ref_changes()` now marks the uniform dirty.
+    Onett 360 → 343 draws, Fountain 474 → 445; frozen captures exact; ~30–50 MB
+    more resident memory.
+
+19. **Scene on the presented texture** (`MELEE_FLIP_SCENE_ON_SURFACE`, default
+    on, v128). The render worker acquires the swapchain texture when it encodes
+    the frame's first EFB pass (the previous frame has been presented by then)
+    and every EFB pass renders into it; EFB copies sample it, and the present
+    copy pass is skipped when no overlay is composited and the viewport covers
+    the surface. Test captures still read the EFB texture, so in test runs the
+    surface is copied into it with a plain texture copy. Onett: 4 → 3 passes,
+    render callback 13.8 → 11.8 ms, exact.
+
+21. **Half-resolution sprite pass** (`flip_sprites.cpp`, `recording.cpp`
+    `FlipSpriteSegment`, `MELEE_FLIP_HALFRES_SPRITES=<points>`, opt-in, v130–v133).
+    When the previous frame drew at least that many points, runs of eligible
+    point draws (alpha-tested opaque or SRCALPHA blends onto INVSRCALPHA/ONE,
+    no dst-alpha constant) are recorded into a 320×240 pass: the EFB pass is
+    sealed, an encoder task clears the half-res color target and copies the
+    scene depth into a half-res depth target (`frag_depth` from `textureLoad`),
+    the sprites render with viewport and scissor halved and a pipeline variant
+    (`FlipSpriteAccum`) whose blend stores premultiplied color and coverage
+    (opaque: rgb×a, a; INVSRCALPHA: rgb src*a+dst*(1−a), alpha 1−Π(1−a); dst ONE:
+    alpha unchanged), and a second task composites `EFB = sprites.rgb + EFB·(1−a)`
+    before the EFB pass resumes. Fountain's sprites turned out to be opaque
+    alpha-tested cutouts with depth write (`psdisp.c` TexEdge), not blends; depth
+    written by sprites stays in the half-res buffer, so geometry drawn after them
+    is not occluded by them. Result on Fountain: main pass GPU 19–24 → 9–13 ms,
+    but the scene is render-worker bound (447 draws, 8 passes, ~23 ms), and the
+    three added passes made the frame ~2 ms slower, so the pass is off by default.
+    It becomes useful once Fountain's CPU side drops below its GPU time. The
+    encoder tasks are exempt from the "encoder task present → upload streams
+    through Dawn" rule (`is_sprite_task`), which otherwise cost 20 ms per frame.
+
+20. **Texture verification interval** (`MELEE_FLIP_TEXTURE_VERIFY_INTERVAL`,
+    default 4, v130). The sampled content hash that guards texture identities
+    was recomputed on every bind (~15 % of the FIFO worker on Fountain). A
+    texture object is now re-hashed at most once per four frames;
+    `texDataVersion` changes still invalidate immediately.
+
 ## Findings worth keeping
 
+- **TEV constants as flat varyings do not pay** (`MELEE_FLIP_FS_VARYING_CONSTANTS=1`,
+  v129): reading konst colors and register initial values in the vertex stage
+  and passing them flat leaves the main pass GPU time unchanged (10.6 vs 10.5
+  ms) while staying exact. On this GPU a flat varying load costs what a
+  dynamically indexed uniform load costs; the 2.7 ms measured with a constant
+  record index comes from uniform-register preloading, which needs a truly
+  uniform index, i.e. per-draw uniform binds that the driver charges for on the
+  CPU. Kept as an opt-in diagnostic.
 - **Direct-path one-off (v117):** one fused frozen-Onett run differed from the
   reference in ~1,500 pixels of the two "CP" player indicators (±1–20). It did
   not reproduce in six further fused runs (direct path, Dawn path for the fused
@@ -411,12 +494,13 @@ so it can be A/B tested with the trial tool.
    released region (fixed in v100, see below). Compile stalls still exist on a cold
    `dawn_cache.db`; Dolphin-style non-blocking creation or repaired prewarming
    remain the answer for first-run matches.
-2. **Render worker at ~15 ms (v124).** Remaining per frame (Onett): main pass
-   ~9–10 ms of driver time for ~340 draws, fused shadow pass ~1.0 ms, present pass
-   ~0.9 ms, dual conversion ~0.8 ms, plan preparation 0.7 ms, encode 0.2 ms. Done
-   since the first write-up: swapchain pool, shadow-pass fusion, two-target
-   conversion. Left: draw count (texture-bank merging done properly, opaque
-   sorting), and the main pass itself.
+2. **Render worker at ~14 ms (v134).** Remaining per frame (Onett): main pass
+   ~9–10 ms of driver time for ~343 draws, fused shadow pass ~1.0 ms, dual
+   conversion ~0.8 ms, plan preparation 0.7 ms, encode 0.2 ms. Done since the
+   first write-up: swapchain pool, shadow-pass fusion, two-target conversion,
+   texture arrays, scene on the presented texture. Left: draw count (pipeline
+   breaks, remaining texture breaks, opaque sorting) and Fountain's reflection
+   pass.
 3. **Moving Onett** is render-bound at ~17.5 ms (render worker 17.7 ms with ~340
    draws and the two shadow copies); the FIFO worker is at ~10 ms and the game
    thread idles ~3 ms per frame. Item 2 is what remains.
