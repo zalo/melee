@@ -476,7 +476,7 @@ index 0f7a946..007ba10 100644
 +#endif
  } // namespace aurora::gfx::clear
 diff --git a/lib/gfx/encoding.cpp b/lib/gfx/encoding.cpp
-index b3054be..8aa302a 100644
+index b3054be..54a44ad 100644
 --- a/lib/gfx/encoding.cpp
 +++ b/lib/gfx/encoding.cpp
 @@ -1,4 +1,13 @@
@@ -503,7 +503,106 @@ index b3054be..8aa302a 100644
    render_pass(pass, frame, passInfo);
    pass.End();
  
-@@ -353,8 +365,35 @@ void copy_staging_to_high_water(wgpu::CommandEncoder& cmd, FramePacket& frame, c
+@@ -254,20 +266,21 @@ void render(wgpu::CommandEncoder& cmd, FramePacket& frame, RenderPass& passInfo,
+                                       passInfo.colorAttachments[SceneColorAttachmentIndex].size, passInfo.msaaSamples);
+   }
+ 
+-  if (passInfo.resolveTarget) {
+-    const auto& dstSize = passInfo.resolveTarget->size;
+-    const bool needsConversion = tex_copy_conv::needs_conversion(passInfo.resolveFormat);
+-    const bool needsScaling = dstSize.width != static_cast<uint32_t>(passInfo.resolveRect.width) ||
+-                              dstSize.height != static_cast<uint32_t>(passInfo.resolveRect.height);
+-    const bool isDepth = gx::is_depth_format(passInfo.resolveFormat);
++  const auto resolve = [&](const TextureHandle& resolveTarget, GXTexFmt resolveFormat, const ClipRect& resolveRect,
++                           const Range& resolveUniformRange) {
++    const auto& dstSize = resolveTarget->size;
++    const bool needsConversion = tex_copy_conv::needs_conversion(resolveFormat);
++    const bool needsScaling = dstSize.width != static_cast<uint32_t>(resolveRect.width) ||
++                              dstSize.height != static_cast<uint32_t>(resolveRect.height);
++    const bool isDepth = gx::is_depth_format(resolveFormat);
+     if (isDepth && passInfo.msaaSamples > 1) {
+       Log.fatal("Depth tex copies from multisampled EFB targets are not supported");
+     }
+     const tex_copy_conv::ConvRequest convReq{
+-        .fmt = passInfo.resolveFormat,
++        .fmt = resolveFormat,
+         .srcView = isDepth ? passInfo.copySourceDepthView : passInfo.copySourceView,
+-        .uniformRange = passInfo.resolveUniformRange,
+-        .dst = passInfo.resolveTarget,
++        .uniformRange = resolveUniformRange,
++        .dst = resolveTarget,
+         .sampleFilter = needsScaling ? tex_copy_conv::SampleFilter::Linear : tex_copy_conv::SampleFilter::Nearest,
+     };
+     if (needsConversion) {
+@@ -280,21 +293,62 @@ void render(wgpu::CommandEncoder& cmd, FramePacket& frame, RenderPass& passInfo,
+           .texture = passInfo.copySourceTexture,
+           .origin =
+               wgpu::Origin3D{
+-                  .x = static_cast<uint32_t>(passInfo.resolveRect.x),
+-                  .y = static_cast<uint32_t>(passInfo.resolveRect.y),
++                  .x = static_cast<uint32_t>(resolveRect.x),
++                  .y = static_cast<uint32_t>(resolveRect.y),
+               },
+       };
+       const wgpu::TexelCopyTextureInfo dst{
+-          .texture = passInfo.resolveTarget->texture,
++          .texture = resolveTarget->texture,
+       };
+       const wgpu::Extent3D size{
+-          .width = static_cast<uint32_t>(passInfo.resolveRect.width),
+-          .height = static_cast<uint32_t>(passInfo.resolveRect.height),
++          .width = static_cast<uint32_t>(resolveRect.width),
++          .height = static_cast<uint32_t>(resolveRect.height),
+           .depthOrArrayLayers = 1,
+       };
+       cmd.CopyTextureToTexture(&src, &dst, &size);
+     }
++  };
++#ifdef MELEE_MIYOO_FLIP
++  // Fused shadow pass: convert both copies in one two-target pass when they
++  // share the format and neither needs scaling (MELEE_FLIP_DUAL_CONV=0 splits).
++  static const bool dualConv = [] {
++    const char* v = std::getenv("MELEE_FLIP_DUAL_CONV");
++    return v == nullptr || std::strcmp(v, "0") != 0;
++  }();
++  bool dualDone = false;
++  if (dualConv && passInfo.resolveTarget && passInfo.flipExtraResolves.size() == 1 &&
++      passInfo.flipDualResolveUniform.size == 32) {
++    const auto& extra = passInfo.flipExtraResolves[0];
++    const auto unscaled = [](const TextureHandle& target, const ClipRect& rect) {
++      return target->size.width == static_cast<uint32_t>(rect.width) &&
++             target->size.height == static_cast<uint32_t>(rect.height);
++    };
++    if (extra.target && extra.format == passInfo.resolveFormat && !gx::is_depth_format(passInfo.resolveFormat) &&
++        tex_copy_conv::dual_supported(passInfo.resolveFormat) && unscaled(passInfo.resolveTarget, passInfo.resolveRect) &&
++        unscaled(extra.target, extra.rect) && extra.target->size.width == passInfo.resolveTarget->size.width &&
++        extra.target->size.height == passInfo.resolveTarget->size.height) {
++      const tex_copy_conv::ConvRequest convReq{
++          .fmt = passInfo.resolveFormat,
++          .srcView = passInfo.copySourceView,
++          .uniformRange = passInfo.resolveUniformRange,
++          .dst = passInfo.resolveTarget,
++          .sampleFilter = tex_copy_conv::SampleFilter::Nearest,
++      };
++      tex_copy_conv::run_dual(cmd, convReq, extra.target, passInfo.flipDualResolveUniform);
++      dualDone = true;
++    }
++  }
++  if (!dualDone) {
++#endif
++  if (passInfo.resolveTarget) {
++    resolve(passInfo.resolveTarget, passInfo.resolveFormat, passInfo.resolveRect, passInfo.resolveUniformRange);
+   }
++#ifdef MELEE_MIYOO_FLIP
++  for (const auto& extra : passInfo.flipExtraResolves) {
++    if (extra.target) resolve(extra.target, extra.format, extra.rect, extra.uniformRange);
++  }
++  }
++#endif
+ 
+   if (passInfo.snapshotColorDst) {
+     const webgpu::gpu_prof::Zone zone{cmd, "Pass snapshot"};
+@@ -353,8 +407,35 @@ void copy_staging_to_high_water(wgpu::CommandEncoder& cmd, FramePacket& frame, c
      return;
    }
    const webgpu::gpu_prof::Zone zone{cmd, "Staging copies"};
@@ -540,7 +639,7 @@ index b3054be..8aa302a 100644
    copy_staging_buffer_range(cmd, frame, frame.copied.verts, highWater.verts, VertexStagingOffset, res.vertexBuffer);
    copy_staging_buffer_range(cmd, frame, frame.copied.uniforms, highWater.uniforms, UniformStagingOffset,
                              res.uniformBuffer);
-@@ -363,12 +402,16 @@ void copy_staging_to_high_water(wgpu::CommandEncoder& cmd, FramePacket& frame, c
+@@ -363,12 +444,16 @@ void copy_staging_to_high_water(wgpu::CommandEncoder& cmd, FramePacket& frame, c
                              res.storageBuffer);
  
    if constexpr (UseTextureBuffer) {
@@ -558,7 +657,7 @@ index b3054be..8aa302a 100644
                    .bytesPerRow = AURORA_ALIGN(item.layout.bytesPerRow, 256),
                    .rowsPerImage = item.layout.rowsPerImage,
                },
-@@ -383,6 +426,145 @@ void copy_staging_to_high_water(wgpu::CommandEncoder& cmd, FramePacket& frame, c
+@@ -383,6 +468,145 @@ void copy_staging_to_high_water(wgpu::CommandEncoder& cmd, FramePacket& frame, c
  } // namespace
  
  namespace detail {
@@ -720,10 +819,10 @@ index 1b25b3d..01695a5 100644
  
 diff --git a/lib/gfx/flip_gles.cpp b/lib/gfx/flip_gles.cpp
 new file mode 100644
-index 0000000..9c5233b
+index 0000000..ebbf915
 --- /dev/null
 +++ b/lib/gfx/flip_gles.cpp
-@@ -0,0 +1,1109 @@
+@@ -0,0 +1,1143 @@
 +#include "flip_gles.hpp"
 +
 +#ifdef MELEE_MIYOO_FLIP
@@ -779,6 +878,7 @@ index 0000000..9c5233b
 +  std::string label;
 +  std::vector<PlanCommand> commands;
 +  uint32_t width=0,height=0;
++  uint32_t segmentStart=UINT32_MAX; // fused shadow pass: first command of the shifted segment
 +  bool eligible=false;
 +};
 +std::vector<PassPlan> sPlans;
@@ -1530,13 +1630,7 @@ index 0000000..9c5233b
 +    std::fprintf(stderr,"[flip-direct] frame=%llu pass=%u mode=%d commands=%zu target=%u\n",
 +                 static_cast<unsigned long long>(sFrameNumber),passIndex,mode,
 +                 plan.commands.size(),target.texture?target.texture:target.renderbuffer);
-+  if(mode>=2) {
-+    if(!sVao) glGenVertexArrays(1,&sVao);
-+    glBindVertexArray(sVao);
-+    sPassEbo=sMappedIndices?sMappedIndices->indices:sStream.current?sStream.current->indices.name:
-+        dawn::native::opengl::GetDirectGLBuffer(resources().indexBuffer.Get());
-+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,sPassEbo);
-+    sCurrentVao=nullptr; // Dawn may have changed VAO/buffer state between passes
++  const auto reset_memos=[] {
 +    sLastProgram=sLastUniform=sLastUniformBinding=sLastLayout=Unknown;
 +    sLastUniformOffset=Unknown;
 +    sLastPipeline=UINTPTR_MAX;sTextureState={};
@@ -1544,12 +1638,46 @@ index 0000000..9c5233b
 +    sLastVertexBuffer=Unknown;sLastVertexOffset=sLastVertexStride=UINT32_MAX;
 +    sLastRecordBuffer=Unknown;sLastRecordOffset=UINT32_MAX;
 +    for(auto& [ref,prepared]:sPrepared) prepared.lastImmediatePad=UINT32_MAX;
++  };
++  if(mode>=2) {
++    if(!sVao) glGenVertexArrays(1,&sVao);
++    glBindVertexArray(sVao);
++    sPassEbo=sMappedIndices?sMappedIndices->indices:sStream.current?sStream.current->indices.name:
++        dawn::native::opengl::GetDirectGLBuffer(resources().indexBuffer.Get());
++    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,sPassEbo);
++    sCurrentVao=nullptr; // Dawn may have changed VAO/buffer state between passes
++    reset_memos();
 +    glEnable(GL_SCISSOR_TEST);
 +    glDisable(GL_STENCIL_TEST);
++    // Diagnostic: MELEE_FLIP_DUMP_EFB_PASS=<frame> writes the EFB as this pass
++    // starts (before its draws) to data/diagnostics/efb-dump-f<frame>-p<pass>.ppm.
++    static const long dumpFrame=[] {const char* v=std::getenv("MELEE_FLIP_DUMP_EFB_PASS");return v?std::atol(v):-1;}();
++    if(dumpFrame>=0&&static_cast<long>(sFrameNumber)==dumpFrame&&(target.texture||target.renderbuffer)) {
++      GLint drawFbo=0; glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&drawFbo);
++      GLuint fbo=0; glGenFramebuffers(1,&fbo); glBindFramebuffer(GL_READ_FRAMEBUFFER,fbo);
++      if(target.texture) glFramebufferTexture2D(GL_READ_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,target.texture,0);
++      else glFramebufferRenderbuffer(GL_READ_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_RENDERBUFFER,target.renderbuffer);
++      std::vector<uint8_t> pixels(size_t(plan.width)*plan.height*4);
++      glReadPixels(0,0,plan.width,plan.height,GL_RGBA,GL_UNSIGNED_BYTE,pixels.data());
++      const GLenum err=glGetError();
++      glBindFramebuffer(GL_READ_FRAMEBUFFER,GLuint(drawFbo)); glDeleteFramebuffers(1,&fbo);
++      char path[128]; std::snprintf(path,sizeof(path),"data/diagnostics/efb-dump-f%ld-p%u.ppm",dumpFrame,passIndex);
++      if(FILE* f=std::fopen(path,"wb")) {
++        std::fprintf(f,"P6\n%u %u\n255\n",plan.width,plan.height);
++        for(uint32_t y=0;y<plan.height;++y) for(uint32_t x=0;x<plan.width;++x) std::fwrite(&pixels[(size_t(y)*plan.width+x)*4],1,3,f);
++        std::fclose(f);
++      }
++      std::fprintf(stderr,"[flip-efb-dump] frame=%ld pass=%u file=%s gl-error=%u\n",dumpFrame,passIndex,path,err);
++    }
 +    gl_ok("pass-state",passIndex,0);
 +  }
 +  uint32_t drawIndex=0;
-+  for(const auto& command:plan.commands) {
++  // Diagnostic/safety: MELEE_FLIP_FUSE_RESET=1 treats the shifted segment of a
++  // fused shadow pass like a pass start for the state memos.
++  static const bool fuseReset=[] {const char* v=std::getenv("MELEE_FLIP_FUSE_RESET");return v&&std::strcmp(v,"0");}();
++  for(size_t commandIndex=0;commandIndex<plan.commands.size();++commandIndex) {
++    const auto& command=plan.commands[commandIndex];
++    if(fuseReset&&mode>=2&&commandIndex==plan.segmentStart) reset_memos();
 +    if(command.type==CommandType::SetViewport) {
 +      if(mode<2) continue;
 +      const auto& v=command.viewport;
@@ -1593,6 +1721,10 @@ index 0000000..9c5233b
 +  static const bool enabled=[] {const char* v=std::getenv("MELEE_FLIP_DIRECT_PACKET");return v&&std::strcmp(v,"0");}();
 +  if(!enabled||direct_mode()<5||pass.msaaSamples!=1||pass.colorAttachmentCount!=1||
 +     !gx::flip_vertex_enabled()||!gx::flip_uniform_windows_enabled()) return false;
++  // Diagnostic: MELEE_FLIP_FUSE_DAWN=1 leaves fused shadow passes (two resolves)
++  // to Dawn's reference renderer while every other pass stays direct.
++  static const bool fusedViaDawn=[] {const char* v=std::getenv("MELEE_FLIP_FUSE_DAWN");return v&&std::strcmp(v,"0");}();
++  if(fusedViaDawn&&!pass.flipExtraResolves.empty()) return false;
 +  std::unordered_set<PipelineRef> seenPipelines;
 +  std::vector<wgpu::RenderPipeline> pipelines;
 +  std::unordered_set<uint64_t> textures;
@@ -1687,6 +1819,7 @@ index 0000000..9c5233b
 +                  .label=pass.flipDirectLabel,
 +                  .width=pass.colorAttachments[0].size.width,
 +                  .height=pass.colorAttachments[0].size.height,
++                  .segmentStart=pass.flipSegmentStart,
 +                  .eligible=pass.msaaSamples==1&&pass.colorAttachmentCount==1&&
 +                            gx::flip_vertex_enabled()&&gx::flip_uniform_windows_enabled()};
 +    bool hasGxDraw=false;
@@ -2673,7 +2806,7 @@ index 0b86ffe..19314c6 100644
  void after_submit() noexcept;
  void gpu_synchronize();
 diff --git a/lib/gfx/frame_packet.hpp b/lib/gfx/frame_packet.hpp
-index d50ce6a..f6287c9 100644
+index d50ce6a..67a7534 100644
 --- a/lib/gfx/frame_packet.hpp
 +++ b/lib/gfx/frame_packet.hpp
 @@ -12,6 +12,9 @@
@@ -2686,18 +2819,30 @@ index d50ce6a..f6287c9 100644
  namespace aurora::gfx::detail {
  
  struct StagingHighWater {
-@@ -104,6 +107,10 @@ struct RenderPass {
+@@ -104,6 +107,22 @@ struct RenderPass {
    bool discardable = false;
    bool captureDepthSnapshot = false;
    bool sealed = false;
 +#ifdef MELEE_MIYOO_FLIP
 +  std::string flipDirectLabel;
 +  bool flipDirectResourcesOnly = false;
++  // Additional EFB copies resolved from this pass (shadow-pass fusion records a
++  // second shadow map into the same pass, shifted right of the first copy).
++  struct FlipResolve {
++    TextureHandle target;
++    GXTexFmt format = GX_TF_RGBA8;
++    ClipRect rect{};
++    Range uniformRange{};
++  };
++  std::vector<FlipResolve> flipExtraResolves;
++  uint8_t flipWriteMask = 0; // channels written by recorded GX draws: 1 color, 2 alpha, 4 depth
++  uint32_t flipSegmentStart = UINT32_MAX; // first command of a fused (shifted) shadow segment
++  Range flipDualResolveUniform{}; // both UV transforms for a two-target conversion pass
 +#endif
    std::vector<tex_palette_conv::ConvRequest> paletteConvs;
  
    RenderTargetLayout target_layout() const noexcept;
-@@ -192,6 +199,22 @@ struct FramePacket {
+@@ -192,6 +211,22 @@ struct FramePacket {
  #endif
    ByteBuffer verts;
    ByteBuffer uniforms;
@@ -2720,7 +2865,7 @@ index d50ce6a..f6287c9 100644
    ByteBuffer indices;
    ByteBuffer storage;
    ByteBuffer textureUpload;
-@@ -204,4 +227,9 @@ struct FramePacket {
+@@ -204,4 +239,9 @@ struct FramePacket {
    AuroraStats stats{};
  };
  
@@ -2846,10 +2991,10 @@ index 7eb4723..52f638e 100644
  
  } // namespace aurora::gfx
 diff --git a/lib/gfx/recording.cpp b/lib/gfx/recording.cpp
-index d04db0f..1f6494a 100644
+index d04db0f..9591445 100644
 --- a/lib/gfx/recording.cpp
 +++ b/lib/gfx/recording.cpp
-@@ -13,6 +13,11 @@
+@@ -13,12 +13,20 @@
  #include "../gx/fifo.hpp"
  #include "../gx/gx.hpp"
  #include "../gx/pipeline.hpp"
@@ -2861,8 +3006,483 @@ index d04db0f..1f6494a 100644
  #ifdef AURORA_ENABLE_RMLUI
  #include "../rmlui/pipeline.hpp"
  #endif
-@@ -522,6 +527,12 @@ void enqueue_op(FramePacket& frame, uint32_t opIndex) {
+ #include "../window.hpp"
  
+ #include <array>
++#include <cmath>
++#include <cstdio>
++#include <cstdlib>
+ #include <cstring>
+ #include <new>
+ #include <optional>
+@@ -35,6 +43,9 @@
+ namespace aurora::gfx {
+ using namespace detail;
+ 
++template <>
++PipelineRef pipeline_ref(const clear::PipelineConfig& config);
++
+ namespace {
+ constexpr Module Log{"aurora::gfx"};
+ 
+@@ -69,6 +80,65 @@ struct FrameRecorder {
+ 
+ FrameRecorder g_recorder;
+ 
++#ifdef MELEE_MIYOO_FLIP
++// Shadow-pass fusion (MELEE_FLIP_FUSE_PASSES, default on). Melee renders its
++// two 256x256 shadow maps as separate EFB passes, each ending in an EFB copy
++// with a full clear; on the Mali blob every render pass costs ~0.5 ms of driver
++// time. The second shadow is therefore recorded into the same pass with its
++// viewport and scissor shifted right of the first copy rectangle, and the pass
++// carries two resolves. The fusion is speculative: anything that could change
++// the image (a viewport that does not fit, a clear or custom draw, a draw that
++// samples the first copy, a palette conversion, any other pass break) splits
++// the shifted segment back out into its own pass with its coordinates restored.
++struct FlipPassFusion {
++  bool active = false;
++  uint32_t pass = UINT32_MAX;
++  size_t segmentStart = 0;
++  int32_t offsetX = 0;
++  TextureHandle firstTarget;
++  Vec4<float> clearColorValue{};
++  float clearDepthValue = 1.f;
++  // Clear flags of the first copy (they shape the pass a split has to recreate)
++  // and the channels (1 color, 2 alpha, 4 depth) written by each segment.
++  bool clearColor1 = false, clearAlpha1 = false, clearDepth1 = false;
++  uint8_t firstWrites = 0;
++  uint8_t segmentWrites = 0;
++  struct Stats {
++    unsigned frames = 0, fused = 0, refused = 0, split = 0;
++    unsigned refuseClear = 0, refuseState = 0, refuseRegion = 0, refuseRoom = 0, refuseDraws = 0;
++    unsigned splitViewport = 0, splitScissor = 0, splitClear = 0, splitCustom = 0, splitTexture = 0, splitBreak = 0,
++             splitSecond = 0, splitPalette = 0;
++  } stats;
++};
++FlipPassFusion g_fusion;
++
++bool flip_fuse_enabled() {
++  static const bool enabled = [] {
++    const char* v = std::getenv("MELEE_FLIP_FUSE_PASSES");
++    return v == nullptr || std::strcmp(v, "0") != 0;
++  }();
++  return enabled;
++}
++bool flip_fuse_trace() {
++  static const bool trace = [] {
++    const char* v = std::getenv("MELEE_FLIP_FUSE_TRACE");
++    return v != nullptr && std::strcmp(v, "0") != 0;
++  }();
++  return trace;
++}
++// Channels the current GX state lets a draw write (matches the pipeline's
++// write mask and depthWriteEnabled = depthCompare && depthUpdate).
++uint8_t flip_current_write_mask() {
++  return (gx::g_gxState.colorUpdate ? 1u : 0u) | (gx::g_gxState.alphaUpdate ? 2u : 0u) |
++         (gx::g_gxState.depthCompare && gx::g_gxState.depthUpdate ? 4u : 0u);
++}
++void flip_fusion_split(const char* reason, unsigned& counter);
++void flip_fusion_settle(const char* reason, unsigned& counter);
++#define FLIP_FUSION_SETTLE(reason, counter) flip_fusion_settle(reason, g_fusion.stats.counter)
++#else
++#define FLIP_FUSION_SETTLE(reason, counter) ((void)0)
++#endif
++
+ std::string pass_label(std::string_view kind) {
+ #ifdef AURORA_GFX_DEBUG_GROUPS
+   if (!g_recorder.debugGroupStack.empty()) {
+@@ -288,18 +358,63 @@ void push_command(CommandType type, const Command::Data& data) {
+       Log.warn("Dropping command {}", magic_enum::enum_name(type));
+       return;
+     }
++#ifdef MELEE_MIYOO_FLIP
++  Command::Data shifted{.setViewport = {}};
++  const Command::Data* payload = &data;
++  if (g_fusion.active) {
++    // Commands of the shifted segment of a fused pass: move viewport and scissor
++    // right of the first copy, or give up the fusion if they cannot fit.
++    const auto efbWidth =
++        static_cast<int32_t>(current_render_passes()[g_fusion.pass].colorAttachments[SceneColorAttachmentIndex].size.width);
++    if (type == CommandType::SetViewport) {
++      const auto& vp = data.setViewport;
++      if (vp.left < 0.f || static_cast<int32_t>(std::ceil(vp.left + vp.width)) + g_fusion.offsetX > efbWidth) {
++        flip_fusion_split("viewport", g_fusion.stats.splitViewport);
++      } else {
++        shifted = data;
++        shifted.setViewport.left += static_cast<float>(g_fusion.offsetX);
++        payload = &shifted;
++      }
++    } else if (type == CommandType::SetScissor) {
++      if (data.setScissor.x < 0) {
++        flip_fusion_split("scissor", g_fusion.stats.splitScissor);
++      } else {
++        shifted = data;
++        shifted.setScissor.x += g_fusion.offsetX;
++        payload = &shifted;
++      }
++    } else if (type == CommandType::CustomDraw) {
++      flip_fusion_split("custom", g_fusion.stats.splitCustom);
++    } else if (type == CommandType::Draw) {
++      clear::DrawData clearDraw;
++      if (!decode_flip_clear_draw(data.draw, clearDraw)) {
++        g_fusion.segmentWrites |= flip_current_write_mask();
++      }
++    }
++  }
++#else
++  const Command::Data* payload = &data;
++#endif
+   auto& renderPass = current_render_passes()[g_recorder.currentRenderPass];
+   AURORA_ASSERT(!renderPass.sealed, "Attempted to append command {} to sealed render pass {}",
+                 magic_enum::enum_name(type), g_recorder.currentRenderPass);
+   if (type == CommandType::Draw || type == CommandType::CustomDraw) {
+     renderPass.hasDraws = true;
++#ifdef MELEE_MIYOO_FLIP
++    // GX draws only: a clear draw's channels come from its pipeline config
++    // (flip_leading_clear), not from the GX state current when it was pushed.
++    clear::DrawData clearDraw;
++    if (type == CommandType::Draw && !decode_flip_clear_draw(data.draw, clearDraw)) {
++      renderPass.flipWriteMask |= flip_current_write_mask();
++    }
++#endif
+   }
+   renderPass.commands.push_back({
+       .type = type,
+ #ifdef AURORA_GFX_DEBUG_GROUPS
+       .debugGroupStack = g_recorder.debugGroupStack,
+ #endif
+-      .data = data,
++      .data = *payload,
+   });
+ }
+ 
+@@ -423,6 +538,7 @@ void suspend_efb() {
+                 "suspend_efb called outside of an active recording frame");
+   AURORA_ASSERT(!g_recorder.inOffscreen, "suspend_efb called while offscreen rendering is active");
+   AURORA_ASSERT(!g_recorder.suspendedEfbPass, "suspend_efb called with an EFB pass already suspended");
++  FLIP_FUSION_SETTLE("break", splitBreak);
+ 
+   auto& currentPass = current_render_passes()[g_recorder.currentRenderPass];
+   if (!currentPass.has_consumer()) {
+@@ -520,8 +636,329 @@ void enqueue_op(FramePacket& frame, uint32_t opIndex) {
+   });
+ }
+ 
++// The EFB pass that follows an EFB copy: same targets, contents loaded unless
++// cleared.
++RenderPass make_efb_continuation(const RenderPass& prevPass, bool clearDepth, float clearDepthValue,
++                                 bool fullColorClear, Vec4<float> clearColorValue) {
++  RenderPass newPass{
++      .label = pass_label(g_recorder.inOffscreen ? "Offscreen" : "EFB"),
++      .colorAttachments = prevPass.colorAttachments,
++      .colorAttachmentCount = prevPass.colorAttachmentCount,
++      .depthStencilView = prevPass.depthStencilView,
++      .depthStencilFormat = prevPass.depthStencilFormat,
++      .copySourceTexture = prevPass.copySourceTexture,
++      .copySourceView = prevPass.copySourceView,
++      .copySourceDepthView = prevPass.copySourceDepthView,
++      .msaaSamples = prevPass.msaaSamples,
++      .clearDepthValue = clearDepthValue,
++      .clearDepth = clearDepth,
++      .hasDepth = prevPass.hasDepth,
++      .hasStencil = prevPass.hasStencil,
++  };
++  for (uint32_t i = 0; i < newPass.colorAttachmentCount; ++i) {
++    auto& color = newPass.colorAttachments[i];
++    color.loadOp = wgpu::LoadOp::Undefined;
++    color.clear = false;
++  }
++  if (fullColorClear) {
++    auto& sceneColor = newPass.colorAttachments[SceneColorAttachmentIndex];
++    sceneColor.clear = true;
++    sceneColor.clearValue = clearColorValue;
++  }
++  newPass.commands.reserve(2048);
++  return newPass;
++}
++
++#ifdef MELEE_MIYOO_FLIP
++bool flip_vec4_equal(const Vec4<float>& a, const Vec4<float>& b) {
++  return a.x() == b.x() && a.y() == b.y() && a.z() == b.z() && a.w() == b.w();
++}
++
++// Scans commands [begin, end): 0 if every draw stays within [minLeft, maxRight)
++// horizontally, 1 if a clear or custom draw is present, 2 if a draw can reach
++// outside the region. Passes always start with viewport/scissor commands, so a
++// draw before either is treated as unbounded.
++int flip_segment_check(const RenderPass& pass, size_t begin, size_t end, int32_t minLeft, int32_t maxRight) {
++  const auto& size = pass.colorAttachments[SceneColorAttachmentIndex].size;
++  Viewport vp{0.f, 0.f, static_cast<float>(size.width), static_cast<float>(size.height), 0.f, 1.f};
++  ClipRect sc{0, 0, static_cast<int32_t>(size.width), static_cast<int32_t>(size.height)};
++  for (size_t i = begin; i < end; ++i) {
++    const auto& cmd = pass.commands[i];
++    switch (cmd.type) {
++    case CommandType::SetViewport:
++      vp = cmd.data.setViewport;
++      break;
++    case CommandType::SetScissor:
++      sc = cmd.data.setScissor;
++      break;
++    case CommandType::Draw: {
++      clear::DrawData clearDraw;
++      if (decode_flip_clear_draw(cmd.data.draw, clearDraw)) {
++        return 1;
++      }
++      const auto left = std::max(static_cast<int32_t>(std::floor(vp.left)), sc.x);
++      const auto right = std::min(static_cast<int32_t>(std::ceil(vp.left + vp.width)), sc.x + sc.width);
++      if (left < right && (left < minLeft || right > maxRight)) {
++        return 2;
++      }
++    } break;
++    case CommandType::CustomDraw:
++      return 1;
++    default:
++      break;
++    }
++  }
++  return 0;
++}
++
++std::array<float, 4> flip_uv_transform(const RenderPass& pass, const ClipRect& rect) {
++  const auto srcW = static_cast<float>(pass.colorAttachments[SceneColorAttachmentIndex].size.width);
++  const auto srcH = static_cast<float>(pass.colorAttachments[SceneColorAttachmentIndex].size.height);
++  return {
++      static_cast<float>(rect.x) / srcW,
++      static_cast<float>(rect.y) / srcH,
++      static_cast<float>(rect.width) / srcW,
++      static_cast<float>(rect.height) / srcH,
++  };
++}
++Range flip_resolve_uniform(const RenderPass& pass, const ClipRect& rect) {
++  return push_uniform(flip_uv_transform(pass, rect));
++}
++
++// A pass that follows a color- or alpha-only EFB copy clear opens with a
++// full-EFB clear draw (resolve_pass_into). It clears the whole attachment like
++// a load-op clear would; report which channels it clears and with what color.
++struct FlipLeadingClear {
++  bool present = false;
++  bool color = false, alpha = false, depth = false;
++  Vec4<float> value{};
++};
++FlipLeadingClear flip_leading_clear(const RenderPass& pass) {
++  FlipLeadingClear out;
++  if (pass.commands.empty() || pass.commands[0].type != CommandType::Draw) {
++    return out;
++  }
++  clear::DrawData draw;
++  clear::PipelineConfig config;
++  if (!decode_flip_clear_draw(pass.commands[0].data.draw, draw) || !clear::find_flip_pipeline_config(draw.pipeline, config)) {
++    return out;
++  }
++  out.present = true;
++  out.color = config.clearColor;
++  out.alpha = config.clearAlpha;
++  out.depth = config.clearDepth;
++  out.value = {static_cast<float>(draw.color.r), static_cast<float>(draw.color.g), static_cast<float>(draw.color.b),
++               static_cast<float>(draw.color.a)};
++  return out;
++}
++
++// Called after the first resolve of `pass` has been recorded. Starts recording
++// the following EFB pass into the same RenderPass, shifted right of `rect`.
++bool flip_fusion_begin(RenderPass& pass, const ClipRect& rect, bool clearColor, bool clearAlpha, bool clearDepth,
++                       Vec4<float> clearColorValue, float clearDepthValue) {
++  auto& stats = g_fusion.stats;
++  if (!flip_fuse_enabled() || g_recorder.inOffscreen || g_recorder.suppressRenderWorker) {
++    return false;
++  }
++  const FlipLeadingClear leading = flip_leading_clear(pass);
++  const uint8_t leadingMask = (leading.color ? 1u : 0u) | (leading.alpha ? 2u : 0u) | (leading.depth ? 4u : 0u);
++  const uint8_t firstWrites = pass.flipWriteMask | leadingMask;
++  // The second pass would start from the copy's clear where it clears, and
++  // from the first pass's untouched pixels elsewhere. Region 2 of the fused
++  // pass holds the pass-start state instead, so every channel the copy clears
++  // must have been cleared identically at pass start, and every channel it
++  // does not clear must be unwritten by the first segment. (Melee's shadow
++  // copies clear color only: alpha and Z updates are off in that pass.)
++  const uint8_t clearMask = (clearColor ? 1u : 0u) | (clearAlpha ? 2u : 0u) | (clearDepth ? 4u : 0u);
++  if ((firstWrites & ~clearMask) != 0) {
++    ++stats.refused, ++stats.refuseClear;
++    return false;
++  }
++  const auto& color = pass.colorAttachments[SceneColorAttachmentIndex];
++  if (pass.colorAttachmentCount != 1 || pass.msaaSamples != 1 || !pass.flipExtraResolves.empty()) {
++    ++stats.refused, ++stats.refuseState;
++    return false;
++  }
++  // Each channel the copy clears must already hold the same clear value from
++  // the pass start: a load-op clear, or the leading full-EFB clear draw.
++  const bool loadCleared = color.clear && color.loadOp != wgpu::LoadOp::Load;
++  const auto& lv = leading.value;
++  const auto& cv = color.clearValue;
++  const bool rgbCleared = (loadCleared && cv.x() == clearColorValue.x() && cv.y() == clearColorValue.y() &&
++                           cv.z() == clearColorValue.z()) ||
++                          (leading.color && lv.x() == clearColorValue.x() && lv.y() == clearColorValue.y() &&
++                           lv.z() == clearColorValue.z());
++  const bool alphaCleared = (loadCleared && cv.w() == clearColorValue.w()) || (leading.alpha && lv.w() == clearColorValue.w());
++  if ((clearColor && !rgbCleared) || (clearAlpha && !alphaCleared) ||
++      (clearDepth && !(pass.clearDepth && pass.clearDepthValue == clearDepthValue))) {
++    ++stats.refused, ++stats.refuseState;
++    return false;
++  }
++  const auto efbWidth = static_cast<int32_t>(color.size.width);
++  const auto efbHeight = static_cast<int32_t>(color.size.height);
++  if (rect.x < 0 || rect.y < 0 || rect.width <= 0 || rect.height <= 0 || rect.x + rect.width > efbWidth ||
++      rect.y + rect.height > efbHeight) {
++    ++stats.refused, ++stats.refuseRegion;
++    return false;
++  }
++  const int32_t offsetX = rect.x + rect.width;
++  if (offsetX + rect.width > efbWidth) {
++    ++stats.refused, ++stats.refuseRoom;
++    return false;
++  }
++  // Only a first segment that wrote nothing but color can complete a fusion:
++  // the second copy has to clear every channel either segment wrote, and
++  // shadow copies clear color only. Fountain's reflection pass writes depth;
++  // attempting it would defer that large pass and split every frame.
++  if ((firstWrites & ~1u) != 0) {
++    ++stats.refused, ++stats.refuseClear;
++    return false;
++  }
++  if (const int check = flip_segment_check(pass, leading.present ? 1 : 0, pass.commands.size(), 0, offsetX); check != 0) {
++    ++stats.refused;
++    if (check == 1) ++stats.refuseDraws; else ++stats.refuseRegion;
++    return false;
++  }
++  g_fusion.active = true;
++  g_fusion.pass = g_recorder.currentRenderPass;
++  g_fusion.segmentStart = pass.commands.size();
++  g_fusion.offsetX = offsetX;
++  g_fusion.firstTarget = pass.resolveTarget;
++  g_fusion.clearColorValue = clearColorValue;
++  g_fusion.clearDepthValue = clearDepthValue;
++  g_fusion.clearColor1 = clearColor;
++  g_fusion.clearAlpha1 = clearAlpha;
++  g_fusion.clearDepth1 = clearDepth;
++  g_fusion.firstWrites = firstWrites;
++  g_fusion.segmentWrites = 0;
++  // push_command shifts these while the fusion is active.
++  push_command(CommandType::SetViewport, Command::Data{.setViewport = g_recorder.cachedViewport});
++  push_command(CommandType::SetScissor, Command::Data{.setScissor = g_recorder.cachedScissor});
++  return true;
++}
++
++// Second EFB copy while a fusion is active: attach it to the fused pass.
++bool flip_fusion_complete(const TextureHandle& texture, const ClipRect& rect, bool clearColor, bool clearAlpha,
++                          bool clearDepth, GXTexFmt format) {
++  auto& pass = current_render_passes()[g_fusion.pass];
++  // After the second copy the fused pass leaves the second shadow in a
++  // different place than the original would. Aurora clears the whole EFB for
++  // the channels a copy clears, so those match; anything either segment wrote
++  // to an uncleared channel would remain visible in the wrong place.
++  const uint8_t clearMask = (clearColor ? 1u : 0u) | (clearAlpha ? 2u : 0u) | (clearDepth ? 4u : 0u);
++  const bool fullClear = ((g_fusion.firstWrites | g_fusion.segmentWrites) & ~clearMask) == 0;
++  const auto& color = pass.colorAttachments[SceneColorAttachmentIndex];
++  const auto efbWidth = static_cast<int32_t>(color.size.width);
++  const auto efbHeight = static_cast<int32_t>(color.size.height);
++  ClipRect shifted = rect;
++  shifted.x += g_fusion.offsetX;
++  if (!fullClear || rect.x < 0 || rect.y < 0 || rect.width <= 0 || rect.height <= 0 || shifted.x + shifted.width > efbWidth ||
++      rect.y + rect.height > efbHeight) {
++    return false;
++  }
++  if (flip_segment_check(pass, g_fusion.segmentStart, pass.commands.size(), g_fusion.offsetX, efbWidth) != 0) {
++    return false;
++  }
++  pass.flipExtraResolves.push_back({
++      .target = texture,
++      .format = format,
++      .rect = shifted,
++      .uniformRange = flip_resolve_uniform(pass, shifted),
++  });
++  pass.flipSegmentStart = static_cast<uint32_t>(g_fusion.segmentStart);
++  // Both transforms together for the two-target conversion pass.
++  const auto uv1 = flip_uv_transform(pass, pass.resolveRect);
++  const auto uv2 = flip_uv_transform(pass, shifted);
++  const std::array<float, 8> both{uv1[0], uv1[1], uv1[2], uv1[3], uv2[0], uv2[1], uv2[2], uv2[3]};
++  pass.flipDualResolveUniform = push_uniform(both);
++  g_fusion.active = false;
++  g_fusion.firstTarget = {};
++  ++g_fusion.stats.fused;
++  return true;
++}
++
++// Gives up an active fusion: the shifted segment becomes its own pass again.
++void flip_fusion_split(const char* reason, unsigned& counter) {
++  if (!g_fusion.active) {
++    return;
++  }
++  g_fusion.active = false;
++  g_fusion.firstTarget = {};
++  ++counter;
++  ++g_fusion.stats.split;
++  auto& passes = current_render_passes();
++  auto& fused = passes[g_fusion.pass];
++  const bool fullColorClear = g_fusion.clearColor1 && g_fusion.clearAlpha1;
++  RenderPass newPass =
++      make_efb_continuation(fused, g_fusion.clearDepth1, g_fusion.clearDepthValue, fullColorClear, g_fusion.clearColorValue);
++  newPass.flipWriteMask = g_fusion.segmentWrites;
++  if (!fullColorClear && (g_fusion.clearColor1 || g_fusion.clearAlpha1)) {
++    // The copy would have opened the pass with a color- or alpha-only clear draw.
++    const auto& value = g_fusion.clearColorValue;
++    newPass.commands.push_back(Command{
++        .type = CommandType::Draw,
++        .data = {.draw = make_draw_command<clear::render>(clear::DrawData{
++                     .pipeline = pipeline_ref(clear::make_pipeline_config(newPass.target_layout(), g_fusion.clearColor1,
++                                                                          g_fusion.clearAlpha1, false)),
++                     .color = wgpu::Color{.r = value.x(), .g = value.y(), .b = value.z(), .a = value.w()},
++                 })},
++    });
++    newPass.hasDraws = true;
++  }
++  const auto segment = fused.commands.begin() + static_cast<std::ptrdiff_t>(g_fusion.segmentStart);
++  newPass.commands.insert(newPass.commands.end(), std::make_move_iterator(segment),
++                          std::make_move_iterator(fused.commands.end()));
++  fused.commands.erase(segment, fused.commands.end());
++  fused.hasDraws = false;
++  for (const auto& cmd : fused.commands) {
++    if (cmd.type == CommandType::Draw || cmd.type == CommandType::CustomDraw) {
++      fused.hasDraws = true;
++      break;
++    }
++  }
++  for (auto& cmd : newPass.commands) {
++    if (cmd.type == CommandType::SetViewport) {
++      cmd.data.setViewport.left -= static_cast<float>(g_fusion.offsetX);
++    } else if (cmd.type == CommandType::SetScissor) {
++      cmd.data.setScissor.x -= g_fusion.offsetX;
++    } else if (cmd.type == CommandType::Draw || cmd.type == CommandType::CustomDraw) {
++      newPass.hasDraws = true;
++    }
++  }
++  if (flip_fuse_trace()) {
++    std::fprintf(stderr, "[flip-pass-fuse] split reason=%s pass=%u moved=%zu\n", reason, g_fusion.pass,
++                 newPass.commands.size());
++  }
++  enqueue_pass(current_frame_packet(), g_fusion.pass);
++  passes.emplace_back(std::move(newPass));
++  g_recorder.currentRenderPass = static_cast<uint32_t>(passes.size() - 1);
++}
++
++void flip_fusion_settle(const char* reason, unsigned& counter) { flip_fusion_split(reason, counter); }
++
++void flip_fusion_frame_end() {
++  auto& s = g_fusion.stats;
++  if (++s.frames % 600 != 0) {
++    return;
++  }
++  std::fprintf(stderr,
++               "[flip-pass-fuse] frames=%u fused=%u refused=%u (clear=%u state=%u region=%u room=%u draws=%u) "
++               "split=%u (viewport=%u scissor=%u clear=%u custom=%u texture=%u break=%u second=%u palette=%u)\n",
++               s.frames, s.fused, s.refused, s.refuseClear, s.refuseState, s.refuseRegion, s.refuseRoom, s.refuseDraws,
++               s.split, s.splitViewport, s.splitScissor, s.splitClear, s.splitCustom, s.splitTexture, s.splitBreak,
++               s.splitSecond, s.splitPalette);
++  s = {};
++}
++#endif
++
  void enqueue_pass(FramePacket& frame, uint32_t passIndex) {
    seal_pass(frame, passIndex);
 +#ifdef MELEE_MIYOO_FLIP
@@ -2874,7 +3494,7 @@ index d04db0f..1f6494a 100644
    const auto opIndex = static_cast<uint32_t>(frame.ops.size());
    frame.ops.emplace_back(capture_frame_op(frame, FrameOpType::RenderPass, passIndex));
    enqueue_op(frame, opIndex);
-@@ -531,6 +542,9 @@ void enqueue_pass(FramePacket& frame, uint32_t passIndex) {
+@@ -531,6 +968,9 @@ void enqueue_pass(FramePacket& frame, uint32_t passIndex) {
  namespace detail {
  
  void begin_recording(FramePacket& packet, size_t frameSlot) {
@@ -2884,7 +3504,7 @@ index d04db0f..1f6494a 100644
    CHECK(!g_recorder.active(), "A recording session is already active");
    g_recorder.packet = &packet;
    g_recorder.frameSlot = frameSlot;
-@@ -552,6 +566,9 @@ void begin_recording(FramePacket& packet, size_t frameSlot) {
+@@ -552,6 +992,9 @@ void begin_recording(FramePacket& packet, size_t frameSlot) {
    push_command(CommandType::SetScissor, Command::Data{.setScissor = g_recorder.cachedScissor});
  }
  
@@ -2894,7 +3514,140 @@ index d04db0f..1f6494a 100644
  RecordedFrame end_recording() {
    CHECK(g_recorder.active(), "No active recording session");
    AURORA_ASSERT(!g_recorder.inOffscreen, "end_frame called while offscreen rendering is active");
-@@ -1063,6 +1080,23 @@ void push_draw_command(gx::DrawData data) {
+@@ -673,6 +1116,7 @@ void queue_texture_copy(wgpu::TexelCopyTextureInfo src, wgpu::TexelCopyTextureIn
+   ZoneScoped;
+   auto& frame = current_frame_packet();
+   if (g_recorder.currentRenderPass != UINT32_MAX) {
++    FLIP_FUSION_SETTLE("break", splitBreak);
+     enqueue_pass(frame, g_recorder.currentRenderPass);
+     g_recorder.currentRenderPass = UINT32_MAX;
+   }
+@@ -692,6 +1136,7 @@ void begin_color_pass(const ColorPassDescriptor& desc) {
+   ZoneScoped;
+   auto& frame = current_frame_packet();
+   if (g_recorder.currentRenderPass != UINT32_MAX) {
++    FLIP_FUSION_SETTLE("break", splitBreak);
+     enqueue_pass(frame, g_recorder.currentRenderPass);
+   }
+ 
+@@ -780,6 +1225,7 @@ void set_scissor(const ClipRect& cmd) noexcept {
+ 
+ template <>
+ void push_draw_command(clear::DrawData data) {
++  FLIP_FUSION_SETTLE("clear", splitClear);
+   push_draw_command(make_draw_command<clear::render>(data));
+ }
+ 
+@@ -790,53 +1236,43 @@ PipelineRef pipeline_ref(const clear::PipelineConfig& config) {
+ 
+ void resolve_pass_into(TextureHandle texture, ClipRect rect, bool clearColor, bool clearAlpha, bool clearDepth,
+                        Vec4<float> clearColorValue, float clearDepthValue, GXTexFmt resolveFormat) {
++  bool fusedSecond = false;
++#ifdef MELEE_MIYOO_FLIP
++  if (g_fusion.active) {
++    fusedSecond = flip_fusion_complete(texture, rect, clearColor, clearAlpha, clearDepth, resolveFormat);
++    if (!fusedSecond) {
++      flip_fusion_split("second", g_fusion.stats.splitSecond);
++    }
++  }
++#endif
+   // Resolve current render pass
+   auto& prevPass = current_render_passes()[g_recorder.currentRenderPass];
+-  prevPass.resolveTarget = std::move(texture);
+-  prevPass.resolveRect = rect;
+-  prevPass.resolveFormat = resolveFormat;
+-  // Push UV transform uniform for tex_copy_conv (crop region in UV space)
+-  const auto srcW = static_cast<float>(prevPass.colorAttachments[SceneColorAttachmentIndex].size.width);
+-  const auto srcH = static_cast<float>(prevPass.colorAttachments[SceneColorAttachmentIndex].size.height);
+-  const std::array uvTransform{
+-      static_cast<float>(rect.x) / srcW,
+-      static_cast<float>(rect.y) / srcH,
+-      static_cast<float>(rect.width) / srcW,
+-      static_cast<float>(rect.height) / srcH,
+-  };
+-  prevPass.resolveUniformRange = push_uniform(uvTransform);
++  if (!fusedSecond) {
++    prevPass.resolveTarget = std::move(texture);
++    prevPass.resolveRect = rect;
++    prevPass.resolveFormat = resolveFormat;
++    // Push UV transform uniform for tex_copy_conv (crop region in UV space)
++    const auto srcW = static_cast<float>(prevPass.colorAttachments[SceneColorAttachmentIndex].size.width);
++    const auto srcH = static_cast<float>(prevPass.colorAttachments[SceneColorAttachmentIndex].size.height);
++    const std::array uvTransform{
++        static_cast<float>(rect.x) / srcW,
++        static_cast<float>(rect.y) / srcH,
++        static_cast<float>(rect.width) / srcW,
++        static_cast<float>(rect.height) / srcH,
++    };
++    prevPass.resolveUniformRange = push_uniform(uvTransform);
++#ifdef MELEE_MIYOO_FLIP
++    if (flip_fusion_begin(prevPass, rect, clearColor, clearAlpha, clearDepth, clearColorValue, clearDepthValue)) {
++      return;
++    }
++#endif
++  }
+   enqueue_pass(current_frame_packet(), g_recorder.currentRenderPass);
+ 
+   // Populate new render pass from previous
+-  const auto msaaSamples = prevPass.msaaSamples;
+-  RenderPass newPass{
+-      .label = pass_label(g_recorder.inOffscreen ? "Offscreen" : "EFB"),
+-      .colorAttachments = prevPass.colorAttachments,
+-      .colorAttachmentCount = prevPass.colorAttachmentCount,
+-      .depthStencilView = prevPass.depthStencilView,
+-      .depthStencilFormat = prevPass.depthStencilFormat,
+-      .copySourceTexture = prevPass.copySourceTexture,
+-      .copySourceView = prevPass.copySourceView,
+-      .copySourceDepthView = prevPass.copySourceDepthView,
+-      .msaaSamples = msaaSamples,
+-      .clearDepthValue = clearDepthValue,
+-      .clearDepth = clearDepth,
+-      .hasDepth = prevPass.hasDepth,
+-      .hasStencil = prevPass.hasStencil,
+-  };
+   const bool fullColorClear = clearColor && clearAlpha;
+-  for (uint32_t i = 0; i < newPass.colorAttachmentCount; ++i) {
+-    auto& color = newPass.colorAttachments[i];
+-    color.loadOp = wgpu::LoadOp::Undefined;
+-    color.clear = false;
+-  }
+-  if (fullColorClear) {
+-    auto& sceneColor = newPass.colorAttachments[SceneColorAttachmentIndex];
+-    sceneColor.clear = true;
+-    sceneColor.clearValue = clearColorValue;
+-  }
+-  newPass.commands.reserve(2048);
+-  current_render_passes().emplace_back(std::move(newPass));
++  current_render_passes().emplace_back(
++      make_efb_continuation(prevPass, clearDepth, clearDepthValue, fullColorClear, clearColorValue));
+   ++g_recorder.currentRenderPass;
+ 
+   if (!fullColorClear && (clearColor || clearAlpha)) {
+@@ -858,6 +1294,7 @@ void resolve_pass_into(TextureHandle texture, ClipRect rect, bool clearColor, bo
+ }
+ 
+ void queue_palette_conv(tex_palette_conv::ConvRequest req) {
++  FLIP_FUSION_SETTLE("palette", splitPalette);
+   auto& renderPass = current_render_passes()[g_recorder.currentRenderPass];
+   AURORA_ASSERT(!renderPass.sealed, "Attempted to append palette conversion to sealed render pass {}",
+                 g_recorder.currentRenderPass);
+@@ -973,6 +1410,7 @@ bool resolve_pass(const ResolveDesc& desc, ResolvedTargets& out) {
+     wantDepth = false;
+   }
+ 
++  FLIP_FUSION_SETTLE("break", splitBreak);
+   auto& prevPass = current_render_passes()[g_recorder.currentRenderPass];
+   const uint32_t width = prevPass.colorAttachments[SceneColorAttachmentIndex].size.width;
+   const uint32_t height = prevPass.colorAttachments[SceneColorAttachmentIndex].size.height;
+@@ -1040,6 +1478,7 @@ bool push_encoder_task(EncoderTaskId type, const void* payload, size_t payloadSi
+   // pass that loads the existing contents. EFB writes persist into the continuation, so
+   // content keeps the sealed pass alive even without a consumer.
+   auto& frame = current_frame_packet();
++  FLIP_FUSION_SETTLE("break", splitBreak);
+   auto& prevPass = current_render_passes()[g_recorder.currentRenderPass];
+   prevPass.discardable = !prevPass.has_consumer() && !prevPass.has_content();
+   enqueue_pass(frame, g_recorder.currentRenderPass);
+@@ -1063,6 +1502,23 @@ void push_draw_command(gx::DrawData data) {
    push_draw_command(make_draw_command<gx::render>(data));
  }
  
@@ -2918,7 +3671,7 @@ index d04db0f..1f6494a 100644
  #ifdef AURORA_ENABLE_RMLUI
  template <>
  void push_draw_command(rmlui::DrawData data) {
-@@ -1070,8 +1104,34 @@ void push_draw_command(rmlui::DrawData data) {
+@@ -1070,8 +1526,39 @@ void push_draw_command(rmlui::DrawData data) {
  }
  #endif
  
@@ -2937,6 +3690,11 @@ index d04db0f..1f6494a 100644
 +  }
 +  return canonical;
 +}
++void flip_fusion_texture_bound(const TextureHandle& handle) noexcept {
++  if (g_fusion.active && handle && handle.get() == g_fusion.firstTarget.get()) {
++    flip_fusion_split("texture", g_fusion.stats.splitTexture);
++  }
++}
 +PipelineRef pipeline_ref_async(const gx::PipelineConfig& config) {
 +  const auto canonical = (config.shaderConfig.flipFlags & gx::FlipVertexInput) ? flip_canonical_config(config) : config;
 +  return find_pipeline_async(ShaderType::GX, canonical, [=] { return create_pipeline(canonical); });
@@ -2953,7 +3711,18 @@ index d04db0f..1f6494a 100644
    return find_pipeline(ShaderType::GX, config, [=] { return create_pipeline(config); });
  }
  
-@@ -1114,12 +1174,41 @@ Range push_indices(const uint8_t* data, size_t length, size_t alignment) {
+@@ -1089,6 +1576,10 @@ void finish() {
+   }
+   AURORA_ASSERT(!g_recorder.inOffscreen, "finish called while offscreen rendering is active");
+   if (g_recorder.currentRenderPass != UINT32_MAX) {
++    FLIP_FUSION_SETTLE("break", splitBreak);
++#ifdef MELEE_MIYOO_FLIP
++    flip_fusion_frame_end();
++#endif
+     auto& frame = current_frame_packet();
+     frame.uniforms.append_zeroes(gx::MaxUniformSize);
+     auto& pass = frame.renderPasses[g_recorder.currentRenderPass];
+@@ -1114,12 +1605,41 @@ Range push_indices(const uint8_t* data, size_t length, size_t alignment) {
    return push(current_frame_packet().indices, data, length, alignment);
  }
  
@@ -2997,7 +3766,7 @@ index d04db0f..1f6494a 100644
  
  Range push_storage(const uint8_t* data, size_t length) {
 diff --git a/lib/gfx/recording.hpp b/lib/gfx/recording.hpp
-index cd2b794..f931895 100644
+index cd2b794..bc3c032 100644
 --- a/lib/gfx/recording.hpp
 +++ b/lib/gfx/recording.hpp
 @@ -16,6 +16,8 @@ struct RecordedFrame {
@@ -3029,12 +3798,15 @@ index cd2b794..f931895 100644
  template <typename T>
  Range push_uniform(const T& data) {
    return push_uniform(reinterpret_cast<const uint8_t*>(&data), sizeof(T));
-@@ -97,6 +105,9 @@ template <typename DrawData>
+@@ -97,6 +105,12 @@ template <typename DrawData>
  DrawData* get_last_draw_command();
  template <typename PipelineConfig>
  PipelineRef pipeline_ref(const PipelineConfig& config);
 +#ifdef MELEE_MIYOO_FLIP
 +PipelineRef pipeline_ref_async(const gx::PipelineConfig& config);
++// Shadow-pass fusion: a draw that samples the first copy of a fused pass must
++// split the pass so the copy is resolved before the draw.
++void flip_fusion_texture_bound(const TextureHandle& handle) noexcept;
 +#endif
  
  void resolve_pass_into(TextureHandle texture, ClipRect rect, bool clearColor, bool clearAlpha, bool clearDepth,
@@ -3305,6 +4077,254 @@ index 3fdc0ee..ae33eff 100644
    wgpu::Buffer vertexBuffer;
    wgpu::Buffer uniformBuffer;
    wgpu::Buffer indexBuffer;
+diff --git a/lib/gfx/tex_copy_conv.cpp b/lib/gfx/tex_copy_conv.cpp
+index 83c3786..387920c 100644
+--- a/lib/gfx/tex_copy_conv.cpp
++++ b/lib/gfx/tex_copy_conv.cpp
+@@ -327,7 +327,87 @@ static wgpu::BindGroupLayout g_depthBindGroupLayout;
+ static wgpu::Sampler g_nearestSampler;
+ static wgpu::Sampler g_linearSampler;
+ static absl::flat_hash_map<GXTexFmt, wgpu::RenderPipeline> g_pipelines;
++static absl::flat_hash_map<GXTexFmt, wgpu::RenderPipeline> g_dualPipelines;
+ static wgpu::RenderPipeline g_blitPipeline;
++
++// Dual-target variant: the same conversion applied to two source rectangles,
++// written to two attachments (fused shadow passes resolve both shadow maps in
++// one pass; each pass costs ~0.5 ms of driver time on the Flip).
++static constexpr std::string_view DualShaderPreamble = R"(
++@group(0) @binding(0) var src_samp: sampler;
++@group(0) @binding(1) var src: texture_2d<f32>;
++
++struct UVTransform {
++    offset: vec2f,
++    scale: vec2f,
++    offset2: vec2f,
++    scale2: vec2f,
++};
++@group(0) @binding(2) var<uniform> uv_xf: UVTransform;
++
++struct VertexOutput {
++    @builtin(position) pos: vec4f,
++    @location(0) uv: vec2f,
++    @location(1) uv2: vec2f,
++};
++
++var<private> positions: array<vec2f, 3> = array(
++    vec2f(-1.0, 1.0),
++    vec2f(-1.0, -3.0),
++    vec2f(3.0, 1.0),
++);
++var<private> uvs: array<vec2f, 3> = array(
++    vec2f(0.0, 0.0),
++    vec2f(0.0, 2.0),
++    vec2f(2.0, 0.0),
++);
++
++@vertex fn vs_main(@builtin(vertex_index) vi: u32) -> VertexOutput {
++    var out: VertexOutput;
++    out.pos = vec4f(positions[vi], 0.0, 1.0);
++    out.uv = uvs[vi] * uv_xf.scale + uv_xf.offset;
++    out.uv2 = uvs[vi] * uv_xf.scale2 + uv_xf.offset2;
++    return out;
++}
++
++fn intensity(rgb: vec3f) -> f32 {
++    // ITU-R BT.601 luma coefficients
++    return dot(rgb, vec3f(0.257, 0.504, 0.098)) + 16.0 / 255.0;
++}
++
++fn quantize4(v: f32) -> f32 {
++    return floor(v * 16.0) / 15.0;
++}
++)"sv;
++
++static constexpr std::string_view DualFragmentEpilogue = R"(
++struct DualOutput {
++    @location(0) a: vec4f,
++    @location(1) b: vec4f,
++};
++@fragment fn fs_main(in: VertexOutput) -> DualOutput {
++    var out: DualOutput;
++    out.a = conv(in.uv);
++    out.b = conv(in.uv2);
++    return out;
++}
++)"sv;
++
++// Rewrites a single-target fragment shader into `fn conv(uv: vec2f) -> vec4f`.
++static std::string dual_fragment_source(std::string_view fragShader) {
++  static constexpr std::string_view signature = "@fragment fn fs_main(in: VertexOutput) -> @location(0) vec4f {";
++  std::string source{fragShader};
++  const auto pos = source.find(signature);
++  if (pos == std::string::npos) {
++    return {};
++  }
++  source.replace(pos, signature.size(), "fn conv(uv: vec2f) -> vec4f {");
++  for (size_t at = source.find("in.uv"); at != std::string::npos; at = source.find("in.uv", at + 2)) {
++    source.replace(at, 5, "uv");
++  }
++  source += DualFragmentEpilogue;
++  return source;
++}
+ static wgpu::BindGroupLayout g_depthSnapshotBindGroupLayout;
+ static wgpu::BindGroupLayout g_depthSnapshotBindGroupLayoutMS;
+ static wgpu::RenderPipeline g_depthSnapshotPipeline;
+@@ -447,7 +527,57 @@ static wgpu::RenderPipeline create_pipeline(const ConvPipeline& conv, const std:
+   return g_device.CreateRenderPipeline(&pipelineDescriptor);
+ }
+ 
++static wgpu::RenderPipeline create_dual_pipeline(const ConvPipeline& conv, const wgpu::BindGroupLayout& bindGroupLayout) {
++  const std::string frag = dual_fragment_source(conv.fragShader);
++  if (frag.empty()) {
++    return {};
++  }
++  std::string shaderSource;
++  shaderSource += DualShaderPreamble;
++  shaderSource += frag;
++  const std::string label = std::string{conv.label} + " Dual";
++  const wgpu::ShaderSourceWGSL wgslSource{wgpu::ShaderSourceWGSL::Init{
++      .code = shaderSource.c_str(),
++  }};
++  const wgpu::ShaderModuleDescriptor moduleDescriptor{
++      .nextInChain = &wgslSource,
++      .label = label.c_str(),
++  };
++  const auto module = g_device.CreateShaderModule(&moduleDescriptor);
++  const std::array colorTargets{
++      wgpu::ColorTargetState{.format = conv.outputFormat},
++      wgpu::ColorTargetState{.format = conv.outputFormat},
++  };
++  const wgpu::FragmentState fragmentState{
++      .module = module,
++      .entryPoint = "fs_main",
++      .targetCount = colorTargets.size(),
++      .targets = colorTargets.data(),
++  };
++  const wgpu::PipelineLayoutDescriptor layoutDescriptor{
++      .bindGroupLayoutCount = 1,
++      .bindGroupLayouts = &bindGroupLayout,
++  };
++  const auto pipelineLayout = g_device.CreatePipelineLayout(&layoutDescriptor);
++  const wgpu::RenderPipelineDescriptor pipelineDescriptor{
++      .label = label.c_str(),
++      .layout = pipelineLayout,
++      .vertex =
++          wgpu::VertexState{
++              .module = module,
++              .entryPoint = "vs_main",
++          },
++      .primitive =
++          wgpu::PrimitiveState{
++              .topology = wgpu::PrimitiveTopology::TriangleList,
++          },
++      .fragment = &fragmentState,
++  };
++  return g_device.CreateRenderPipeline(&pipelineDescriptor);
++}
++
+ bool needs_conversion(const GXTexFmt fmt) { return g_pipelines.contains(fmt); }
++bool dual_supported(const GXTexFmt fmt) { return g_dualPipelines.contains(fmt); }
+ 
+ void initialize() {
+   static constexpr std::array bindGroupLayoutEntries{
+@@ -518,6 +648,11 @@ void initialize() {
+     if (conv.outputFormat != to_wgpu(conv.fmt)) {
+       Log.fatal("Output format mismatch for {}", conv.fmt);
+     }
++#ifdef MELEE_MIYOO_FLIP
++    if (auto dual = create_dual_pipeline(conv, g_bindGroupLayout)) {
++      g_dualPipelines[conv.fmt] = std::move(dual);
++    }
++#endif
+   }
+   // Skip depth copies in compatibility mode
+   if (webgpu::g_hasCoreFeatures) {
+@@ -552,6 +687,7 @@ void initialize() {
+ 
+ void shutdown() {
+   g_pipelines.clear();
++  g_dualPipelines.clear();
+   g_blitPipeline = {};
+   g_bindGroupLayout = {};
+   g_depthBindGroupLayout = {};
+@@ -638,6 +774,62 @@ static void execute(const wgpu::CommandEncoder& cmd, const ConvRequest& req, con
+   pass.End();
+ }
+ 
++void run_dual(const wgpu::CommandEncoder& cmd, const ConvRequest& req, const TextureHandle& dst2,
++              const Range dualUniformRange) {
++  const auto it = g_dualPipelines.find(req.fmt);
++  if (it == g_dualPipelines.end()) {
++    Log.fatal("No dual copy conversion pipeline for format {}", static_cast<int>(req.fmt));
++  }
++  const auto& sampler = req.sampleFilter == SampleFilter::Linear ? g_linearSampler : g_nearestSampler;
++  const std::array bindGroupEntries{
++      wgpu::BindGroupEntry{
++          .binding = 0,
++          .sampler = sampler,
++      },
++      wgpu::BindGroupEntry{
++          .binding = 1,
++          .textureView = req.srcView,
++      },
++      wgpu::BindGroupEntry{
++          .binding = 2,
++          .buffer = detail::resources().uniformBuffer,
++          .offset = dualUniformRange.offset,
++          .size = dualUniformRange.size,
++      },
++  };
++  const wgpu::BindGroupDescriptor bindGroupDescriptor{
++      .layout = g_bindGroupLayout,
++      .entryCount = bindGroupEntries.size(),
++      .entries = bindGroupEntries.data(),
++  };
++  const auto bindGroup = g_device.CreateBindGroup(&bindGroupDescriptor);
++  const std::array colorAttachments{
++      wgpu::RenderPassColorAttachment{
++          .view = req.dst->attachmentTextureView,
++          .loadOp = wgpu::LoadOp::Clear,
++          .storeOp = wgpu::StoreOp::Store,
++          .clearValue = {0.0, 0.0, 0.0, 0.0},
++      },
++      wgpu::RenderPassColorAttachment{
++          .view = dst2->attachmentTextureView,
++          .loadOp = wgpu::LoadOp::Clear,
++          .storeOp = wgpu::StoreOp::Store,
++          .clearValue = {0.0, 0.0, 0.0, 0.0},
++      },
++  };
++  const wgpu::RenderPassDescriptor renderPassDescriptor{
++      .label = "TexCopyConv Dual Pass",
++      .colorAttachmentCount = colorAttachments.size(),
++      .colorAttachments = colorAttachments.data(),
++      .timestampWrites = webgpu::gpu_prof::pass_writes("EFB copy convert"),
++  };
++  const auto pass = cmd.BeginRenderPass(&renderPassDescriptor);
++  pass.SetPipeline(it->second);
++  pass.SetBindGroup(0, bindGroup);
++  pass.Draw(3);
++  pass.End();
++}
++
+ void run(const wgpu::CommandEncoder& cmd, const ConvRequest& req) {
+   const auto it = g_pipelines.find(req.fmt);
+   if (it == g_pipelines.end()) {
+diff --git a/lib/gfx/tex_copy_conv.hpp b/lib/gfx/tex_copy_conv.hpp
+index 34fc5f4..2d67e61 100644
+--- a/lib/gfx/tex_copy_conv.hpp
++++ b/lib/gfx/tex_copy_conv.hpp
+@@ -25,6 +25,10 @@ void initialize();
+ void shutdown();
+ void run(const wgpu::CommandEncoder& cmd, const ConvRequest& req);
+ void blit(const wgpu::CommandEncoder& cmd, const ConvRequest& req);
++// Two same-format, unscaled conversions from one source in a single pass with
++// two color targets. `dualUniformRange` holds both UV transforms (32 bytes).
++bool dual_supported(GXTexFmt fmt);
++void run_dual(const wgpu::CommandEncoder& cmd, const ConvRequest& req, const TextureHandle& dst2, Range dualUniformRange);
+ 
+ bool snapshot_depth_supported() noexcept;
+ void snapshot_depth(const wgpu::CommandEncoder& cmd, const wgpu::TextureView& srcDepth, uint32_t msaaSamples,
 diff --git a/lib/gx/command_processor.cpp b/lib/gx/command_processor.cpp
 index b0dce17..dcd4705 100644
 --- a/lib/gx/command_processor.cpp
@@ -6947,7 +7967,7 @@ index 24d431b..51a5c84 100644
  u8 color_channel(GXChannelID id) noexcept;
  }; // namespace aurora::gx
 diff --git a/lib/gx/texture.cpp b/lib/gx/texture.cpp
-index a56709a..2b39c96 100644
+index a56709a..614b0ef 100644
 --- a/lib/gx/texture.cpp
 +++ b/lib/gx/texture.cpp
 @@ -10,6 +10,9 @@
@@ -7076,6 +8096,18 @@ index a56709a..2b39c96 100644
    ZoneScoped;
    apply_pending_invalidations();
  
+@@ -854,6 +925,11 @@ void resolve_sampled_textures(const ShaderInfo& info) noexcept {
+     gfx::TextureHandle handle;
+     const auto copyIt = g_gxState.copyTextures.find(obj.data);
+     const GXState::CopyTextureRef* copyRef = copyIt != g_gxState.copyTextures.end() ? &copyIt->second : nullptr;
++#ifdef MELEE_MIYOO_FLIP
++    if (copyRef != nullptr) {
++      gfx::flip_fusion_texture_bound(copyRef->handle);
++    }
++#endif
+     if (is_palette_format(obj.format())) {
+       const auto tlutIdx = static_cast<size_t>(obj.tlut);
+       if (tlutIdx < g_gxState.loadedTluts.size()) {
 diff --git a/lib/gx/texture.hpp b/lib/gx/texture.hpp
 index 29c9a48..bd88f6a 100644
 --- a/lib/gx/texture.hpp

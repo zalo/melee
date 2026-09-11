@@ -1,4 +1,4 @@
-# Renderer iteration toward 60 FPS, 2026-09-10 (v79–v114)
+# Renderer iteration toward 60 FPS, 2026-09-10 (v79–v124)
 
 This report continues the Miyoo Flip work described in the earlier reports under
 `../2026-09-09-flip/`. It records what was measured, what changed in the renderer,
@@ -41,6 +41,14 @@ physical scanout capture (`3f2016a8522d…`) as the v77/v79 baseline.
 | v108 | moving Pokémon Stadium | async | 17.7 | 16.7 (p95 22.6) | 56–59 | n/a |
 | v106 | moving Fountain of Dreams | async | 47.2 | 45.7 | 21 | n/a |
 | v108 | moving Fountain of Dreams | async | 26.2 | 24.7 (p95 39.3) | 37–40 | n/a (frozen EFB unchanged) |
+| v120 shadow-pass fusion + two-target conversion | frozen Onett | async | 17.1 | 16.7 (p95 16.8) | render worker 15.0–15.5 ms, 4 passes | yes |
+| v120 | moving Onett | async | 17.1 | 16.7 (p95 16.9) | 58–59 | n/a |
+| v120 | moving Battlefield | async | 18.8 | 16.7 (p95 32.0, one stall) | 58 | n/a |
+| v121 fusion after clear draws | frozen Fountain of Dreams | async | 24.0 | 23.1 | 43 | yes (`cc2fea00f05f`) |
+| v122 | moving Onett | async | 17.5 | 16.7 (p95 21.4) | 57–59 | n/a |
+| v122 | moving Fountain of Dreams | async | 27.0 | 25.9 (p95 34.8) | 37–39 | n/a |
+| v124 fusion predicate fixes | frozen Onett / frozen Fountain | async | 17.2 / 26.3 | 16.7 / 24.7 | 4 / 6 passes per frame | yes / yes |
+| v124 | moving Onett | async | 17.1 | 16.7 (p95 18.1) | 58–59; render worker 14.4–15.3 ms | n/a |
 
 Mean/median are the presentation intervals from `[flip-thread-present]`
 (`analyze_flip_profile.py --tail 300`); FPS is the game thread's `[perf]` line
@@ -245,7 +253,55 @@ so it can be A/B tested with the trial tool.
     frozen Fountain capture `cc2fea00f05f…` unchanged, Onett unchanged. The
     per-vertex record region got a CPU shadow for the same reason.
 
+15. **Shadow-pass fusion** (`recording.cpp` `FlipPassFusion`, `MELEE_FLIP_FUSE_PASSES`,
+    default on, v115–v122). Melee renders its two 256×256 fighter shadow maps as
+    separate EFB passes: render shadow 1 at (0,0), `GXCopyTex(clear)`, render
+    shadow 2 at (0,0), copy, then the main scene. Each pass costs ~0.5–0.7 ms of
+    Mali driver time regardless of its draws. The second shadow is now recorded
+    into the same `RenderPass` with every viewport and scissor shifted right of
+    the first copy rectangle (x += 256), and the pass carries two resolves
+    (`flipExtraResolves`). Exactness rules, per channel (color, alpha, depth):
+    the region the second shadow lands in holds the pass-start state, so a
+    channel the first copy clears must have been cleared identically at pass
+    start (load-op clear or the leading full-EFB clear draw that
+    `resolve_pass_into` emits after a color-only copy clear), and a channel it
+    does not clear must not be written by the first segment; after the second
+    copy, any channel either segment wrote must be cleared by that copy or the
+    leftovers would sit in the wrong place. Melee's shadow copies clear color
+    only (alpha and Z updates are off in the shadow PE mode), so the write mask
+    of GX draws is tracked per pass (`flipWriteMask`). The fusion is
+    speculative: a viewport that does not fit, a clear/custom draw, a draw that
+    samples the first copy (`flip_fusion_texture_bound`), a palette conversion,
+    any other pass break, or a failed second-copy check splits the shifted
+    segment back into its own pass with coordinates restored and the exact
+    continuation the copy would have created. Scaled copies (Fountain's
+    reflection) never start a fusion. `[flip-pass-fuse]` prints counts every
+    600 frames (`MELEE_FLIP_FUSE_TRACE=1` prints each split). A fusion is only
+    attempted when the first segment wrote nothing but color (a shadow copy
+    clears color only, so nothing else could complete); clear draws contribute
+    their pipeline's channels, not the GX state current when they were pushed
+    (v123/v124 fixes, found on Fountain). Onett: 600/600 frames fused;
+    Fountain: the two shadow passes after the reflection copy fuse; both frozen
+    captures bit-exact. Render worker −0.7 ms (Onett), passes 7 → 5.
+
+16. **Two-target conversion pass** (`tex_copy_conv.cpp` `run_dual`,
+    `MELEE_FLIP_DUAL_CONV`, default on, v120). A fused pass with two same-format
+    unscaled resolves converts both shadow maps in one render pass with two
+    color attachments (the single-target fragment shaders are rewritten into a
+    `conv(uv)` function at init; the vertex stage carries two UV transforms from
+    one 32-byte uniform pushed at fusion completion). Passes 5 → 4 per Onett
+    frame (fused shadows, main, present copy, dual conversion). Exact.
+
 ## Findings worth keeping
+
+- **Direct-path one-off (v117):** one fused frozen-Onett run differed from the
+  reference in ~1,500 pixels of the two "CP" player indicators (±1–20). It did
+  not reproduce in six further fused runs (direct path, Dawn path for the fused
+  pass only, `MELEE_FLIP_STATE_CACHE=0`), so it is filed as an intermittent
+  observation, not a fusion defect. `MELEE_FLIP_FUSE_RESET=1` (reset the direct
+  path's state memos at the fused segment boundary), `MELEE_FLIP_FUSE_DAWN=1`
+  (Dawn renders fused passes) and `MELEE_FLIP_DUMP_EFB_PASS=<frame>` (EFB
+  read-back at pass start) remain as diagnostics if it returns.
 
 - **Other stages (v106/v108, moving matches):** Pokémon Stadium and Hyrule Temple
   present at 16.7 ms median (p95 21–31 ms, the latter from mid-match pipeline
@@ -355,13 +411,12 @@ so it can be A/B tested with the trial tool.
    released region (fixed in v100, see below). Compile stalls still exist on a cold
    `dawn_cache.db`; Dolphin-style non-blocking creation or repaired prewarming
    remain the answer for first-run matches.
-2. **Render worker at ~17 ms.** Remaining per frame (Onett): main pass ~8 ms of
-   driver time for ~330 draws, two 256×256 shadow passes and their two conversion
-   passes ~2.5 ms, present pass 0.45 ms, Dawn pass setup ~0.3 ms × 7, plan
-   preparation 0.8 ms, encode 0.35 ms. Ideas not yet done: blit-based EFB copies
-   (loses 4-bit quantization), a swapchain texture pool (Dawn allocates a new
-   texture per frame), fusing the pre-copy passes, sorting opaque draws by
-   program/texture (changes draw order semantics).
+2. **Render worker at ~15 ms (v124).** Remaining per frame (Onett): main pass
+   ~9–10 ms of driver time for ~340 draws, fused shadow pass ~1.0 ms, present pass
+   ~0.9 ms, dual conversion ~0.8 ms, plan preparation 0.7 ms, encode 0.2 ms. Done
+   since the first write-up: swapchain pool, shadow-pass fusion, two-target
+   conversion. Left: draw count (texture-bank merging done properly, opaque
+   sorting), and the main pass itself.
 3. **Moving Onett** is render-bound at ~17.5 ms (render worker 17.7 ms with ~340
    draws and the two shadow copies); the FIFO worker is at ~10 ms and the game
    thread idles ~3 ms per frame. Item 2 is what remains.

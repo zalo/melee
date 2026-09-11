@@ -1,6 +1,6 @@
 # Miyoo Flip V2 port: consolidated handoff
 
-Snapshot: 2026-09-10 (second iteration, v79–v114). This is the entry point for
+Snapshot: 2026-09-11 (second iteration, v79–v124). This is the entry point for
 the ARM port, the renderer work, profiling results, and remaining work. Build and
 installation details are in [FLIP.md](FLIP.md). The detailed record of this
 iteration is [RENDERER_ITERATION.md](validation/2026-09-10-flip/RENDERER_ITERATION.md);
@@ -12,9 +12,11 @@ Onett, moving Onett and moving Battlefield all run at the 60 Hz boundary (median
 steady 5-second windows; frozen Onett bit-exact with the original reference EFB
 capture). Moving Onett's tail stalls were resident-geometry invalidation scans
 (v100) and an implicit GPU sync on vertex uploads (v102), not shader compilation.
-Moving Onett is render-worker bound at ~15–15.5 ms. Pokémon Stadium and Hyrule
-Temple also present at 16.7 ms median; Fountain of Dreams is GPU-bound (~37 fps,
-25k blended point sprites). Four players and menus are unmeasured.
+Moving Onett is render-worker bound at ~15 ms after the shadow passes were fused
+and their conversions merged (7 → 4 render passes per frame, v120–v124). Pokémon
+Stadium and Hyrule Temple also present at 16.7 ms median; Fountain of Dreams is
+GPU-bound (~40 fps, 25k blended point sprites). Four players and menus are
+unmeasured.
 
 ## Repository and device state
 
@@ -22,11 +24,11 @@ Temple also present at 16.7 ms median; Fountain of Dreams is GPU-bound (~37 fps,
 | --- | --- |
 | Hardware | Rockchip RK3566, Mali-G52, AArch64 Linux, 640×480, ~1 GiB RAM |
 | Firmware | Surwish / Buildroot, kernel 5.10.160; app-local Mali g29p1 GLES driver |
-| Device executable | v114 (`dist/flip/v114`; v108 defaults, empty ImGui pass skipped, opt-in experiments), launcher with `MELEE_FLIP_ASYNC_FIFO=1` default |
+| Device executable | v124 (`dist/flip/v124`; v114 defaults plus shadow-pass fusion and the two-target conversion pass), launcher with `MELEE_FLIP_ASYNC_FIFO=1` default |
 | Local source | this tree; Aurora/Dawn working trees under ignored `build/`, patches regenerated and verified against pristine sources |
 | Device activity | game stopped between trials, MainUI running |
 | ROM | installed at `/mnt/SDCARD/Ports/melee-native/data/disc.img`; no ROM was transferred |
-| Symbols | `build/flip-tools/melee_native-v96..v114-symbols` (unstripped, for CPU samples) |
+| Symbols | `build/flip-tools/melee_native-v96..v124-symbols` (unstripped, for CPU samples) |
 
 Passwordless ADB at `10.0.0.178:5555` (`build/flip-tools/platform-tools/adb`).
 
@@ -52,10 +54,13 @@ mostly inside the Mali driver, not Dawn.
 | Swapchain texture pool | presenter recycles presented GL textures; framebuffer cache keeps hitting | render worker −1 ms (frozen 15.3 ms, moving Onett 15–15.5 ms) |
 | Specialized line/point expansion | loader-decoded records copied into quad corners, assembled in local memory | Fountain of Dreams FIFO 46 → 23 ms |
 | Mapped vertex stream | streamed vertices decoded into fenced persistently mapped GL storage; no `glBufferSubData` into in-flight buffers | moving Onett render 27 → 17.7 ms (mean frame 27.5 → 17.5), Battlefield 21 → 17.1 |
+| Shadow-pass fusion | second shadow map recorded into the first shadow pass with viewport/scissor shifted right; two resolves per pass; per-channel clear/write rules, speculative with exact split fallback | render worker −0.7 ms, passes 7 → 5 (Onett), Fountain fused too |
+| Two-target conversion pass | both shadow copies converted in one pass with two color attachments | passes 5 → 4; Onett moving p95 20 → 17 ms |
 
-Per-frame budget now (frozen Onett, async, v106): game thread ~5 ms, FIFO worker
-~9–10 ms, render worker ~15.3 ms (moving Onett 15–15.5 ms), GPU ~12–13 ms. The render worker is the limiter; 62 % of its
-samples are inside the Mali driver (about 330 draws and 7 render passes per frame).
+Per-frame budget now (Onett, async, v124): game thread ~5 ms, FIFO worker
+~10 ms, render worker ~14.5–15.5 ms, GPU ~12–13 ms. The render worker is the
+limiter; most of its time is inside the Mali driver (about 340 draws and 4 render
+passes per frame: fused shadows, main scene, present copy, dual conversion).
 
 ## Current defaults and switches
 
@@ -77,12 +82,14 @@ iteration is on by default and has an opt-out for A/B trials:
 | `MELEE_FLIP_PIPELINE_MEMO` | 1 | pipeline-state memo |
 | `MELEE_FLIP_SWAPCHAIN_POOL`, `MELEE_FLIP_RESIDENT_COPY` | 1 | pooled swapchain textures; GPU-side copies for resident arena uploads |
 | `MELEE_FLIP_SKIP_EMPTY_IMGUI` | 1 | no ImGui render pass when the overlay is empty |
+| `MELEE_FLIP_FUSE_PASSES` | 1 | record the second shadow map into the first shadow pass (shifted right), two resolves per pass; `MELEE_FLIP_FUSE_TRACE=1` logs splits |
+| `MELEE_FLIP_DUAL_CONV` | 1 | convert both shadow copies of a fused pass in one two-target pass |
 | `MELEE_FLIP_LAYOUT_VAO` | off | one VAO per attribute layout; neutral on this driver (see report) |
 | `MELEE_FLIP_CONSTANT_RECORDS` | off | per-draw uniform record pipelines; −1 ms GPU, +5 ms render worker on this driver (see report) |
 | `MELEE_FLIP_PRESENT_BLIT` | off | blit instead of the present copy pass; no gain, ±1 scanout pixels |
 | `MELEE_FLIP_SORT_OPAQUE` | off | sort opaque depth-ordered runs by state in the direct path (−0.5–0.7 ms, exact on frozen Onett, order risk elsewhere) |
 | `MELEE_FLIP_TEXTURE_PAIRS` | off | texture-bank batching; measured slower (see report) |
-| `MELEE_FLIP_DAWN_TIMING`, `MELEE_FLIP_DRAW_TRACE`, `MELEE_FLIP_GPU_TEST`, `MELEE_FLIP_SKIP_POINTS`, `MELEE_FLIP_MAPPED_CHECK`, `MELEE_FLIP_MAPPED_VERIFY_GPU`, `MELEE_FLIP_MAPPED_MIRROR`, `MELEE_FLIP_MAPPED_BIND_DAWN` | off | diagnostics only |
+| `MELEE_FLIP_DAWN_TIMING`, `MELEE_FLIP_DRAW_TRACE`, `MELEE_FLIP_GPU_TEST`, `MELEE_FLIP_SKIP_POINTS`, `MELEE_FLIP_MAPPED_CHECK`, `MELEE_FLIP_MAPPED_VERIFY_GPU`, `MELEE_FLIP_MAPPED_MIRROR`, `MELEE_FLIP_MAPPED_BIND_DAWN`, `MELEE_FLIP_FUSE_DAWN`, `MELEE_FLIP_FUSE_RESET`, `MELEE_FLIP_DUMP_EFB_PASS` | off | diagnostics only (the last three: Dawn renders fused passes / direct-path memo reset at the fused segment / EFB read-back at pass start) |
 
 Earlier experiments (`MELEE_FLIP_STREAM_UPLOAD`, `MELEE_FLIP_NATIVE_SPECIALIZED`,
 `MELEE_FLIP_VERTEX_CACHE`, `MELEE_FLIP_MAP_UPLOAD`, `MELEE_FLIP_DECODE_DIRECT`,
@@ -92,7 +99,9 @@ Earlier experiments (`MELEE_FLIP_STREAM_UPLOAD`, `MELEE_FLIP_NATIVE_SPECIALIZED`
 ## Validation
 
 - Frozen Onett EFB capture `da46d4a79a8f…` matches the v77/v79 reference for every
-  default-configuration build v80–v102 (async included). The scanout capture
+  default-configuration build v80–v124 (async included); frozen Fountain of Dreams
+  `cc2fea00f05f…` matches through v124 (one v117 run differed in the player
+  indicators and never reproduced; see the report). The scanout capture
   changed at v99b (`eaf1f2147d79…`, 20 pixels differ by ±1); the EFB is the
   criterion.
 - Moving Battlefield and moving Onett 60-second soaks complete without GL errors
@@ -119,15 +128,14 @@ render worker, and `[flip-resident]`. `MELEE_FLIP_DAWN_TIMING=1` adds
 
 ## Next work, in priority order
 
-1. **Render worker below ~14 ms** (moving Onett sits at 15–16 ms: main pass ~9 ms
-   of driver time for ~340 draws; the two shadow passes plus their copy/conversion
-   passes ~3 ms). Measured and rejected: per-draw uniform records (+5 ms), one VAO
-   per layout (neutral). The driver's cost tracks draws and passes, not GL calls,
-   so what remains is fusing the shadow passes into one (plus one conversion pass)
-   and cutting draws through texture-bank merging of resident geometry. Candidates: blit-based EFB copies instead of
-   conversion passes, a swapchain texture pool in `SwapChainEGL` (Dawn allocates a
-   fresh texture each frame), fusing the two pre-copy shadow passes, sorting opaque
-   draws by program/texture, reducing the ~7 Dawn pass setups.
+1. **Render worker below ~14 ms** (moving Onett sits at ~15 ms: main pass ~9–10 ms
+   of driver time for ~340 draws; fused shadows, present copy and dual conversion
+   ~1 ms each). Measured and rejected: per-draw uniform records (+5 ms), one VAO
+   per layout (neutral). Done: swapchain pool, shadow-pass fusion, two-target
+   conversion (7 → 4 passes). The driver's cost tracks draws and passes, so what
+   remains is the draw count: texture-bank merging of resident geometry done
+   properly (bind only the banks a run uses), sorting opaque draws by
+   program/texture (opt-in, −0.5 ms), and fewer HUD draws.
 2. **Compile stalls on a cold shader cache** (`pipeline_wait_ms` is ~0 when warm):
    non-blocking pipeline creation (skip the draw, Dolphin style), repaired
    prewarming, or a shipped cache from scripted matches.
