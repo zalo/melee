@@ -1,6 +1,6 @@
 # Miyoo Flip V2 port: consolidated handoff
 
-Snapshot: 2026-09-11 (second iteration, v79–v140). This is the entry point for
+Snapshot: 2026-09-11 (second iteration, v79–v142). This is the entry point for
 the ARM port, the renderer work, profiling results, and remaining work. Build and
 installation details are in [FLIP.md](FLIP.md). The detailed record of this
 iteration is [RENDERER_ITERATION.md](validation/2026-09-10-flip/RENDERER_ITERATION.md);
@@ -24,11 +24,11 @@ unmeasured.
 | --- | --- |
 | Hardware | Rockchip RK3566, Mali-G52, AArch64 Linux, 640×480, ~1 GiB RAM |
 | Firmware | Surwish / Buildroot, kernel 5.10.160; app-local Mali g29p1 GLES driver |
-| Device executable | v140 (`dist/flip/v140`; v134 plus the clamp-texture atlas and larger array slabs), launcher with `MELEE_FLIP_ASYNC_FIFO=1` default |
+| Device executable | v142 (`dist/flip/v142`; v140 plus the reflection pass rendered every other frame), launcher with `MELEE_FLIP_ASYNC_FIFO=1` default |
 | Local source | this tree; Aurora/Dawn working trees under ignored `build/`, patches regenerated and verified against pristine sources |
 | Device activity | game stopped between trials, MainUI running |
 | ROM | installed at `/mnt/SDCARD/Ports/melee-native/data/disc.img`; no ROM was transferred |
-| Symbols | `build/flip-tools/melee_native-v96..v140-symbols` (unstripped, for CPU samples) |
+| Symbols | `build/flip-tools/melee_native-v96..v142-symbols` (unstripped, for CPU samples) |
 
 Passwordless ADB at `10.0.0.178:5555` (`build/flip-tools/platform-tools/adb`).
 
@@ -95,10 +95,11 @@ iteration is on by default and has an opt-out for A/B trials:
 | `MELEE_FLIP_TEXTURE_ARRAYS` | 1 | GX textures as layers of shared array textures; layer in the uniform record |
 | `MELEE_FLIP_TEXTURE_ATLAS` | 1 | clamp-wrapped single-mip textures share 1024² atlas layers (±1 on ~100 pixels of the frozen captures; 0 restores bit exactness) |
 | `MELEE_FLIP_TEXGROUP_TRACE` | off | diagnostic: describe each distinct texture bind group once (pair with `MELEE_FLIP_DRAW_TRACE`) |
+| `MELEE_FLIP_SCALED_COPY_INTERVAL` | 2 | small color EFB copies (Fountain's 80×60 reflection) render every Nth frame (1 = every frame) |
 | `MELEE_FLIP_SCENE_ON_SURFACE` | 1 | EFB passes render into the presented texture; no present copy pass |
 | `MELEE_FLIP_FS_VARYING_CONSTANTS` | off | experiment: TEV constants as flat varyings; measured no GPU gain (see report) |
 | `MELEE_FLIP_TEXTURE_VERIFY_INTERVAL` | 4 | frames between content re-hashes of a texture object (1 = every bind) |
-| `MELEE_FLIP_HALFRES_SPRITES` | off (0) | point count above which runs of point sprites render at half resolution and are composited; −8 ms GPU on Fountain but +3 passes of CPU, and Fountain is CPU-bound (see report) |
+| `MELEE_FLIP_HALFRES_SPRITES` | 4000 | point count above which runs of point sprites render at half resolution and are composited (Fountain only in practice; −8 ms GPU, +3 passes; not bit-exact when active; 0 disables) |
 | `MELEE_FLIP_LAYOUT_VAO` | off | one VAO per attribute layout; neutral on this driver (see report) |
 | `MELEE_FLIP_CONSTANT_RECORDS` | off | per-draw uniform record pipelines; −1 ms GPU, +5 ms render worker on this driver (see report) |
 | `MELEE_FLIP_PRESENT_BLIT` | off | blit instead of the present copy pass; no gain, ±1 scanout pixels |

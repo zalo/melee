@@ -2236,7 +2236,7 @@ index 0000000..e75fb20
 +}
 diff --git a/lib/gfx/flip_sprites.cpp b/lib/gfx/flip_sprites.cpp
 new file mode 100644
-index 0000000..31b541b
+index 0000000..e69e853
 --- /dev/null
 +++ b/lib/gfx/flip_sprites.cpp
 @@ -0,0 +1,252 @@
@@ -2257,10 +2257,10 @@ index 0000000..31b541b
 +uint32_t threshold() noexcept {
 +  static const uint32_t value = [] {
 +    const char* v = std::getenv("MELEE_FLIP_HALFRES_SPRITES");
-+    // Opt-in: on the Flip the pass saves ~8 ms of GPU on Fountain of Dreams but
-+    // its three extra passes cost the render worker more than that scene, which
-+    // is CPU-bound, gets back (v133). Set e.g. 4000 to enable for sprite-heavy frames.
-+    return v ? static_cast<uint32_t>(std::strtoul(v, nullptr, 10)) : 0u;
++    // Default 4000 points: only sprite-heavy frames (Fountain of Dreams) take
++    // the pass. With the atlas and the reflection skip it is a net gain there
++    // (v142: mean frame 26.6 -> 23.9 ms, p95 50 -> 36 ms); 0 disables.
++    return v ? static_cast<uint32_t>(std::strtoul(v, nullptr, 10)) : 4000u;
 +  }();
 +  return value;
 +}
@@ -2494,14 +2494,14 @@ index 0000000..31b541b
 +} // namespace aurora::gfx::flip_sprites
 diff --git a/lib/gfx/flip_sprites.hpp b/lib/gfx/flip_sprites.hpp
 new file mode 100644
-index 0000000..2de27d8
+index 0000000..0b5d984
 --- /dev/null
 +++ b/lib/gfx/flip_sprites.hpp
 @@ -0,0 +1,23 @@
 +#pragma once
 +// Half-resolution sprite pass (Miyoo Flip). Fountain of Dreams draws ~25k
 +// blended point sprites that cost ~8 ms of GPU fill at 640x480. When a frame
-+// draws more than MELEE_FLIP_HALFRES_SPRITES points (opt-in; 0 = off, default),
++// draws more than MELEE_FLIP_HALFRES_SPRITES points (default 4000; 0 disables),
 +// runs of eligible point draws render into a 320x240 target with a downsampled
 +// scene depth and are composited back with premultiplied alpha.
 +#include "../webgpu/gpu.hpp"
@@ -3443,7 +3443,7 @@ index 7eb4723..52f638e 100644
  
  } // namespace aurora::gfx
 diff --git a/lib/gfx/recording.cpp b/lib/gfx/recording.cpp
-index d04db0f..8a775a8 100644
+index d04db0f..181e978 100644
 --- a/lib/gfx/recording.cpp
 +++ b/lib/gfx/recording.cpp
 @@ -13,12 +13,21 @@
@@ -3468,7 +3468,15 @@ index d04db0f..8a775a8 100644
  #include <cstring>
  #include <new>
  #include <optional>
-@@ -35,6 +44,9 @@
+@@ -26,6 +35,7 @@
+ #include <string>
+ #include <type_traits>
+ #include <utility>
++#include <unordered_set>
+ #include <vector>
+ 
+ #include <absl/container/flat_hash_map.h>
+@@ -35,6 +45,9 @@
  namespace aurora::gfx {
  using namespace detail;
  
@@ -3478,7 +3486,7 @@ index d04db0f..8a775a8 100644
  namespace {
  constexpr Module Log{"aurora::gfx"};
  
-@@ -69,6 +81,76 @@ struct FrameRecorder {
+@@ -69,6 +82,95 @@ struct FrameRecorder {
  
  FrameRecorder g_recorder;
  
@@ -3536,6 +3544,25 @@ index d04db0f..8a775a8 100644
 +}
 +void flip_fusion_split(const char* reason, unsigned& counter);
 +void flip_fusion_settle(const char* reason, unsigned& counter);
++// Small color EFB copies (Fountain of Dreams renders the fighters a second time
++// for its 80x60 water reflection: ~150 draws, ~4.7 ms of render-worker time).
++// With MELEE_FLIP_SCALED_COPY_INTERVAL=N (default 2) such a pass is rendered every
++// Nth frame and the copy texture keeps its previous content in between: the
++// pass is dropped before it reaches the render worker.
++struct FlipScaledCopySkip {
++  uint64_t frame = 0;
++  std::unordered_set<const TextureRef*> rendered; // targets that hold a valid image
++  unsigned skipped = 0, rendered_count = 0;
++};
++FlipScaledCopySkip g_scaledCopies;
++unsigned flip_scaled_copy_interval() {
++  static const unsigned interval = [] {
++    const char* v = std::getenv("MELEE_FLIP_SCALED_COPY_INTERVAL");
++    const long n = v ? std::atol(v) : 2;
++    return n < 1 ? 1u : static_cast<unsigned>(n);
++  }();
++  return interval;
++}
 +// Half-res sprite segment state (see flip_sprites.hpp).
 +struct FlipSpriteSegment {
 +  bool active = false;
@@ -3555,7 +3582,7 @@ index d04db0f..8a775a8 100644
  std::string pass_label(std::string_view kind) {
  #ifdef AURORA_GFX_DEBUG_GROUPS
    if (!g_recorder.debugGroupStack.empty()) {
-@@ -288,18 +370,79 @@ void push_command(CommandType type, const Command::Data& data) {
+@@ -288,18 +390,79 @@ void push_command(CommandType type, const Command::Data& data) {
        Log.warn("Dropping command {}", magic_enum::enum_name(type));
        return;
      }
@@ -3636,7 +3663,7 @@ index d04db0f..8a775a8 100644
    });
  }
  
-@@ -423,6 +566,7 @@ void suspend_efb() {
+@@ -423,6 +586,7 @@ void suspend_efb() {
                  "suspend_efb called outside of an active recording frame");
    AURORA_ASSERT(!g_recorder.inOffscreen, "suspend_efb called while offscreen rendering is active");
    AURORA_ASSERT(!g_recorder.suspendedEfbPass, "suspend_efb called with an EFB pass already suspended");
@@ -3644,7 +3671,7 @@ index d04db0f..8a775a8 100644
  
    auto& currentPass = current_render_passes()[g_recorder.currentRenderPass];
    if (!currentPass.has_consumer()) {
-@@ -520,8 +664,423 @@ void enqueue_op(FramePacket& frame, uint32_t opIndex) {
+@@ -520,8 +684,423 @@ void enqueue_op(FramePacket& frame, uint32_t opIndex) {
    });
  }
  
@@ -4068,7 +4095,7 @@ index d04db0f..8a775a8 100644
    const auto opIndex = static_cast<uint32_t>(frame.ops.size());
    frame.ops.emplace_back(capture_frame_op(frame, FrameOpType::RenderPass, passIndex));
    enqueue_op(frame, opIndex);
-@@ -531,6 +1090,9 @@ void enqueue_pass(FramePacket& frame, uint32_t passIndex) {
+@@ -531,6 +1110,9 @@ void enqueue_pass(FramePacket& frame, uint32_t passIndex) {
  namespace detail {
  
  void begin_recording(FramePacket& packet, size_t frameSlot) {
@@ -4078,7 +4105,7 @@ index d04db0f..8a775a8 100644
    CHECK(!g_recorder.active(), "A recording session is already active");
    g_recorder.packet = &packet;
    g_recorder.frameSlot = frameSlot;
-@@ -552,6 +1114,9 @@ void begin_recording(FramePacket& packet, size_t frameSlot) {
+@@ -552,6 +1134,9 @@ void begin_recording(FramePacket& packet, size_t frameSlot) {
    push_command(CommandType::SetScissor, Command::Data{.setScissor = g_recorder.cachedScissor});
  }
  
@@ -4088,7 +4115,7 @@ index d04db0f..8a775a8 100644
  RecordedFrame end_recording() {
    CHECK(g_recorder.active(), "No active recording session");
    AURORA_ASSERT(!g_recorder.inOffscreen, "end_frame called while offscreen rendering is active");
-@@ -673,6 +1238,7 @@ void queue_texture_copy(wgpu::TexelCopyTextureInfo src, wgpu::TexelCopyTextureIn
+@@ -673,6 +1258,7 @@ void queue_texture_copy(wgpu::TexelCopyTextureInfo src, wgpu::TexelCopyTextureIn
    ZoneScoped;
    auto& frame = current_frame_packet();
    if (g_recorder.currentRenderPass != UINT32_MAX) {
@@ -4096,7 +4123,7 @@ index d04db0f..8a775a8 100644
      enqueue_pass(frame, g_recorder.currentRenderPass);
      g_recorder.currentRenderPass = UINT32_MAX;
    }
-@@ -692,6 +1258,7 @@ void begin_color_pass(const ColorPassDescriptor& desc) {
+@@ -692,6 +1278,7 @@ void begin_color_pass(const ColorPassDescriptor& desc) {
    ZoneScoped;
    auto& frame = current_frame_packet();
    if (g_recorder.currentRenderPass != UINT32_MAX) {
@@ -4104,7 +4131,7 @@ index d04db0f..8a775a8 100644
      enqueue_pass(frame, g_recorder.currentRenderPass);
    }
  
-@@ -780,6 +1347,7 @@ void set_scissor(const ClipRect& cmd) noexcept {
+@@ -780,6 +1367,7 @@ void set_scissor(const ClipRect& cmd) noexcept {
  
  template <>
  void push_draw_command(clear::DrawData data) {
@@ -4112,7 +4139,7 @@ index d04db0f..8a775a8 100644
    push_draw_command(make_draw_command<clear::render>(data));
  }
  
-@@ -790,53 +1358,43 @@ PipelineRef pipeline_ref(const clear::PipelineConfig& config) {
+@@ -790,53 +1378,81 @@ PipelineRef pipeline_ref(const clear::PipelineConfig& config) {
  
  void resolve_pass_into(TextureHandle texture, ClipRect rect, bool clearColor, bool clearAlpha, bool clearDepth,
                         Vec4<float> clearColorValue, float clearDepthValue, GXTexFmt resolveFormat) {
@@ -4140,6 +4167,44 @@ index d04db0f..8a775a8 100644
 -      static_cast<float>(rect.height) / srcH,
 -  };
 -  prevPass.resolveUniformRange = push_uniform(uvTransform);
++#ifdef MELEE_MIYOO_FLIP
++  // Scaled copy (reflection): render it only every Nth frame; in between the
++  // pass is discarded and the texture keeps its last image. Only when the copy
++  // clears color (the pass's EFB content is not used afterwards) and only for
++  // targets that already hold an image.
++  // Reflection-style copies: small (<= 128x128) color-format targets rendered
++  // by a dedicated camera pass (Fountain: 80x60 RGB565, ~150 draws). Shadow
++  // maps are intensity formats and stay every-frame.
++  const bool colorFormat = resolveFormat != GX_CTF_R4 && resolveFormat != GX_TF_I4 && resolveFormat != GX_TF_I8 &&
++                           resolveFormat != GX_TF_IA4 && resolveFormat != GX_TF_IA8 && resolveFormat != GX_CTF_R8 &&
++                           resolveFormat != GX_CTF_A8 && !gx::is_depth_format(resolveFormat);
++  if (!fusedSecond && texture && flip_scaled_copy_interval() > 1 && !g_recorder.inOffscreen && colorFormat &&
++      rect.width <= 128 && rect.height <= 128 && clearColor) {
++    const TextureRef* key = texture.get();
++    const bool due = g_scaledCopies.frame % flip_scaled_copy_interval() == 0;
++    if (!due && g_scaledCopies.rendered.count(key)) {
++      ++g_scaledCopies.skipped;
++      prevPass.discardable = true;
++      enqueue_pass(current_frame_packet(), g_recorder.currentRenderPass);
++      const bool fullColorClear = clearColor && clearAlpha;
++      current_render_passes().emplace_back(
++          make_efb_continuation(prevPass, clearDepth, clearDepthValue, fullColorClear, clearColorValue));
++      ++g_recorder.currentRenderPass;
++      if (!fullColorClear && (clearColor || clearAlpha)) {
++        const auto targetLayout = current_render_passes()[g_recorder.currentRenderPass].target_layout();
++        push_draw_command(clear::DrawData{
++            .pipeline = pipeline_ref(clear::make_pipeline_config(targetLayout, clearColor, clearAlpha, false)),
++            .color = wgpu::Color{.r = clearColorValue.x(), .g = clearColorValue.y(), .b = clearColorValue.z(), .a = clearColorValue.w()},
++        });
++      }
++      push_command(CommandType::SetViewport, Command::Data{.setViewport = g_recorder.cachedViewport});
++      push_command(CommandType::SetScissor, Command::Data{.setScissor = g_recorder.cachedScissor});
++      return;
++    }
++    g_scaledCopies.rendered.insert(key);
++    ++g_scaledCopies.rendered_count;
++  }
++#endif
 +  if (!fusedSecond) {
 +    prevPass.resolveTarget = std::move(texture);
 +    prevPass.resolveRect = rect;
@@ -4197,7 +4262,7 @@ index d04db0f..8a775a8 100644
    ++g_recorder.currentRenderPass;
  
    if (!fullColorClear && (clearColor || clearAlpha)) {
-@@ -858,6 +1416,7 @@ void resolve_pass_into(TextureHandle texture, ClipRect rect, bool clearColor, bo
+@@ -858,6 +1474,7 @@ void resolve_pass_into(TextureHandle texture, ClipRect rect, bool clearColor, bo
  }
  
  void queue_palette_conv(tex_palette_conv::ConvRequest req) {
@@ -4205,7 +4270,7 @@ index d04db0f..8a775a8 100644
    auto& renderPass = current_render_passes()[g_recorder.currentRenderPass];
    AURORA_ASSERT(!renderPass.sealed, "Attempted to append palette conversion to sealed render pass {}",
                  g_recorder.currentRenderPass);
-@@ -973,6 +1532,7 @@ bool resolve_pass(const ResolveDesc& desc, ResolvedTargets& out) {
+@@ -973,6 +1590,7 @@ bool resolve_pass(const ResolveDesc& desc, ResolvedTargets& out) {
      wantDepth = false;
    }
  
@@ -4213,7 +4278,7 @@ index d04db0f..8a775a8 100644
    auto& prevPass = current_render_passes()[g_recorder.currentRenderPass];
    const uint32_t width = prevPass.colorAttachments[SceneColorAttachmentIndex].size.width;
    const uint32_t height = prevPass.colorAttachments[SceneColorAttachmentIndex].size.height;
-@@ -1040,6 +1600,7 @@ bool push_encoder_task(EncoderTaskId type, const void* payload, size_t payloadSi
+@@ -1040,6 +1658,7 @@ bool push_encoder_task(EncoderTaskId type, const void* payload, size_t payloadSi
    // pass that loads the existing contents. EFB writes persist into the continuation, so
    // content keeps the sealed pass alive even without a consumer.
    auto& frame = current_frame_packet();
@@ -4221,7 +4286,7 @@ index d04db0f..8a775a8 100644
    auto& prevPass = current_render_passes()[g_recorder.currentRenderPass];
    prevPass.discardable = !prevPass.has_consumer() && !prevPass.has_content();
    enqueue_pass(frame, g_recorder.currentRenderPass);
-@@ -1063,6 +1624,23 @@ void push_draw_command(gx::DrawData data) {
+@@ -1063,6 +1682,23 @@ void push_draw_command(gx::DrawData data) {
    push_draw_command(make_draw_command<gx::render>(data));
  }
  
@@ -4245,7 +4310,7 @@ index d04db0f..8a775a8 100644
  #ifdef AURORA_ENABLE_RMLUI
  template <>
  void push_draw_command(rmlui::DrawData data) {
-@@ -1070,8 +1648,61 @@ void push_draw_command(rmlui::DrawData data) {
+@@ -1070,8 +1706,61 @@ void push_draw_command(rmlui::DrawData data) {
  }
  #endif
  
@@ -4307,7 +4372,7 @@ index d04db0f..8a775a8 100644
    return find_pipeline(ShaderType::GX, config, [=] { return create_pipeline(config); });
  }
  
-@@ -1089,6 +1720,11 @@ void finish() {
+@@ -1089,6 +1778,16 @@ void finish() {
    }
    AURORA_ASSERT(!g_recorder.inOffscreen, "finish called while offscreen rendering is active");
    if (g_recorder.currentRenderPass != UINT32_MAX) {
@@ -4315,11 +4380,16 @@ index d04db0f..8a775a8 100644
 +#ifdef MELEE_MIYOO_FLIP
 +    flip_fusion_frame_end();
 +    flip_sprite_frame_end();
++    if (++g_scaledCopies.frame % 600 == 0 && (g_scaledCopies.skipped || g_scaledCopies.rendered_count)) {
++      std::fprintf(stderr, "[flip-scaled-copy] frames=600 rendered=%u skipped=%u targets=%zu\n", g_scaledCopies.rendered_count,
++                   g_scaledCopies.skipped, g_scaledCopies.rendered.size());
++      g_scaledCopies.skipped = g_scaledCopies.rendered_count = 0;
++    }
 +#endif
      auto& frame = current_frame_packet();
      frame.uniforms.append_zeroes(gx::MaxUniformSize);
      auto& pass = frame.renderPasses[g_recorder.currentRenderPass];
-@@ -1114,12 +1750,41 @@ Range push_indices(const uint8_t* data, size_t length, size_t alignment) {
+@@ -1114,12 +1813,41 @@ Range push_indices(const uint8_t* data, size_t length, size_t alignment) {
    return push(current_frame_packet().indices, data, length, alignment);
  }
  

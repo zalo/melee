@@ -1,4 +1,4 @@
-# Renderer iteration toward 60 FPS, 2026-09-10 (v79–v140)
+# Renderer iteration toward 60 FPS, 2026-09-10 (v79–v142)
 
 This report continues the Miyoo Flip work described in the earlier reports under
 `../2026-09-09-flip/`. It records what was measured, what changed in the renderer,
@@ -372,6 +372,30 @@ so it can be A/B tested with the trial tool.
     captures now differ from the references by ±1 on 109 (Onett) and 172
     (Fountain) pixels, the sub-texel rounding of the remapped coordinate;
     `MELEE_FLIP_TEXTURE_ATLAS=0` restores bit exactness.
+
+23. **Reflection pass every other frame** (`MELEE_FLIP_SCALED_COPY_INTERVAL`,
+    default 2, v141–v142). Fountain of Dreams renders the fighters a second time
+    for its 80×60 RGB565 water reflection (~150 draws, 3–4.7 ms of render-worker
+    time). Small (≤128×128) color-format EFB copies whose pass ends in a
+    color clear are now rendered every Nth frame; in between the pass is marked
+    discardable before it reaches the render worker and the copy texture keeps
+    its previous image. Intensity formats (shadow maps) are never skipped, and a
+    target must have been rendered once. Frozen Fountain stays at its v140 hash
+    (the stale reflection equals the fresh one); Fountain's reflection pass drops
+    to 105 of 210 submits.
+
+24. **Pipeline breaks, assessed** (v135–v136 traces). Fountain's main pass has
+    142 adjacent pipeline changes for 260 draws (98 runs of length 1), the
+    reflection pass 79 for 158; 86 of the main-pass changes return to a pipeline
+    used within the previous 8 draws (fighter materials alternating), so a
+    multi-material shader that switches TEV programs per record could merge
+    them in principle. Checked against the vertex arena (layout) and texture
+    bind group of the neighbours, only 52 of the 221 changes are otherwise
+    mergeable: ~83 draws per frame on Fountain (~2 ms), fewer on Onett. The
+    existing uber shader is not a base for it (250 ms frames, not exact), and a
+    specialized N-material generator needs the shader generator refactored into
+    composable parts plus a per-record material selector. Not started; recorded
+    as the remaining lever with its expected size.
 
 21. **Half-resolution sprite pass** (`flip_sprites.cpp`, `recording.cpp`
     `FlipSpriteSegment`, `MELEE_FLIP_HALFRES_SPRITES=<points>`, opt-in, v130–v133).
