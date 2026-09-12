@@ -8,7 +8,7 @@
 #   - the device cannot auto-sleep (and kill its cloudflared tunnel) while held,
 #   - jobs run detached from adb and survive tunnel drops,
 #   - games launched from a job get the display like a MainUI launch would.
-# State on the device: /tmp/hold.state (started|running|job-done rc=N|released),
+# State on the device: /tmp/hold.state (started|queued|running|job-done rc=N|released),
 # /tmp/hold-job.log (output of the last job).
 #
 # Usage: flip_holder.sh <adb> <serial> start
@@ -45,7 +45,8 @@ chmod +x /tmp/cmd_to_run.sh; rm -f /tmp/hold-release /tmp/hold-job.sh /tmp/hold.
 job)
   [ -f "$1" ] || { echo "no such script: $1" >&2; exit 1; }
   sh_ 'cat /tmp/hold.state' | grep -Eq 'started|job-done' || { echo "holder not idle: $(sh_ 'cat /tmp/hold.state')" >&2; exit 1; }
-  run push "$1" /tmp/hold-job.sh.new >/dev/null && run shell 'mv /tmp/hold-job.sh.new /tmp/hold-job.sh' && echo queued ;;
+  # Mark the state before the holder picks the job up so a following `wait` never sees the previous job's result.
+  run push "$1" /tmp/hold-job.sh.new >/dev/null && run shell 'echo queued > /tmp/hold.state; mv /tmp/hold-job.sh.new /tmp/hold-job.sh' && echo queued ;;
 status) sh_ 'cat /tmp/hold.state' ;;
 log) sh_ 'cat /tmp/hold-job.log' ;;
 wait)

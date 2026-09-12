@@ -120,8 +120,12 @@ cache under `data/`. Answer **Yes** at the memory-card prompt on first boot: the
 save lives at `data/config/melee-native/USA/Card A/01-GALE-SuperSmashBros0110290334.gci`,
 a Dolphin GCI-folder file (copy it into Dolphin's `GC/USA/Card A` to inspect
 it, or back it up by copying the folder). Select+Start exits through the normal
-shutdown path. The default SDL mapping uses the bottom face button for A and
-the right face button for B; consult the bundle README for controls.
+shutdown path. Controls follow the Flip's own layout: the D-pad drives the
+control stick, the analog stick drives the GameCube D-pad, and the face buttons
+use Nintendo order (A on the right, B at the bottom). The swap is applied in
+`native/pad_bridge.cpp` after Aurora's read; `MELEE_FLIP_SWAP_CONTROLS=0` in the
+environment restores Aurora's default mapping (stick moves, bottom button is A).
+See the bundle README for the full control list.
 
 
 ## Remote access through the cloudflared tunnel

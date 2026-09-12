@@ -17,9 +17,12 @@ Install in /mnt/SDCARD/Ports/melee-native. Keep the existing verified Melee US
 1.02 image at data/disc.img. RVZ works directly; do not transfer it again when
 updating the program. Run launch.sh or PORTS > Melee Native.
 
-Bottom face button confirms/attacks, right face button cancels/special, the
-other two face buttons jump. Left stick moves, right stick is C-stick, R1 grabs,
-L2/R2 shield, Start pauses. Select + Start exits. Answer Yes at the initial
+D-pad moves (it acts as the control stick), right face button (A) confirms
+and attacks, bottom face button (B) cancels and does specials, the other two
+face buttons jump. The left analog stick acts as the GameCube D-pad (taunt),
+right stick is C-stick, R1 grabs, L2/R2 shield, Start pauses. Select + Start
+exits. Set MELEE_FLIP_SWAP_CONTROLS=0 before launch.sh for the stock mapping
+(stick moves, bottom button is A). Answer Yes at the initial
 memory-card prompt; progress is saved to
 data/config/melee-native/USA/Card A/01-GALE-SuperSmashBros0110290334.gci
 (Dolphin GCI-folder format; copy the folder to back it up).
