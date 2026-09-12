@@ -1,5 +1,7 @@
 #include "lbcardgame.h"
 
+#include <string.h>
+
 #include "lbarchive.h"
 #include "lbcardgame.static.h"
 #include "lbcardnew.h"
@@ -170,7 +172,7 @@ int lb_8001CC4C(void)
 
 static int dont_inline_helper(void)
 {
-    int temp_r24;
+    intptr_t temp_r24;
 
     if (lb_8001CAF4() != 0) {
         return 0xD;
@@ -280,10 +282,47 @@ void lb_8001CF18(void)
     }
 }
 
+#ifdef MELEE_NATIVE
+/* The banner and icon images live in the memory-card scene's archive. Later
+ * scenes free that archive but the autosave still addresses the images through
+ * the table loaded here; console memory stays readable, host memory does not.
+ * Keep private copies for the three banners and the icon set. */
+static u8 lbCardGame_NativeBanners[3][0x1800];
+static u8 lbCardGame_NativeIcons[0x600];
+static intptr_t lbCardGame_NativeIconTable[5];
+
+static void lbCardGame_KeepIconImages(void)
+{
+    intptr_t* source = _p(x5C);
+    int i;
+
+    if (source == NULL) {
+        return;
+    }
+    for (i = 0; i < 3; i++) {
+        if (source[i] != 0) {
+            memcpy(lbCardGame_NativeBanners[i], (const void*) source[i],
+                   sizeof(lbCardGame_NativeBanners[i]));
+        }
+        lbCardGame_NativeIconTable[i] = (intptr_t) lbCardGame_NativeBanners[i];
+    }
+    if (source[3] != 0) {
+        memcpy(lbCardGame_NativeIcons, (const void*) source[3],
+               sizeof(lbCardGame_NativeIcons));
+    }
+    lbCardGame_NativeIconTable[3] = (intptr_t) lbCardGame_NativeIcons;
+    lbCardGame_NativeIconTable[4] = source[4];
+    _p(x5C) = lbCardGame_NativeIconTable;
+}
+#endif
+
 void lbCardGame_LoadArchive(int arg0)
 {
     if (_p(x5C) == 0) {
         lbArchive_80016DBC("LbMcGame.", &_p(x5C), "MemCardIconData", NULL);
+#ifdef MELEE_NATIVE
+        lbCardGame_KeepIconImages();
+#endif
         lbArchive_80016DBC("NtMemAc", &_p(x64), "ScNtcCommon_scene_data", NULL);
         _p(x60) = arg0;
         _p(enable) = 1;

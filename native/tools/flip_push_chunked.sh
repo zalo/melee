@@ -22,7 +22,7 @@ for part in "$work"/part.*; do
   echo -n "."
 done
 echo
-for attempt in $(seq 1 10); do
+for attempt in $(seq 1 40); do
   if run shell "cat '$remote_tmp'/part.* > '$dst.partial' && sha256sum '$dst.partial' | cut -d' ' -f1" | tr -d '\r' | grep -q "^$sum\$"; then
     run shell "mv '$dst.partial' '$dst' && rm -rf '$remote_tmp'" && echo "Verified: $dst" && rm -rf "$work" && exit 0
   fi

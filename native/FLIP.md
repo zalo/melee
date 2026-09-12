@@ -123,6 +123,42 @@ it, or back it up by copying the folder). Select+Start exits through the normal
 shutdown path. The default SDL mapping uses the bottom face button for A and
 the right face button for B; consult the bundle README for controls.
 
+
+## Remote access through the cloudflared tunnel
+
+The Flip's ADB (port 5555) is reachable off-LAN through a cloudflared TCP
+tunnel at `flip.sels.tech` (cloudflared runs on the SD card and starts at boot):
+
+```sh
+cloudflared access tcp --hostname flip.sels.tech --url 127.0.0.1:15555 &
+build/flip-tools/platform-tools/adb connect 127.0.0.1:15555
+curl -s -o /dev/null -w '%{http_code}' https://flip.sels.tech   # 200 up, 530 tunnel down, 502 adbd not answering
+```
+
+What made this unreliable, and what to do instead:
+
+- **Idle sleep.** MainUI suspends the device after about ten minutes idle, which
+  kills the tunnel. `native/tools/flip_holder.sh ADB SERIAL start` stops MainUI
+  and installs a holder loop as `/tmp/cmd_to_run.sh`; the device stays awake
+  until `release`. Jobs queued with `job script.sh` run detached on the device
+  (they survive adb drops) and inherit the display, so a game launched from a
+  job works like a MainUI launch. `flip_save_trial.sh` runs are queued this way.
+- **Bulk transfer over adb.** `adb push` needs many round trips per chunk and
+  adb marks the device "offline" as soon as the Wi-Fi link saturates; a 20 MB
+  push in 1 MiB chunks (`flip_push_chunked.sh`) took hours. Let the device pull
+  instead: `native/tools/flip_http_deploy.sh ADB SERIAL dist/flip/vNNN/melee_native /mnt/SDCARD/Ports/melee-native/melee_native`
+  serves the file from a local `python3 -m http.server` behind a cloudflared
+  quick tunnel and has the Flip download it with `curl` (one HTTPS stream,
+  resumable, SHA-256 checked before the rename). The same 20 MB binary took
+  about five minutes this way. Small files (scripts, inputs, `.so` tracers) push
+  fine with plain `adb push`.
+- **Wi-Fi.** The tunnel drops (530) track the Flip's link quality, not
+  cloudflared's CPU share: at RSSI -75 dBm on 5 GHz the tunnel fell over under
+  load; after a reboot on a better link adb round trips were 0.3 s. Check with
+  `adb shell wpa_cli -i wlan0 signal_poll` and `ping -c 4 1.1.1.1`.
+- `/tmp` on the device is tmpfs; helpers pushed there are gone after a reboot.
+  Keep them under `data/diagnostics/tools/` on the SD card.
+
 ## Validation
 
 The ROM-free GPU probe initializes the real EGL/GLES driver. With `--present`

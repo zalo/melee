@@ -4,7 +4,7 @@ Status: 2026-09-08. Scripted Onett matches work; the port is incomplete. The use
 launches again. Automated native runs now navigate through the main/VS menus,
 choose a human fighter and CPU, load Onett and execute movement, combat, grabs,
 damage and pause/resume. One-minute runs have reached visible Results and returned
-to character selection. Saving works on the 64-bit host (see the card queue
+to character selection. Saving works on the 64-bit host and on the Flip (v149; see the card queue
 notes below); other end states remain under active repair.
 
 ## Findings from scripted combat and visual checks
@@ -201,7 +201,13 @@ size, field meaning and lifetime before changing an address or offset.
    sub-file size, and the tenth descriptor slot is no longer read or written.
    Saves created on the host use Melee's 11-block layout, but their payload is
    host byte order, so they are not interchangeable with console or Dolphin
-   saves; the GCI container, banner and icons are.
+   saves; the GCI container, banner and icons are. The main-menu autosave crashed in the
+   header verification because `lbcardgame.c` parked the banner address in an
+   `int` before passing it on, and `lbsnap.c` aliased its icon pointers with
+   `int` union members; both are pointer sized now. `lbcardgame.c` also keeps
+   its own copies of the banner and icon images and `lbcardnew.c` uses
+   permanent work buffers, because the scene heap that owned them is reset
+   before later scenes reuse the pointers (harmless on console memory).
 2. Character selection now works in scripted runs and its archive schema is
    implemented. Wider fighter and menu coverage remains to be exercised.
 3. `hsd_3A76.c`: SIS jump/call commands and their 32-bit pointer/return-stack

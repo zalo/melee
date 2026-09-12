@@ -139,6 +139,12 @@ Earlier experiments (`MELEE_FLIP_STREAM_UPLOAD`, `MELEE_FLIP_NATIVE_SPECIALIZED`
   `data/config/melee-native/USA/Card A/01-GALE-SuperSmashBros0110290334.gci`
   and `native/tools/check_gci.py` validates the pulled file.
   `native/tools/flip_save_trial.sh` is the device-side runner.
+  Device result (v149, 2026-09-12): creating a save on an empty card and
+  booting again with the save present both reach the main menu with no crash;
+  both `.gci` files validate (11 blocks). The title-screen crash of v146 was a
+  32-bit `int` temporary in `lbcardgame.c` truncating a banner pointer. Logs and
+  saves are in `native/validation/2026-09-11-flip-saves/`. Remote deployment
+  used `flip_holder.sh` and `flip_http_deploy.sh` (see FLIP.md, Remote access).
 
 ## Measurement
 

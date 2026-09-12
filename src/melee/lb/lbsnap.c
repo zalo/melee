@@ -44,8 +44,14 @@ struct Unk80433380_0 {
 
 typedef union LbMcSnapMemSnapIconData {
     u8* ptr;
+#ifdef MELEE_NATIVE
+    /* These alias the pointer; keep them pointer sized on the host. */
+    intptr_t offset;
+    intptr_t size;
+#else
     int offset;
     int size;
+#endif
 } LbMcSnapMemSnapIconData;
 
 struct Unk80433380 {

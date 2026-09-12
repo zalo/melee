@@ -1139,10 +1139,20 @@ int lb_8001C4A8(void* file_entries, void* icon_data)
 
 void lbCardNew_AllocWorkArea(void)
 {
+#ifdef MELEE_NATIVE
+    /* Scenes allocate these from their own heap, and the pointers survive the
+     * scene change while the heap does not; the console keeps reading the
+     * freed memory. The host frees it for real, so use permanent storage. */
+    static u8 native_work_area[0xA000] __attribute__((aligned(32)));
+    static u8 native_lib_area[0x2000] __attribute__((aligned(32)));
+    _p(work_area) = native_work_area;
+    _p(lib_area) = native_lib_area;
+#else
     if (_p(work_area) == NULL) {
         _p(work_area) = HSD_MemAlloc(0xA000);
         _p(lib_area) = HSD_MemAlloc(0x2000);
     }
+#endif
 }
 
 void lb_8001C5A4(void)
