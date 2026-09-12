@@ -66,8 +66,10 @@ Wayland still needs a compatible desktop portal file chooser. Audio uses SDL's
 available PulseAudio/PipeWire compatibility service or ALSA device.
 
 Keyboard: WASD move, X attack/confirm, Z special/back, C/V jump, Q/E shield,
-R grab, IJKL C-stick, Return start/pause. Focus the game window. Choose **No**
-at the initial save prompt; saving is an inherited incomplete feature.
+R grab, IJKL C-stick, Return start/pause. Focus the game window. Answer **Yes**
+at the initial save prompt; the save is written as a Dolphin GCI-folder file
+under `$XDG_CONFIG_HOME/melee-native/USA/Card A/` (default
+`~/.config/melee-native/USA/Card A/01-GALE-SuperSmashBros0110290334.gci`).
 
 Graphical logs use `$XDG_STATE_HOME/melee-native/game.log` (default
 `~/.local/state/melee-native/game.log`). Settings use
@@ -101,8 +103,9 @@ median/p95/p99/max are logged every five seconds; initial loading/shader stalls
 are included and should be distinguished from steady gameplay.
 
 This is short-match coverage, not every move, effect, costume, mode or matchup.
-Saving, adventure/target stages, exhaustive Kirby copies and locked 60 FPS were
-already unverified or broken on macOS. Linux validation results and any new
+Saving is covered by `native_hsd_card_test` (Melee's save path on an in-memory
+card, under sanitizers); adventure/target stages, exhaustive Kirby copies and
+locked 60 FPS were already unverified or broken on macOS. Linux validation results and any new
 regressions must be reported separately. Omarchy has not been tested on this
 Ubuntu machine.
 

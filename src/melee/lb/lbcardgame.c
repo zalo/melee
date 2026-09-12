@@ -18,6 +18,14 @@
 
 #define _p(x) (lb_80433318.x)
 
+#ifdef MELEE_NATIVE
+/* Byte image of the console words below: banner format 2 (CI8), icon 0 in
+ * format 1 with animation speed 3. The library reads these as bytes, so the
+ * host word order must not change them. */
+static u8 lb_803BAB60[20] = {
+    0x02, 0x00, 0x01, 0x00, 0, 0, 0, 0, 0, 0, 0x03, 0x00, 0, 0, 0, 0, 0, 0, 0, 0,
+};
+#else
 static struct {
     u32 x0, x4, x8;
     u32 pad[2];
@@ -26,6 +34,7 @@ static struct {
     0,
     0x300,
 };
+#endif
 
 // save-data manifest
 static struct CardEntry lb_803BAB74[10] = {

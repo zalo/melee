@@ -304,6 +304,25 @@ target_compile_options(native_card_test PRIVATE -fsanitize=address,undefined)
 target_link_options(native_card_test PRIVATE -fsanitize=address,undefined)
 add_test(NAME native_card COMMAND native_card_test)
 set_tests_properties(native_card PROPERTIES LABELS melee)
+# Melee's save path (lbcardnew.c) driving the HSD memory-card library through
+# the card bridge onto an in-memory card, under the game's compile flags.
+add_library(melee_hsd_card_test OBJECT
+  "${MELEE_ROOT}/src/melee/lb/lbcardnew.c"
+  "${MELEE_ROOT}/src/sysdolphin/baselib/hsd_3A94.c"
+  "${MELEE_ROOT}/src/sysdolphin/baselib/hsd_3B27.c"
+  "${MELEE_ROOT}/src/sysdolphin/baselib/hsd_3B2B.c"
+  "${MELEE_ROOT}/src/sysdolphin/baselib/hsd_3B2E.c"
+  "${MELEE_ROOT}/src/sysdolphin/baselib/hsd_4D11.c")
+target_include_directories(melee_hsd_card_test PRIVATE $<TARGET_PROPERTY:melee_game,INCLUDE_DIRECTORIES>)
+target_compile_definitions(melee_hsd_card_test PRIVATE $<TARGET_PROPERTY:melee_game,COMPILE_DEFINITIONS>)
+target_compile_options(melee_hsd_card_test PRIVATE $<TARGET_PROPERTY:melee_game,COMPILE_OPTIONS> -fsanitize=address,undefined)
+add_executable(native_hsd_card_test tests/hsd_card_test.cpp card_bridge.cpp $<TARGET_OBJECTS:melee_hsd_card_test>)
+target_include_directories(native_hsd_card_test PRIVATE "${MELEE_AURORA_DIR}/include")
+target_compile_definitions(native_hsd_card_test PRIVATE TARGET_PC)
+target_compile_options(native_hsd_card_test PRIVATE -fsanitize=address,undefined)
+target_link_options(native_hsd_card_test PRIVATE -fsanitize=address,undefined)
+add_test(NAME native_hsd_card COMMAND native_hsd_card_test)
+set_tests_properties(native_hsd_card PROPERTIES LABELS melee)
 add_library(melee_movie_test OBJECT movie_runtime.c tests/movie_test.c)
 target_include_directories(melee_movie_test PRIVATE $<TARGET_PROPERTY:melee_game,INCLUDE_DIRECTORIES>)
 target_compile_definitions(melee_movie_test PRIVATE $<TARGET_PROPERTY:melee_game,COMPILE_DEFINITIONS>)

@@ -1,0 +1,14 @@
+# Fresh boot with an empty memory card. Accept creating a save file, then
+# dismiss the confirmation, and continue to the main menu.
+180 NONE
+6 X
+600 NONE
+6 X
+600 SCENE_MOVIE
+30 NONE
+6 START
+600 SCENE_TITLE
+90 NONE
+6 START
+600 SCENE_MENU
+600 NONE

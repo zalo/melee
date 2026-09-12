@@ -315,6 +315,117 @@ index 9430842..6ac83fd 100644
  const AuroraEvent* aurora_update() { return aurora::update(); }
  bool aurora_begin_frame() { return aurora::begin_frame(); }
  void aurora_end_frame() { aurora::end_frame(); }
+diff --git a/lib/card/CardGciFolder.cpp b/lib/card/CardGciFolder.cpp
+index e845254..d7f7105 100644
+--- a/lib/card/CardGciFolder.cpp
++++ b/lib/card/CardGciFolder.cpp
+@@ -71,7 +71,7 @@ void CardGciFolder::InitCard(const char* game, const char* maker) {
+ ECardResult CardGciFolder::openFile(const char* filename, FileHandle& handleOut) {
+   int idx = 0;
+   for (auto& gciFile : m_files) {
+-    if (strcmp(filename, gciFile.file.m_filename) == 0) {
++    if (strncmp(filename, gciFile.file.m_filename, std::size(gciFile.file.m_filename)) == 0) {
+       gciFile.opened = true;
+       if (gciFile.fileSize == 0)
+         gciFile.fileSize = std::filesystem::file_size(m_folderPath / gciFile.filename);
+@@ -82,7 +82,7 @@ ECardResult CardGciFolder::openFile(const char* filename, FileHandle& handleOut)
+     idx++;
+   }
+ 
+-  return ECardResult::NOCARD;
++  return ECardResult::NOFILE;
+ }
+ 
+ ECardResult CardGciFolder::openFile(uint32_t fileno, FileHandle& handleOut) {
+@@ -96,11 +96,16 @@ ECardResult CardGciFolder::openFile(uint32_t fileno, FileHandle& handleOut) {
+     return ECardResult::READY;
+   }
+ 
+-  return ECardResult::NOCARD;
++  return ECardResult::NOFILE;
+ }
+ 
+ ECardResult CardGciFolder::createFile(const char* filename, size_t size, FileHandle& handleOut) {
+-  std::string gciFilename = fmt::format("{}-{}-{}.gci", m_maker, m_game, filename);
++  for (const auto& existing : m_files) {
++    if (strncmp(filename, existing.file.m_filename, std::size(existing.file.m_filename)) == 0) {
++      return ECardResult::EXIST;
++    }
++  }
++  std::string gciFilename = gci_name(filename);
+   uint16_t neededBlocks = ROUND_UP_8192(size) / BlockSize;
+   size_t fileSize = sizeof(File) + size;
+   constexpr uint16_t maxBlocks = ((uint16_t)ECardSize::Card2043Mb * MbitToBlocks) - FSTBlocks;
+@@ -151,19 +156,53 @@ void CardGciFolder::deleteFile(const FileHandle& fh) {
+     fileIO.deleteFile();
+ }
+ 
+-ECardResult CardGciFolder::deleteFile(const char* filename) { return ECardResult::NOCARD; }
++ECardResult CardGciFolder::deleteFile(const char* filename) {
++  for (uint32_t idx = 0; idx < m_files.size(); ++idx) {
++    if (strncmp(filename, m_files[idx].file.m_filename, std::size(m_files[idx].file.m_filename)) == 0) {
++      return deleteFile(idx);
++    }
++  }
++  return ECardResult::NOFILE;
++}
++
++ECardResult CardGciFolder::deleteFile(uint32_t fileno) {
++  auto* file = get_file(fileno);
++  if (!file) {
++    return ECardResult::NOFILE;
++  }
++  FileIO fileIO(m_folderPath / file->filename);
++  if (fileIO && !fileIO.deleteFile()) {
++    return ECardResult::IOERROR;
++  }
++  m_bat.clear(file->file.m_firstBlock, file->file.m_blockCount);
++  m_files.erase(m_files.begin() + fileno);
++  return ECardResult::READY;
++}
+ 
+-ECardResult CardGciFolder::deleteFile(uint32_t fileno) { return ECardResult::NOCARD; }
++std::string CardGciFolder::gci_name(const char* filename) const {
++  return fmt::format("{}-{}-{}.gci", m_maker, m_game, filename);
++}
+ 
+ ECardResult CardGciFolder::renameFile(const char* oldName, const char* newName) {
+   for (auto& gciFile : m_files) {
+-    if (strcmp(oldName, gciFile.file.m_filename) == 0) {
++    if (strncmp(oldName, gciFile.file.m_filename, std::size(gciFile.file.m_filename)) == 0) {
++      const std::string newHost = gci_name(newName);
++      std::error_code ec;
++      std::filesystem::rename(m_folderPath / gciFile.filename, m_folderPath / newHost, ec);
++      if (ec) {
++        Log.error("Failed to rename '{}' to '{}': {}", io::fs_path_to_string(m_folderPath / gciFile.filename), newHost,
++                  ec.message());
++        return ECardResult::IOERROR;
++      }
++      gciFile.filename = reinterpret_cast<const char8_t*>(newHost.c_str());
++      std::memset(gciFile.file.m_filename, 0, std::size(gciFile.file.m_filename));
+       strncpy(gciFile.file.m_filename, newName, std::size(gciFile.file.m_filename));
++      commit();
+       return ECardResult::READY;
+     }
+   }
+ 
+-  return ECardResult::NOCARD;
++  return ECardResult::NOFILE;
+ }
+ 
+ ECardResult CardGciFolder::fileWrite(FileHandle& fh, const void* buf, size_t size) {
+diff --git a/lib/card/CardGciFolder.hpp b/lib/card/CardGciFolder.hpp
+index d1172db..3627693 100644
+--- a/lib/card/CardGciFolder.hpp
++++ b/lib/card/CardGciFolder.hpp
+@@ -31,6 +31,7 @@ private:
+   const GciFile* get_file(uint32_t idx) const;
+   GciFile* get_open_file(const FileHandle& fh);
+   const GciFile* get_open_file(const FileHandle& fh) const;
++  std::string gci_name(const char* filename) const;
+ 
+ public:
+   CardGciFolder();
 diff --git a/lib/dawn/BackendBinding.cpp b/lib/dawn/BackendBinding.cpp
 index 447ead8..a960827 100644
 --- a/lib/dawn/BackendBinding.cpp
@@ -339,6 +450,37 @@ index 447ead8..a960827 100644
    const auto props = SDL_GetWindowProperties(window);
  #if defined(SDL_PLATFORM_ANDROID)
    std::shared_ptr<wgpu::SurfaceSourceAndroidNativeWindow> desc =
+diff --git a/lib/dolphin/card.cpp b/lib/dolphin/card.cpp
+index 25f74df..e1b7f30 100644
+--- a/lib/dolphin/card.cpp
++++ b/lib/dolphin/card.cpp
+@@ -496,7 +496,7 @@ s32 CARDGetStatus(const s32 chan, s32 fileNo, CARDStat* stat) {
+   if (res == aurora::card::ECardResult::READY)
+     CopyKabuStatsToDolphin(kabuStat, stat);
+   else
+-    Log.error("Failed to get status of file at idx: {}", fileNo);
++    Log.debug("No directory entry at idx: {}", fileNo);
+ 
+   return static_cast<s32>(res);
+ }
+@@ -539,6 +539,8 @@ s32 CARDOpen(const s32 chan, const char* fileName, CARDFileInfo* fileInfo) {
+   const auto res = card->openFile(fileName, handle);
+   if (res == aurora::card::ECardResult::READY)
+     CopyKabuFileHandleToDolphin(chan, handle, fileInfo);
++  else if (res == aurora::card::ECardResult::NOFILE)
++    Log.info("No save file named '{}' on card {}", fileName, chan);
+   else
+     Log.error("Failed to open file: {}", fileName);
+ 
+@@ -679,7 +681,7 @@ s32 CARDClose(CARDFileInfo* fileInfo) {
+   const auto res = card->closeFile(handle);
+ 
+   if (res != aurora::card::ECardResult::READY)
+-    Log.error("Failed to close file at idx: {}", fileInfo->fileNo);
++    Log.debug("Close of unopened file at idx: {}", fileInfo->fileNo);
+ 
+   return static_cast<s32>(res);
+ }
 diff --git a/lib/dolphin/gx/GXDispList.cpp b/lib/dolphin/gx/GXDispList.cpp
 index 5bf9460..91f7e82 100644
 --- a/lib/dolphin/gx/GXDispList.cpp

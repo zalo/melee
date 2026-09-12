@@ -116,8 +116,10 @@ cannot include a ROM and compares hashes before transferring runtime files.
 Open **PORTS → Melee Native**, or run
 `/mnt/SDCARD/Ports/melee-native/launch.sh`. Refresh the Ports list if necessary.
 The launcher writes logs to `data/state/game.log` and keeps settings and shader
-cache under `data/`. Choose **No** at the memory-card creation prompt; saving
-is an inherited incomplete feature. Select+Start exits through the normal
+cache under `data/`. Answer **Yes** at the memory-card prompt on first boot: the
+save lives at `data/config/melee-native/USA/Card A/01-GALE-SuperSmashBros0110290334.gci`,
+a Dolphin GCI-folder file (copy it into Dolphin's `GC/USA/Card A` to inspect
+it, or back it up by copying the folder). Select+Start exits through the normal
 shutdown path. The default SDL mapping uses the bottom face button for A and
 the right face button for B; consult the bundle README for controls.
 

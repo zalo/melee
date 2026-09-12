@@ -66,7 +66,8 @@ native/                    Shared native runtime and platform interface
 
 [Download the Linux x86-64 app](https://github.com/jonrosner/melee-native/releases/download/v0.1.0-linux.1/Melee-Native-Linux-x86_64.tar.gz),
 extract it and run `melee-native`. Select your own Melee US 1.02 image, then
-choose **No** at the save prompt. Requires Ubuntu 24.04 or compatible glibc 2.39+
+choose **Yes** at the save prompt; progress is kept in a Dolphin-format GCI
+folder under `~/.config/melee-native/USA/Card A/`. Requires Ubuntu 24.04 or compatible glibc 2.39+
 Linux, hardware Vulkan drivers, and a desktop/audio session.
 
 [Linux build and packaging instructions](native/LINUX.md) include GPU selection,

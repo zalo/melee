@@ -19,8 +19,10 @@ updating the program. Run launch.sh or PORTS > Melee Native.
 
 Bottom face button confirms/attacks, right face button cancels/special, the
 other two face buttons jump. Left stick moves, right stick is C-stick, R1 grabs,
-L2/R2 shield, Start pauses. Select + Start exits. Choose No at the initial
-memory-card creation prompt; saving is an inherited incomplete feature.
+L2/R2 shield, Start pauses. Select + Start exits. Answer Yes at the initial
+memory-card prompt; progress is saved to
+data/config/melee-native/USA/Card A/01-GALE-SuperSmashBros0110290334.gci
+(Dolphin GCI-folder format; copy the folder to back it up).
 
 The launcher enables all four CPU cores and selects supported performance
 CPU, GPU, and memory governors while running, restoring the prior settings on exit.

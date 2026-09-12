@@ -4,7 +4,8 @@ Status: 2026-09-08. Scripted Onett matches work; the port is incomplete. The use
 launches again. Automated native runs now navigate through the main/VS menus,
 choose a human fighter and CPU, load Onett and execute movement, combat, grabs,
 damage and pause/resume. One-minute runs have reached visible Results and returned
-to character selection. Other end states and saving remain under active repair.
+to character selection. Saving works on the 64-bit host (see the card queue
+notes below); other end states remain under active repair.
 
 ## Findings from scripted combat and visual checks
 
@@ -77,7 +78,10 @@ to character selection. Other end states and saving remain under active repair.
   that the first animation/script survives until its own buffer is released.
 - Finished model-ID pointer-width fixes in metal, Kirby and stage materials.
   Native card state now owns its aligned CardState instead of overlaying packed
-  unrelated globals. Save persistence has not passed an end-to-end test yet.
+  unrelated globals. The HSD card command queue, its 32-entry request queue and
+  every pointer-valued `s32` parameter are pointer-sized on the host
+  (`CardWord`), and `native_hsd_card_test` drives create, reload, read, rewrite
+  and corruption detection end to end through `lbcardnew.c`.
 - ARQ callbacks recover their queue node from the embedded request and index native
   state lists by element. Original hardcoded structure offsets truncated or
   misplaced those addresses.
@@ -137,7 +141,7 @@ to character selection. Other end states and saving remain under active repair.
 | Asset endian/layout | SIS glyphs, movie headers, audio streams and mixed archive records were interpreted as host memory | Decode numbers and materialize typed host records; preserve encoded byte streams where their consumer decodes them | Fighter/stage/scripts, some descriptor variants and shared references |
 | Integer semantics | Signed top-bit shifts, negative sign-extension shifts, float-to-byte overflow | Unsigned bit operations, explicit signed decoding, integer intermediate before extracting encoded low byte | Variable shifts and other conversion candidates |
 | Null member addresses | TEV code formed `&null->member` while walking lists | Explicitly retain null at list boundaries | Other lists need individual inspection |
-| Hardware timing/ABI | Async CARD callbacks, VI updates, PAD and movie APIs had different semantics/layouts | Explicit adapters and callback ordering tested separately | Actual save queues and directional input still need runtime validation |
+| Hardware timing/ABI | Async CARD callbacks, VI updates, PAD and movie APIs had different semantics/layouts | Explicit adapters and callback ordering tested separately; save queue verified end to end on the host | Directional input still needs runtime validation |
 
 ## Changes in this preventive pass
 
@@ -191,9 +195,13 @@ size, field meaning and lifetime before changing an address or offset.
 
 ## Priority unresolved groups
 
-1. `hsd_3A94.c`, `hsd_3B27.c`: packed 32-bit queues, pointer-valued parameters
-   and disk save layout. The embedded CardState is now typed, but the queue
-   still needs a coherent host layout and real save/reload verification.
+1. `hsd_3A94.c`, `hsd_3B27.c`: resolved. Queue slots, request entries and
+   pointer-carrying parameters use `CardWord` (`intptr_t` on the host), the
+   shared work area is one array, create-time block copies stop at the
+   sub-file size, and the tenth descriptor slot is no longer read or written.
+   Saves created on the host use Melee's 11-block layout, but their payload is
+   host byte order, so they are not interchangeable with console or Dolphin
+   saves; the GCI container, banner and icons are.
 2. Character selection now works in scripted runs and its archive schema is
    implemented. Wider fighter and menu coverage remains to be exercised.
 3. `hsd_3A76.c`: SIS jump/call commands and their 32-bit pointer/return-stack

@@ -130,6 +130,15 @@ Earlier experiments (`MELEE_FLIP_STREAM_UPLOAD`, `MELEE_FLIP_NATIVE_SPECIALIZED`
 - Both dependency patches apply to their pristine sources
   (`git apply --check` against the extracted Dawn archive and a stashed Aurora
   checkout).
+- Saving: `native_hsd_card_test` (host, ASan/UBSan) runs Melee's `lbcardnew.c`
+  save path against an in-memory card: create (11 blocks, 90112 bytes, banner
+  and icons placed as on console), reload, read all sub-files, rewrite, and a
+  corrupted sector is rejected (error 3). On the device, boot with
+  `MELEE_INPUT_SCRIPT=/tmp/melee-create-save.input` (`native/tests/create-save.input`,
+  answers Yes) and then `native/tests/load-save.input`; the save appears at
+  `data/config/melee-native/USA/Card A/01-GALE-SuperSmashBros0110290334.gci`
+  and `native/tools/check_gci.py` validates the pulled file.
+  `native/tools/flip_save_trial.sh` is the device-side runner.
 
 ## Measurement
 

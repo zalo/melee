@@ -1,0 +1,10 @@
+# Boot with an existing save file: no memory-card prompt, straight to the
+# opening movie, title, and main menu.
+600 SCENE_MOVIE
+30 NONE
+6 START
+600 SCENE_TITLE
+90 NONE
+6 START
+600 SCENE_MENU
+600 NONE
