@@ -27,7 +27,7 @@ static void (*reset_callback)(int);
 void OSReport(char* format, ...) {
     va_list args; va_start(args, format); vfprintf(stderr, format, args); va_end(args);
 }
-void OSPanic(char* file, int line, char* format, ...) {
+__attribute__((noreturn)) void OSPanic(const char* file, int line, const char* format, ...) {
     fprintf(stderr, "Native game panic at %s:%d: ", file, line);
     va_list args; va_start(args, format); vfprintf(stderr, format, args); va_end(args);
     fputc('\n', stderr);

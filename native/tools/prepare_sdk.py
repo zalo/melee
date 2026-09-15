@@ -4,8 +4,8 @@ import re
 import sys
 root = Path(__file__).resolve().parents[2]
 out_root = Path(sys.argv[1])
-for source in (root / 'extern/dolphin/include').rglob('*.h'):
-    dest = out_root / source.relative_to(root / 'extern/dolphin/include')
+for source in (root / 'libs/dolphin/include').rglob('*.h'):
+    dest = out_root / source.relative_to(root / 'libs/dolphin/include')
     dest.parent.mkdir(parents=True, exist_ok=True)
     text = source.read_text()
     # CodeWarrior's long is 32-bit. Darwin's long is 64-bit.

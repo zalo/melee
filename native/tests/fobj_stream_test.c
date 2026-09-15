@@ -7,7 +7,7 @@
 void HSD_ObjAllocInit(HSD_ObjAllocData* pool, size_t size, u32 align) { pool->size = size; }
 void* HSD_ObjAlloc(HSD_ObjAllocData* pool) { return calloc(1, pool->size); }
 void HSD_ObjFree(HSD_ObjAllocData* pool, void* value) { free(value); }
-void __assert(char* file, u32 line, char* condition) { fprintf(stderr, "%s:%u: %s\n", file, line, condition); abort(); }
+__attribute__((noreturn)) void __assert(const char* file, u32 line, const char* condition) { fprintf(stderr, "%s:%u: %s\n", file, line, condition); abort(); }
 // This lifetime test uses a constant track, not spline interpolation.
 f32 splGetHelmite(f32 a, f32 b, f32 c, f32 d, f32 e, f32 f) { abort(); }
 static void update(void* object, u32 type, HSD_ObjData* value) { *(float*)object = value->fv; }

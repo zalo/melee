@@ -9,7 +9,7 @@ static unsigned char aram[4096];
 OSTime OSGetTime(void) { return 0; }
 u32 OSGetPhysicalMemSize(void) { return 24 * 1024 * 1024; }
 void* MeleeNativeARAM(unsigned* size) { *size = sizeof(aram); return aram; }
-void __assert(char* file, u32 line, char* message)
+__attribute__((noreturn)) void __assert(const char* file, u32 line, const char* message)
 {
     OSPanic(file, line, "%s", message);
 }

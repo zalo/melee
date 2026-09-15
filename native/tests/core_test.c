@@ -16,7 +16,7 @@ _Static_assert(sizeof(uintptr_t) == sizeof(void*), "Heap addresses must retain e
 void* HSD_MemAlloc(u32 size) { (void)size; abort(); }
 int HSD_GetHeap(void) { abort(); }
 s32 OSCheckHeap(int heap) { (void)heap; abort(); }
-void __assert(char* file, u32 line, char* condition) {
+__attribute__((noreturn)) void __assert(const char* file, u32 line, const char* condition) {
     fprintf(stderr, "%s:%u: %s\n", file, line, condition);
     abort();
 }

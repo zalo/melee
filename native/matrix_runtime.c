@@ -30,8 +30,8 @@ void MeleeNativeTestConfigureVs(VsModeData* vs)
     *HSD_RandSeedPtr = test_seed ? (u32) strtoul(test_seed, NULL, 10) : 1;
     fprintf(stderr, "[matrix] match seed=%u\n", *HSD_RandSeedPtr);
     vs->start.rules.time_limit = 30;
-    vs->start.players[0].ckind = setting("MELEE_TEST_CHARACTER", 32, CKIND_FOX);
-    vs->start.players[1].ckind = setting("MELEE_TEST_OPPONENT", 32, CKIND_MARIO);
+    vs->start.players[0].ckind = setting("MELEE_TEST_CHARACTER", 32, CKind_Fox);
+    vs->start.players[1].ckind = setting("MELEE_TEST_OPPONENT", 32, CKind_Mario);
     for (unsigned i = 0; i < 2; ++i) {
         vs->start.players[i].color = 0;
         vs->start.players[i].slot_type = Gm_PKind_Cpu;
@@ -64,14 +64,14 @@ void MeleeNativeTestStage(VsModeData* vs)
 void MeleeNativeTestPrepareCss(CSSData* css)
 {
     if (!getenv("MELEE_MATRIX_TEST")) return;
-    css->vs.start.players[0].ckind = setting("MELEE_TEST_CHARACTER", 32, CKIND_FOX);
-    if (css->vs.start.players[0].ckind == CKIND_SEAK)
-        css->vs.start.players[0].ckind = CKIND_ZELDA;
+    css->vs.start.players[0].ckind = setting("MELEE_TEST_CHARACTER", 32, CKind_Fox);
+    if (css->vs.start.players[0].ckind == CKind_Seak)
+        css->vs.start.players[0].ckind = CKind_Zelda;
     css->vs.start.players[0].color = 0;
     css->vs.start.players[0].slot_type = Gm_PKind_Human;
-    css->vs.start.players[1].ckind = setting("MELEE_TEST_OPPONENT", 32, CKIND_MARIO);
-    if (css->vs.start.players[1].ckind == CKIND_SEAK)
-        css->vs.start.players[1].ckind = CKIND_ZELDA;
+    css->vs.start.players[1].ckind = setting("MELEE_TEST_OPPONENT", 32, CKind_Mario);
+    if (css->vs.start.players[1].ckind == CKind_Seak)
+        css->vs.start.players[1].ckind = CKind_Zelda;
     css->vs.start.players[1].color = 0;
     css->vs.start.players[1].slot_type = Gm_PKind_Cpu;
 }
@@ -91,11 +91,11 @@ void MeleeNativeMatrixScene(int scene)
     matrix_frames = 0;
     freeze_frames = 0;
     if (scene == 2 && getenv("MELEE_MATRIX_TEST")) {
-        int expected = setting("MELEE_TEST_CHARACTER", 32, CKIND_FOX);
+        int expected = setting("MELEE_TEST_CHARACTER", 32, CKind_Fox);
         int actual = Player_GetPlayerCharacter(0);
         int stage = setting("MELEE_TEST_STAGE", 328, 9);
         fprintf(stderr, "[matrix-ready] character=%d stage=%d loaded-stage=%d\n", actual, stage, Stage_80225194());
-        int expected_opponent = setting("MELEE_TEST_OPPONENT", 32, CKIND_MARIO);
+        int expected_opponent = setting("MELEE_TEST_OPPONENT", 32, CKind_Mario);
         int actual_opponent = Player_GetPlayerCharacter(1);
         fprintf(stderr, "[matrix-ready] opponent=%d expected-opponent=%d\n", actual_opponent, expected_opponent);
         if (actual != expected || actual_opponent != expected_opponent || Stage_80225194() != stage)

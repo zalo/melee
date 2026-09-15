@@ -12,8 +12,8 @@ HSD_SList* HSD_SListAllocAndPrepend(HSD_SList* prev, void* data) {
 HSD_SList* HSD_SListRemove(HSD_SList* node) {
     CHECK(node); HSD_SList* next=node->next; free(node); --live_nodes; return next;
 }
-void __assert(char* file,u32 line,char* expr) {fprintf(stderr,"%s:%u: %s\n",file,line,expr);abort();}
-void HSD_Panic(char* file,u32 line,char* expr) {__assert(file,line,expr);}
+__attribute__((noreturn)) void __assert(const char* file, u32 line, const char* expr) {fprintf(stderr,"%s:%u: %s\n",file,line,expr);abort();}
+__attribute__((noreturn)) void HSD_Panic(const char* file, u32 line, const char* expr) {__assert(file,line,expr);}
 void OSReport(char* fmt,...) {(void)fmt;}
 int main(void) {
     float args[]={2.5f,-3.0f};

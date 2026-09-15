@@ -5,7 +5,7 @@
 #include <string.h>
 #define CHECK(x) do {if(!(x)){fprintf(stderr,"%s:%d %s\n",__FILE__,__LINE__,#x);abort();}}while(0)
 static u32 word(const u8* p) {return (u32)p[0]<<24|(u32)p[1]<<16|(u32)p[2]<<8|p[3];}
-void OSPanic(char* file,int line,char* format,...) {
+__attribute__((noreturn)) void OSPanic(const char* file, int line, const char* format, ...) {
     fprintf(stderr,"%s:%d ",file,line);va_list a;va_start(a,format);vfprintf(stderr,format,a);va_end(a);abort();
 }
 int main(int argc,char** argv) {

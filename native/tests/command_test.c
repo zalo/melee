@@ -35,9 +35,9 @@ int main(void) {
     CHECK(plActionStatsHighCounter(&stats, 0x6B)==&stats.x594);
     CHECK(plActionStatsHighCounter(&stats, 0x70)==&stats.x598[4]);
     CHECK(offsetof(struct MatchPlayerData,x1C)==0x1C);
-    UnkFlagStruct draw_flags = {.u8=1};
+    UnkFlagStruct draw_flags = {.byte=1};
     CHECK(draw_flags.b7&&!draw_flags.b0);
-    draw_flags.u8=128; CHECK(draw_flags.b0&&!draw_flags.b7);
+    draw_flags.byte=128; CHECK(draw_flags.b0&&!draw_flags.b7);
     static Fighter fighter;
     fighter.x594_s32=0x40000000;
     CHECK(fighter.x594_b1_loop&&!fighter.x594_b0&&!fighter.x594_b3);
