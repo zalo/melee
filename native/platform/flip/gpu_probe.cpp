@@ -92,8 +92,10 @@ int main(int argc, char** argv) {
     config.userPath = "/tmp/melee-flip-probe/";
     config.cachePath = "/tmp/melee-flip-probe/cache/";
     config.desiredBackend = BACKEND_OPENGLES;
-    config.windowWidth = 640;
-    config.windowHeight = 480;
+    unsigned probeWidth = 640, probeHeight = 480;
+    MeleeFlipDisplaySize(&probeWidth, &probeHeight);
+    config.windowWidth = static_cast<int>(probeWidth);
+    config.windowHeight = static_cast<int>(probeHeight);
     config.logCallback = log;
     config.vsync = true;
     const auto info = aurora_initialize(argc, argv, &config);

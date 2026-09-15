@@ -101,10 +101,15 @@ int main(int argc, char** argv) {
     // set EGL's swap interval once when it creates the surface, avoiding a
     // second pacing queue and a per-frame eglSwapInterval workaround.
     config.vsync = false;
-    config.windowWidth = 640;
-    config.windowHeight = 480;
     config.allowJoystickBackgroundEvents = true;
+    // Render at the panel's mode size: 640x480 on the Flip, the mode size elsewhere.
     MeleeFlipInitDisplay();
+    {
+        unsigned width = 640, height = 480;
+        MeleeFlipDisplaySize(&width, &height);
+        config.windowWidth = static_cast<int>(width);
+        config.windowHeight = static_cast<int>(height);
+    }
     // Upstream Aurora renderer options, on by default with the values validated on the device
     // (v143). Each has an environment override for A/B trials: MELEE_FLIP_<NAME>=0 disables,
     // =1 enables; the numeric ones take a value.

@@ -29,6 +29,10 @@ gbm_surface* window;
 EGLDisplay display = EGL_NO_DISPLAY;
 drmModeCrtc* saved;
 drmModeModeInfo mode;
+// Scanout size = the connector mode's size. Aurora renders at this size (runtime_main
+// passes it as the window size); on the Flip's 640x480 panel that is the game's native
+// resolution, on other panels the game is rendered at the panel size. No rotation.
+uint32_t displayWidth = 640, displayHeight = 480;
 uint32_t connector, crtc, previousFB;
 gbm_bo* previousBO;
 bool modeSet;
@@ -352,35 +356,65 @@ void wait_pending_flip() {
 }
 
 void MeleeFlipInitDisplay() {
-    // The stock Flip firmware exposes display scanout on card0. Select a
-    // connected panel and its active encoder rather than hardcoding object IDs.
+    // Select a connected panel and a CRTC for it rather than hardcoding object IDs.
+    // MELEE_DRM_DEVICE picks the DRM node (the Flip's stock firmware scans out on card0),
+    // MELEE_DRM_CONNECTOR the index into the device's connector list when the first
+    // connected one is not the panel.
     const char* node = std::getenv("MELEE_DRM_DEVICE");
     fd = open(node ? node : "/dev/dri/card0", O_RDWR | O_CLOEXEC);
     if (fd < 0) fail("Cannot open DRM device");
     std::atexit(cleanup);
     auto* resources = drmModeGetResources(fd);
     if (!resources) fail("Cannot enumerate display resources");
+    long wanted = -1;
+    if (const char* index = std::getenv("MELEE_DRM_CONNECTOR"); index && *index) {
+        char* end = nullptr;
+        wanted = std::strtol(index, &end, 0);
+        if (!end || *end || wanted < 0 || wanted >= resources->count_connectors) fail("MELEE_DRM_CONNECTOR is not a valid connector index");
+    }
+    bool havePreferred = false;
     for (int i = 0; i < resources->count_connectors && !connector; ++i) {
+        if (wanted >= 0 && i != wanted) continue;
         auto* candidate = drmModeGetConnector(fd, resources->connectors[i]);
         if (!candidate) continue;
         if (candidate->connection == DRM_MODE_CONNECTED && candidate->count_modes) {
-            auto* encoder = drmModeGetEncoder(fd, candidate->encoder_id);
-            if (encoder && encoder->crtc_id) {
-                connector = candidate->connector_id;
-                crtc = encoder->crtc_id;
-                saved = drmModeGetCrtc(fd, crtc);
-                mode = saved && saved->mode_valid ? saved->mode : candidate->modes[0];
+            // The active encoder's CRTC when the firmware already drives the panel,
+            // otherwise the first CRTC one of the connector's encoders can use.
+            uint32_t candidateCrtc = 0;
+            if (auto* encoder = drmModeGetEncoder(fd, candidate->encoder_id)) {
+                candidateCrtc = encoder->crtc_id;
+                drmModeFreeEncoder(encoder);
             }
-            if (encoder) drmModeFreeEncoder(encoder);
+            for (int e = 0; e < candidate->count_encoders && !candidateCrtc; ++e) {
+                auto* encoder = drmModeGetEncoder(fd, candidate->encoders[e]);
+                if (!encoder) continue;
+                for (int c = 0; c < resources->count_crtcs && !candidateCrtc; ++c)
+                    if (encoder->possible_crtcs & (1u << c)) candidateCrtc = resources->crtcs[c];
+                drmModeFreeEncoder(encoder);
+            }
+            if (candidateCrtc) {
+                connector = candidate->connector_id;
+                crtc = candidateCrtc;
+                saved = drmModeGetCrtc(fd, crtc);
+                // Preferred mode first, then whatever the firmware is scanning out, then the
+                // connector's first mode.
+                mode = candidate->modes[0];
+                for (int m = 0; m < candidate->count_modes; ++m) {
+                    if (candidate->modes[m].type & DRM_MODE_TYPE_PREFERRED) { mode = candidate->modes[m]; havePreferred = true; break; }
+                }
+                if (!havePreferred && saved && saved->mode_valid) mode = saved->mode;
+            }
         }
         drmModeFreeConnector(candidate);
     }
     drmModeFreeResources(resources);
     if (!connector) fail("No active connected display");
-    if (mode.hdisplay != 640 || mode.vdisplay != 480) fail("Expected the Flip's 640x480 panel");
+    if (!mode.hdisplay || !mode.vdisplay) fail("Display mode has no size");
+    displayWidth = mode.hdisplay;
+    displayHeight = mode.vdisplay;
     device = gbm_create_device(fd);
     if (!device) fail("Cannot create GBM device");
-    window = gbm_surface_create(device, 640, 480, GBM_FORMAT_ARGB8888,
+    window = gbm_surface_create(device, displayWidth, displayHeight, GBM_FORMAT_ARGB8888,
                                 GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
     if (!window) fail("Cannot create GBM surface");
     auto getDisplay = reinterpret_cast<PFNEGLGETPLATFORMDISPLAYEXTPROC>(eglGetProcAddress("eglGetPlatformDisplayEXT"));
@@ -388,9 +422,11 @@ void MeleeFlipInitDisplay() {
     display = getDisplay(EGL_PLATFORM_GBM_KHR, device, nullptr);
     EGLint major, minor;
     if (!eglInitialize(display, &major, &minor)) fail("Cannot initialize EGL display");
-    std::fprintf(stderr, "[flip-display] EGL %d.%d, DRM connector %u, CRTC %u, 640x480\n", major, minor, connector, crtc);
+    std::fprintf(stderr, "[flip-display] EGL %d.%d, DRM connector %u, CRTC %u, %ux%u@%u (%s)\n", major, minor, connector, crtc,
+                 displayWidth, displayHeight, mode.vrefresh, havePreferred ? "preferred mode" : "current mode");
     MeleeFlipInitPresenter();
 }
+extern "C" void MeleeFlipDisplaySize(unsigned* width, unsigned* height) { *width = displayWidth; *height = displayHeight; }
 extern "C" void* MeleeFlipNativeWindow() { return window; }
 extern "C" void* MeleeFlipEGLDisplay() { return display; }
 extern "C" __eglMustCastToProperFunctionPointerType MeleeFlipEGLProc(const char* name) {
@@ -483,7 +519,7 @@ extern "C" void MeleeFlipPresent() {
     if (!bo) fail("Cannot lock rendered frame");
     const double lockMs = profileHere ? elapsed(presentStart) : 0;
     uint32_t fb;
-    if (drmModeAddFB(fd, 640, 480, 32, 32, gbm_bo_get_stride(bo), gbm_bo_get_handle(bo).u32, &fb))
+    if (drmModeAddFB(fd, displayWidth, displayHeight, 32, 32, gbm_bo_get_stride(bo), gbm_bo_get_handle(bo).u32, &fb))
         fail("Cannot register framebuffer");
     if (!modeSet) {
         if (drmModeSetCrtc(fd, crtc, fb, 0, 0, &connector, 1, &mode)) fail("Cannot acquire display scanout");
