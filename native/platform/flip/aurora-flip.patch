@@ -370,7 +370,7 @@ index d1172db..3627693 100644
  public:
    CardGciFolder();
 diff --git a/lib/dawn/BackendBinding.cpp b/lib/dawn/BackendBinding.cpp
-index 447ead8..a960827 100644
+index 447ead8..ddd3449 100644
 --- a/lib/dawn/BackendBinding.cpp
 +++ b/lib/dawn/BackendBinding.cpp
 @@ -1,4 +1,7 @@
@@ -386,7 +386,7 @@ index 447ead8..a960827 100644
    return SetupWindowAndGetSurfaceDescriptorCocoa(window);
  #else
 +#ifdef MELEE_MIYOO_FLIP
-+  auto desc = std::make_shared<wgpu::DawnSurfaceSourceEGLNativeWindow>();
++  auto desc = std::make_shared<wgpu::SurfaceSourceEGLNativeWindow>();
 +  desc->window = MeleeFlipNativeWindow();
 +  return desc;
 +#endif

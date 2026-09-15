@@ -1,124 +1,941 @@
---- a/src/dawn/dawn.json	2026-08-07 15:55:40.000000000 -0700
-+++ b/src/dawn/dawn.json	2026-09-10 11:36:32.693457262 -0700
-@@ -4009,6 +4009,15 @@
-             {"name": "window", "type": "void", "annotation": "*"}
+diff --git a/src/dawn/dawn.json b/src/dawn/dawn.json
+index 65fe897947..1412f2d806 100644
+--- a/src/dawn/dawn.json
++++ b/src/dawn/dawn.json
+@@ -3962,6 +3962,15 @@
+             {"name": "window", "type": "void *"}
          ]
      },
-+    "dawn surface source EGL native window": {
++    "surface source EGL native window": {
 +        "category": "structure",
 +        "chained": "in",
 +        "chain roots": ["surface descriptor"],
-+        "tags": ["dawn"],
++        "tags": ["dawn", "native"],
 +        "members": [
-+            {"name": "window", "type": "void", "annotation": "*"}
++            {"name": "window", "type": "void *"}
 +        ]
 +    },
-     "surface source xlib window": {
+     "emscripten surface source canvas HTML selector": {
          "category": "structure",
          "chained": "in",
-@@ -4111,6 +4120,7 @@
-             {"value": 15, "name": "compatibility mode limits"},
-             {"value": 16, "name": "texture binding view dimension"},
-             {"value": 17, "name": "surface source switch NWindow"},
-+            {"value": 1000, "name": "dawn surface source EGL native window", "tags": ["dawn"]},
- 
-             {"value": 0, "name": "emscripten surface source canvas HTML selector", "tags": ["emscripten"]},
- 
---- a/src/dawn/native/opengl/SwapChainEGL.cpp	2026-08-07 15:55:40.000000000 -0700
-+++ b/src/dawn/native/opengl/SwapChainEGL.cpp	2026-09-10 14:22:10.479730377 -0700
-@@ -203,6 +238,11 @@
-     // constraints.
-     auto TryCreateSurface = [&]() -> MaybeError {
-         switch (surface->GetType()) {
-+            case Surface::Type::EGLNativeWindow:
-+                mEGLSurface = egl.CreateWindowSurface(
-+                    eglDisplay, config,
-+                    reinterpret_cast<EGLNativeWindowType>(surface->GetEGLNativeWindow()), attribs.data());
-+                return {};
- #if DAWN_PLATFORM_IS(ANDROID)
-             case Surface::Type::AndroidWindow:
-                 mEGLSurface = egl.CreateWindowSurface(
---- a/src/dawn/native/Surface.cpp	2026-08-07 15:55:40.000000000 -0700
-+++ b/src/dawn/native/Surface.cpp	2026-09-10 11:36:32.693457262 -0700
-@@ -61,6 +61,9 @@
-     const absl::FormatConversionSpec& spec,
-     absl::FormatSink* s) {
-     switch (value) {
-+        case Surface::Type::EGLNativeWindow:
-+            s->Append("EGLNativeWindow");
-+            break;
+@@ -4193,7 +4202,8 @@
+             {"value": 78, "name": "shared texture memory D3D12 resource descriptor", "tags": ["dawn", "native"]},
+             {"value": 79, "name": "request adapter options angle virtualization group", "tags": ["dawn", "native"]},
+             {"value": 80, "name": "pipeline layout resource table", "tags": ["dawn"]},
+-            {"value": 81, "name": "adapter properties drm", "tags": ["dawn", "native"]}
++            {"value": 81, "name": "adapter properties drm", "tags": ["dawn", "native"]},
++            {"value": 82, "name": "surface source EGL native window", "tags": ["dawn", "native"]}
+         ]
+     },
+     "texture": {
+diff --git a/src/dawn/native/BUILD.gn b/src/dawn/native/BUILD.gn
+index 74b5adc1eb..37cdae099f 100644
+--- a/src/dawn/native/BUILD.gn
++++ b/src/dawn/native/BUILD.gn
+@@ -871,6 +871,8 @@ source_set("sources") {
+       "opengl/EGLFunctions.cpp",
+       "opengl/EGLFunctions.h",
+       "opengl/Forward.h",
++      "opengl/FramebufferCacheGL.cpp",
++      "opengl/FramebufferCacheGL.h",
+       "opengl/GLFormat.cpp",
+       "opengl/GLFormat.h",
+       "opengl/ImmediatesLayoutGL.h",
+diff --git a/src/dawn/native/CMakeLists.txt b/src/dawn/native/CMakeLists.txt
+index f45b4fa1e0..127116bfae 100644
+--- a/src/dawn/native/CMakeLists.txt
++++ b/src/dawn/native/CMakeLists.txt
+@@ -696,6 +696,7 @@ if (DAWN_ENABLE_OPENGL)
+         "opengl/DisplayEGL.h"
+         "opengl/EGLFunctions.h"
+         "opengl/Forward.h"
++        "opengl/FramebufferCacheGL.h"
+         "opengl/GLFormat.h"
+         "opengl/ImmediatesLayoutGL.h"
+         "opengl/IntegerTypes.h"
+@@ -732,6 +733,7 @@ if (DAWN_ENABLE_OPENGL)
+         "opengl/DeviceGL.cpp"
+         "opengl/DisplayEGL.cpp"
+         "opengl/EGLFunctions.cpp"
++        "opengl/FramebufferCacheGL.cpp"
+         "opengl/GLFormat.cpp"
+         "opengl/OpenGLFunctions.cpp"
+         "opengl/OpenGLVersion.cpp"
+diff --git a/src/dawn/native/Surface.cpp b/src/dawn/native/Surface.cpp
+index 8ebe3104cd..9058eec79c 100644
+--- a/src/dawn/native/Surface.cpp
++++ b/src/dawn/native/Surface.cpp
+@@ -64,6 +64,9 @@ absl::FormatConvertResult<absl::FormatConversionCharSet::kString> AbslFormatConv
          case Surface::Type::AndroidWindow:
              s->Append("AndroidWindow");
              break;
-@@ -120,8 +123,14 @@
++        case Surface::Type::EGLNativeWindow:
++            s->Append("EGLNativeWindow");
++            break;
+         case Surface::Type::MetalLayer:
+             s->Append("MetalLayer");
+             break;
+@@ -115,13 +118,20 @@ ResultOrError<UnpackedPtr<SurfaceDescriptor>> ValidateSurfaceDescriptor(
+     wgpu::SType type;
+     DAWN_TRY_ASSIGN(
+         type, (descriptor.ValidateBranches<
+-                  Branch<SurfaceSourceAndroidNativeWindow>, Branch<SurfaceSourceMetalLayer>,
+-                  Branch<SurfaceSourceWindowsHWND>, Branch<SurfaceDescriptorFromWindowsCoreWindow>,
++                  Branch<SurfaceSourceAndroidNativeWindow>, Branch<SurfaceSourceEGLNativeWindow>,
++                  Branch<SurfaceSourceMetalLayer>, Branch<SurfaceSourceWindowsHWND>,
++                  Branch<SurfaceDescriptorFromWindowsCoreWindow>,
                    Branch<SurfaceDescriptorFromWindowsUWPSwapChainPanel>,
                    Branch<SurfaceDescriptorFromWindowsWinUISwapChainPanel>,
                    Branch<SurfaceSourceSwitchNWindow>,
--                  Branch<SurfaceSourceXlibWindow>, Branch<SurfaceSourceWaylandSurface>>()));
-+                  Branch<SurfaceSourceXlibWindow>, Branch<SurfaceSourceWaylandSurface>,
-+                  Branch<DawnSurfaceSourceEGLNativeWindow>>()));
+                   Branch<SurfaceSourceXlibWindow>, Branch<SurfaceSourceWaylandSurface>>()));
      switch (type) {
-+        case wgpu::SType::DawnSurfaceSourceEGLNativeWindow: {
-+            auto* subDesc = descriptor.Get<DawnSurfaceSourceEGLNativeWindow>();
-+            DAWN_INVALID_IF(subDesc->window == nullptr, "EGL native window is null.");
++        case wgpu::SType::SurfaceSourceEGLNativeWindow: {
++            auto* subDesc = descriptor.Get<SurfaceSourceEGLNativeWindow>();
++            DAWN_ASSERT(subDesc != nullptr);
++            DAWN_INVALID_IF(subDesc->window == nullptr, "EGL native window is nullptr.");
 +            return descriptor;
 +        }
  #if DAWN_PLATFORM_IS(ANDROID)
          case wgpu::SType::SurfaceSourceAndroidNativeWindow: {
              auto* subDesc = descriptor.Get<SurfaceSourceAndroidNativeWindow>();
-@@ -317,9 +326,15 @@
+@@ -312,8 +322,9 @@ Surface::Surface(InstanceBase* instance, const UnpackedPtr<SurfaceDescriptor>& d
+     wgpu::SType type =
+         descriptor
+             .ValidateBranches<
+-                Branch<SurfaceSourceAndroidNativeWindow>, Branch<SurfaceSourceMetalLayer>,
+-                Branch<SurfaceSourceWindowsHWND>, Branch<SurfaceDescriptorFromWindowsCoreWindow>,
++                Branch<SurfaceSourceAndroidNativeWindow>, Branch<SurfaceSourceEGLNativeWindow>,
++                Branch<SurfaceSourceMetalLayer>, Branch<SurfaceSourceWindowsHWND>,
++                Branch<SurfaceDescriptorFromWindowsCoreWindow>,
                  Branch<SurfaceDescriptorFromWindowsUWPSwapChainPanel>,
                  Branch<SurfaceDescriptorFromWindowsWinUISwapChainPanel>,
                  Branch<SurfaceSourceSwitchNWindow>,
--                Branch<SurfaceSourceXlibWindow>, Branch<SurfaceSourceWaylandSurface>>()
-+                Branch<SurfaceSourceXlibWindow>, Branch<SurfaceSourceWaylandSurface>,
-+                  Branch<DawnSurfaceSourceEGLNativeWindow>>()
-             .AcquireSuccess();
-     switch (type) {
-+        case wgpu::SType::DawnSurfaceSourceEGLNativeWindow: {
+@@ -326,6 +337,12 @@ Surface::Surface(InstanceBase* instance, const UnpackedPtr<SurfaceDescriptor>& d
+             mAndroidNativeWindow = subDesc->window;
+             break;
+         }
++        case wgpu::SType::SurfaceSourceEGLNativeWindow: {
++            auto* subDesc = descriptor.Get<SurfaceSourceEGLNativeWindow>();
 +            mType = Type::EGLNativeWindow;
-+            mEGLNativeWindow = descriptor.Get<DawnSurfaceSourceEGLNativeWindow>()->window;
++            mEGLNativeWindow = subDesc->window;
 +            break;
 +        }
-         case wgpu::SType::SurfaceSourceAndroidNativeWindow: {
-             auto* subDesc = descriptor.Get<SurfaceSourceAndroidNativeWindow>();
-             mType = Type::AndroidWindow;
-@@ -420,6 +435,11 @@
-     return mMetalLayer;
+         case wgpu::SType::SurfaceSourceMetalLayer: {
+             auto* subDesc = descriptor.Get<SurfaceSourceMetalLayer>();
+             mType = Type::MetalLayer;
+@@ -414,6 +431,12 @@ void* Surface::GetAndroidNativeWindow() const {
+     return mAndroidNativeWindow;
  }
  
 +void* Surface::GetEGLNativeWindow() const {
++    DAWN_CHECK(!IsError());
 +    DAWN_CHECK(mType == Type::EGLNativeWindow);
 +    return mEGLNativeWindow;
 +}
 +
- void* Surface::GetWaylandDisplay() const {
-     DAWN_CHECK(mType == Type::WaylandSurface);
-     return mWaylandDisplay;
---- a/src/dawn/native/Surface.h	2026-08-07 15:55:40.000000000 -0700
-+++ b/src/dawn/native/Surface.h	2026-09-10 11:36:32.693502988 -0700
-@@ -77,6 +77,7 @@
-     // These are valid to call on all Surfaces.
+ void* Surface::GetMetalLayer() const {
+     DAWN_CHECK(!IsError());
+     DAWN_CHECK(mType == Type::MetalLayer);
+diff --git a/src/dawn/native/Surface.h b/src/dawn/native/Surface.h
+index 450411b4c9..8a23247b42 100644
+--- a/src/dawn/native/Surface.h
++++ b/src/dawn/native/Surface.h
+@@ -78,6 +78,7 @@ class Surface final : public ErrorMonad {
      enum class Type {
          Undefined,
-+        EGLNativeWindow,
          AndroidWindow,
++        EGLNativeWindow,
          MetalLayer,
          WaylandSurface,
-@@ -96,6 +97,7 @@
- 
+         WindowsHWND,
+@@ -97,6 +98,9 @@ class Surface final : public ErrorMonad {
      // Valid to call if the type is Android
      void* GetAndroidNativeWindow() const;
-+    void* GetEGLNativeWindow() const;
  
++    // Valid to call if the type is EGLNativeWindow
++    void* GetEGLNativeWindow() const;
++
      // Valid to call if the type is WaylandSurface
      void* GetWaylandDisplay() const;
-@@ -161,6 +163,8 @@
-     // MetalLayer
-     raw_ptr<void> mMetalLayer = nullptr;
- 
-+    raw_ptr<void> mEGLNativeWindow = nullptr;
-+
+     void* GetWaylandSurface() const;
+@@ -164,6 +168,9 @@ class Surface final : public ErrorMonad {
      // ANativeWindow
      raw_ptr<void> mAndroidNativeWindow = nullptr;
  
++    // EGLNativeWindowType
++    raw_ptr<void> mEGLNativeWindow = nullptr;
++
+     // NWindow
+     raw_ptr<void> mSwitchNWindow = nullptr;
+ 
+diff --git a/src/dawn/native/opengl/CommandBufferGL.cpp b/src/dawn/native/opengl/CommandBufferGL.cpp
+index 6fb9bcd289..ee909a92e0 100644
+--- a/src/dawn/native/opengl/CommandBufferGL.cpp
++++ b/src/dawn/native/opengl/CommandBufferGL.cpp
+@@ -46,6 +46,7 @@
+ #include "src/dawn/native/opengl/ComputePipelineGL.h"
+ #include "src/dawn/native/opengl/DeviceGL.h"
+ #include "src/dawn/native/opengl/Forward.h"
++#include "src/dawn/native/opengl/FramebufferCacheGL.h"
+ #include "src/dawn/native/opengl/ImmediatesLayoutGL.h"
+ #include "src/dawn/native/opengl/PersistentPipelineStateGL.h"
+ #include "src/dawn/native/opengl/PhysicalDeviceGL.h"
+@@ -1320,16 +1321,34 @@ MaybeError CommandBuffer::ExecuteRenderPass(BeginRenderPassCmd* renderPass,
+     const IndirectDrawMetadata& metadata = GetIndirectDrawMetadata()[renderPassIndex];
+     IndirectDrawIndex indirectDrawIndex{0u};
+ 
+-    // Create the framebuffer used for this render pass and calls the correct glDrawBuffers
+-    {
+-        // TODO(kainino@chromium.org): This is added to possibly work around an issue seen on
+-        // Windows/Intel. It should break any feedback loop before the clears, even if there
+-        // shouldn't be any negative effects from this. Investigate whether it's actually
+-        // needed.
+-        DAWN_GL_TRY(gl, BindFramebuffer(GL_READ_FRAMEBUFFER, 0));
+-        // TODO(kainino@chromium.org): possible future optimization: create these framebuffers
+-        // at Framebuffer build time (or maybe CommandBuffer build time) so they don't have to
+-        // be created and destroyed at draw time.
++    // Bind the framebuffer for this render pass. Framebuffers are cached by attachment set on the
++    // device, so one is only built and validated the first time a set of attachments is rendered
++    // into; framebuffer completeness validation is expensive on tile-based mobile drivers.
++    FramebufferCache* framebufferCache = ToBackend(GetDevice())->GetFramebufferCache();
++    FramebufferKey framebufferKey;
++    for (auto i : renderPass->attachmentState->GetColorAttachmentsMask()) {
++        TextureView* textureView = ToBackend(renderPass->colorAttachments[i].view.Get());
++        framebufferKey.colors[i] =
++            textureView->GetFramebufferAttachment(renderPass->colorAttachments[i].depthSlice);
++    }
++    if (renderPass->attachmentState->HasDepthStencilAttachment()) {
++        TextureView* textureView = ToBackend(renderPass->depthStencilAttachment.view.Get());
++        framebufferKey.depthStencil = textureView->GetFramebufferAttachment();
++        framebufferKey.depthStencilAttachmentPoint =
++            DepthStencilAttachmentPoint(textureView->GetTexture()->GetFormat());
++    }
++    framebufferKey.sampleCount = renderPass->attachmentState->GetSampleCount();
++
++    // TODO(kainino@chromium.org): This is added to possibly work around an issue seen on
++    // Windows/Intel. It should break any feedback loop before the clears, even if there
++    // shouldn't be any negative effects from this. Investigate whether it's actually
++    // needed.
++    DAWN_GL_TRY(gl, BindFramebuffer(GL_READ_FRAMEBUFFER, 0));
++
++    fbo = framebufferCache->Find(framebufferKey);
++    if (fbo != 0) {
++        DAWN_GL_TRY(gl, BindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo));
++    } else {
+         DAWN_GL_TRY(gl, GenFramebuffers(1, &fbo));
+         DAWN_GL_TRY(gl, BindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo));
+ 
+@@ -1355,17 +1374,16 @@ MaybeError CommandBuffer::ExecuteRenderPass(BeginRenderPassCmd* renderPass,
+ 
+         if (renderPass->attachmentState->HasDepthStencilAttachment()) {
+             TextureView* textureView = ToBackend(renderPass->depthStencilAttachment.view.Get());
+-            const Format& format = textureView->GetTexture()->GetFormat();
+ 
+             // Attach depth/stencil buffer.
+-            GLenum glAttachment = DepthStencilAttachmentPoint(format);
+-
+-            DAWN_TRY(textureView->BindToFramebuffer(gl, GL_DRAW_FRAMEBUFFER, glAttachment, 0,
++            DAWN_TRY(textureView->BindToFramebuffer(gl, GL_DRAW_FRAMEBUFFER,
++                                                    framebufferKey.depthStencilAttachmentPoint, 0,
+                                                     renderPass->attachmentState->GetSampleCount()));
+         }
+-    }
+ 
+-    DAWN_TRY(CheckFramebufferComplete(gl, GL_DRAW_FRAMEBUFFER));
++        DAWN_TRY(CheckFramebufferComplete(gl, GL_DRAW_FRAMEBUFFER));
++        framebufferCache->Insert(gl, framebufferKey, fbo);
++    }
+ 
+     // Set defaults for dynamic state before executing clears and commands.
+     PersistentPipelineState persistentPipelineState;
+@@ -1653,7 +1671,8 @@ MaybeError CommandBuffer::ExecuteRenderPass(BeginRenderPassCmd* renderPass,
+                                         checked_cast<GLsizei>(attachmentsToDiscard.size()),
+                                         attachmentsToDiscard.data()));
+                 }
+-                DAWN_GL_TRY(gl, DeleteFramebuffers(1, &fbo));
++                // The framebuffer stays in the device's cache for the next pass over these
++                // attachments.
+                 return {};
+             }
+ 
+diff --git a/src/dawn/native/opengl/DeviceGL.cpp b/src/dawn/native/opengl/DeviceGL.cpp
+index bc4bdda914..ce39607598 100644
+--- a/src/dawn/native/opengl/DeviceGL.cpp
++++ b/src/dawn/native/opengl/DeviceGL.cpp
+@@ -247,6 +247,10 @@ MaybeError Device::Initialize(const UnpackedPtr<DeviceDescriptor>& descriptor) {
+     return scopedCurrentContext.End();
+ }
+ 
++FramebufferCache* Device::GetFramebufferCache() {
++    return &mFramebufferCache;
++}
++
+ const GLFormat& Device::GetGLFormat(const Format& format) {
+     DAWN_ASSERT(format.IsSupported());
+     DAWN_ASSERT(format.GetIndex() < mFormatTable.size());
+@@ -537,6 +541,13 @@ void Device::DestroyImpl(DestroyReason reason) {
+ 
+     mTextureBuiltinsBuffer = nullptr;
+     mArrayLengthBuffer = nullptr;
++
++    // Framebuffer objects belong to the context, which is still alive here.
++    IgnoreErrors(ExecuteGL(ExecutionQueueBase::SubmitMode::Passive,
++                           [this](const OpenGLFunctions& gl) -> MaybeError {
++                               mFramebufferCache.Clear(gl);
++                               return {};
++                           }));
+ }
+ 
+ void Device::MarkGLUsed(ExecutionQueueBase::SubmitMode submitMode) const {
+diff --git a/src/dawn/native/opengl/DeviceGL.h b/src/dawn/native/opengl/DeviceGL.h
+index f000757898..b47f32a51c 100644
+--- a/src/dawn/native/opengl/DeviceGL.h
++++ b/src/dawn/native/opengl/DeviceGL.h
+@@ -42,6 +42,7 @@
+ #include "src/dawn/native/opengl/ContextEGL.h"
+ #include "src/dawn/native/opengl/EGLFunctions.h"
+ #include "src/dawn/native/opengl/Forward.h"
++#include "src/dawn/native/opengl/FramebufferCacheGL.h"
+ #include "src/dawn/native/opengl/GLFormat.h"
+ #include "src/dawn/native/opengl/OpenGLFunctions.h"
+ #include "src/utils/compiler.h"
+@@ -236,6 +237,10 @@ class Device final : public DeviceBase {
+ 
+     const GLFormat& GetGLFormat(const Format& format);
+ 
++    // Complete framebuffer objects reused by render passes over the same attachments. Only to be
++    // used while the device's GL context is current.
++    FramebufferCache* GetFramebufferCache();
++
+     float GetMaxTextureMaxAnisotropy() const;
+ 
+     MaybeError ValidateTextureCanBeWrapped(const UnpackedPtr<TextureDescriptor>& descriptor);
+@@ -332,6 +337,7 @@ class Device final : public DeviceBase {
+     MutexProtected<std::vector<GLWorkFunc>> mPendingGLWorkList;
+ 
+     GLFormatTable mFormatTable;
++    FramebufferCache mFramebufferCache;
+     std::unique_ptr<ContextEGL> mContext;
+     std::unique_ptr<ContextEGL> mPipelineContext;
+     float mMaxTextureMaxAnisotropy = 0;
+diff --git a/src/dawn/native/opengl/FramebufferCacheGL.cpp b/src/dawn/native/opengl/FramebufferCacheGL.cpp
+new file mode 100644
+index 0000000000..2e15e2a6e6
+--- /dev/null
++++ b/src/dawn/native/opengl/FramebufferCacheGL.cpp
+@@ -0,0 +1,113 @@
++// Copyright 2026 The Dawn & Tint Authors
++//
++// Redistribution and use in source and binary forms, with or without
++// modification, are permitted provided that the following conditions are met:
++//
++// 1. Redistributions of source code must retain the above copyright notice, this
++//    list of conditions and the following disclaimer.
++//
++// 2. Redistributions in binary form must reproduce the above copyright notice,
++//    this list of conditions and the following disclaimer in the documentation
++//    and/or other materials provided with the distribution.
++//
++// 3. Neither the name of the copyright holder nor the names of its
++//    contributors may be used to endorse or promote products derived from
++//    this software without specific prior written permission.
++//
++// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
++// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
++// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
++// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
++// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
++// OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++
++#include "src/dawn/native/opengl/FramebufferCacheGL.h"
++
++#include <iterator>
++
++#include "src/dawn/native/opengl/OpenGLFunctions.h"
++#include "src/dawn/native/opengl/UtilsGL.h"
++#include "src/utils/assert.h"
++
++namespace dawn::native::opengl {
++
++namespace {
++
++bool References(const FramebufferAttachment& attachment, GLuint handle, bool isRenderbuffer) {
++    // Texture and renderbuffer names live in separate namespaces.
++    return attachment.handle == handle && (attachment.target == GL_RENDERBUFFER) == isRenderbuffer;
++}
++
++bool References(const FramebufferKey& key, GLuint handle, bool isRenderbuffer) {
++    for (const FramebufferAttachment& color : key.colors) {
++        if (References(color, handle, isRenderbuffer)) {
++            return true;
++        }
++    }
++    return References(key.depthStencil, handle, isRenderbuffer);
++}
++
++}  // namespace
++
++FramebufferCache::FramebufferCache() = default;
++
++FramebufferCache::~FramebufferCache() = default;
++
++GLuint FramebufferCache::Find(const FramebufferKey& key) const {
++    auto it = mIndex.find(key);
++    return it == mIndex.end() ? 0 : it->second->framebuffer;
++}
++
++void FramebufferCache::Insert(const OpenGLFunctions& gl,
++                              const FramebufferKey& key,
++                              GLuint framebuffer) {
++    DAWN_ASSERT(framebuffer != 0);
++    DAWN_ASSERT(!mIndex.contains(key));
++
++    while (mEntries.size() >= kMaxEntries) {
++        Erase(gl, mEntries.begin());
++    }
++
++    mEntries.push_back({key, framebuffer});
++    mIndex.emplace(key, std::prev(mEntries.end()));
++}
++
++void FramebufferCache::RemoveTexture(const OpenGLFunctions& gl, GLuint texture) {
++    RemoveIf(gl, texture, /*isRenderbuffer=*/false);
++}
++
++void FramebufferCache::RemoveRenderbuffer(const OpenGLFunctions& gl, GLuint renderbuffer) {
++    RemoveIf(gl, renderbuffer, /*isRenderbuffer=*/true);
++}
++
++void FramebufferCache::Clear(const OpenGLFunctions& gl) {
++    while (!mEntries.empty()) {
++        Erase(gl, mEntries.begin());
++    }
++}
++
++void FramebufferCache::RemoveIf(const OpenGLFunctions& gl, GLuint handle, bool isRenderbuffer) {
++    if (handle == 0) {
++        return;
++    }
++    for (auto it = mEntries.begin(); it != mEntries.end();) {
++        auto next = std::next(it);
++        if (References(it->key, handle, isRenderbuffer)) {
++            Erase(gl, it);
++        }
++        it = next;
++    }
++}
++
++void FramebufferCache::Erase(const OpenGLFunctions& gl, EntryList::iterator it) {
++    // Deletion also unbinds the framebuffer from the current context if it is bound there.
++    DAWN_GL_TRY_IGNORE_ERRORS(gl, DeleteFramebuffers(1, &it->framebuffer));
++    mIndex.erase(it->key);
++    mEntries.erase(it);
++}
++
++}  // namespace dawn::native::opengl
+diff --git a/src/dawn/native/opengl/FramebufferCacheGL.h b/src/dawn/native/opengl/FramebufferCacheGL.h
+new file mode 100644
+index 0000000000..186ee9fc29
+--- /dev/null
++++ b/src/dawn/native/opengl/FramebufferCacheGL.h
+@@ -0,0 +1,136 @@
++// Copyright 2026 The Dawn & Tint Authors
++//
++// Redistribution and use in source and binary forms, with or without
++// modification, are permitted provided that the following conditions are met:
++//
++// 1. Redistributions of source code must retain the above copyright notice, this
++//    list of conditions and the following disclaimer.
++//
++// 2. Redistributions in binary form must reproduce the above copyright notice,
++//    this list of conditions and the following disclaimer in the documentation
++//    and/or other materials provided with the distribution.
++//
++// 3. Neither the name of the copyright holder nor the names of its
++//    contributors may be used to endorse or promote products derived from
++//    this software without specific prior written permission.
++//
++// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
++// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
++// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
++// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
++// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
++// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
++// OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++
++#ifndef SRC_DAWN_NATIVE_OPENGL_FRAMEBUFFERCACHEGL_H_
++#define SRC_DAWN_NATIVE_OPENGL_FRAMEBUFFERCACHEGL_H_
++
++#include <cstddef>
++#include <list>
++#include <utility>
++
++#include "absl/container/flat_hash_map.h"
++#include "src/dawn/common/ityp_array.h"
++#include "src/dawn/native/IntegerTypes.h"
++#include "src/dawn/native/opengl/opengl_platform.h"
++
++namespace dawn::native::opengl {
++
++struct OpenGLFunctions;
++
++// Identifies what a framebuffer attachment point is bound to: one level and layer of a GL
++// texture, or a renderbuffer (target == GL_RENDERBUFFER, level and layer unused).
++struct FramebufferAttachment {
++    GLuint handle = 0;
++    GLenum target = 0;
++    GLuint level = 0;
++    GLuint layer = 0;
++
++    bool operator==(const FramebufferAttachment&) const = default;
++};
++
++// Everything that determines the state of the framebuffer object a render pass draws into.
++struct FramebufferKey {
++    // Unused color attachments have a zero handle. The draw buffers follow from which are used.
++    PerColorAttachment<FramebufferAttachment> colors = {};
++    FramebufferAttachment depthStencil = {};
++    // GL_DEPTH_ATTACHMENT, GL_STENCIL_ATTACHMENT or GL_DEPTH_STENCIL_ATTACHMENT (0 if unused).
++    GLenum depthStencilAttachmentPoint = 0;
++    // The render pass's sample count. It is part of the attachment state when it differs from the
++    // texture's (glFramebufferTexture2DMultisampleEXT).
++    uint32_t sampleCount = 1;
++
++    bool operator==(const FramebufferKey&) const = default;
++
++    template <typename H>
++    friend H AbslHashValue(H h, const FramebufferKey& key) {
++        for (const FramebufferAttachment& color : key.colors) {
++            h = H::combine(std::move(h), color.handle, color.target, color.level, color.layer);
++        }
++        return H::combine(std::move(h), key.depthStencil.handle, key.depthStencil.target,
++                          key.depthStencil.level, key.depthStencil.layer,
++                          key.depthStencilAttachmentPoint, key.sampleCount);
++    }
++};
++
++// Caches complete framebuffer objects by attachment set so that render passes drawing into the
++// same attachments reuse one framebuffer instead of building and validating a new one every time.
++// Framebuffer completeness validation is expensive on tile-based mobile drivers, and most
++// applications render into the same handful of attachment sets every frame.
++//
++// The cache belongs to the GL Device and is only touched while the device's GL context is
++// current (render pass execution, deferred GL object deletion, device destruction), so it needs no
++// locking of its own. Framebuffer objects are not shared between contexts, so they are always
++// created and deleted in the same one.
++//
++// An entry must not outlive the GL objects it references: a framebuffer whose attachment was
++// deleted keeps rendering into the orphaned storage, and a new object under the same name would
++// silently produce a stale hit. Every place that deletes or stops tracking a texture or
++// renderbuffer removes the entries referencing it (see Texture::DestroyImpl).
++class FramebufferCache {
++  public:
++    // Insertion order is kept and the oldest entry is evicted beyond this many. Real workloads use
++    // far fewer distinct attachment sets per frame; the cap only bounds unusual ones.
++    static constexpr size_t kMaxEntries = 256;
++
++    FramebufferCache();
++    ~FramebufferCache();
++
++    FramebufferCache(const FramebufferCache&) = delete;
++    FramebufferCache& operator=(const FramebufferCache&) = delete;
++
++    // Returns the cached framebuffer for the key, or 0 if there is none.
++    GLuint Find(const FramebufferKey& key) const;
++
++    // Takes ownership of a complete framebuffer built for the key. Evicts the oldest entry when
++    // the cache is full.
++    void Insert(const OpenGLFunctions& gl, const FramebufferKey& key, GLuint framebuffer);
++
++    // Deletes every cached framebuffer that references the texture or renderbuffer.
++    void RemoveTexture(const OpenGLFunctions& gl, GLuint texture);
++    void RemoveRenderbuffer(const OpenGLFunctions& gl, GLuint renderbuffer);
++
++    // Deletes every cached framebuffer.
++    void Clear(const OpenGLFunctions& gl);
++
++  private:
++    struct Entry {
++        FramebufferKey key;
++        GLuint framebuffer;
++    };
++    using EntryList = std::list<Entry>;
++
++    void RemoveIf(const OpenGLFunctions& gl, GLuint handle, bool isRenderbuffer);
++    void Erase(const OpenGLFunctions& gl, EntryList::iterator it);
++
++    // Oldest entry first.
++    EntryList mEntries;
++    absl::flat_hash_map<FramebufferKey, EntryList::iterator> mIndex;
++};
++
++}  // namespace dawn::native::opengl
++
++#endif  // SRC_DAWN_NATIVE_OPENGL_FRAMEBUFFERCACHEGL_H_
+diff --git a/src/dawn/native/opengl/SwapChainEGL.cpp b/src/dawn/native/opengl/SwapChainEGL.cpp
+index 767a91db54..e4b50efed1 100644
+--- a/src/dawn/native/opengl/SwapChainEGL.cpp
++++ b/src/dawn/native/opengl/SwapChainEGL.cpp
+@@ -29,6 +29,7 @@
+ 
+ #include <utility>
+ 
++#include "src/dawn/native/ChainUtils.h"
+ #include "src/dawn/native/Surface.h"
+ #include "src/dawn/native/opengl/ContextEGL.h"
+ #include "src/dawn/native/opengl/DeviceGL.h"
+@@ -79,6 +80,17 @@ MaybeError SwapChainEGL::Initialize(SwapChainBase* previousSwapChain) {
+             SwapChainEGL* previousEGLSwapChain =
+                 reinterpret_cast<SwapChainEGL*>(ToBackend(previousSwapChain));
+             std::swap(previousEGLSwapChain->mEGLSurface, mEGLSurface);
++
++            // The GL texture behind the swapchain texture can be reused too when the textures it
++            // will back are identical. It belongs to the previous swapchain's GL context, so the
++            // device must be the same.
++            if (previousSwapChain->GetDevice() == GetDevice() &&
++                previousSwapChain->GetWidth() == GetWidth() &&
++                previousSwapChain->GetHeight() == GetHeight() &&
++                previousSwapChain->GetUsage() == GetUsage() &&
++                previousSwapChain->GetViewFormats() == GetViewFormats()) {
++                std::swap(previousEGLSwapChain->mBackingTexture, mBackingTexture);
++            }
+         }
+ 
+         previousSwapChain->DetachFromSurface();
+@@ -134,18 +146,32 @@ MaybeError SwapChainEGL::PresentImpl() {
+         DAWN_TRY(scopedCurrentContext.End());
+     }
+ 
++    // WebGPU requires the texture to be destroyed by Present, but its GL storage is kept for the
++    // next frame's texture (see GetCurrentTextureImpl).
++    DAWN_ASSERT(mBackingTexture == 0);
++    mBackingTexture = mTexture->DetachHandle();
+     mTexture->APIDestroy();
+     mTexture = nullptr;
++    mTextureView = nullptr;
+ 
+     return {};
+ }
+ 
+ ResultOrError<SwapChainTextureInfo> SwapChainEGL::GetCurrentTextureImpl() {
+-    // Create the fake surface texture that we'll blit from.
++    // Create the fake surface texture that we'll blit from. A new Texture is required every frame
++    // (it starts uninitialized and is destroyed by Present, as WebGPU requires), but the GL
++    // texture behind the previous frame's texture is wrapped again instead of allocating new
++    // storage: that saves the allocation and keeps the framebuffers cached against it valid.
+     TextureDescriptor desc = GetSwapChainBaseTextureDescriptor(this);
+     Ref<TextureBase> texture;
+     Ref<TextureViewBase> view;
+-    DAWN_TRY_ASSIGN(texture, GetDevice()->CreateTexture(&desc));
++    if (mBackingTexture != 0) {
++        texture = AcquireRef(
++            new Texture(ToBackend(GetDevice()), Unpack(&desc), mBackingTexture, OwnsHandle::Yes));
++        mBackingTexture = 0;
++    } else {
++        DAWN_TRY_ASSIGN(texture, GetDevice()->CreateTexture(&desc));
++    }
+     DAWN_TRY_ASSIGN(view, GetDevice()->CreateTextureView(texture.Get()));
+ 
+     mTexture = std::move(ToBackend(texture));
+@@ -166,10 +192,23 @@ void SwapChainEGL::DetachFromSurfaceImpl() {
+     }
+ 
+     if (mTexture != nullptr) {
++        // The current texture owns its GL texture and deletes it.
++        DAWN_ASSERT(mBackingTexture == 0);
+         mTexture->APIDestroy();
+         mTexture = nullptr;
+         mTextureView = nullptr;
+     }
++
++    if (mBackingTexture != 0) {
++        Device* device = ToBackend(GetDevice());
++        IgnoreErrors(device->EnqueueGL(
++            [device, texture = mBackingTexture](const OpenGLFunctions& gl) -> MaybeError {
++                device->GetFramebufferCache()->RemoveTexture(gl, texture);
++                DAWN_GL_TRY_IGNORE_ERRORS(gl, DeleteTextures(1, &texture));
++                return {};
++            }));
++        mBackingTexture = 0;
++    }
+ }
+ 
+ MaybeError SwapChainEGL::CreateEGLSurface(const DisplayEGL* display) {
+@@ -203,6 +242,14 @@ MaybeError SwapChainEGL::CreateEGLSurface(const DisplayEGL* display) {
+     // constraints.
+     auto TryCreateSurface = [&]() -> MaybeError {
+         switch (surface->GetType()) {
++            case Surface::Type::EGLNativeWindow:
++                // The application hands over an EGLNativeWindowType for the display's platform
++                // (a gbm_surface on DRM/GBM, for instance) with no window system in between.
++                mEGLSurface = egl.CreateWindowSurface(
++                    eglDisplay, config,
++                    reinterpret_cast<EGLNativeWindowType>(surface->GetEGLNativeWindow()),
++                    attribs.data());
++                return {};
+ #if DAWN_PLATFORM_IS(ANDROID)
+             case Surface::Type::AndroidWindow:
+                 mEGLSurface = egl.CreateWindowSurface(
+diff --git a/src/dawn/native/opengl/SwapChainEGL.h b/src/dawn/native/opengl/SwapChainEGL.h
+index a3b236ab49..3629ffb493 100644
+--- a/src/dawn/native/opengl/SwapChainEGL.h
++++ b/src/dawn/native/opengl/SwapChainEGL.h
+@@ -30,6 +30,7 @@
+ 
+ #include "src/dawn/common/egl_platform.h"
+ #include "src/dawn/native/SwapChain.h"
++#include "src/dawn/native/opengl/opengl_platform.h"
+ 
+ namespace dawn::native::opengl {
+ 
+@@ -55,6 +56,11 @@ class SwapChainEGL final : public SwapChainBase {
+     MaybeError CreateEGLSurface(const DisplayEGL* display);
+ 
+     EGLSurface mEGLSurface = EGL_NO_SURFACE;
++
++    // The texture handed out by GetCurrentTexture. WebGPU requires a new texture every frame, so
++    // it is destroyed at Present, but the GL texture behind it is detached first and kept here
++    // (while no texture is current) to be wrapped by the next frame's texture.
++    GLuint mBackingTexture = 0;
+     Ref<Texture> mTexture;
+     Ref<TextureView> mTextureView;
+ 
+diff --git a/src/dawn/native/opengl/TextureGL.cpp b/src/dawn/native/opengl/TextureGL.cpp
+index 98d0584f31..9f045fe61f 100644
+--- a/src/dawn/native/opengl/TextureGL.cpp
++++ b/src/dawn/native/opengl/TextureGL.cpp
+@@ -354,26 +354,52 @@ bool Texture::IsRenderbuffer() const {
+            GetFormat().HasDepthOrStencil();
+ }
+ 
++GLuint Texture::DetachHandle() {
++    DAWN_ASSERT(mOwnsHandle == OwnsHandle::Yes && !IsRenderbuffer());
++    if (IsDestroyed()) {
++        return 0;
++    }
++    mOwnsHandle = OwnsHandle::No;
++    mHandleDetached = true;
++    return mTextureHandle;
++}
++
+ void Texture::DestroyImpl(DestroyReason reason) {
+     TextureBase::DestroyImpl(reason);
++    if (mHandleDetached) {
++        // The GL texture, and the framebuffers cached against it, now belong to the swapchain.
++        return;
++    }
++    // Framebuffers cached against the GL object must go before it does. The lambdas run on the
++    // device's GL context, where the cache lives; the device outlives its pending GL work.
++    Device* device = ToBackend(GetDevice());
+     if (mOwnsHandle == OwnsHandle::Yes) {
+         if (IsRenderbuffer()) {
+-            IgnoreErrors(ToBackend(GetDevice())
+-                             ->EnqueueDestroyGL(
+-                                 this, &Texture::GetRenderbufferHandle, reason,
+-                                 [](const OpenGLFunctions& gl, GLuint handle) -> MaybeError {
+-                                     DAWN_GL_TRY_IGNORE_ERRORS(gl, DeleteRenderbuffers(1, &handle));
+-                                     return {};
+-                                 }));
++            IgnoreErrors(device->EnqueueDestroyGL(
++                this, &Texture::GetRenderbufferHandle, reason,
++                [device](const OpenGLFunctions& gl, GLuint handle) -> MaybeError {
++                    device->GetFramebufferCache()->RemoveRenderbuffer(gl, handle);
++                    DAWN_GL_TRY_IGNORE_ERRORS(gl, DeleteRenderbuffers(1, &handle));
++                    return {};
++                }));
+         } else {
+-            IgnoreErrors(ToBackend(GetDevice())
+-                             ->EnqueueDestroyGL(
+-                                 this, &Texture::GetTextureHandle, reason,
+-                                 [](const OpenGLFunctions& gl, GLuint handle) -> MaybeError {
+-                                     DAWN_GL_TRY_IGNORE_ERRORS(gl, DeleteTextures(1, &handle));
+-                                     return {};
+-                                 }));
++            IgnoreErrors(device->EnqueueDestroyGL(
++                this, &Texture::GetTextureHandle, reason,
++                [device](const OpenGLFunctions& gl, GLuint handle) -> MaybeError {
++                    device->GetFramebufferCache()->RemoveTexture(gl, handle);
++                    DAWN_GL_TRY_IGNORE_ERRORS(gl, DeleteTextures(1, &handle));
++                    return {};
++                }));
+         }
++    } else {
++        // The GL texture belongs to the application, which may delete it and reuse its name once
++        // Dawn stops using it. Cached framebuffers referencing it must not survive that.
++        IgnoreErrors(device->EnqueueDestroyGL(
++            this, &Texture::GetTextureHandle, reason,
++            [device](const OpenGLFunctions& gl, GLuint handle) -> MaybeError {
++                device->GetFramebufferCache()->RemoveTexture(gl, handle);
++                return {};
++            }));
+     }
+ }
+ 
+@@ -738,13 +764,14 @@ TextureView::~TextureView() {}
+ void TextureView::DestroyImpl(DestroyReason reason) {
+     TextureViewBase::DestroyImpl(reason);
+     if (mOwnsHandle == OwnsHandle::Yes) {
+-        IgnoreErrors(
+-            ToBackend(GetDevice())
+-                ->EnqueueDestroyGL(this, &TextureView::GetTextureHandle, reason,
+-                                   [](const OpenGLFunctions& gl, GLuint handle) -> MaybeError {
+-                                       DAWN_GL_TRY_IGNORE_ERRORS(gl, DeleteTextures(1, &handle));
+-                                       return {};
+-                                   }));
++        Device* device = ToBackend(GetDevice());
++        IgnoreErrors(device->EnqueueDestroyGL(
++            this, &TextureView::GetTextureHandle, reason,
++            [device](const OpenGLFunctions& gl, GLuint handle) -> MaybeError {
++                device->GetFramebufferCache()->RemoveTexture(gl, handle);
++                DAWN_GL_TRY_IGNORE_ERRORS(gl, DeleteTextures(1, &handle));
++                return {};
++            }));
+     }
+ }
+ 
+@@ -762,61 +789,59 @@ GLenum TextureView::GetGLTarget() const {
+     return mTarget;
+ }
+ 
+-MaybeError TextureView::BindToFramebuffer(const OpenGLFunctions& gl,
+-                                          GLenum target,
+-                                          GLenum attachment,
+-                                          GLuint depthSlice,
+-                                          std::optional<uint32_t> passSampleCount) {
++FramebufferAttachment TextureView::GetFramebufferAttachment(GLuint depthSlice) const {
+     DAWN_ASSERT(depthSlice <
+                 static_cast<GLuint>(GetSingleSubresourceVirtualSize().depthOrArrayLayers));
+ 
+-    if (ToBackend(GetTexture())->IsRenderbuffer()) {
++    const Texture* texture = ToBackend(GetTexture());
++    if (texture->IsRenderbuffer()) {
+         DAWN_ASSERT(GetDimension() == wgpu::TextureViewDimension::e2D);
+         DAWN_ASSERT(GetBaseMipLevel() == 0 && GetLevelCount() == 1);
+         DAWN_ASSERT(GetBaseArrayLayer() == 0 && GetLayerCount() == 1);
+-
+-        GLuint handle = ToBackend(GetTexture())->GetRenderbufferHandle();
+-        DAWN_GL_TRY(gl, FramebufferRenderbuffer(target, attachment, GL_RENDERBUFFER, handle));
+-        return {};
++        return {texture->GetRenderbufferHandle(), GL_RENDERBUFFER, 0, 0};
+     }
+ 
+     // Use the base texture where possible to minimize the amount of copying required on GLES.
+-    bool useOwnView = GetFormat().format != GetTexture()->GetFormat().format &&
+-                      !GetTexture()->GetFormat().HasDepthOrStencil();
+-
+-    GLenum textarget;
+-    GLuint textureHandle, mipLevel, arrayLayer;
++    bool useOwnView = GetFormat().format != texture->GetFormat().format &&
++                      !texture->GetFormat().HasDepthOrStencil();
+     if (useOwnView) {
+         // Use our own texture handle and target which points to a subset of the texture's
+         // subresources.
+-        textureHandle = GetTextureHandle();
+-        textarget = GetGLTarget();
+-        mipLevel = 0;
+-        arrayLayer = 0;
+-    } else {
+-        // Use the texture's handle and target, with the view's base mip level and base array
+-
+-        textureHandle = ToBackend(GetTexture())->GetTextureHandle();
+-        textarget = ToBackend(GetTexture())->GetGLTarget();
+-        mipLevel = GetBaseMipLevel();
+-        // We have validated that the depthSlice in render pass's colorAttachments must be undefined
+-        // for 2d RTVs, which value is set to 0. For 3d RTVs, the baseArrayLayer must be 0. So here
+-        // we can simply use baseArrayLayer + depthSlice to specify the slice in RTVs without
+-        // checking the view's dimension.
+-        arrayLayer = GetBaseArrayLayer() + depthSlice;
++        return {GetTextureHandle(), GetGLTarget(), 0, 0};
++    }
++
++    // Use the texture's handle and target, with the view's base mip level and base array layer.
++    // We have validated that the depthSlice in render pass's colorAttachments must be undefined
++    // for 2d RTVs, which value is set to 0. For 3d RTVs, the baseArrayLayer must be 0. So here
++    // we can simply use baseArrayLayer + depthSlice to specify the slice in RTVs without
++    // checking the view's dimension.
++    return {texture->GetTextureHandle(), texture->GetGLTarget(), GetBaseMipLevel(),
++            GetBaseArrayLayer() + depthSlice};
++}
++
++MaybeError TextureView::BindToFramebuffer(const OpenGLFunctions& gl,
++                                          GLenum target,
++                                          GLenum attachment,
++                                          GLuint depthSlice,
++                                          std::optional<uint32_t> passSampleCount) {
++    FramebufferAttachment fbAttachment = GetFramebufferAttachment(depthSlice);
++    if (fbAttachment.target == GL_RENDERBUFFER) {
++        DAWN_GL_TRY(
++            gl, FramebufferRenderbuffer(target, attachment, GL_RENDERBUFFER, fbAttachment.handle));
++        return {};
+     }
+ 
+-    DAWN_ASSERT(textureHandle != 0);
++    DAWN_ASSERT(fbAttachment.handle != 0);
+ 
+     if (passSampleCount.has_value() && passSampleCount.value() != GetTexture()->GetSampleCount()) {
+-        DAWN_GL_TRY(gl,
+-                    FramebufferTexture2DMultisampleEXT(target, attachment, textarget, textureHandle,
+-                                                       mipLevel, *passSampleCount));
++        DAWN_GL_TRY(gl, FramebufferTexture2DMultisampleEXT(target, attachment, fbAttachment.target,
++                                                           fbAttachment.handle, fbAttachment.level,
++                                                           *passSampleCount));
+         return {};
+     }
+ 
+-    return FramebufferTextureHelper(gl, textarget, target, attachment, textureHandle, mipLevel,
+-                                    arrayLayer);
++    return FramebufferTextureHelper(gl, fbAttachment.target, target, attachment,
++                                    fbAttachment.handle, fbAttachment.level, fbAttachment.layer);
+ }
+ 
+ GLenum TextureView::GetInternalFormat() const {
+diff --git a/src/dawn/native/opengl/TextureGL.h b/src/dawn/native/opengl/TextureGL.h
+index 663ed262e1..0906c60abe 100644
+--- a/src/dawn/native/opengl/TextureGL.h
++++ b/src/dawn/native/opengl/TextureGL.h
+@@ -29,6 +29,7 @@
+ #define SRC_DAWN_NATIVE_OPENGL_TEXTUREGL_H_
+ 
+ #include "src/dawn/native/Texture.h"
++#include "src/dawn/native/opengl/FramebufferCacheGL.h"
+ #include "src/dawn/native/opengl/opengl_platform.h"
+ 
+ namespace dawn::native::opengl {
+@@ -61,6 +62,13 @@ class Texture final : public TextureBase {
+     GLenum GetGLTarget() const;
+     const GLFormat& GetGLFormat() const;
+ 
++    // Hands the GL texture over to the caller, which keeps it alive and unchanged beyond this
++    // Texture: it is no longer deleted when the Texture is destroyed and the framebuffers cached
++    // against it are kept. Returns 0 if the Texture was already destroyed, in which case the GL
++    // texture is being deleted. The swapchain uses this to reuse the storage of the presented
++    // texture for the next frame's texture.
++    GLuint DetachHandle();
++
+     MaybeError EnsureSubresourceContentInitialized(const OpenGLFunctions& gl,
+                                                    const SubresourceRange& range);
+ 
+@@ -78,6 +86,7 @@ class Texture final : public TextureBase {
+     GLuint mTextureHandle;
+     GLuint mRenderbufferHandle;
+     OwnsHandle mOwnsHandle = OwnsHandle::No;
++    bool mHandleDetached = false;
+     GLenum mTarget;
+ };
+ 
+@@ -90,6 +99,8 @@ class TextureView final : public TextureViewBase {
+     GLuint GetTextureHandle() const;
+     GLuint GetRenderbufferHandle() const;
+     GLenum GetGLTarget() const;
++    // What BindToFramebuffer attaches for this view (and depth slice, for 3D textures).
++    FramebufferAttachment GetFramebufferAttachment(GLuint depthSlice = 0) const;
+     MaybeError BindToFramebuffer(const OpenGLFunctions& gl,
+                                  GLenum target,
+                                  GLenum attachment,
