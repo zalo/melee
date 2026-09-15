@@ -35,18 +35,29 @@ static void fill(void*, SDL_AudioStream* stream, int additional, int) {
 extern "C" void MeleeNativeAudioOpen(void (*render)(int16_t*, unsigned)) {
     if (output) return;
     renderer = render;
+    // Audio must never be fatal: on shared handhelds (PortMaster) the sound device
+    // can be briefly held by the launcher/menu when a port starts. Retry a few
+    // times, then run without audio rather than aborting the whole game. The game
+    // loop is driven by video, not by the audio pull, so silent operation is safe.
     if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
-        std::fprintf(stderr, "Audio initialization failed: %s\n", SDL_GetError());
-        std::abort();
+        std::fprintf(stderr, "Audio initialization failed, continuing without sound: %s\n", SDL_GetError());
+        return;
     }
     const SDL_AudioSpec spec{SDL_AUDIO_S16, 2, 32000};
-    output = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, fill, nullptr);
-    if (!output || !SDL_ResumeAudioStreamDevice(output)) {
-        std::fprintf(stderr, "Audio device failed: %s\n", SDL_GetError());
-        std::abort();
+    for (int attempt = 0; attempt < 10; ++attempt) {
+        output = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, fill, nullptr);
+        if (output && SDL_ResumeAudioStreamDevice(output)) {
+            std::fprintf(stderr, "[audio] driver=%s device=%s\n", SDL_GetCurrentAudioDriver(),
+                         SDL_GetAudioDeviceName(SDL_GetAudioStreamDevice(output)));
+            return;
+        }
+        if (output) {
+            SDL_DestroyAudioStream(output);
+            output = nullptr;
+        }
+        SDL_Delay(200);
     }
-    std::fprintf(stderr, "[audio] driver=%s device=%s\n", SDL_GetCurrentAudioDriver(),
-                 SDL_GetAudioDeviceName(SDL_GetAudioStreamDevice(output)));
+    std::fprintf(stderr, "Audio device unavailable after retries, continuing without sound: %s\n", SDL_GetError());
 }
 extern "C" void MeleeNativeAudioClose(void) {
     SDL_DestroyAudioStream(output);
