@@ -105,6 +105,33 @@ int main(int argc, char** argv) {
     config.windowHeight = 480;
     config.allowJoystickBackgroundEvents = true;
     MeleeFlipInitDisplay();
+    // Upstream Aurora renderer options, on by default with the values validated on the device
+    // (v143). Each has an environment override for A/B trials: MELEE_FLIP_<NAME>=0 disables,
+    // =1 enables; the numeric ones take a value.
+    const auto flag = [](const char* name, bool fallback) {
+        const char* value = std::getenv(name);
+        return value && *value ? std::strcmp(value, "0") != 0 : fallback;
+    };
+    const auto number = [](const char* name, unsigned long fallback) {
+        const char* value = std::getenv(name);
+        if (!value || !*value) return fallback;
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(value, &end, 10);
+        return end && !*end ? parsed : fallback;
+    };
+    // Mali-G52 exposes no vertex-stage storage buffers, so Aurora's storage-buffer vertex path
+    // cannot create its bind group layout here: MELEE_FLIP_CPU_VERTEX_DECODE=0 is expected to
+    // fail at renderer initialization on this device and exists only to demonstrate that.
+    config.cpuVertexDecode = flag("MELEE_FLIP_CPU_VERTEX_DECODE", true);
+    config.residentDisplayLists = flag("MELEE_FLIP_RESIDENT_DL", true);
+    config.residentGeometryBudget = static_cast<uint32_t>(number("MELEE_FLIP_RESIDENT_MB", 64) * 1024 * 1024);
+    config.asyncFrames = flag("MELEE_FLIP_ASYNC_FIFO", true);
+    config.textureVerifyInterval = static_cast<uint32_t>(number("MELEE_FLIP_TEXTURE_VERIFY_INTERVAL", 4));
+    config.textureAtlas = flag("MELEE_FLIP_TEXTURE_ATLAS", true);
+    config.disableRenderPassFusion = !flag("MELEE_FLIP_FUSE_PASSES", true);
+    std::fprintf(stderr, "[flip-config] cpu_vertex_decode=%d resident_dl=%d resident_budget_mb=%u async_frames=%d texture_verify_interval=%u texture_atlas=%d pass_fusion=%d\n",
+                 config.cpuVertexDecode, config.residentDisplayLists, config.residentGeometryBudget / (1024u * 1024u),
+                 config.asyncFrames, config.textureVerifyInterval, config.textureAtlas, !config.disableRenderPassFusion);
 #endif
     config.logCallback = log_message;
     config.mem1Size = MEM1_DEFAULT_SIZE;

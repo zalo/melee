@@ -2,6 +2,7 @@
 #include <dolphin/gx.h>
 #include <dolphin/os.h>
 #include <dolphin/card.h>
+#include <dolphin/gx/GXAurora.h>
 #include <cstdint>
 #include <limits>
 #include <map>
@@ -23,7 +24,6 @@ extern "C" void MeleeNativeRegisterVertexBuffer(const void* data, size_t size, i
         OSPanic(__FILE__, __LINE__, "Overlapping native vertex buffers");
     regions.emplace(address, Region{size, little != 0});
 }
-extern "C" void MeleeNativeReleaseResidentGeometry(const void* data, std::size_t size);
 extern "C" void MeleeNativeUnregisterVertexBuffer(const void* data) {
     std::size_t size = 0;
     {
@@ -34,9 +34,9 @@ extern "C" void MeleeNativeUnregisterVertexBuffer(const void* data) {
         size = it->second.size;
         regions.erase(it);
     }
-    // Resident geometry decoded from this region must not outlive it. The
-    // notice travels through the GX stream so it is ordered against draws.
-    MeleeNativeReleaseResidentGeometry(data, size);
+    // Resident geometry decoded from this region must not outlive it. Aurora
+    // orders the release in the GX stream against the draws around it.
+    GXInvalidateResidentGeometry(data, static_cast<u32>(size));
 }
 extern "C" void MeleeNativeSetArrayData(int attribute, const void* data, unsigned size,
                                         unsigned char stride, int little) {
@@ -69,7 +69,6 @@ GXRenderModeObj GXNtsc480Prog = {
 extern "C" void MeleeNativeCARDInit(void) { CARDInit("GALE", "01"); }
 
 #include "__gx.h"
-#include "dolphin/gx/GXAurora.h"
 #include <cmath>
 extern "C" void GXSetCopyClamp(GXFBClamp clamp) {
     // Native display output uses the EFB directly. Texture copies still carry
@@ -89,16 +88,6 @@ extern "C" void GXSetMisc(GXMiscToken token, u32 value) {
         break;
     default: OSPanic(__FILE__, __LINE__, "Invalid GX miscellaneous token");
     }
-}
-extern "C" void GXWaitDrawDone(void) {
-    if (aurora::gx::fifo::async_frames()) aurora::gx::fifo::wait_draw_done();
-    else aurora::gx::fifo::drain();
-}
-extern "C" void MeleeNativeReleaseResidentGeometry(const void* data, std::size_t size) {
-    GX_WRITE_AURORA(GX_AURORA_INVALIDATE_RESIDENT);
-    GX_WRITE_U64(reinterpret_cast<u64>(data));
-    GX_WRITE_U32(static_cast<u32>(size));
-    aurora::gx::fifo::publish();
 }
 extern "C" void GXSetTevClampMode(int, int) {
     // The original retail SDK implementation is empty; its debug build asserts

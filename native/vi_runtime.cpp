@@ -33,15 +33,7 @@ constexpr auto frame_period = std::chrono::nanoseconds(16666667);
 const bool breakdown = [] { const char* v = std::getenv("MELEE_FLIP_PROFILE"); return v && v[0] != '0'; }();
 double sum_game_ms, sum_end_ms, sum_sleep_ms, sum_begin_ms;
 auto segment_start = Clock::now(); // time VIWaitForRetrace last returned to the game
-uint64_t last_drain_ns, last_fifo_ns, last_render_ns, last_pipe_ns, last_pipe_count;
 double ms(Clock::duration d) { return std::chrono::duration<double, std::milli>(d).count(); }
-}
-extern "C" uint64_t aurora_fifo_drain_wait_ns(void);
-extern "C" uint64_t aurora_fifo_process_ns(void);
-extern "C" uint64_t aurora_render_worker_busy_ns(void);
-extern "C" uint64_t aurora_pipeline_wait_ns(void);
-extern "C" uint64_t aurora_pipeline_wait_count(void);
-namespace {
 }
 extern "C" {
 void MeleeNativeGameFrame(void) { ++measured_game_frames; }
@@ -88,16 +80,12 @@ void VIWaitForRetrace(void) {
                          measured_frames / seconds, measured_game_frames / seconds, measured_frames, seconds, held_retraces);
             if (breakdown) {
                 // Per presented frame, game-thread wall time: outside VI (simulation + GX recording),
-                // aurora_end_frame (mostly the FIFO join), the 60 Hz sleep, and begin_frame (slot wait).
-                // Worker figures are busy time per presented frame on their own threads.
-                const uint64_t drain = aurora_fifo_drain_wait_ns(), fifo = aurora_fifo_process_ns(), render = aurora_render_worker_busy_ns();
-                const uint64_t pipeWait = aurora_pipeline_wait_ns(), pipeCount = aurora_pipeline_wait_count();
+                // aurora_end_frame (the FIFO join unless asyncFrames is on), the 60 Hz sleep, and
+                // begin_frame (frame-slot wait). Worker busy times came from Flip-only Aurora
+                // exports and are no longer reported; upstream Aurora has no such counters.
                 const double n = measured_frames ? measured_frames : 1;
-                std::fprintf(stderr, "[perf-breakdown] game_ms=%.3f end_ms=%.3f drain_wait_ms=%.3f sleep_ms=%.3f begin_ms=%.3f fifo_busy_ms=%.3f render_busy_ms=%.3f pipeline_wait_ms=%.3f pipeline_waits=%u\n",
-                             sum_game_ms / n, sum_end_ms / n, (drain - last_drain_ns) / 1e6 / n, sum_sleep_ms / n, sum_begin_ms / n,
-                             (fifo - last_fifo_ns) / 1e6 / n, (render - last_render_ns) / 1e6 / n, (pipeWait - last_pipe_ns) / 1e6 / n,
-                             unsigned(pipeCount - last_pipe_count));
-                last_drain_ns = drain; last_fifo_ns = fifo; last_render_ns = render; last_pipe_ns = pipeWait; last_pipe_count = pipeCount;
+                std::fprintf(stderr, "[perf-breakdown] game_ms=%.3f end_ms=%.3f sleep_ms=%.3f begin_ms=%.3f\n",
+                             sum_game_ms / n, sum_end_ms / n, sum_sleep_ms / n, sum_begin_ms / n);
                 sum_game_ms = sum_end_ms = sum_sleep_ms = sum_begin_ms = 0;
             }
             std::sort(present_intervals.begin(), present_intervals.end());
