@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare the pinned Flip SDK, device libraries, and patched Dawn/Aurora sources.
+"""Prepare the pinned Flip SDK, device libraries, patched Dawn source and the Aurora checkout.
 
 Requires Linux host development headers (EGL, GLES3, GBM, DRM, ALSA, udev),
 Clang, CMake, Git, Python 3.11+, and ADB. No administrator access is used.
@@ -15,7 +15,12 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
 TOOLS = ROOT / 'build/flip-tools'
+# Dawn: encounter/dawn base plus native/platform/flip/dawn-gl-interop.patch, which is
+# the gl-native-interop branch of https://github.com/zalo/dawn-aurora-arm.git (tip
+# DAWN_INTEROP_REV: EGL native-window surface source, swapchain GL storage reuse,
+# native OpenGL interop extension) as one diff against DAWN_REV.
 DAWN_REV = '1155e0ed531126f33a1279afa029349651ca1c93'
+DAWN_INTEROP_REV = 'e1a71853ea57ce918b2dbb2cd4cc71fec7ca04d9'
 SDK_NAME = 'aarch64--glibc--stable-2023.08-1'
 
 
@@ -82,9 +87,10 @@ def main():
                   'aed4223eadef27c1a84676333cbbdb75cbb5ee5a4a0cfc3ec5a491c6a6179de8', sdk)
     fetch_archive('dawn-source.tar.gz', f'https://github.com/encounter/dawn/archive/{DAWN_REV}.tar.gz',
                   'd0d291936d02a56b3b7e92e84e8b8c71db04a9c9e2b3a41cc6d7540cf13b4167', dawn)
+    # Aurora is the zalo/aurora-arm gles-direct-submission checkout (bootstrap.py); it already
+    # carries the Flip platform hunks, so no aurora patch is applied here any more.
     subprocess.run(['python3', str(ROOT / 'native/tools/bootstrap.py')], check=True)
-    apply_patch(ROOT / 'build/native-deps/aurora', ROOT / 'native/platform/flip/aurora-flip.patch')
-    apply_patch(dawn, ROOT / 'native/platform/flip/dawn-egl-native-window.patch')
+    apply_patch(dawn, ROOT / 'native/platform/flip/dawn-gl-interop.patch')
     usr = sdk / 'aarch64-buildroot-linux-gnu/sysroot/usr'
     headers = Path(os.environ.get('FLIP_HOST_HEADERS', '/usr/include'))
     for name in ['EGL', 'GLES3', 'KHR', 'libdrm', 'alsa', 'gbm.h', 'xf86drm.h', 'xf86drmMode.h', 'libudev.h']:

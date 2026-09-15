@@ -29,9 +29,15 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 get_filename_component(MELEE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
+# Aurora is pinned because its native SDK ABI is part of the port: zalo/aurora-arm branch
+# gles-direct-submission (upstream + the performance PR set + Flip platform hunks + GLES fast
+# path), checked out by tools/bootstrap.py. A review build may point MELEE_AURORA_DIR at another
+# checkout and pass its revision as MELEE_AURORA_EXPECTED_REV.
+set(MELEE_AURORA_DIR "${MELEE_ROOT}/build/native-deps/aurora" CACHE PATH "Aurora source checkout")
+set(MELEE_AURORA_EXPECTED_REV "04448f6916626595f00f0c65353ec67cbafc0320" CACHE STRING "Expected Aurora revision")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/tools/prepare_sdk.py")
 execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/prepare_sdk.py"
-  "${CMAKE_CURRENT_BINARY_DIR}/sdk" COMMAND_ERROR_IS_FATAL ANY)
+  "${CMAKE_CURRENT_BINARY_DIR}/sdk" "${MELEE_AURORA_DIR}" COMMAND_ERROR_IS_FATAL ANY)
 file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS
   "${MELEE_ROOT}/src/melee/*.c" "${MELEE_ROOT}/src/sysdolphin/*.c")
 add_library(melee_game OBJECT ${GAME_SOURCES})
@@ -42,14 +48,12 @@ target_compile_options(melee_game PRIVATE -include "${CMAKE_CURRENT_SOURCE_DIR}/
   -Wno-deprecated-non-prototype -Wno-macro-redefined -Wno-pointer-sign
   ${MELEE_RETURN_WARNING})
 
-# Aurora is pinned because its native SDK ABI is part of the port.
-set(MELEE_AURORA_DIR "${MELEE_ROOT}/build/native-deps/aurora" CACHE PATH "Aurora source checkout")
 find_package(Git REQUIRED)
 find_package(Threads REQUIRED)
 execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${MELEE_AURORA_DIR}" rev-parse HEAD
   OUTPUT_VARIABLE MELEE_AURORA_REV OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
-if(NOT MELEE_AURORA_REV STREQUAL "d0c931da2ed3f41d0e42736c2ab52a78c7cf1a9d")
-  message(FATAL_ERROR "Unexpected Aurora revision. Run native/tools/bootstrap.py in a fresh dependency directory.")
+if(NOT MELEE_AURORA_REV STREQUAL MELEE_AURORA_EXPECTED_REV)
+  message(FATAL_ERROR "Unexpected Aurora revision ${MELEE_AURORA_REV} (expected ${MELEE_AURORA_EXPECTED_REV}). Run native/tools/bootstrap.py in a fresh dependency directory or set MELEE_AURORA_EXPECTED_REV.")
 endif()
 set(AURORA_DAWN_PROVIDER package CACHE STRING "Dawn dependency provider")
 set(AURORA_SDL3_PROVIDER vendor CACHE STRING "SDL dependency provider")

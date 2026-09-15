@@ -7,6 +7,18 @@ performance branches buy by themselves, without the direct GLES escape hatch, th
 presentation worker, the Dawn framebuffer cache and swapchain pool, mapped GL
 streams, scene-on-surface, or half-resolution sprites. Measured on the device on 2026-09-14: see "Results" at the end.
 
+> **`portmaster` branch (2026-09-15):** the Aurora and Dawn patches described below are no
+> longer applied at build time. `native/tools/bootstrap.py` clones
+> `https://github.com/zalo/aurora-arm.git` branch `gles-direct-submission` at
+> `04448f6916626595f00f0c65353ec67cbafc0320`, which already contains the nine perf PRs, the
+> Flip platform hunks and the GLES fast path (`aurora-flip.patch` reverse-applies cleanly on
+> it and was deleted). Dawn stays at `encounter/dawn` `1155e0e` plus
+> `native/platform/flip/dawn-gl-interop.patch`, the full diff of the `gl-native-interop`
+> branch of `https://github.com/zalo/dawn-aurora-arm.git` (tip `e1a7185`: EGL native-window
+> surface source, swapchain GL storage reuse, native OpenGL interop extension), which is
+> what the `dawn-install-fast` prefix was built from. `MELEE_AURORA_EXPECTED_REV` in
+> `native/CMakeLists.txt` is the matching cache variable. See `native/PORTMASTER.md`.
+
 ## What the branch carries
 
 ### Aurora

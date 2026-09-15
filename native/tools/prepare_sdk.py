@@ -4,6 +4,7 @@ import re
 import sys
 root = Path(__file__).resolve().parents[2]
 out_root = Path(sys.argv[1])
+aurora_root = Path(sys.argv[2]) if len(sys.argv) > 2 else root / 'build/native-deps/aurora'
 for source in (root / 'libs/dolphin/include').rglob('*.h'):
     dest = out_root / source.relative_to(root / 'libs/dolphin/include')
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -13,7 +14,7 @@ for source in (root / 'libs/dolphin/include').rglob('*.h'):
     text = re.sub(r'\bsigned long\b(?!\s+long)', 'signed int', text)
     text = re.sub(r'(?<!long )\blong\b(?!\s+long|\s+double)', 'int', text)
     if source.name == 'GXVert.h':
-        text = (root / 'build/native-deps/aurora/include/dolphin/gx/GXVert.h').read_text()
+        text = (aurora_root / 'include/dolphin/gx/GXVert.h').read_text()
     if source.name == 'GXStruct.h':
         text = text.replace('u32 dummy[8];', 'u32 dummy[16];')
         text = text.replace('u32 dummy[3];', 'u32 dummy[10];')
