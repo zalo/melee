@@ -49,7 +49,7 @@ find_package(Git REQUIRED)
 find_package(Threads REQUIRED)
 execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${MELEE_AURORA_DIR}" rev-parse HEAD
   OUTPUT_VARIABLE MELEE_AURORA_REV OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
-if(NOT MELEE_AURORA_REV STREQUAL "749d6ee7a22bdfab78c8ece9047bca5d79aa72ca")
+if(NOT MELEE_AURORA_REV STREQUAL "d0c931da2ed3f41d0e42736c2ab52a78c7cf1a9d")
   message(FATAL_ERROR "Unexpected Aurora revision. Run native/tools/bootstrap.py in a fresh dependency directory.")
 endif()
 set(AURORA_DAWN_PROVIDER package CACHE STRING "Dawn dependency provider")

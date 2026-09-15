@@ -4,7 +4,7 @@ import subprocess
 
 root = Path(__file__).resolve().parents[2]
 checkout = root / 'build/native-deps/aurora'
-revision = '749d6ee7a22bdfab78c8ece9047bca5d79aa72ca'
+revision = 'd0c931da2ed3f41d0e42736c2ab52a78c7cf1a9d'
 if not checkout.exists():
     checkout.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(['git', 'clone', 'https://github.com/encounter/aurora.git', str(checkout)], check=True)
