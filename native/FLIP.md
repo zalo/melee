@@ -1,5 +1,14 @@
 # Miyoo Flip V2 (experimental)
 
+**This branch (`miyoo-flip-aurora-prs`) builds the port against upstream-style
+Aurora (`d0c931d` plus the nine perf PR branches and a small platform patch)
+instead of the Flip-specific Aurora/Dawn patches described below. It has no
+direct GLES path, present worker or Dawn framebuffer cache, and exists to
+measure what the upstream PR set alone buys on the device. Read
+[FLIP_AURORA_PRS.md](FLIP_AURORA_PRS.md) first; the renderer flags, Aurora
+revision and Dawn patch described in the rest of this file and in the handoff
+refer to the full v143 stack on the `miyoo-flip` branch.**
+
 Start with the [consolidated handoff](FLIP_HANDOFF.md) for the current source and
 device state, measured performance, validated defaults, and remaining work. The
 2026-09-10 renderer iteration (resident geometry, asynchronous frames, mapped
