@@ -278,3 +278,22 @@ per frame waiting for the render worker), but Dawn's GL backend drives the Mali
 driver about four times less efficiently than the direct GLES path for the same
 ~270 draws and 4 passes. Details and the remaining upstream candidates are in
 `native/FLIP_PERFORMANCE_WINS.md` ("Aurora-only: measured").
+
+## Dawn PR bisect (2026-09-15)
+
+Builds against the proposed encounter/dawn branch (`gl-fbo-cache-swapchain-reuse-egl-window`) and its
+parts, same trial, render-worker time per frame net of the display wait:
+
+| Build | Dawn | Render work | Presented FPS |
+| --- | --- | --- | --- |
+| v151-aurora-prs | main + EGL surface source | 47.1 ms | 19.2 |
+| v152/v153-aurora-prs-dawn | + FBO cache + swapchain reuse (single storage / ring of 3) | 56.4 ms | 14.9 |
+| v154-aurora-prs-dawn12 | + FBO cache only | 57.0 ms | 14.9 |
+| v155-aurora-prs-dawn13 | + swapchain ring only | 46.7-46.9 ms | 19.2 (21.2 with `MELEE_FLIP_ASYNC_PRESENT=1`) |
+
+The FBO cache regresses in Dawn's command path on this driver (the render thread blocks inside GL
+calls; see the PR description's device-results section for the likely mechanism); the swapchain ring is
+neutral. `dawn-egl-native-window.patch` on this branch is now the two-commit variant (surface source +
+ring, Dawn branch `bisect-surface-ring`), which is what the Flip's **Melee Native Dev** listing runs
+(`dist/flip/v155-aurora-prs-dawn13`). Presented FPS on this device is quantized by the synchronous page
+flip to 60/N; compare `[flip-present] frame_ms - drm_ms` or run with `MELEE_FLIP_ASYNC_PRESENT=1`.
