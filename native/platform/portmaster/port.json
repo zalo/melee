@@ -1,0 +1,24 @@
+{
+  "version": 4,
+  "name": "melee.zip",
+  "items": ["Melee.sh", "melee"],
+  "items_opt": [],
+  "attr": {
+    "title": "Super Smash Bros. Melee (native)",
+    "porter": ["sh1ftmaker"],
+    "desc": "Native AArch64 build of the doldecomp Super Smash Bros. Melee decompilation, rendered through Aurora (GameCube GX on OpenGL ES) with the Aurora performance PR set and a direct GLES submission fast path. Renders 640x480 straight to the panel over DRM/GBM/EGL. Proven at 52-60 FPS on RK3566 (Miyoo Flip); other devices untested.",
+    "desc_md": "",
+    "inst": "Place your own legally-dumped Super Smash Bros. Melee US 1.02 GameCube disc image (.iso, .gcm, .ciso or .rvz) in melee/assets. Saves are written under melee/runtime.",
+    "inst_md": "",
+    "genres": ["fighting", "action"],
+    "image": null,
+    "rtr": false,
+    "exp": false,
+    "runtime": [],
+    "availability": "paid",
+    "store": [],
+    "reqs": [],
+    "arch": ["aarch64"],
+    "min_glibc": "2.36"
+  }
+}

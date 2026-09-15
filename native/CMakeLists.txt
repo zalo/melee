@@ -158,6 +158,8 @@ add_test(NAME native_flip_deploy COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURREN
 set_tests_properties(native_flip_deploy PROPERTIES LABELS melee)
 add_test(NAME native_flip_launcher COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_flip_launcher.py")
 set_tests_properties(native_flip_launcher PROPERTIES LABELS melee)
+add_test(NAME native_portmaster_package COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_portmaster_package.py")
+set_tests_properties(native_portmaster_package PROPERTIES LABELS melee)
 add_executable(native_os_test tests/os_test.c os_runtime.c)
 target_include_directories(native_os_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" $<TARGET_PROPERTY:melee_game,INCLUDE_DIRECTORIES>)
 target_compile_definitions(native_os_test PRIVATE $<TARGET_PROPERTY:melee_game,COMPILE_DEFINITIONS>)
