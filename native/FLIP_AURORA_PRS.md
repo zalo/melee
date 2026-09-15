@@ -235,3 +235,15 @@ the synchronous DRM page-flip wait now sits on the render worker (compare with
 - Memory: five staging buffers were cut to three and the pools bounded as before;
   the resident geometry budget (64 MiB) is the same as v143's.
 - The g13 driver fallback (no barriers on this branch).
+
+## Shader cache
+
+This build must not share a pipeline cache with the Flip-patched builds. Their
+cached `PipelineConfig`s decode to storage-buffer vertex shaders, and on the Mali
+driver (zero vertex-stage storage blocks) Aurora's cache warm-up then fails with
+"Program link failed: The number of vertex shader storage blocks (1) is greater
+than the maximum number allowed (0)" and aborts at startup. This was observed on
+the device on 2026-09-14 with the trial cache `cache-g29-dense`. The launcher
+therefore uses `data/cache/<driver>-aurora-prs`; `flip_backend_trial.py` hardcodes
+`data/diagnostics/cache-g29-dense`, so move that directory aside before trials
+of this build (and back before trials of the `miyoo-flip` build).

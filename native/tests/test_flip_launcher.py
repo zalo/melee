@@ -73,7 +73,7 @@ esac
                 renderer = (root / 'renderer').read_text().splitlines()
                 newer = driver != 'g13' and bundled
                 self.assertEqual(renderer[0].split(':')[0], str(root / ('lib/mali-g29p1' if newer else 'lib')))
-                self.assertEqual(renderer[1], str(root / ('data/cache/g29' if newer else 'data/cache/g13')))
+                self.assertEqual(renderer[1], str(root / ('data/cache/g29-aurora-prs' if newer else 'data/cache/g13-aurora-prs')))
                 self.assertEqual(renderer[2], renderer[1])
                 self.assertEqual((root / 'retired').read_text().splitlines(), [f'{name}=unset' for name in RETIRED])
                 # Renderer options pass through untouched: the game applies its own defaults.
