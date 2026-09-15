@@ -6,6 +6,7 @@
 #include <EGL/eglext.h>
 #include <GLES3/gl3.h>
 #include <chrono>
+#include <cmath>
 #include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
@@ -17,6 +18,7 @@
 #include <atomic>
 
 extern "C" void MeleeFlipPresent();
+extern "C" int MeleeFlipRotation();
 
 namespace {
 using Clock = std::chrono::steady_clock;
@@ -46,6 +48,79 @@ EGLSurface workerSurface = EGL_NO_SURFACE;
     std::_Exit(1);
 }
 
+
+// Rotating, aspect-preserving present. glBlitFramebuffer cannot rotate, so when the panel needs
+// a rotation (portrait scanout, e.g. Anbernic RG351P) we draw the scene texture as a textured
+// quad, letterboxed to preserve the 4:3 frame. rotation 0 keeps the fast blit path.
+int g_rotation = 0;
+GLuint g_blitProg = 0, g_blitVbo = 0, g_blitVao = 0;
+GLint g_locHalf = -1, g_locUV = -1, g_locTex = -1;
+GLuint compile_shader(GLenum type, const char* src) {
+    GLuint sh = glCreateShader(type);
+    glShaderSource(sh, 1, &src, nullptr);
+    glCompileShader(sh);
+    GLint ok = 0; glGetShaderiv(sh, GL_COMPILE_STATUS, &ok);
+    if (!ok) { char log[512]; glGetShaderInfoLog(sh, sizeof log, nullptr, log); std::fprintf(stderr, "[flip-present] shader: %s\n", log); }
+    return sh;
+}
+void init_rotated_blit() {
+    const char* vs =
+        "#version 300 es\n"
+        "layout(location=0) in vec2 aPos;\n"
+        "uniform vec2 uHalf; uniform mat2 uUV;\n"
+        "out vec2 vTex;\n"
+        "void main(){\n"
+        "  gl_Position = vec4(aPos * uHalf, 0.0, 1.0);\n"
+        "  vec2 uv = aPos * 0.5 + 0.5; uv.y = 1.0 - uv.y;\n"
+        "  vTex = uUV * (uv - 0.5) + 0.5;\n"
+        "}\n";
+    const char* fs =
+        "#version 300 es\n"
+        "precision mediump float;\n"
+        "in vec2 vTex; uniform sampler2D uTex; out vec4 o;\n"
+        "void main(){ o = texture(uTex, vTex); }\n";
+    g_blitProg = glCreateProgram();
+    GLuint v = compile_shader(GL_VERTEX_SHADER, vs), f = compile_shader(GL_FRAGMENT_SHADER, fs);
+    glAttachShader(g_blitProg, v); glAttachShader(g_blitProg, f);
+    glBindAttribLocation(g_blitProg, 0, "aPos");
+    glLinkProgram(g_blitProg);
+    glDeleteShader(v); glDeleteShader(f);
+    g_locHalf = glGetUniformLocation(g_blitProg, "uHalf");
+    g_locUV = glGetUniformLocation(g_blitProg, "uUV");
+    g_locTex = glGetUniformLocation(g_blitProg, "uTex");
+    const float quad[] = {-1,-1, 1,-1, -1,1, 1,1};
+    glGenVertexArrays(1, &g_blitVao); glBindVertexArray(g_blitVao);
+    glGenBuffers(1, &g_blitVbo); glBindBuffer(GL_ARRAY_BUFFER, g_blitVbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof quad, quad, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0); glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+    glBindVertexArray(0);
+}
+void draw_rotated(GLuint tex, uint32_t fw, uint32_t fh, int sw, int sh, int rot) {
+    if (!g_blitProg) init_rotated_blit();
+    const double pi = 3.14159265358979323846;
+    const double a = -rot * pi / 180.0;           // rotate the sampled image by +rot
+    const float c = (float)std::cos(a), s = (float)std::sin(a);
+    const bool swap = (rot % 180) != 0;
+    const double da = swap ? (double)fh / fw : (double)fw / fh; // displayed aspect (w/h)
+    const double sa = (double)sw / sh;
+    float halfW = 1.f, halfH = 1.f;
+    if (da >= sa) halfH = (float)(sa / da); else halfW = (float)(da / sa);
+    glViewport(0, 0, sw, sh);
+    glDisable(GL_BLEND); glDisable(GL_DEPTH_TEST);
+    glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT);
+    glUseProgram(g_blitProg);
+    glBindVertexArray(g_blitVao);
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, tex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glUniform1i(g_locTex, 0);
+    glUniform2f(g_locHalf, halfW, halfH);
+    const float uv[4] = { c, s, -s, c };          // mat2 column-major
+    glUniformMatrix2fv(g_locUV, 1, GL_FALSE, uv);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+}
+
 void run() {
     inWorker = true;
     eglBindAPI(EGL_OPENGL_ES_API);
@@ -56,6 +131,7 @@ void run() {
     if (!eglQuerySurface(workerDisplay, workerSurface, EGL_WIDTH, &width) ||
         !eglQuerySurface(workerDisplay, workerSurface, EGL_HEIGHT, &height))
         fail("Cannot query presentation surface");
+    g_rotation = ((MeleeFlipRotation() % 360) + 360) % 360;
     GLuint readFbo = 0;
     glGenFramebuffers(1, &readFbo);
     glDisable(GL_SCISSOR_TEST);
@@ -74,14 +150,18 @@ void run() {
         // fence. No CPU polling or global glFinish in the rendering thread.
         glWaitSync(frame.ready, 0, GL_TIMEOUT_IGNORED);
         glDeleteSync(frame.ready);
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, readFbo);
-        glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                               GL_TEXTURE_2D, frame.texture, 0);
-        if (glCheckFramebufferStatus(GL_READ_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-            fail("Incomplete presentation framebuffer");
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-        glBlitFramebuffer(0, 0, frame.width, frame.height, 0, height, width, 0,
-                          GL_COLOR_BUFFER_BIT, GL_LINEAR);
+        if (g_rotation != 0) {
+            draw_rotated(frame.texture, frame.width, frame.height, width, height, g_rotation);
+        } else {
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, readFbo);
+            glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                   GL_TEXTURE_2D, frame.texture, 0);
+            if (glCheckFramebufferStatus(GL_READ_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+                fail("Incomplete presentation framebuffer");
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+            glBlitFramebuffer(0, 0, frame.width, frame.height, 0, height, width, 0,
+                              GL_COLOR_BUFFER_BIT, GL_LINEAR);
+        }
         GLsync consumed = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
         if (!consumed || glGetError() != GL_NO_ERROR) fail("Presentation blit failed");
         if (!eglSwapBuffers(workerDisplay, workerSurface)) fail("Presentation swap failed");

@@ -32,7 +32,9 @@ drmModeModeInfo mode;
 // Scanout size = the connector mode's size. Aurora renders at this size (runtime_main
 // passes it as the window size); on the Flip's 640x480 panel that is the game's native
 // resolution, on other panels the game is rendered at the panel size. No rotation.
-uint32_t displayWidth = 640, displayHeight = 480;
+uint32_t displayWidth = 640, displayHeight = 480;   // panel/scanout (DRM mode + GBM surface)
+uint32_t renderWidth = 640, renderHeight = 480;     // what Aurora renders (GC native 4:3); scaled to the panel at present
+int displayRotation = [] { const char* v = std::getenv("MELEE_FLIP_ROTATE"); return v ? std::atoi(v) : 0; }();
 uint32_t connector, crtc, previousFB;
 gbm_bo* previousBO;
 bool modeSet;
@@ -426,7 +428,9 @@ void MeleeFlipInitDisplay() {
                  displayWidth, displayHeight, mode.vrefresh, havePreferred ? "preferred mode" : "current mode");
     MeleeFlipInitPresenter();
 }
-extern "C" void MeleeFlipDisplaySize(unsigned* width, unsigned* height) { *width = displayWidth; *height = displayHeight; }
+extern "C" void MeleeFlipDisplaySize(unsigned* width, unsigned* height) { *width = renderWidth; *height = renderHeight; }
+extern "C" void MeleeFlipPanelSize(unsigned* width, unsigned* height) { *width = displayWidth; *height = displayHeight; }
+extern "C" int MeleeFlipRotation() { return displayRotation; }
 extern "C" void* MeleeFlipNativeWindow() { return window; }
 extern "C" void* MeleeFlipEGLDisplay() { return display; }
 extern "C" __eglMustCastToProperFunctionPointerType MeleeFlipEGLProc(const char* name) {
