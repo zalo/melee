@@ -17,8 +17,8 @@
 #include <melee/cm/camera.h>
 #include <melee/ft/ftlib.h>
 #include <melee/gm/gm_1879.h>
-#include <melee/gm/gm_1A45.h>
 #include <melee/gm/gmregclear.h>
+#include <melee/gm/gmscene.h>
 #include <melee/if/ifcoget.h>
 #include <melee/if/ifstatus.h>
 #include <melee/it/item.h>
@@ -67,7 +67,7 @@ struct grCorneria_YakumonoParam {
     /* 0x78 */ s32 x78;
     /* 0x7C */ s32 x7C;
     /* 0x80 */ s32 x80;
-    /* 0x84 */ s32 x84;
+    /* 0x84 */ void* x84;
     /* 0x88 */ f32 x88;
 };
 
@@ -88,6 +88,7 @@ struct grCorneria_YakumonoParam {
 /* 1E0F30 */ static void grCorneria_801E0F30(Ground_GObj*);
 /* 1E1054 */ static void grCorneria_801E1054(Ground_GObj*);
 /* 1E12CC */ static void grCorneria_801E12CC(Ground_GObj*);
+static void stageGObj6_OnInit(Ground_GObj* gobj);
 
 static struct grCorneria_YakumonoParam* yakumono_param;
 static u32 grCn_804D69A4;
@@ -148,7 +149,7 @@ StageCallbacks grCn_StageCallbacks[] = {
         0x20000000,
     },
     {
-        grCorneria_801DFBF0,
+        stageGObj6_OnInit,
         grCorneria_801DFC1C,
         grCorneria_801DFC24,
         grCorneria_801DFC28,
@@ -643,7 +644,7 @@ void grCorneria_801DD674(Ground_GObj* ground_gobj)
     u32 unused;
 
     Ground* gr = GET_GROUND(ground_gobj);
-    Ground_801C2ED0(ground_gobj->hsd_obj, gr->map_id);
+    Ground_InitMapColl(ground_gobj->hsd_obj, gr->map_id);
     gr->u.corneria.xC4.flags.b0 = 1;
     gr->u.corneria.xC4.flags.b1 = 0;
     gr->u.corneria.base_x = 0.0f;
@@ -733,7 +734,7 @@ void grCorneria_801DD9A8(Ground_GObj* gobj)
         lb_8000B1CC(jobj, &grCn_803E1F70[i], &grCn_803E1FAC[i]);
     }
 
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
     grCorneria_801E1878(gobj);
     grCorneria_801E2110();
     lb_800115F4();
@@ -935,23 +936,22 @@ void grCorneria_801DE024(Ground_GObj* gobj)
                 }
                 return;
             }
-            {
-                s32 idx = arwing_types[gp->u.arwing.xC8];
-                if (idx < 10) {
-                    if (idx >= 1) {
-                        goto arwing_near_type;
-                    }
-                    goto arwing_type_done;
-                } else {
-                    if (idx >= 14) {
-                        goto arwing_type_done;
-                    }
-                    goto arwing_far_type;
-                }
-            arwing_near_type:
+            switch (arwing_types[gp->u.arwing.xC8]) {
+            case 1:
+            case 2:
+            case 3:
+            case 4:
+            case 5:
+            case 6:
+            case 7:
+            case 8:
+            case 9:
                 grCorneria_801DDE88(gobj);
-                goto arwing_type_done;
-            arwing_far_type: {
+                break;
+            case 10:
+            case 11:
+            case 12:
+            case 13:
                 HSD_JObjSetRotationY(jobj, -1.5707964f);
                 grCorneria_801DE024_inline(gobj);
                 {
@@ -968,8 +968,7 @@ void grCorneria_801DE024(Ground_GObj* gobj)
                     translate.y = ABS(vf);
                     HSD_JObjSetTranslate(j0, &translate);
                 }
-            }
-            arwing_type_done:;
+                break;
             }
             if (grAnime_801C83D0(gobj, 0, 7)) {
                 arwing_gobjs[gp->u.arwing.xC8] = 0;
@@ -998,7 +997,7 @@ void grCorneria_Arwing_801DE4C0(Ground_GObj* gobj)
     int group;
     int joint_id;
 
-    Ground_801C2ED0(jobj, gp->map_id);
+    Ground_InitMapColl(jobj, gp->map_id);
     gp->u.arwing.xC8 = grCn_804D69A4;
     gp->u.arwing.xD0 = 0;
     gp->u.arwing.xDC = 0.0f;
@@ -1009,7 +1008,7 @@ void grCorneria_Arwing_801DE4C0(Ground_GObj* gobj)
     joint_id = grCn_803E2190[group];
     mpJointListAdd(joint_id);
 
-    Ground_801C2ED0(jobj, gp->map_id);
+    Ground_InitMapColl(jobj, gp->map_id);
 }
 
 bool grCorneria_801DE560(Ground_GObj* arg)
@@ -1039,7 +1038,7 @@ void grCorneria_801DE568(Ground_GObj* gobj)
                 HSD_JObjSetScaleZ(jobj, s);
             }
         }
-        Ground_801C2FE0(gobj);
+        Ground_UpdateMapColl(gobj);
     } else {
         mpLib_80057BC0(grCn_803E2190[arwing_groups[gp->u.arwing.xC8]]);
         Ground_801C4A08(gobj);
@@ -1139,14 +1138,6 @@ s32 grCorneria_801DEC94(Vec3* pos)
 }
 
 static int grCn_803E21B0[] = { 1, 1, 1, 1, 1 };
-
-static inline int randi(int max)
-{
-    if (max != 0) {
-        return HSD_Randi(max);
-    }
-    return 0;
-}
 
 static inline int get_grp_off(Ground_GObj* gobj)
 {
@@ -1522,10 +1513,9 @@ void grCorneria_801DFBCC(Ground_GObj* arg)
 
 void grCorneria_801DFBEC(Ground_GObj* arg) {}
 
-void grCorneria_801DFBF0(Ground_GObj* gobj)
+static void stageGObj6_OnInit(Ground_GObj* gobj)
 {
-    Ground* gp = GET_GROUND(gobj);
-    grAnime_801C8138(gobj, gp->map_id, 0);
+    Ground_StartMapAnim(gobj);
 }
 
 bool grCorneria_801DFC1C(Ground_GObj* arg)
@@ -2152,7 +2142,7 @@ void grCorneria_801E1348(Ground_GObj* gobj)
         int found = 0;
         lb_8000B1CC(Ground_801C3FA4(gobj, 2), NULL, &cannon_pos);
         {
-            HSD_GObj* fighter = HSD_GObj_Entities->fighters;
+            HSD_GObj* fighter = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_FIGHTER];
             while (fighter != NULL) {
                 ftLib_80086644(fighter, &fighter_pos);
                 if (ABS(cannon_pos.y - fighter_pos.y) <= 10.0f) {
@@ -2467,7 +2457,7 @@ void smashTaunt_801E24AC(Ground_GObj* gobj, int renderpass)
     Ground* gp = GET_GROUND(gobj);
     PAD_STACK(8);
 
-    if (gm_801A45E8(1) || gm_801A45E8(2) || Camera_8003010C()) {
+    if (gm_GetDbPauseFlag(1) || gm_GetDbPauseFlag(2) || Camera_8003010C()) {
         if (gp->u.smashtaunt.text == NULL) {
             return;
         }

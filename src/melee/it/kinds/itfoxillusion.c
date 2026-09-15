@@ -72,7 +72,8 @@ Item_GObj* it_8029CEB4(HSD_GObj* parent, Vec3* pos, ItemKind kind, f32 dir)
     Item_GObj* item_gobj;
 
     spawn.kind = kind;
-    Item_InitSpawn(&spawn, parent, pos, dir);
+    Item_InitSpawnPosition(&spawn, pos, false);
+    Item_InitSpawnCommonFields(&spawn, parent, dir, true);
     item_gobj = Item_80268B18(&spawn);
     if (item_gobj != NULL) {
         it_8029CFF0(item_gobj);
@@ -92,7 +93,7 @@ bool itFoxIllusion_Logic14_DmgDealt(Item_GObj* item_gobj)
 
 void itFoxIllusion_Logic14_Destroyed(Item_GObj* item_gobj)
 {
-    u8 _[4] = { 0 };
+    u8 _[4];
     Item* item = GET_ITEM(item_gobj);
     if (item->xDD4_itemVar.foxillusion.xDDC != NULL) {
         HSD_JObjRemoveAll(item->xDD4_itemVar.foxillusion.xDDC);
@@ -105,7 +106,7 @@ void itFoxIllusion_Logic14_Destroyed(Item_GObj* item_gobj)
 void it_8029CFF0(Item_GObj* item_gobj)
 {
     Item* item = GET_ITEM(item_gobj);
-    u8 _[4] = { 0 };
+    u8 _[4];
 
     item->xD44_lifeTimer =
         *(f32*) item->xC4_article_data->x4_specialAttributes;

@@ -15,7 +15,6 @@
 #include <melee/ft/ftlib.h>
 #include <melee/gm/gm_unsplit.h>
 #include <melee/lb/lb_00B0.h>
-#include <melee/lb/lb_00F9.h>
 #include <melee/lb/lbdvd.h>
 #include <melee/lb/lbfile.h>
 #include <melee/lb/lblanguage.h>
@@ -69,6 +68,12 @@ GrJoint grPs_803E1248[] = {
     { 4, 5, 0 }, { 5, 6, 0 }, { 7, 9, 0 },
 };
 
+static void stageGObj5_GObjProc(Ground_GObj* gobj);
+static void stageGObj4_GObjProc(Ground_GObj* gobj);
+static void stageGObj6_GObjProc(Ground_GObj* gobj);
+static void stageGObj3_GObjProc(Ground_GObj* gobj);
+static void stageGObj7_8_OnInit(Ground_GObj* gobj);
+
 static StageCallbacks grPs_StageCallbacks[] = {
     {
         NULL,
@@ -94,40 +99,40 @@ static StageCallbacks grPs_StageCallbacks[] = {
     {
         grStadium_801D1840,
         grStadium_801D19D0,
-        grStadium_801D19D8,
+        stageGObj3_GObjProc,
         grStadium_801D19F8,
         0,
     },
     {
         grStadium_801D1648,
         grStadium_801D16D4,
-        grStadium_801D16DC,
+        stageGObj4_GObjProc,
         grStadium_801D16FC,
         0,
     },
     {
         grStadium_801D1570,
         grStadium_801D15FC,
-        grStadium_801D1604,
+        stageGObj5_GObjProc,
         grStadium_801D1624,
         0,
     },
     {
         grStadium_801D1720,
         grStadium_801D17E0,
-        grStadium_801D17E8,
+        stageGObj6_GObjProc,
         grStadium_801D1808,
         0,
     },
     {
-        grStadium_801D1DE4,
+        stageGObj7_8_OnInit,
         grStadium_801D1E10,
         grStadium_801D1E18,
         grStadium_801D1E1C,
         0,
     },
     {
-        grStadium_801D1DE4,
+        stageGObj7_8_OnInit,
         grStadium_801D1E10,
         grStadium_801D1E18,
         grStadium_801D1E1C,
@@ -289,16 +294,6 @@ void fn_801D13C8(Ground_GObj* gobj)
     gp->u.stadium.xC4_b0 = false;
 }
 
-/// @todo this is a commonly used inline; it should be moved to random.h
-static inline int randi(int i)
-{
-    if (i != 0) {
-        return HSD_Randi(i);
-    } else {
-        return 0;
-    }
-}
-
 void grStadium_801D13E0(Ground_GObj* gobj)
 {
     HSD_MObj* mobj;
@@ -308,7 +303,7 @@ void grStadium_801D13E0(Ground_GObj* gobj)
     Ground* gr = GET_GROUND(gobj);
     HSD_JObj* jobj = GET_JOBJ(gobj);
 
-    Ground_801C2ED0(jobj, gr->map_id);
+    Ground_InitMapColl(jobj, gr->map_id);
     grAnime_801C8138(gobj, gr->map_id, 0);
     mobj = lbDvd_GetPreloadedArchive(0x7D5);
     gr->u.stadium.xCC = mobj;
@@ -350,8 +345,7 @@ void grStadium_801D1520(Ground_GObj* gobj)
     if (!gp->u.stadium.xC4_b0) {
         grStadium_801D4548(gobj);
     }
-    lb_800115F4();
-    Ground_801C2FE0(gobj);
+    Ground_UpdateWindAndMapColl(gobj);
 }
 
 void grStadium_801D156C(Ground_GObj* gobj) {}
@@ -360,7 +354,7 @@ void grStadium_801D1570(Ground_GObj* gobj)
 {
     Ground* gp = GET_GROUND(gobj);
     HSD_JObj* jobj = GET_JOBJ(gobj);
-    Ground_801C2ED0(jobj, gp->map_id);
+    Ground_InitMapColl(jobj, gp->map_id);
     Ground_801C3214(gp->map_id);
     mpJointListAdd(4);
     grAnime_801C8138(gobj, gp->map_id, 0);
@@ -374,9 +368,9 @@ bool grStadium_801D15FC(Ground_GObj* gobj)
     return false;
 }
 
-void grStadium_801D1604(Ground_GObj* gobj)
+static void stageGObj5_GObjProc(Ground_GObj* gobj)
 {
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
 }
 
 void grStadium_801D1624(Ground_GObj* gobj)
@@ -388,7 +382,7 @@ void grStadium_801D1648(Ground_GObj* gobj)
 {
     Ground* gp = GET_GROUND(gobj);
     HSD_JObj* jobj = GET_JOBJ(gobj);
-    Ground_801C2ED0(jobj, gp->map_id);
+    Ground_InitMapColl(jobj, gp->map_id);
     Ground_801C3214(gp->map_id);
     mpJointListAdd(3);
     grAnime_801C8138(gobj, gp->map_id, 0);
@@ -402,9 +396,9 @@ bool grStadium_801D16D4(Ground_GObj* gobj)
     return false;
 }
 
-void grStadium_801D16DC(Ground_GObj* gobj)
+static void stageGObj4_GObjProc(Ground_GObj* gobj)
 {
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
 }
 
 void grStadium_801D16FC(Ground_GObj* gobj)
@@ -420,7 +414,7 @@ void grStadium_801D1720(Ground_GObj* gobj)
     Ground* gp = GET_GROUND(gobj);
     HSD_JObj* jobj = GET_JOBJ(gobj);
 
-    Ground_801C2ED0(jobj, gp->map_id);
+    Ground_InitMapColl(jobj, gp->map_id);
     Ground_801C3214(gp->map_id);
     mpJointListAdd(5);
     grAnime_801C8138(gobj, gp->map_id, 0);
@@ -436,9 +430,9 @@ bool grStadium_801D17E0(Ground_GObj* gobj)
     return false;
 }
 
-void grStadium_801D17E8(Ground_GObj* gobj)
+static void stageGObj6_GObjProc(Ground_GObj* gobj)
 {
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
 }
 
 void grStadium_801D1808(Ground_GObj* gobj)
@@ -463,7 +457,7 @@ void grStadium_801D1840(Ground_GObj* gobj)
     Ground* gp = GET_GROUND(gobj);
     HSD_JObj* jobj = GET_JOBJ(gobj);
 
-    Ground_801C2ED0(jobj, gp->map_id);
+    Ground_InitMapColl(jobj, gp->map_id);
     Ground_801C3214(gp->map_id);
     mpJointListAdd(1);
     mpJointListAdd(2);
@@ -507,9 +501,9 @@ bool grStadium_801D19D0(Ground_GObj* gobj)
     return false;
 }
 
-void grStadium_801D19D8(Ground_GObj* gobj)
+static void stageGObj3_GObjProc(Ground_GObj* gobj)
 {
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
 }
 
 void grStadium_801D19F8(Ground_GObj* gobj)
@@ -533,7 +527,7 @@ void grStadium_801D1A38(Ground_GObj* gobj)
     gp = GET_GROUND(gobj);
     jobj = GET_JOBJ(gobj);
 
-    Ground_801C2ED0(jobj, gp->map_id);
+    Ground_InitMapColl(jobj, gp->map_id);
     Ground_801C3214(gp->map_id);
     mpJointListAdd(7);
     grAnime_801C8138(gobj, gp->map_id, 0);
@@ -586,7 +580,7 @@ void grStadium_801D1B48(Ground_GObj* gobj)
         mpLib_80057BC0(0);
     }
 
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
     mpLib_8005667C(0);
 }
 
@@ -606,10 +600,9 @@ void grStadium_801D1D84(Ground_GObj* gobj)
     mpLib_80057BC0(7);
 }
 
-void grStadium_801D1DE4(Ground_GObj* gobj)
+static void stageGObj7_8_OnInit(Ground_GObj* gobj)
 {
-    Ground* gp = GET_GROUND(gobj);
-    grAnime_801C8138(gobj, gp->map_id, 0);
+    Ground_StartMapAnim(gobj);
 }
 
 bool grStadium_801D1E10(Ground_GObj* gobj)
@@ -1308,30 +1301,6 @@ void grStadium_801D3084(HSD_GObj* gobj, int unused)
 
 /// @todo these are commonly used inlines; they should be moved to jobj.h
 
-static inline HSD_JObj* jobj_next(HSD_JObj* jobj)
-{
-    if (jobj == NULL) {
-        return NULL;
-    }
-    return jobj->next;
-}
-
-static inline HSD_JObj* jobj_parent(HSD_JObj* jobj)
-{
-    if (jobj == NULL) {
-        return NULL;
-    }
-    return jobj->parent;
-}
-
-static inline HSD_JObj* jobj_child(HSD_JObj* jobj)
-{
-    if (jobj == NULL) {
-        return NULL;
-    }
-    return jobj->child;
-}
-
 HSD_TObj* grStadium_801D3138(Ground_GObj* gobj, HSD_ImageDesc* desc,
                              HSD_MObj** arg2)
 {
@@ -1359,24 +1328,24 @@ HSD_TObj* grStadium_801D3138(Ground_GObj* gobj, HSD_ImageDesc* desc,
             }
         }
 
-        if (!(jobj->flags & JOBJ_INSTANCE) && jobj_child(jobj) != NULL) {
-            jobj = jobj_child(jobj);
+        if (!(jobj->flags & JOBJ_INSTANCE) && HSD_JObjGetChild(jobj) != NULL) {
+            jobj = HSD_JObjGetChild(jobj);
             continue;
         }
-        if (jobj_next(jobj) != NULL) {
-            jobj = jobj_next(jobj);
+        if (HSD_JObjGetNext(jobj) != NULL) {
+            jobj = HSD_JObjGetNext(jobj);
             continue;
         }
         while (true) {
-            if (jobj_parent(jobj) == NULL) {
+            if (HSD_JObjGetParent(jobj) == NULL) {
                 jobj = NULL;
                 break;
             }
-            if (jobj_next(jobj_parent(jobj)) != NULL) {
-                jobj = jobj_next(jobj_parent(jobj));
+            if (HSD_JObjGetNext(HSD_JObjGetParent(jobj)) != NULL) {
+                jobj = HSD_JObjGetNext(HSD_JObjGetParent(jobj));
                 break;
             }
-            jobj = jobj_parent(jobj);
+            jobj = HSD_JObjGetParent(jobj);
         }
     }
     return NULL;
@@ -1535,7 +1504,7 @@ void grStadium_801D3460(Ground_GObj* gobj)
     }
 
     gp2->win_dynamic_p->default_fitting = 0;
-    rules = gm_GetRules();
+    rules = gm_GetStartMeleeRules();
     temp_r4 = gp2->win_dynamic_p;
     temp_r4->x34.x = 0.625f;
     temp_r4->x34.y = 0.625f;
@@ -1710,8 +1679,7 @@ void grStadium_801D3BBC(Ground_GObj* arg0)
     gp2 = text_gobj->user_data;
     HSD_ASSERT(0x884, gp2->win_static_p);
     HSD_ASSERT(0x885, gp2->win_dynamic_p);
-    player_index = 0;
-    do {
+    for (player_index = 0; player_index < 6; player_index++) {
         if ((Player_GetPlayerSlotType(player_index) != Gm_PKind_NA) &&
             (Player_8003219C(player_index) == 0))
         {
@@ -1720,8 +1688,7 @@ void grStadium_801D3BBC(Ground_GObj* arg0)
                 player_num += 1;
             }
         }
-        player_index += 1;
-    } while (player_index < 6);
+    }
     HSD_SisLib_803A7664(gp2->win_dynamic_p);
 
     if (player_num == 1) {
@@ -1753,8 +1720,7 @@ void grStadium_801D3BBC(Ground_GObj* arg0)
     colors.s.presets = grPs_803B7F8C;
     vertical_offset = colors.entries[player_num].packed;
     text_offset = 0;
-    player_num = 0;
-    do {
+    for (player_num = 0; player_num < 6; player_num++) {
         if (Player_GetPlayerSlotType(player_num) != Gm_PKind_NA &&
             Player_8003219C(player_num) == 0)
         {
@@ -1782,8 +1748,7 @@ void grStadium_801D3BBC(Ground_GObj* arg0)
                 text_offset += 0x20;
             }
         }
-        player_num += 1;
-    } while (player_num < 6);
+    }
 }
 
 const StadiumAlphaPresets grPs_803B7F8C = { {

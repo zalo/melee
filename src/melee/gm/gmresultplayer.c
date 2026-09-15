@@ -5,10 +5,10 @@
 #include "forward.h"
 #include "gm_1601.h"
 #include "gm_1798.h"
-#include "gm_1A45.h"
 #include "gm_unsplit.h"
 #include "gmresult.h"
 #include "gmresultplayer.static.h"
+#include "gmscene.h"
 #include "types.h"
 #include <melee/if/ifcoget.h>
 #include <melee/lb/lb_00B0.h>
@@ -447,7 +447,7 @@ void fn_80177748(void)
     temp_r3 = fn_80174274();
 
     for (i = 0; i < 4; i++) {
-        if (temp_r3->player_standings[i].slot_type != Gm_PKind_NA) {
+        if (temp_r3->player_standings[i].pkind != Gm_PKind_NA) {
             ckind = temp_r3->player_standings[i].ckind;
             HSD_JObjClearFlagsAll(data->player_data[i].jobjs[0], JOBJ_HIDDEN);
             inline0(data->player_data[i].jobjs[0], gm_80168B34(ckind, 0, 0));
@@ -489,7 +489,7 @@ void fn_80177920(HSD_GObj* gobj)
     human_controller_count = 0;
 
     for (i = 0; i < 4; i++) {
-        if (end->player_standings[i].slot_type == Gm_PKind_Human &&
+        if (end->player_standings[i].pkind == Gm_PKind_Human &&
             HSD_PadMasterStatus[(u8) i].err == 0)
         {
             human_controller_count++;
@@ -719,7 +719,7 @@ void fn_80178050(HSD_GObj* arg0)
         {
             s32 j;
             for (j = 0; j < 4; j++) {
-                if (match_end->player_standings[j].slot_type == 0) {
+                if (match_end->player_standings[j].pkind == 0) {
                     lbl_804D3FC8 = 0;
                     break;
                 }
@@ -740,10 +740,9 @@ void fn_80178050(HSD_GObj* arg0)
             if (phase == 1) {
                 data->x0_23 = 2;
                 {
-                    s32 k = 0;
-                    do {
-                        switch ((s32) match_end->player_standings[k].slot_type)
-                        {
+                    s32 k;
+                    for (k = 0; k < 4; k++) {
+                        switch ((s32) match_end->player_standings[k].pkind) {
                         case 2:
                             break;
                         case 3:
@@ -757,15 +756,13 @@ void fn_80178050(HSD_GObj* arg0)
                             data->player_data[k].x0_0 = 1;
                             break;
                         }
-                        k++;
-                    } while (k < 4);
+                    }
                 }
             }
 
             {
-                k2 = 0;
-                do {
-                    u8 slot = match_end->player_standings[k2].slot_type;
+                for (k2 = 0; k2 < 4; k2++) {
+                    u8 slot = match_end->player_standings[k2].pkind;
                     if (slot == 0) {
                         if (!data->player_data[k2].x0_0) {
                             if (fn_80177B7C(k2) != 0) {
@@ -857,14 +854,13 @@ void fn_80178050(HSD_GObj* arg0)
                             var_r24 = 1;
                         }
                     }
-                    k2++;
-                } while (k2 < 4);
+                }
             }
 
             {
-                s32 k3 = 0;
-                do {
-                    if (match_end->player_standings[k3].slot_type != 3) {
+                s32 k3;
+                for (k3 = 0; k3 < 4; k3++) {
+                    if (match_end->player_standings[k3].pkind != 3) {
                         if (!data->player_data[k3].x0_1) {
                             HSD_JObjSetFlagsAll(data->player_data[k3].jobjs[8],
                                                 JOBJ_HIDDEN);
@@ -894,8 +890,7 @@ void fn_80178050(HSD_GObj* arg0)
                                 data->player_data[k3].jobjs[0xB], JOBJ_HIDDEN);
                         }
                     }
-                    k3++;
-                } while (k3 < 4);
+                }
             }
 
             {
@@ -923,7 +918,9 @@ void fn_801785B0(HSD_GObj* gobj)
     HSD_JObj* jobj = gobj->hsd_obj;
     HSD_JObj* child;
     HSD_JObj* node;
-    MatchEnd* match_end = fn_80174274();
+    MatchEnd* match_end =
+        fn_80174274(); /// @remark This type seems suspicious because the use
+                       /// of sd_penalty as a frame value
     u8 mode = match_end->match_kind;
     int frame_val;
     f32 fv;
@@ -938,7 +935,7 @@ void fn_801785B0(HSD_GObj* gobj)
         lb_80011E24(jobj, &child, 0xC, -1);
         node = child;
         {
-            s8 raw = fn_80174274()->xC;
+            s8 raw = fn_80174274()->sd_penalty;
             frame_val = ABS(raw);
         }
         fv = (f32) frame_val;
@@ -963,7 +960,7 @@ void fn_801785B0(HSD_GObj* gobj)
         lb_80011E24(jobj, &child, 0x11, -1);
         node = child;
         {
-            s8 raw = fn_80174274()->xC;
+            s8 raw = fn_80174274()->sd_penalty;
             frame_val = ABS(raw);
         }
         fv = (f32) frame_val;
@@ -988,7 +985,7 @@ void fn_801785B0(HSD_GObj* gobj)
         lb_80011E24(jobj, &child, 0x10, -1);
         node = child;
         {
-            s8 raw = fn_80174274()->xC;
+            s8 raw = fn_80174274()->sd_penalty;
             frame_val = ABS(raw);
         }
         fv = (f32) frame_val;
@@ -1013,7 +1010,7 @@ void fn_801785B0(HSD_GObj* gobj)
         lb_80011E24(jobj, &child, 0x15, -1);
         node = child;
         {
-            s8 raw = fn_80174274()->xC;
+            s8 raw = fn_80174274()->sd_penalty;
             frame_val = ABS(raw);
         }
         fv = (f32) frame_val;
@@ -1046,7 +1043,7 @@ static inline void fn_80178BB4_init_players(ResultsData* data,
                          0.0f);
 
         {
-            u8 slot_type = match_end->player_standings[(*i)].slot_type;
+            u8 slot_type = match_end->player_standings[(*i)].pkind;
 
             if (slot_type == 0) {
                 (*ko_count) += match_end->player_standings[(*i)].xE;
@@ -1091,7 +1088,7 @@ static inline void fn_80178BB4_init_players(ResultsData* data,
                     rank_val = gm_80160854(
                         (*i), match_end->player_standings[(*i)].team,
                         (u8) (match_end->is_teams == 1),
-                        match_end->player_standings[(*i)].slot_type);
+                        match_end->player_standings[(*i)].pkind);
                     rank_aobj =
                         data->player_data[(*i)].jobjs[2]->u.dobj->mobj->aobj;
                     HSD_AObjSetCurrentFrame(rank_aobj,
@@ -1101,12 +1098,10 @@ static inline void fn_80178BB4_init_players(ResultsData* data,
 
                 if (match_end->match_kind != 3) {
                     f32 taunt_frame = gm_80168B34(
-                        (CharacterKind) (s8) (u8) match_end
-                            ->player_standings[(*i)]
+                        (CharacterKind) match_end->player_standings[(*i)]
                             .ckind,
-                        (int) (s8) (u8) match_end->player_standings[(*i)]
-                            .ftkind,
-                        match_end->player_standings[(*i)].x3);
+                        match_end->player_standings[(*i)].ftkind,
+                        match_end->player_standings[(*i)].x3_b0);
                     HSD_JObj* taunt_jobj = data->player_data[(*i)].jobjs[7];
                     HSD_ForeachAnim(taunt_jobj, JOBJ_TYPE, ALL_TYPE_MASK,
                                     HSD_AObjSetRate, AOBJ_ARG_AF, 0.0);
@@ -1204,7 +1199,7 @@ bool fn_801791E4(void)
 
     if (gm_WasMatchCanceled(end->outcome) != 0) {
         for (i = 0; i < 4; i++) {
-            if (end->player_standings[i].slot_type == Gm_PKind_Human &&
+            if (end->player_standings[i].pkind == Gm_PKind_Human &&
                 HSD_PadMasterStatus[(u8) i].err == 0 &&
                 (HSD_PadCopyStatus[(u8) i].trigger & PAD_BUTTON_START))
             {
@@ -1230,7 +1225,7 @@ static inline void fn_80179350_update(ResultsData* data, MatchEnd* match_end,
     PAD_STACK(8);
 
     if ((u32) data->x8 == 0 && data->x0_4) {
-        gm_801A4634(0);
+        gm_SetDbPauseFlag(0);
     }
 
     if ((u32) data->x8 == 0xA2) {
@@ -1328,7 +1323,7 @@ int fn_801795D4(void)
             lookup = match_end->team_standings[idx].is_big_loser;
         }
 
-        if (match_end->player_standings[i].slot_type != 3 && lookup == 0) {
+        if (match_end->player_standings[i].pkind != 3 && lookup == 0) {
             count++;
         }
     }
@@ -1355,7 +1350,7 @@ int fn_801796F0(int arg0)
             lookup = match_end->team_standings[idx].is_big_loser;
         }
 
-        if (match_end->player_standings[i].slot_type != 3 && lookup == 0) {
+        if (match_end->player_standings[i].pkind != 3 && lookup == 0) {
             if (arg0 == i) {
                 return count;
             }

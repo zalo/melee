@@ -195,9 +195,9 @@ S(fogadj,HSD_FogAdjDesc,68,H(HSD_FogAdjDesc,center,0,2),U(HSD_FogAdjDesc,mtx,4,1
 S(sobj,HSD_SObjDesc,8,P(HSD_SObjDesc,image,0,AT_IMAGE),P(HSD_SObjDesc,tlut,4,AT_TLUT));
 typedef struct { unsigned char count; float* values; } NativeRefractionData;
 S(refract,NativeRefractionData,8,B(NativeRefractionData,count,0,1),P(NativeRefractionData,values,4,AT_WORDS));
-S(event,struct gm_804D6900_t,40,B(struct gm_804D6900_t,kind,0,4),P(struct gm_804D6900_t,x4,4,AT_EVENT_EXTRA),P(struct gm_804D6900_t,x8,8,AT_EVENT_INIT),P(struct gm_804D6900_t,xC,12,AT_EVENT_BONUS),P(struct gm_804D6900_t,x10,16,AT_EVENT_STAGE),
+S(event,struct gm_804D6900_t,40,B(struct gm_804D6900_t,kind,0,4),P(struct gm_804D6900_t,x4,4,AT_EVENT_EXTRA),P(struct gm_804D6900_t,evinit,8,AT_EVENT_INIT),P(struct gm_804D6900_t,evbonus,12,AT_EVENT_BONUS),P(struct gm_804D6900_t,evstage_table,16,AT_EVENT_STAGE),
 P(struct gm_804D6900_t,player_init[0],20,AT_EVENT_PLAYER),P(struct gm_804D6900_t,player_init[1],24,AT_EVENT_PLAYER),P(struct gm_804D6900_t,player_init[2],28,AT_EVENT_PLAYER),P(struct gm_804D6900_t,player_init[3],32,AT_EVENT_PLAYER),P(struct gm_804D6900_t,player_init[4],36,AT_EVENT_PLAYER));
-S(eventinit,struct gm_evinit,40,B(struct gm_evinit,unk2,2,4),H(struct gm_evinit,unk6,6,1),U(struct gm_evinit,unk8,8,1),B(struct gm_evinit,padC,12,4),U(struct gm_evinit,x18,24,4));
+S(eventinit,struct gm_evinit,40,B(struct gm_evinit,is_teams,2,4),H(struct gm_evinit,stkind,6,1),U(struct gm_evinit,time_limit,8,1),B(struct gm_evinit,padC,12,4),U(struct gm_evinit,x18,24,4));
 S(eventbonus,struct gm_evbonus,24,B(struct gm_evbonus,c_kind,0,8),U(struct gm_evbonus,x8,8,3),B(struct gm_evbonus,flags,20,4));
 S(eventplayer,gm_801BAB40_src,28,B(gm_801BAB40_src,c_kind,0,12),H(gm_801BAB40_src,x12,12,2),U(gm_801BAB40_src,x18,16,3));
 S(eventstage,struct gm_evstage_table,36,B(struct gm_evstage_table,count,0,2),H(struct gm_evstage_table,stage,2,7),P(struct gm_evstage_table,entries[0],16,AT_EVENT_PLAYER),P(struct gm_evstage_table,entries[1],20,AT_EVENT_PLAYER),P(struct gm_evstage_table,entries[2],24,AT_EVENT_PLAYER),P(struct gm_evstage_table,entries[3],28,AT_EVENT_PLAYER),P(struct gm_evstage_table,entries[4],32,AT_EVENT_PLAYER));

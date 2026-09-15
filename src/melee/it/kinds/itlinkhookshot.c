@@ -3,6 +3,7 @@
 #include <math.h>
 #include <placeholder.h>
 
+#include "inlines.h"
 #include <dolphin/mtx.h>
 #include <dolphin/types.h>
 #include <melee/ef/efsync.h>
@@ -220,7 +221,7 @@ HSD_JObj* it_802A2568(Item* arg0, HSD_JObj* arg1, s32 arg2, f32 arg8)
         link_gobj = GObj_Create(HSD_GOBJ_CLASS_ITEMLINK, 0xAU, 0U);
         if (link_gobj == NULL) {
             while (prev_link != NULL) {
-                HSD_GObjPLink_80390228(prev_link->gobj);
+                HSD_GObjFree(prev_link->gobj);
                 prev_link = prev_link->next;
             }
             return NULL;
@@ -301,7 +302,7 @@ void it_802A2B10(Item_GObj* arg0)
                     while (item_link != NULL) {
                         gobj = item_link->gobj;
                         item_link = item_link->next;
-                        HSD_GObjPLink_80390228(gobj);
+                        HSD_GObjFree(gobj);
                     }
                     Item_8026A8EC(arg0);
                 }
@@ -325,15 +326,8 @@ Item_GObj* it_802A2BA4(Fighter_GObj* arg0, Vec3* arg1, f32 arg2, s32 arg3)
     }
 
     spawn_item.kind = arg3;
-    spawn_item.prev_pos = *arg1;
-    spawn_item.pos = spawn_item.prev_pos;
-    spawn_item.facing_dir = arg2;
-    spawn_item.x3C_damage = 0;
-    spawn_item.vel.x = spawn_item.vel.y = spawn_item.vel.z = 0.0f;
-    spawn_item.x0_parent_gobj = arg0;
-    spawn_item.x4_parent_gobj2 = spawn_item.x0_parent_gobj;
-    spawn_item.x44_flag.b0 = true;
-    spawn_item.x40 = 0;
+    Item_InitSpawnPosition(&spawn_item, arg1, false);
+    Item_InitSpawnCommonFields(&spawn_item, arg0, arg2, true);
 
     gobj = Item_80268B18(&spawn_item);
     if (gobj != NULL) {
@@ -359,7 +353,7 @@ Item_GObj* it_802A2BA4(Fighter_GObj* arg0, Vec3* arg1, f32 arg2, s32 arg3)
         Item_8026AB54(gobj, arg0, ftParts_GetBoneIndex(fp, FtPart_RThumbNb));
         it_802A2428(gobj);
     }
-    if ((enum FighterKind) fp->kind == FTKIND_CLINK) {
+    if ((enum FighterKind) fp->kind == Ft_Kind_CLink) {
         it_804D6D48 = 6.0f;
     } else {
         it_804D6D48 = 6.0f;
@@ -973,7 +967,7 @@ s32 it_802A3E50(ItemLink* item_link, enum FighterKind arg1, f32 arg8)
         coll->cur_pos.y += arg8;
     }
     if (item_link->x2C_b1 && !flag && !item_link->x2C_b2) {
-        if (arg1 == FTKIND_CLINK) {
+        if (arg1 == Ft_Kind_CLink) {
             lbAudioAx_800237A8(0x111BF, 0x7FU, 0x40U);
         } else {
             lbAudioAx_800237A8(0x2714F, 0x7FU, 0x40U);
@@ -2003,7 +1997,7 @@ void it_802A7168(Item* arg0, Vec3* arg1, f32 arg8)
     PAD_STACK(4);
 
     fp = GET_FIGHTER(arg0->owner);
-    if (fp->kind == FTKIND_LINK) {
+    if (fp->kind == Ft_Kind_Link) {
         item_link = arg0->xDD4_itemVar.linkhookshot.x4;
     } else {
         item_link = arg0->xDD4_itemVar.linkhookshot.x4;

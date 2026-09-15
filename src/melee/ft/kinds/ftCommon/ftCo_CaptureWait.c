@@ -10,34 +10,6 @@
 #include <melee/it/kinds/itlinkhookshot.h>
 #include <melee/it/kinds/itsamusgrapple.h>
 
-#ifdef MELEE_NATIVE
-typedef Fighter FighterOverlay;
-#define CAPTURE_x1A4C(fp) ((fp)->grab_timer)
-#define CAPTURE_x1A58(fp) ((fp)->victim_gobj)
-#define CAPTURE_x2340(fp) ((fp)->mv.co.capturewait.x0)
-#define CAPTURE_x2344(fp) ((fp)->mv.co.capturewait.x4)
-#define CAPTURE_x2348(fp) ((fp)->mv.co.capturewait.x8)
-#define CAPTURE_x234C(fp) ((fp)->mv.co.capturewait.xC)
-#else
-typedef struct {
-    u8 pad_1A4C[0x1A4C];
-    f32 x1A4C; // 0x1A4C
-    u8 pad_1A58[0x1A58 - 0x1A50];
-    void* x1A58; // 0x1A58
-    u8 pad_2340[0x2340 - 0x1A5C];
-    f32 x2340; // 0x2340
-    f32 x2344; // 0x2344
-    s32 x2348; // 0x2348
-    u8 x234C;  // 0x234C
-} FighterOverlay;
-#define CAPTURE_x1A4C(fp) ((fp)->x1A4C)
-#define CAPTURE_x1A58(fp) ((fp)->x1A58)
-#define CAPTURE_x2340(fp) ((fp)->x2340)
-#define CAPTURE_x2344(fp) ((fp)->x2344)
-#define CAPTURE_x2348(fp) ((fp)->x2348)
-#define CAPTURE_x234C(fp) ((fp)->x234C)
-#endif
-
 bool fn_800DAD18(Fighter_GObj*);
 static void fn_800DBBF8(Fighter_GObj*);
 
@@ -46,7 +18,7 @@ void fn_800DB5D8(Fighter_GObj* gobj)
     ftHurtboxInit sp18;
     Fighter* fp = GET_FIGHTER(gobj);
     Fighter* victim_fp = GET_FIGHTER(fp->victim_gobj);
-    if (victim_fp->kind == FTKIND_YOSHI) {
+    if (victim_fp->kind == Ft_Kind_Yoshi) {
         fp->invisible = true;
         fp->accessory1_cb = ftCo_800DB464;
         ftColl_8007B0C0(gobj, HurtCapsule_Intangible);
@@ -74,16 +46,16 @@ void fn_800DB6C8(Fighter_GObj* gobj)
     }
 
     switch (victim_fp->kind) {
-    case FTKIND_YOSHI:
+    case Ft_Kind_Yoshi:
         ftCo_800DB368(victim_fp, fp);
         break;
-    case FTKIND_LINK:
-    case FTKIND_CLINK:
+    case Ft_Kind_Link:
+    case Ft_Kind_CLink:
         if (victim_fp->u.lk.xC != NULL) {
             it_802A7840((HSD_GObj*) victim_fp->u.lk.xC);
         }
         break;
-    case FTKIND_SAMUS:
+    case Ft_Kind_Samus:
         if (victim_fp->u.ss.x223C != NULL) {
             it_802BAA94(victim_fp->u.ss.x223C);
         }
@@ -105,7 +77,7 @@ void fn_800DB790(Fighter_GObj* gobj)
                               NULL);
 
     if ((victim_fp = GET_FIGHTER((fp = GET_FIGHTER(gobj))->victim_gobj))
-            ->kind == FTKIND_YOSHI)
+            ->kind == Ft_Kind_Yoshi)
     {
         fp->invisible = true;
         fp->accessory1_cb = ftCo_800DB464;
@@ -134,18 +106,15 @@ void fn_800DB8A4(Fighter_GObj* gobj)
 void ftCo_CaptureWaitHi_Anim(Fighter_GObj* gobj)
 {
     Fighter* fp;
-    FighterOverlay* fp_ovl;
     f32 dec;
     f32 zero;
     fp = GET_FIGHTER(gobj);
-    fp_ovl = (FighterOverlay*) fp;
-    CAPTURE_x2340(fp_ovl) += 1.0;
-    CAPTURE_x1A4C(fp_ovl) -= p_ftCommonData->grab_timer_decrement;
-    CAPTURE_x2348(fp_ovl) =
-        ftCommon_GrabMash(fp, *(f32*) ((u8*) p_ftCommonData + 0x3A8));
-    if (CAPTURE_x1A4C(fp_ovl) <= 0.0F) {
-        ftCo_800DA698(CAPTURE_x1A58(fp_ovl), 0);
-        if (CAPTURE_x234C(fp_ovl) != 0 || fn_800DC044(gobj)) {
+    fp->mv.co.capturewait.x0 += 1.0;
+    fp->grab_timer -= p_ftCommonData->grab_timer_decrement;
+    fp->mv.co.capturewait.x8 = ftCommon_GrabMash(fp, p_ftCommonData->x3A8);
+    if (fp->grab_timer <= 0.0F) {
+        ftCo_800DA698(fp->victim_gobj, 0);
+        if (fp->mv.co.capturewait.xC != 0 || fn_800DC044(gobj)) {
             fn_800DC070(gobj);
             return;
         }
@@ -155,18 +124,21 @@ void ftCo_CaptureWaitHi_Anim(Fighter_GObj* gobj)
     }
 
     zero = 0.0F;
-    if (CAPTURE_x2344(fp_ovl) != zero) {
+    if (fp->mv.co.capturewait.x4 != zero) {
         dec = 1.0F;
-        CAPTURE_x2344(fp_ovl) -= dec;
-        if (CAPTURE_x2344(fp_ovl) <= zero && CAPTURE_x2348(fp_ovl) == 0) {
+        fp->mv.co.capturewait.x4 -= dec;
+        if (fp->mv.co.capturewait.x4 <= zero && fp->mv.co.capturewait.x8 == 0)
+        {
             ftAnim_SetAnimRate(gobj, dec);
-            CAPTURE_x2344(fp_ovl) = 0.0F;
+            fp->mv.co.capturewait.x4 = 0.0F;
         }
     }
 
-    if (*(volatile f32*) &CAPTURE_x2344(fp_ovl) <= 0.0F && CAPTURE_x2348(fp_ovl) != 0) {
-        CAPTURE_x2344(fp_ovl) = *(f32*) ((u8*) p_ftCommonData + 0x3B0);
-        ftAnim_SetAnimRate(gobj, *(f32*) ((u8*) p_ftCommonData + 0x3B4));
+    if (*(volatile f32*) &fp->mv.co.capturewait.x4 <= 0.0F &&
+        fp->mv.co.capturewait.x8 != 0)
+    {
+        fp->mv.co.capturewait.x4 = p_ftCommonData->x3B0;
+        ftAnim_SetAnimRate(gobj, p_ftCommonData->shouldered_anim_rate);
     }
 }
 
@@ -203,7 +175,7 @@ void fn_800DBAE4(Fighter_GObj* gobj)
                               NULL);
 
     if ((victim_fp = GET_FIGHTER((fp = GET_FIGHTER(gobj))->victim_gobj))
-            ->kind == FTKIND_YOSHI)
+            ->kind == Ft_Kind_Yoshi)
     {
         fp->invisible = true;
         fp->accessory1_cb = ftCo_800DB464;
@@ -240,13 +212,13 @@ static void fn_800DBBF8(Fighter_GObj* gobj)
                               fp_before->cur_anim_frame, 1.0F, 0.0F, NULL);
 
     if ((victim_fp = GET_FIGHTER((fp = GET_FIGHTER(gobj))->victim_gobj))
-            ->kind == FTKIND_YOSHI)
+            ->kind == Ft_Kind_Yoshi)
     {
         fp->invisible = true;
         fp->accessory1_cb = ftCo_800DB464;
         ftColl_8007B0C0(gobj, HurtCapsule_Intangible);
         hurt.bone_idx = ftParts_GetBoneIndex(fp, FtPart_XRotN);
-        hurt.height = true;
+        hurt.height = HurtHeight_Mid;
         hurt.is_grabbable = false;
         hurt.a_offset.x = hurt.a_offset.y = hurt.a_offset.z = 0.0F;
         hurt.b_offset.x = hurt.b_offset.y = hurt.b_offset.z = 0.0F;

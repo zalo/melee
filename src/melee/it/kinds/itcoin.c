@@ -2,6 +2,7 @@
 
 #include <melee/it/forward.h>
 
+#include "inlines.h"
 #include <melee/cm/camera.h>
 #include <melee/gm/gm_unsplit.h>
 #include <melee/gr/grfigureget.h>
@@ -66,7 +67,7 @@ void it_802F13B4(Item_GObj* gobj, int arg1)
     HSD_JObj* jobj = GET_JOBJ(gobj)->child;
 
     if (ip->xDD4_itemVar.coin.x4 != 0) {
-        if (((gm_801A45E8(1) != false) &&
+        if (((gm_GetDbPauseFlag(1) != false) &&
              (grFigureGet_80219C50(ip->xDD4_itemVar.coin.x14) == 0)) ||
             ((Camera_80031144() < attr->x48) &&
              (grFigureGet_80219C50(ip->xDD4_itemVar.coin.x14) == 0)))
@@ -77,7 +78,7 @@ void it_802F13B4(Item_GObj* gobj, int arg1)
             HSD_JObjSetFlagsAll(jobj->next, JOBJ_HIDDEN);
             HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
         }
-    } else if (((gm_801A45E8(1) != 0) && (Ground_801C1D84() == 0)) ||
+    } else if (((gm_GetDbPauseFlag(1) != 0) && (Ground_801C1D84() == 0)) ||
                (Camera_80031144() < attr->x48))
     {
         HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
@@ -141,7 +142,7 @@ bool itCoin_UnkMotion0_Coll(Item_GObj* gobj)
     return false;
 }
 
-void inline itCoin_ResetRotation(Item_GObj* gobj)
+static inline void itCoin_ResetRotation(Item_GObj* gobj)
 {
     HSD_JObj* jobj;
     jobj = GET_JOBJ(gobj);
@@ -381,8 +382,7 @@ Item_GObj* it_802F2094(HSD_GObj* arg0, Vec3* pos, int arg2, int arg3)
     void* var_r29;
 
     spawn.kind = It_Kind_Coin;
-    spawn.prev_pos = *pos;
-    spawn.pos = spawn.prev_pos;
+    Item_InitSpawnPosition(&spawn, pos, false);
     spawn.facing_dir = 0.0F;
     spawn.vel.z = 0.0F;
     spawn.vel.y = 0.0F;

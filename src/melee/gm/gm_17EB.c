@@ -158,10 +158,6 @@ bool fn_8017EDDC(void)
     return false;
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 void fn_8017EE40(int arg0_int)
 {
     MatchEnd* arg0 = (MatchEnd*) arg0_int;
@@ -171,7 +167,7 @@ void fn_8017EE40(int arg0_int)
     u32 total_time;
     int i;
 
-    rules = gm_GetRules();
+    rules = gm_GetStartMeleeRules();
     allstar = (UnkAllstarData*) lbl_80472CB0;
 
     if (fn_8017E318() > 0) {
@@ -217,13 +213,10 @@ void fn_8017EE40(int arg0_int)
 
     for (i = 0; i < 6; i++) {
         if (Player_GetPlayerSlotType(i) == Gm_PKind_Cpu &&
-            Player_GetPlayerCharacter(i) == CKIND_CREZYH)
+            Player_GetPlayerCharacter(i) == CKind_CrezyH)
         {
             ((u8_bits*) &arg0->_x448[0])->b0 = 1;
             return;
         }
     }
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif

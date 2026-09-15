@@ -48,7 +48,7 @@
 
 const Vec3 ftCo_803B74A0 = { 0 };
 
-void ftCommon_ApplyFrictionGround(Fighter* fp, float friction)
+void ftCommon_CalcGroundAccel_Deaccel(Fighter* fp, float friction)
 {
     if (ABS(friction) > ABS(fp->gr_vel)) {
         friction = -fp->gr_vel;
@@ -58,11 +58,11 @@ void ftCommon_ApplyFrictionGround(Fighter* fp, float friction)
     fp->xE4_ground_accel_1 = friction;
 }
 
-void ftCommon_8007C98C(Fighter* fp, float accel, float target_vel,
-                       float friction)
+void ftCommon_CalcGroundAccel_DashRun(Fighter* fp, float accel,
+                                      float target_vel, float friction)
 {
     if (!target_vel) {
-        ftCommon_ApplyFrictionGround(fp, friction);
+        ftCommon_CalcGroundAccel_Deaccel(fp, friction);
         return;
     }
 
@@ -96,8 +96,8 @@ void ftCommon_8007C98C(Fighter* fp, float accel, float target_vel,
     fp->xE4_ground_accel_1 = accel;
 }
 
-void ftCommon_8007CA80(Fighter* fp, float accel, float target_vel,
-                       float friction)
+void ftCommon_CalcGroundAccel_AccelToVel(Fighter* fp, float accel,
+                                         float target_vel, float friction)
 {
     if (!target_vel) {
         accel = -fp->gr_vel;
@@ -113,8 +113,8 @@ void ftCommon_8007CA80(Fighter* fp, float accel, float target_vel,
     fp->xE4_ground_accel_1 = accel;
 }
 
-void ftCommon_8007CADC(Fighter* fp, float threshold, float accel_max,
-                       float target_max)
+void ftCommon_CalcGroundAccel_AccelToLStickX(Fighter* fp, float threshold,
+                                             float accel_max, float target_max)
 {
     float lsx = fp->input.lstick[0].x;
     float accel;
@@ -127,44 +127,52 @@ void ftCommon_8007CADC(Fighter* fp, float threshold, float accel_max,
         target_vel = 0;
         accel = 0;
     }
-    ftCommon_8007CA80(fp, accel, target_vel, lsx);
+    ftCommon_CalcGroundAccel_AccelToVel(fp, accel, target_vel, lsx);
 }
 
-void ftCommon_ApplyGroundMovement(HSD_GObj* gobj)
+static inline void
+ftCommon_SetSelfMovementFromGroundedMovement_inline(HSD_GObj* gobj)
 {
-    float temp_f1;
+    Fighter* fp = gobj->user_data;
+    Vec3* ground_normal = &fp->coll_data.floor.normal;
+    fp->x74_self_accel.x = +ground_normal->y * fp->xE4_ground_accel_1;
+    fp->x74_self_accel.y = -ground_normal->x * fp->xE4_ground_accel_1;
+    fp->x74_self_accel.z = 0;
+    fp->self_vel.x = +ground_normal->y * fp->gr_vel;
+    fp->self_vel.y = -ground_normal->x * fp->gr_vel;
+    fp->self_vel.z = 0;
+}
+
+void ftCommon_SetSelfMovementFromGroundedMovement(HSD_GObj* gobj)
+{
+    float ground_friction;
     Vec3* ground_normal;
     Fighter* fp = gobj->user_data;
 
     u8 _[8];
 
     ground_normal = &fp->coll_data.floor.normal;
-    temp_f1 = ft_GetGroundFrictionMultiplier(fp);
-    if (temp_f1 < 1) {
-        fp->xE4_ground_accel_1 *= temp_f1;
+    ground_friction = ft_GetGroundFrictionMultiplier(fp);
+    if (ground_friction < 1) {
+        fp->xE4_ground_accel_1 *= ground_friction;
     }
-    fp->x74_anim_vel.x = +ground_normal->y * fp->xE4_ground_accel_1;
-    fp->x74_anim_vel.y = -ground_normal->x * fp->xE4_ground_accel_1;
-    fp->x74_anim_vel.z = 0;
+
+    // TODO(Aitch): this almost definitely uses above inline, but I couldn't
+    // make it work. Let the brain machines match it.
+    fp->x74_self_accel.x = +ground_normal->y * fp->xE4_ground_accel_1;
+    fp->x74_self_accel.y = -ground_normal->x * fp->xE4_ground_accel_1;
+    fp->x74_self_accel.z = 0;
     fp->self_vel.x = +ground_normal->y * fp->gr_vel;
     fp->self_vel.y = -ground_normal->x * fp->gr_vel;
     fp->self_vel.z = 0;
 }
 
-HSD_GObj* ftCommon_ApplyGroundMovementNoSlide(HSD_GObj* gobj)
+void ftCommon_SetSelfMovementFromGroundedMovement_NoFriction(HSD_GObj* gobj)
 {
-    Fighter* fp = gobj->user_data;
-    Vec3* ground_normal = &fp->coll_data.floor.normal;
-    fp->x74_anim_vel.x = +ground_normal->y * fp->xE4_ground_accel_1;
-    fp->x74_anim_vel.y = -ground_normal->x * fp->xE4_ground_accel_1;
-    fp->x74_anim_vel.z = 0;
-    fp->self_vel.x = +ground_normal->y * fp->gr_vel;
-    fp->self_vel.y = -ground_normal->x * fp->gr_vel;
-    fp->self_vel.z = 0;
-    return gobj;
+    ftCommon_SetSelfMovementFromGroundedMovement_inline(gobj);
 }
 
-void ftCommon_ClampGrVel(Fighter* fp, float max)
+void ftCommon_ClampGroundVel(Fighter* fp, float max)
 {
     if (fp->gr_vel < -max) {
         fp->gr_vel = -max;
@@ -173,47 +181,51 @@ void ftCommon_ClampGrVel(Fighter* fp, float max)
     }
 }
 
-void ftCommon_8007CCA0(Fighter* fp, float arg1)
+void ftCommon_ApplyGroundedKnockbackFriction(Fighter* fp, float friction)
 {
     if (fp->xF0_ground_kb_vel < 0) {
-        fp->xF0_ground_kb_vel = fp->xF0_ground_kb_vel + arg1;
+        fp->xF0_ground_kb_vel = fp->xF0_ground_kb_vel + friction;
         if (fp->xF0_ground_kb_vel > 0) {
             fp->xF0_ground_kb_vel = 0;
         }
     } else {
-        fp->xF0_ground_kb_vel = fp->xF0_ground_kb_vel - arg1;
+        fp->xF0_ground_kb_vel = fp->xF0_ground_kb_vel - friction;
         if (fp->xF0_ground_kb_vel < 0) {
             fp->xF0_ground_kb_vel = 0;
         }
     }
 }
 
-void ftCommon_8007CCE8(Fighter* fp)
+void ftCommon_SetGroundedKnockbackIfLanded(Fighter* fp)
 {
     Vec3* ground_normal;
     if (fp->ground_or_air == GA_Ground && fp->xF0_ground_kb_vel == 0) {
         ground_normal = &fp->coll_data.floor.normal;
         fp->xF0_ground_kb_vel = fp->x8c_kb_vel.x;
-        if (fp->xF0_ground_kb_vel > p_ftCommonData->x164) {
-            fp->xF0_ground_kb_vel = p_ftCommonData->x164;
+        if (fp->xF0_ground_kb_vel > p_ftCommonData->max_grounded_kb_on_landing)
+        {
+            fp->xF0_ground_kb_vel = p_ftCommonData->max_grounded_kb_on_landing;
         }
-        if (fp->xF0_ground_kb_vel < -p_ftCommonData->x164) {
-            fp->xF0_ground_kb_vel = -p_ftCommonData->x164;
+        if (fp->xF0_ground_kb_vel <
+            -p_ftCommonData->max_grounded_kb_on_landing)
+        {
+            fp->xF0_ground_kb_vel =
+                -p_ftCommonData->max_grounded_kb_on_landing;
         }
         fp->x8c_kb_vel.x = +ground_normal->y * fp->xF0_ground_kb_vel;
         fp->x8c_kb_vel.y = -ground_normal->x * fp->xF0_ground_kb_vel;
     }
 }
 
-float ftCommon_8007CD6C(float value, float decrement)
+float ftCommon_SandbagKnockbackDeaccel(float kb, float decrement)
 {
-    float result = value;
-    if (value > 0) {
+    float result = kb;
+    if (kb > 0) {
         result -= decrement;
         if (result < 0) {
             return 0;
         }
-    } else if (value < 0) {
+    } else if (kb < 0) {
         result += decrement;
         if (result > 0) {
             return 0;
@@ -222,20 +234,19 @@ float ftCommon_8007CD6C(float value, float decrement)
     return result;
 }
 
-#define Ft_Kind_Sandbag FTKIND_SANDBAG
-float ftCommon_8007CDA4(Fighter* fp)
+float ftCommon_SandbagGetKnockbackDeaccelX(Fighter* fp)
 {
     HSD_ASSERT(299, fp->kind == Ft_Kind_Sandbag);
     return ((float*) fp->dat_attrs)[0];
 }
 
-float ftCommon_8007CDF8(Fighter* fp)
+float ftCommon_SandbagGetKnockbackDeaccelY(Fighter* fp)
 {
     HSD_ASSERT(308, fp->kind == Ft_Kind_Sandbag);
     return ((float*) fp->dat_attrs)[1];
 }
 
-void ftCommon_8007CE4C(Fighter* fp, float val)
+void ftCommon_ApplyShieldKnockbackFriction(Fighter* fp, float val)
 {
     if (fp->xF4_ground_attacker_shield_kb_vel < 0) {
         fp->xF4_ground_attacker_shield_kb_vel += val;
@@ -250,19 +261,19 @@ void ftCommon_8007CE4C(Fighter* fp, float val)
     }
 }
 
-void ftCommon_ApplyFrictionAir(Fighter* fp, float friction)
+void ftCommon_CalcSelfAccel_Deaccel(Fighter* fp, float friction)
 {
     if (ABS(friction) >= ABS(fp->self_vel.x)) {
         friction = -fp->self_vel.x;
     } else if (fp->self_vel.x > 0) {
         friction = -friction;
     }
-    fp->x74_anim_vel.x = friction;
+    fp->x74_self_accel.x = friction;
 }
 
 #define SOLUTION 0
-/// @todo This surely calls #ftCommon_ApplyFrictionAir somehow...
-void ftCommon_8007CEF4(Fighter* fp)
+/// @todo This surely calls #ftCommon_CalcSelfAccel_Deaccel somehow...
+void ftCommon_CalcSelfAccel_DeaccelAir(Fighter* fp)
 {
 #if SOLUTION == 0
     float result = fp->co_attrs.aerial_friction;
@@ -273,27 +284,27 @@ void ftCommon_8007CEF4(Fighter* fp)
     } else if (fp->self_vel.x > 0) {
         result = -fp->co_attrs.aerial_friction;
     }
-    fp->x74_anim_vel.x = result;
+    fp->x74_self_accel.x = result;
 #elif SOLUTION == 1
-    ftCommon_ApplyFrictionAir(fp, fp->co_attrs.aerial_friction);
+    ftCommon_CalcSelfAccel_Deaccel(fp, fp->co_attrs.aerial_friction);
 #endif
 }
 #undef SOLUTION
 
-bool ftCommon_8007CF58(Fighter* fp)
+bool ftCommon_CalcSelfAccel_DeaccelQuickAir(Fighter* fp)
 {
     ftCo_DatAttrs* ca = &fp->co_attrs;
     float vel = fp->self_vel.x;
     float _ = ABS(vel);
 
     if (ABS(vel) > ca->air_drift_max) {
-        float accel = p_ftCommonData->x1FC;
+        float accel = p_ftCommonData->aerial_friction_oob;
         if (ABS(accel) >= ABS(vel)) {
             accel = -vel;
         } else if (vel > 0) {
-            accel = -p_ftCommonData->x1FC;
+            accel = -p_ftCommonData->aerial_friction_oob;
         }
-        fp->x74_anim_vel.x = accel;
+        fp->x74_self_accel.x = accel;
         return true;
     } else {
         float accel = fp->co_attrs.aerial_friction;
@@ -302,24 +313,24 @@ bool ftCommon_8007CF58(Fighter* fp)
         } else if (vel > 0) {
             accel = -fp->co_attrs.aerial_friction;
         }
-        fp->x74_anim_vel.x = accel;
+        fp->x74_self_accel.x = accel;
         return false;
     }
 }
 
-bool ftCommon_8007D050(Fighter* fp, float max_vel)
+bool ftCommon_CalcSelfAccel_DeaccelQuick(Fighter* fp, float max_vel)
 {
     float vel = fp->self_vel.x;
     float _ = ABS(vel);
 
     if (ABS(vel) > max_vel) {
-        float accel = p_ftCommonData->x1FC;
+        float accel = p_ftCommonData->aerial_friction_oob;
         if (ABS(accel) >= ABS(vel)) {
             accel = -vel;
         } else if (vel > 0) {
-            accel = -p_ftCommonData->x1FC;
+            accel = -p_ftCommonData->aerial_friction_oob;
         }
-        fp->x74_anim_vel.x = accel;
+        fp->x74_self_accel.x = accel;
         return true;
     } else {
         float accel = fp->co_attrs.aerial_friction;
@@ -328,22 +339,25 @@ bool ftCommon_8007D050(Fighter* fp, float max_vel)
         } else if (vel > 0) {
             accel = -fp->co_attrs.aerial_friction;
         }
-        fp->x74_anim_vel.x = accel;
+        fp->x74_self_accel.x = accel;
         return false;
     }
 }
 
-void ftCommon_8007D140(Fighter* fp, float accel, float target_vel,
-                       float friction)
+void ftCommon_CalcSelfAccel_AccelToVelClamped(Fighter* fp, float accel,
+                                              float target_vel, float friction)
 {
-    ftCommon_8007D174(fp, fp->self_vel.x, accel, target_vel, friction);
+    ftCommon_CalcSelfAccel_AccelToVelClampedFrom(fp, fp->self_vel.x, accel,
+                                                 target_vel, friction);
 }
 
-void ftCommon_8007D174(Fighter* fp, float vel, float accel, float target_vel,
-                       float friction)
+void ftCommon_CalcSelfAccel_AccelToVelClampedFrom(Fighter* fp, float vel,
+                                                  float accel,
+                                                  float target_vel,
+                                                  float friction)
 {
     if (!target_vel) {
-        ftCommon_ApplyFrictionAir(fp, friction);
+        ftCommon_CalcSelfAccel_Deaccel(fp, friction);
         return;
     }
 
@@ -368,15 +382,15 @@ void ftCommon_8007D174(Fighter* fp, float vel, float accel, float target_vel,
             }
         }
     }
-    fp->x74_anim_vel.x = accel;
+    fp->x74_self_accel.x = accel;
 }
 
-void ftCommon_8007D268(Fighter* fp)
+void ftCommon_CalcSelfAccel_Drift(Fighter* fp)
 {
-    ftCommon_8007D28C(fp, fp->self_vel.x);
+    ftCommon_CalcSelfAccel_DriftFrom(fp, fp->self_vel.x);
 }
 
-void ftCommon_8007D28C(Fighter* fp, float vel)
+void ftCommon_CalcSelfAccel_DriftFrom(Fighter* fp, float vel)
 {
     float accel_scaling;
     float accel_flat;
@@ -389,12 +403,13 @@ void ftCommon_8007D28C(Fighter* fp, float vel)
     } else {
         accel_flat = -attrs->aerial_drift_base;
     }
-    ftCommon_8007D174(fp, vel, accel_scaling + accel_flat,
-                      lsx * attrs->air_drift_max, attrs->aerial_friction);
+    ftCommon_CalcSelfAccel_AccelToVelClampedFrom(
+        fp, vel, accel_scaling + accel_flat, lsx * attrs->air_drift_max,
+        attrs->aerial_friction);
 }
 
-void ftCommon_8007D2E8(Fighter* fp, float accel, float target_vel,
-                       float unused)
+void ftCommon_CalcSelfAccel_AccelToVel(Fighter* fp, float accel,
+                                       float target_vel, float unused)
 {
     if (!target_vel) {
         accel = -fp->self_vel.x;
@@ -409,11 +424,11 @@ void ftCommon_8007D2E8(Fighter* fp, float accel, float target_vel,
             }
         }
     }
-    fp->x74_anim_vel.x = accel;
+    fp->x74_self_accel.x = accel;
 }
 
-void ftCommon_8007D344(Fighter* fp, float threshold, float accel_max,
-                       float target_max)
+void ftCommon_CalcSelfAccel_DriftSimple(Fighter* fp, float threshold,
+                                        float accel_max, float target_max)
 {
     float accel, target;
 
@@ -424,11 +439,14 @@ void ftCommon_8007D344(Fighter* fp, float threshold, float accel_max,
         target = 0;
         accel = 0;
     }
-    ftCommon_8007D140(fp, accel, target, fp->co_attrs.aerial_friction);
+    ftCommon_CalcSelfAccel_AccelToVelClamped(fp, accel, target,
+                                             fp->co_attrs.aerial_friction);
 }
 
-void ftCommon_8007D3A8(Fighter* fp, float threshold, float accel_max,
-                       float target_max)
+void ftCommon_CalcSelfAccel_DriftSimple_NoFriction(Fighter* fp,
+                                                   float threshold,
+                                                   float accel_max,
+                                                   float target_max)
 {
     float accel;
     float target_vel;
@@ -441,7 +459,7 @@ void ftCommon_8007D3A8(Fighter* fp, float threshold, float accel_max,
         accel = 0;
     }
 
-    ftCommon_8007D2E8(fp, accel, target_vel, 0.0F);
+    ftCommon_CalcSelfAccel_AccelToVel(fp, accel, target_vel, 0.0F);
 }
 
 void ftCommon_ClampSelfVelX(Fighter* fp, float max)
@@ -518,7 +536,7 @@ void ftCommon_8007D5D4(Fighter* fp)
     fp->gr_vel = 0;
     fp->x98_atk_shield_kb.z = 0;
     fp->cur_pos.z = 0;
-    fp->x74_anim_vel.y = 0;
+    fp->x74_self_accel.y = 0;
     fp->x1968_jumpsUsed = 1;
     fp->ecb_lock = 10;
     fp->coll_data.x130_flags |= CollData_X130_Locked;
@@ -528,11 +546,11 @@ void ftCommon_8007D60C(Fighter* fp)
 {
     ftCo_DatAttrs* ca = &fp->co_attrs;
     if (fp->x2227_b0 && fp->x1968_jumpsUsed <= 1) {
-        pl_8003FC44(fp->player_id, fp->x221F_b4);
+        pl_8003FC44(fp->player_id, fp->is_sub_fighter);
     }
     fp->ground_or_air = GA_Air;
     fp->gr_vel = 0;
-    fp->x74_anim_vel.y = 0;
+    fp->x74_self_accel.y = 0;
     fp->x1968_jumpsUsed = ca->max_jumps;
     fp->ecb_lock = 5;
     fp->coll_data.x130_flags |= CollData_X130_Locked;
@@ -548,7 +566,7 @@ void ftCommon_8007D6A4(Fighter* fp)
     if (fp->x594_b0) {
         fp->self_vel.x = fp->x6A4_transNOffset.z * fp->facing_dir;
     }
-    ftCommon_ClampGrVel(fp, fp->co_attrs.ground_max_horizontal_velocity);
+    ftCommon_ClampGroundVel(fp, fp->co_attrs.ground_max_horizontal_velocity);
     fp->ground_or_air = GA_Ground;
     fp->gr_vel = fp->self_vel.x;
     fp->x1968_jumpsUsed = 0;
@@ -574,7 +592,7 @@ void ftCommon_8007D780(Fighter* fp)
         fp->dmg.x18A4_knockbackMagnitude = 0;
     }
     if (fp->x2227_b0 && fp->x1968_jumpsUsed <= 1) {
-        pl_8003FC44(fp->player_id, fp->x221F_b4);
+        pl_8003FC44(fp->player_id, fp->is_sub_fighter);
     }
 }
 
@@ -587,7 +605,7 @@ void ftCommon_8007D7FC(Fighter* fp)
             fp->dmg.x18A4_knockbackMagnitude = 0;
         }
         if (fp->x2227_b0 && fp->x1968_jumpsUsed <= 1) {
-            pl_8003FC44(fp->player_id, fp->x221F_b4);
+            pl_8003FC44(fp->player_id, fp->is_sub_fighter);
         }
     }
     ftCommon_8007D6A4(fp);
@@ -715,7 +733,7 @@ bool ftCommon_GrabMash(Fighter* fp, float arg1)
     } else {
         fp->x2224_b5 = false;
     }
-    pl_800402D0(fp->player_id, fp->x221F_b4, result);
+    pl_800402D0(fp->player_id, fp->is_sub_fighter, result);
     return result;
 }
 
@@ -738,12 +756,14 @@ void ftCommon_8007DD7C(HSD_GObj* gobj, Vec3* v)
 
     arg_ft = gobj->user_data;
     phi_r28 = false;
-    for (cur = HSD_GObj_Entities->fighters; cur != NULL; cur = cur->next) {
+    for (cur = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_FIGHTER]; cur != NULL;
+         cur = cur->next)
+    {
         temp_r31 = &arg_ft->x2C4;
         if (cur != gobj && !ftLib_80086FD4(cur, gobj)) {
             cur_ft = cur->user_data;
             if (cur_ft->x221F_b3 || cur_ft->ground_or_air != GA_Ground ||
-                cur_ft->victim_gobj != NULL || cur_ft->x221F_b4)
+                cur_ft->victim_gobj != NULL || cur_ft->is_sub_fighter)
             {
                 continue;
             }
@@ -839,7 +859,7 @@ void ftCommon_8007E0E4(HSD_GObj* gobj)
     fp->xF8_playerNudgeVel.y = 0;
     fp->xF8_playerNudgeVel.x = 0;
     if (!fp->x2219_b1 && !fp->x2219_b5 && fp->ground_or_air == GA_Ground) {
-        if (!fp->x221F_b4) {
+        if (!fp->is_sub_fighter) {
             phi_f30 = p_ftCommonData->x454;
             phi_f31 = p_ftCommonData->x458;
         } else {
@@ -848,7 +868,7 @@ void ftCommon_8007E0E4(HSD_GObj* gobj)
         }
         ftCommon_8007F8B4(fp, &sp10);
         if (!fp->x221D_b5) {
-            if (!fp->x221F_b4) {
+            if (!fp->is_sub_fighter) {
                 ftCommon_8007DD7C(gobj, &sp10);
             } else {
                 ftCommon_8007DFD0(gobj, &sp10);
@@ -875,7 +895,7 @@ void ftCommon_8007E0E4(HSD_GObj* gobj)
         } else if (sp10.z + fp->xF8_playerNudgeVel.y < -phi_f31) {
             fp->xF8_playerNudgeVel.y = -phi_f31 - sp10.z;
         }
-        if (fp->x221F_b4 == 1) {
+        if (fp->is_sub_fighter == 1) {
             fp->xF8_playerNudgeVel.x = 0;
         }
     }
@@ -913,9 +933,9 @@ static inline void _func_8007E2FC_inline(HSD_GObj* gobj)
     Fighter* fp = gobj->user_data;
     fp->xE4_ground_accel_1 = 0;
     fp->xE8_ground_accel_2 = 0;
-    fp->x74_anim_vel.z = 0;
-    fp->x74_anim_vel.y = 0;
-    fp->x74_anim_vel.x = 0;
+    fp->x74_self_accel.z = 0;
+    fp->x74_self_accel.y = 0;
+    fp->x74_self_accel.x = 0;
     fp->gr_vel = 0;
     fp->self_vel.z = 0;
     fp->self_vel.y = 0;
@@ -1008,7 +1028,7 @@ void ftCommon_8007E6DC(HSD_GObj* gobj, HSD_GObj* item_gobj, s32 arg2)
     if (ftData_OnItemDropExt[fp->kind] != NULL) {
         ftData_OnItemDropExt[fp->kind](gobj, arg2);
     }
-    pl_8003EA08(fp->player_id, fp->x221F_b4);
+    pl_8003EA08(fp->player_id, fp->is_sub_fighter);
     fp->item_gobj = NULL;
 }
 
@@ -1157,7 +1177,7 @@ void ftCommon_8007EA90(Fighter* fp, s32 arg1)
 
 void ftCommon_8007EBAC(Fighter* fp, u32 arg1, u32 arg2)
 {
-    if (Player_8003544C(fp->player_id, fp->x221F_b4) && !fp->x221F_b3 &&
+    if (Player_8003544C(fp->player_id, fp->is_sub_fighter) && !fp->x221F_b3 &&
         !fp->x2224_b2)
     {
         lb_80014574(fp->x618_player_id, arg1 + 2, arg1, arg2);
@@ -1167,7 +1187,7 @@ void ftCommon_8007EBAC(Fighter* fp, u32 arg1, u32 arg2)
 void ftCommon_8007EC30(u32 arg0, u32 arg1)
 {
     Fighter* fp;
-    HSD_GObj* cur = HSD_GObj_Entities->fighters;
+    HSD_GObj* cur = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_FIGHTER];
 
     u8 _[16];
 
@@ -1180,7 +1200,7 @@ void ftCommon_8007EC30(u32 arg0, u32 arg1)
 
 void ftCommon_8007ECD4(Fighter* fp, s32 arg1)
 {
-    if (Player_8003544C(fp->player_id, fp->x221F_b4)) {
+    if (Player_8003544C(fp->player_id, fp->is_sub_fighter)) {
         HSD_PadRumbleRemoveId(fp->x618_player_id, arg1 + 2);
     }
 }
@@ -1246,10 +1266,11 @@ void ftCommon_8007EFC8(HSD_GObj* gobj, void (*arg1)(HSD_GObj*))
 
     u8 _[16];
 
-    Player_SwapTransformedStates(src->player_id, src->x221F_b4, dst->x221F_b4);
-    tmp_bit = src->x221F_b4;
-    src->x221F_b4 = dst->x221F_b4;
-    dst->x221F_b4 = tmp_bit;
+    Player_SwapTransformedStates(src->player_id, src->is_sub_fighter,
+                                 dst->is_sub_fighter);
+    tmp_bit = src->is_sub_fighter;
+    src->is_sub_fighter = dst->is_sub_fighter;
+    dst->is_sub_fighter = tmp_bit;
     Fighter_UnkInitReset_80067C98(dst);
     _func_8007E2FC_inline(dst_gobj);
     dst->cur_pos = src->cur_pos;
@@ -1257,7 +1278,8 @@ void ftCommon_8007EFC8(HSD_GObj* gobj, void (*arg1)(HSD_GObj*))
     dst->pos_delta = src->pos_delta;
     dst->facing_dir = src->facing_dir;
     dst->dmg.x1830_percent = src->dmg.x1830_percent;
-    Player_SetHPByIndex(dst->player_id, dst->x221F_b4, dst->dmg.x1830_percent);
+    Player_SetHPByIndex(dst->player_id, dst->is_sub_fighter,
+                        dst->dmg.x1830_percent);
     dst->dmg.x18F0 = src->dmg.x18F0;
     dst->self_vel = src->self_vel;
     dst->ground_or_air = src->ground_or_air;
@@ -1300,7 +1322,7 @@ void ftCommon_8007EFC8(HSD_GObj* gobj, void (*arg1)(HSD_GObj*))
     dst->dmg.x18D0 = src->dmg.x18D0;
     dst->dmg.x18d4 = src->dmg.x18d4;
     dst->dmg.x18ec_instancehitby = src->dmg.x18ec_instancehitby;
-    dst->x21FC_flag.u8 = src->x21FC_flag.u8;
+    dst->x21FC_flag = src->x21FC_flag;
     dst->x2221_b7 = src->x2221_b7;
     dst->x2221_b6 = src->x2221_b6;
     dst->x2221_b4 = src->x2221_b4;
@@ -1630,7 +1652,7 @@ void ftCommon_8007FF74(HSD_GObj* gobj)
     Fighter* fp = gobj->user_data;
     fp->x1980 = NULL;
     ftCommon_8007ECD4(fp, 2);
-    pl_80040460(fp->player_id, fp->x221F_b4);
+    pl_80040460(fp->player_id, fp->is_sub_fighter);
 }
 
 bool ftCommon_8007FFD8(Fighter* fp, float arg8)
@@ -1660,14 +1682,14 @@ bool ftCommon_8007FFD8(Fighter* fp, float arg8)
         fp->x2018 = fp->x2018 - arg8;
         phi_r31 = true;
     }
-    pl_800402D0(fp->player_id, fp->x221F_b4, phi_r31);
+    pl_800402D0(fp->player_id, fp->is_sub_fighter, phi_r31);
     return phi_r31;
 }
 
 bool ftCommon_80080144(Fighter* fp)
 {
     int kind = fp->kind;
-    if ((kind == FTKIND_POPO || kind == FTKIND_NANA) &&
+    if ((kind == Ft_Kind_Popo || kind == Ft_Kind_Nana) &&
         fp->x619_costume_id >= 2)
     {
         return true;
@@ -1738,14 +1760,15 @@ void ftCommon_8008031C(HSD_GObj* gobj)
         (ABS(fp->input.lstick[0].y) >= p_ftCommonData->x7B8 &&
          fp->x67A_y < p_ftCommonData->x7C0))
     {
-        Player_UpdateJoystickCountByIndex((s32) fp->player_id, fp->x221F_b4);
+        Player_UpdateJoystickCountByIndex((s32) fp->player_id,
+                                          fp->is_sub_fighter);
         fp->x67A_y = 0xFE;
         fp->x679_x = 0xFE;
     }
     if (ABS(fp->input.triggers[0]) >= p_ftCommonData->x7BC) {
         if (fp->x67B < p_ftCommonData->x7C0) {
             Player_UpdateJoystickCountByIndex((s32) fp->player_id,
-                                              fp->x221F_b4);
+                                              fp->is_sub_fighter);
             fp->x67B = 0xFE;
         }
     }

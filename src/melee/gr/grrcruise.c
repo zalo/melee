@@ -20,7 +20,7 @@
 #include "stage.h"
 #include "types.h"
 #include <melee/cm/camera.h>
-#include <melee/gm/gm_1A45.h>
+#include <melee/gm/gmscene.h>
 #include <melee/lb/lb_00B0.h>
 #include <melee/lb/lb_00F9.h>
 #include <melee/lb/lbvector.h>
@@ -165,11 +165,11 @@ void grRCruise_801FF168(void)
     Ground_801C39C0();
     Ground_801C3BB4();
     grRCruise_801FFADC(grgobj);
-    Ground_801C2FE0(gobj1);
+    Ground_UpdateMapColl(gobj1);
     Ground_801C32AC(1);
-    Ground_801C2FE0(gobj6);
+    Ground_UpdateMapColl(gobj6);
     Ground_801C32AC(6);
-    Ground_801C2FE0(gobj4);
+    Ground_UpdateMapColl(gobj4);
     Ground_801C32AC(4);
     mpLib_80057BC0(11);
 }
@@ -262,7 +262,7 @@ void grRCruise_801FF5B4(Ground_GObj* gobj)
     Ground* gp = GET_GROUND(gobj);
     HSD_JObj* jobj = GET_JOBJ(gobj);
 
-    Ground_801C2ED0(jobj, gp->map_id);
+    Ground_InitMapColl(jobj, gp->map_id);
     grAnime_801C8138(gobj, gp->map_id, 0);
     gp->u.rcruise.x10 = 1;
 #ifdef MELEE_NATIVE
@@ -276,7 +276,7 @@ void grRCruise_801FF5B4(Ground_GObj* gobj)
     Ground_801C10B8(gobj, grRCruise_801FF444);
     grRCruise_80200540(gobj);
     grRCruise_80200B48(gobj);
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
     mpLib_80058560();
     {
         Vec3 pos = { 1.0f, 0.0f, 0.0f };
@@ -303,7 +303,7 @@ void grRCruise_801FF6D4(Ground_GObj* gobj)
     }
     lb_800115F4();
     grRCruise_80201110(gobj);
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
 }
 
 void grRCruise_801FF738(Ground_GObj* arg) {}
@@ -333,7 +333,7 @@ void grRCruise_801FF7A4(Ground_GObj* gobj)
     UnkArchiveStruct* archive;
     DynamicsDesc* data;
 
-    Ground_801C2ED0(jobj, gp->map_id);
+    Ground_InitMapColl(jobj, gp->map_id);
     grAnime_801C8138(stage_gobj, gp->map_id, 0);
     grAnime_801C752C(jobj, 1, 30628, HSD_AObjSetFlags, 3, AOBJ_LOOP);
     archive = grDatFiles_GetArchive();
@@ -374,7 +374,7 @@ void grRCruise_801FF8E4(Ground_GObj* gobj)
 {
     Ground* gp = GET_GROUND(gobj);
     grLib_801C9B8C(&gp->u); ///< @todo What
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
 }
 
 void grRCruise_801FF920(Ground_GObj* arg) {}
@@ -513,7 +513,7 @@ void grRCruise_80200074(Ground_GObj* gobj)
     HSD_JObj* jobj = GET_JOBJ(gobj);
     int i;
 
-    Ground_801C2ED0(jobj, gp->map_id);
+    Ground_InitMapColl(jobj, gp->map_id);
     grAnime_801C8138(gobj, gp->map_id, 0);
     for (i = 0; i < 3; i++) {
         grAnime_801C8098(gobj, grRc_804D4790[i], 7, 1, 0.0F, 0.0F);
@@ -604,7 +604,7 @@ void grRCruise_80200154(Ground_GObj* gobj)
         }
         gp->u.rcruise.x3C[i].x8 = 0;
     }
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
 }
 
 void grRCruise_8020045C(Ground_GObj* arg) {}
@@ -1204,7 +1204,7 @@ void grRCruise_80201B60(HSD_JObj* jobj, bool clear)
 
 void fn_80201BE0(HSD_GObj* gobj, int pass)
 {
-    if (gm_801A45E8(1) || gm_801A45E8(2) || Camera_8003010C()) {
+    if (gm_GetDbPauseFlag(1) || gm_GetDbPauseFlag(2) || Camera_8003010C()) {
         return;
     }
     grDisplay_801C5DB0(gobj, pass);

@@ -4,8 +4,7 @@
 
 #include "forward.h"
 #include "ftCo_DamageFall.h"
-#include "ftCo_Lift.h"
-#include "ftCo_Throw.h"
+#include "inlines.h"
 #include <melee/ft/fighter.h>
 #include <melee/ft/ft_081B.h>
 #include <melee/ft/ft_084E.h>
@@ -17,7 +16,7 @@
 bool ftCo_800C44CC(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    if (fp->dmg.x1860_element == HitElement_Disable && !fp->x2228_b2) {
+    if (fp->dmg.x1860_element == HitElement_Disable && !fp->is_sandbag) {
         switch (fp->x2070.x2071_b0_3) {
         case 5:
         case 9:
@@ -48,9 +47,7 @@ void ftCo_800C4550(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
 
-    ftCommon_8007DB58(gobj);
-    ftCo_8009750C(gobj);
-    ftCo_800DD168(gobj);
+    ftCo_ReleaseItemAndVictim(gobj);
     if (fp->ground_or_air == GA_Air) {
         ftCo_80090780(gobj);
     } else {

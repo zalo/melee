@@ -1,10 +1,12 @@
 #ifndef GALE01_0860C4
 #define GALE01_0860C4
 
+#include <melee/cm/forward.h>
+#include <melee/ft/forward.h>
+#include <melee/it/forward.h>
 #include <sysdolphin/baselib/forward.h>
 
 #include <dolphin/mtx.h>
-#include <melee/ft/types.h>
 
 /* 0860C4 */ s32 ftLib_800860C4(void);
 /* 0860E8 */ bool ftLib_IsMasterHandPresent(void);
@@ -34,7 +36,10 @@
 /* 08688C */ void ftLib_8008688C(HSD_GObj*);
 /* 0868A4 */ void ftLib_800868A4(void);
 /* 0868D4 */ bool ftLib_800868D4(HSD_GObj*, HSD_GObj*);
+
+/// @returns @c true if @p gobj is a #Fighter, otherwise @c false.
 /* 086960 */ bool ftLib_80086960(HSD_GObj* gobj);
+
 /* 086984 */ CollData* ftLib_80086984(HSD_GObj*);
 /* 086990 */ void ftLib_80086990(HSD_GObj*, Vec3*);
 /* 0869D4 */ float ftLib_800869D4(HSD_GObj*);
@@ -51,7 +56,10 @@
 /* 086BB4 */ bool ftLib_80086BB4(HSD_GObj*);
 /* 086BE0 */ u8 ftLib_80086BE0(HSD_GObj*);
 /* 086BEC */ void ftLib_80086BEC(HSD_GObj*, Vec3*);
+
+/// @returns A fighter action state ID.
 /* 086C0C */ enum_t ftLib_GetMotionId(HSD_GObj*);
+
 /* 086C18 */ void ftLib_80086C18(HSD_GObj*, s32, s32);
 /* 086C9C */ void ftLib_80086C9C(s32, s32);
 /* 086D40 */ void ftLib_80086D40(HSD_GObj*, s32, s32);

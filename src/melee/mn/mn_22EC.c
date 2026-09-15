@@ -172,11 +172,11 @@ float mn_8022EFD8(HSD_JObj* arg0, AnimLoopSettings* arg1)
 
 void mn_8022F0F0(int arg0)
 {
-    HSD_GObj* curr = ((HSD_GObj**) HSD_GObj_Entities)[(u8) arg0];
+    HSD_GObj* curr = HSD_GObjPLinkHead[(u8) arg0];
     PAD_STACK(8);
     while (curr != NULL) {
         HSD_GObj* next = curr->next;
-        HSD_GObjPLink_80390228(curr);
+        HSD_GObjFree(curr);
         curr = next;
     }
 }
@@ -192,7 +192,7 @@ void mn_8022F138(u16 arg0, u16 arg1)
 
 static inline void mn_8022F1A8_inline(u8 arg0)
 {
-    HSD_GObj* curr = ((HSD_GObj**) HSD_GObj_Entities)[arg0];
+    HSD_GObj* curr = HSD_GObjPLinkHead[arg0];
     PAD_STACK(8);
     while (curr != NULL) {
         HSD_GObj* next = curr->next;
@@ -319,10 +319,6 @@ int mn_8022F470(int* x, const int* target, int dx)
     }
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 void mn_8022F4CC(void)
 {
     if (gm_GetCurrentGameMode() == GM_TOURNAMENT) {
@@ -339,6 +335,3 @@ void mn_8022F4CC(void)
     mn_8022EBDC();
     mnCharSel_802640A0();
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif

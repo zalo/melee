@@ -1,5 +1,7 @@
 #include "mnsound.h"
 
+#include <melee/it/forward.h>
+
 #include "inlines.h"
 #include "mnmain.h"
 #include "types.h"
@@ -246,7 +248,7 @@ void fn_80249A1C(HSD_GObj* gobj)
     u8 cursor_timer;
     PAD_STACK(8);
     if (mn_804A04F0.cur_menu != MENU_KIND_SETTINGS_SOUND) {
-        HSD_GObjPLink_80390228(gobj);
+        HSD_GObjFree(gobj);
         HSD_SisLib_803A5CC4(menu->text);
         return;
     }

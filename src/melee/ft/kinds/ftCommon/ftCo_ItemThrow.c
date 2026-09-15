@@ -547,7 +547,8 @@ void ftCo_80095EFC(Fighter_GObj* gobj)
                         fsm * (fp->mv.co.itemthrow4.x8.y - vec0.y) + vec0.y;
                     vec2.y = interpolation;
                     vec2.z = 0;
-                    pl_8003E978(fp->player_id, fp->x221F_b4, fp->item_gobj);
+                    pl_8003E978(fp->player_id, fp->is_sub_fighter,
+                                fp->item_gobj);
                     {
                         FtMoveId msid = fp->motion_id;
                         if (msid == (FtMoveId) ftCo_MS_LightThrowDrop) {
@@ -586,15 +587,11 @@ void ftCo_ItemThrow_Phys(Fighter_GObj* gobj)
     ft_80084F3C(gobj);
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma global_optimizer off
-#endif
 void ftCo_LightThrowDash_Phys(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    ftCommonData* cd = p_ftCommonData;
-    if (fp->cur_anim_frame <= cd->x408) {
+    ftCommonData* cd;
+    if (fp->cur_anim_frame <= (cd = p_ftCommonData)->x408) {
         if (cd != NULL) {
             // Needed for matching register allocation.
         }
@@ -605,9 +602,6 @@ void ftCo_LightThrowDash_Phys(Fighter_GObj* gobj)
                     fp->facing_dir);
     }
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 void ftCo_LightThrowAir_Phys(Fighter_GObj* gobj)
 {

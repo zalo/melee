@@ -372,7 +372,7 @@ HSD_JObj* it_802B75FC(Item* ip, HSD_JObj* jobj_arg, s32 arg2, f32 scale)
         link_gobj = gobj_tmp;
         if (link_gobj == NULL) {
             while (prev_link != NULL) {
-                HSD_GObjPLink_80390228(prev_link->gobj);
+                HSD_GObjFree(prev_link->gobj);
                 prev_link = prev_link->next;
             }
             return NULL;
@@ -433,7 +433,7 @@ void it_802B7B84(Item_GObj* gobj)
                         while (cur != NULL) {
                             HSD_GObj* link_gobj = cur->gobj;
                             cur = cur->next;
-                            HSD_GObjPLink_80390228(link_gobj);
+                            HSD_GObjFree(link_gobj);
                         }
                         Item_8026A8EC(gobj);
                     }
@@ -462,8 +462,7 @@ Item_GObj* it_802B7C18(Fighter_GObj* owner, Vec3* pos, f32 facing_dir)
     }
 
     spawn.kind = It_Kind_Samus_GBeam;
-    spawn.prev_pos = *pos;
-    spawn.pos = spawn.prev_pos;
+    Item_InitSpawnPosition(&spawn, pos, false);
     spawn.facing_dir = facing_dir;
     spawn.x3C_damage = 0;
     spawn.vel.x = spawn.vel.y = spawn.vel.z = 0.0f;

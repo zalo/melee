@@ -26,7 +26,7 @@
 /* 45A6C0 */ struct gmm_x0 gmMainLib_8045A6C0[2];
 /* 4D3EE0 */ struct gmm_x0* gmMainLib_804D3EE0 = gmMainLib_8045A6C0;
 
-GameRules gmMainLib_803D4A48 = {
+GameRules gmMainLib_DefaultGameRules = {
     0,
     0x34,
     0,  // mode
@@ -50,8 +50,8 @@ GameRules gmMainLib_803D4A48 = {
     /* unk_14 */ -1,
 };
 
-int gmMainLib_803D4A60[] = {
-    0x2000000, 0, -1, -1, 0x01010101, 0x00010000, -1, 0,
+struct GamePrefs gmMainLib_DefaultGamePrefs = {
+    2, U64_MAX, { true, true, true, true }, 0, true, LANG_JP, U32_MAX,
 };
 
 GXRenderModeObj gmMainLib_803D4A80 = {
@@ -106,7 +106,7 @@ void* gmMainLib_8015CC4C(void)
     return &gmMainLib_GetSaveData()->x2FF8;
 }
 
-struct gmm_x1CB0* gmMainLib_8015CC58(void)
+struct GamePrefs* gmMainLib_GetGamePrefs(void)
 {
     return &gmMainLib_GetSaveData()->x1CB0;
 }
@@ -765,7 +765,7 @@ static inline void gmMainLib_AdjustNameTags(VsModeData* vmd, u8 tag)
     }
 }
 
-inline void gmMainLib_AdjustNameTag(u8* tag_ptr, u8 tag)
+static inline void gmMainLib_AdjustNameTag(u8* tag_ptr, u8 tag)
 {
     if (*tag_ptr == tag) {
         *tag_ptr = GM_NAMETAG_NONE;
@@ -776,7 +776,7 @@ inline void gmMainLib_AdjustNameTag(u8* tag_ptr, u8 tag)
 
 /// As #gmMainLib_AdjustNameTag, but clears the slot instead of marking it
 /// unassigned.
-inline void gmMainLib_ClearNameTag(u8* tag_ptr, u8 tag)
+static inline void gmMainLib_ClearNameTag(u8* tag_ptr, u8 tag)
 {
     if (*tag_ptr == tag) {
         *tag_ptr = 0;
@@ -891,7 +891,7 @@ int GetRumbleSettingOfPort(ssize_t port)
 
 void gmMainLib_SetRumbleEnabled(ssize_t port, bool enabled)
 {
-    gmMainLib_8015CC58()->rumble_enabled[port] = enabled;
+    gmMainLib_GetGamePrefs()->rumble_enabled[port] = enabled;
 }
 
 s32 gmMainLib_8015ED5C(void)
@@ -906,12 +906,12 @@ void gmMainLib_8015ED68(ssize_t port)
 
 u8 gmMainLib_8015ED74(void)
 {
-    return gmMainLib_8015CC58()->sound_balance;
+    return gmMainLib_GetGamePrefs()->sound_balance;
 }
 
-void gmMainLib_8015ED80(u8 arg0)
+void gmMainLib_8015ED80(s8 arg0)
 {
-    gmMainLib_8015CC58()->sound_balance = arg0;
+    gmMainLib_GetGamePrefs()->sound_balance = arg0;
 }
 
 u16* gmMainLib_GetUnlockedCharactersBitmaskPtr(void)
@@ -987,7 +987,8 @@ void gmMainLib_8015EE54(void)
 void gmMainLib_8015EE68(void)
 {
     gmMainLib_GetSaveData()->x186C &= 0xFFFFFFFD;
-    gmMainLib_8015CC58()->stage_mask = gmMainLib_803D4A60[6];
+    gmMainLib_GetGamePrefs()->stage_mask =
+        gmMainLib_DefaultGamePrefs.stage_mask;
 }
 
 s32 gmMainLib_8015EE90(void)
@@ -1156,8 +1157,6 @@ void gmMainLib_8015F4F4(u8 arg0)
     gmMainLib_GetSaveData()->x1CB0.deflicker = arg0;
 }
 
-struct gmMainLib_8046B0F0_t gmMainLib_8046B0F0;
-
 void gmMainLib_8015F500(void)
 {
     GXRenderModeObj* var_r0;
@@ -1223,8 +1222,7 @@ void gmMainLib_8015F600(int arg0, int arg1)
                                1);
         }
 
-        gmMainLib_804D3EE0->thing.x1CB0 =
-            *(struct gmm_x1CB0*) gmMainLib_803D4A60;
+        gmMainLib_804D3EE0->thing.x1CB0 = gmMainLib_DefaultGamePrefs;
 
         {
             switch (lbLang_GetLanguageSetting()) {
@@ -1247,9 +1245,8 @@ void gmMainLib_8015F600(int arg0, int arg1)
         }
     } else {
         s32 bank_offset = (arg0 - 2) * 19;
-        s32 j = 0;
-
-        do {
+        s32 j;
+        for (j = 0; j < 19; j++) {
             struct NameTagData* data;
             struct NameTagDataBank* bank;
             s32 idx;
@@ -1279,8 +1276,7 @@ void gmMainLib_8015F600(int arg0, int arg1)
                 }
             }
             data->rumble_enabled = true;
-            j++;
-        } while (j < 19);
+        }
     }
 }
 
@@ -1346,7 +1342,7 @@ void gmMainLib_8015FBA4(void)
         lbLang_SetSavedLanguage(0);
     }
 
-    gmMainLib_8045A6C0[0].x1850 = gmMainLib_803D4A48;
+    gmMainLib_8045A6C0[0].x1850 = gmMainLib_DefaultGameRules;
     for (i = 1; i < 9; i++) {
         gmMainLib_8015F600(i, 1);
     }

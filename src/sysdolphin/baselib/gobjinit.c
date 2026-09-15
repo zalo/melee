@@ -1,23 +1,20 @@
+#include <Runtime/platform.h>
+
 #include "gobj.h"
 #include "gobjproc.h"
 #include "memory.h"
 #include "objalloc.h"
 
-static HSD_GObjLibInitDataType HSD_GObj_80408620 = {
-    0x3F,
-    0x3F,
-    2,
+static HSD_GObjLibInitDataType init_defaults = {
+    HSD_GOBJ_PLINK_MAX, HSD_GOBJ_GX_LINK_MAX, HSD_GOBJPROC_PRI_MAX, NULL, NULL,
 };
 
-void HSD_GObj_803912E0(HSD_GObjLibInitDataType* arg0)
+void HSD_GObjSetInitDefaults(HSD_GObjLibInitDataType* arg0)
 {
-    *arg0 = HSD_GObj_80408620;
+    *arg0 = init_defaults;
 }
 
-extern HSD_ObjAllocData gobj_alloc_data;
-extern HSD_ObjAllocData gobjproc_alloc_data;
-
-void HSD_GObj_80391304(HSD_GObjLibInitDataType* arg0)
+void HSD_GObjInit(HSD_GObjLibInitDataType* arg0)
 {
     GObjFuncs* cur;
     int i;
@@ -29,11 +26,11 @@ void HSD_GObj_80391304(HSD_GObjLibInitDataType* arg0)
 
     HSD_GObjLibInitData = *arg0;
 
-    HSD_GObj_Entities =
+    HSD_GObjPLinkHead =
         HSD_MemAlloc(sizeof(HSD_GObj*) * (arg0->p_link_max + 1));
     plinklow_gobjs = HSD_MemAlloc(sizeof(HSD_GObj*) * (arg0->p_link_max + 1));
     for (i = 0; i < arg0->p_link_max + 1; i++) {
-        ((HSD_GObj**) HSD_GObj_Entities)[i] = plinklow_gobjs[i] = NULL;
+        HSD_GObjPLinkHead[i] = plinklow_gobjs[i] = NULL;
     }
 
     HSD_GObjGXLinkHead =
@@ -45,19 +42,19 @@ void HSD_GObj_80391304(HSD_GObjLibInitDataType* arg0)
         HSD_GObjGXLinkHead[i] = HSD_GObj_804D7820[i] = 0;
     }
 
-    HSD_GObj_804D7840 =
+    HSD_GObj_GObjProcHead =
         HSD_MemAlloc(sizeof(HSD_GObjProc*) * (arg0->gproc_pri_max + 1));
 
     for (i = 0; i < arg0->gproc_pri_max + 1; i++) {
-        HSD_GObj_804D7840[i] = 0;
+        HSD_GObj_GObjProcHead[i] = 0;
     }
 
-    HSD_GObj_804D7844 =
+    HSD_GObj_ProcList =
         HSD_MemAlloc(sizeof(HSD_GObjProc*) * (arg0->gproc_pri_max + 1) *
                      (arg0->p_link_max + 1));
 
     for (i = 0; i < (arg0->gproc_pri_max + 1) * (arg0->p_link_max + 1); i++) {
-        HSD_GObj_804D7844[i] = 0;
+        HSD_GObj_ProcList[i] = 0;
     }
 
     HSD_ObjAllocInit(&gobj_alloc_data, sizeof(HSD_GObj), 4);
@@ -85,9 +82,9 @@ void HSD_GObj_80391304(HSD_GObjLibInitDataType* arg0)
     }
 
     HSD_GObj_804D783C = 0;
-    HSD_GObj_804D781C = NULL;
-    HSD_GObj_804D7838 = NULL;
-    HSD_GObj_804CE3E4.flags = 0;
+    HSD_GObj_CurrentInvokedProcGObj = NULL;
+    HSD_GObj_CurrentInvokedProc = NULL;
+    HSD_GObj_DelayedProcInfo.flags = 0;
     HSD_GObj_804D7818 = NULL;
     HSD_GObj_804D7814 = NULL;
 }

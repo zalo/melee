@@ -5,24 +5,22 @@
 #include "vi.h"
 #include <dolphin/gx.h>
 #include <dolphin/mtx.h>
-#include <melee/cm/camera.h>
 #include <melee/ef/efasync.h>
 #include <melee/ef/eflib.h>
 #include <melee/ft/ftdemo.h>
 #include <melee/gm/gm_1601.h>
-#include <melee/gm/gm_1A45.h>
+#include <melee/gm/gmscene.h>
 #include <melee/gr/grlib.h>
 #include <melee/gr/ground.h>
+#include <melee/gr/inlines.h>
 #include <melee/gr/stage.h>
 #include <melee/it/item.h>
-#include <melee/lb/lb_00F9.h>
 #include <melee/lb/lb_013B.h>
 #include <melee/lb/lbarchive.h>
 #include <melee/lb/lbaudio_ax.h>
 #include <melee/lb/lbshadow.h>
 #include <melee/lb/lbspdisplay.h>
 #include <melee/mn/mnmain.h>
-#include <melee/mp/mpcoll.h>
 #include <melee/pl/player.h>
 #include <melee/sc/types.h>
 #include <sysdolphin/baselib/aobj.h>
@@ -77,11 +75,7 @@ void un_8031D9F8(CharacterKind char_kind, int costume, int spawn_mode,
 
     PAD_STACK(8);
 
-    Camera_Init(6);
-    lb_8000FCDC();
-    mpColl_80041C78();
-    Ground_801C0378(0x40);
-    Stage_802251E8(St_Kind_Greens, NULL);
+    Stage_InitScene(St_Kind_Greens, NULL);
     Item_80266FA8();
     Item_80266FCC();
     un_804D6F80 = Ground_801C0498();
@@ -102,11 +96,11 @@ void un_8031D9F8(CharacterKind char_kind, int costume, int spawn_mode,
     counts = (u8*) spawn_count;
     pos = grLib_801C9A10();
     for (i = 1; i < 4; i++) {
-        Player_80036E20(CKIND_KIRBY, un_804D6F74, 6);
+        Player_80036E20(CKind_Kirby, un_804D6F74, 6);
         count = counts[i - 1];
         Player_80031DA8(count, spawn_mode);
         Player_SetFlagsBit1(i);
-        Player_SetPlayerCharacter(i, CKIND_KIRBY);
+        Player_SetPlayerCharacter(i, CKind_Kirby);
         Player_SetCostumeId(i, spawn_mode);
         Player_SetPlayerId(i, 0);
         Player_SetSlottype(i, Gm_PKind_Demo);

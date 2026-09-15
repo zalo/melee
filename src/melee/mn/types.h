@@ -94,33 +94,28 @@ struct Menu_GObj {
 typedef struct HSD_GObj Menu_GObj;
 #endif
 
-/// @todo Might be defined elsewhere
-typedef enum {
-    CpuKind_4 = 4
-} CpuKind;
-
 struct PlayerInitData {
-    /*0x00*/ s8 ckind;     ///< ::CharacterKind
-    /*0x01*/ u8 slot_type; ///< ::Gm_PKind
-    /*0x02*/ s8 stocks;    // stocks
-    /*0x03*/ u8 color;     // color
-    /*0x04*/ u8 slot;      // port
-    /*0x05*/ s8 x5;        // spawnpos32
-    /*0x06*/ s8 spawn_dir; // spawn direction
-    /*0x07*/ u8 sub_color; // subcolor
-    /*0x08*/ s8 handicap;  // handicap
-    /*0x09*/ u8 team;      // team
-    /*0x0A*/ u8 nametag;   // nametag
-    /*0x0B*/ u8 xB;
-    /*0x0C*/ u8 rumble_enabled : 1; ///< rumble enabled
+    s8 ckind;     ///< ::CharacterKind
+    u8 slot_type; ///< ::Gm_PKind
+    s8 stocks;
+    u8 color;
+    u8 slot;
+    s8 spawn_pos;
+    s8 spawn_dir;
+    u8 sub_color;
+    s8 handicap;
+    u8 team;
+    u8 nametag;
+    u8 xB; ///< ::enum_t
+    u8 rumble_enabled : 1;
     u8 xC_b1 : 1;
-    u8 xC_b2 : 1; ///< metal
+    u8 vs_metal : 1;
     u8 xC_b3 : 1;
     u8 vs_invisible : 1;
     u8 xC_b5 : 1;
     u8 xC_b6 : 1;
     u8 xC_b7 : 1;
-    /*0x0D*/ u8 xD_b0 : 1;
+    u8 xD_b0 : 1;
     u8 xD_b1 : 1;
     u8 xD_b2 : 1;
     u8 xD_b3 : 1;
@@ -128,14 +123,14 @@ struct PlayerInitData {
     u8 xD_b5 : 1;
     u8 xD_b6 : 1;
     u8 xD_b7 : 1;
-    /*0x0E*/ u8 cpu_kind;  ///< CPU type
-    /*0x0F*/ u8 cpu_level; ///< CPU level
-    /*0x10*/ u16 x10;      ///< some damage value
-    /*0x12*/ u16 x12;      ///< some damage value
-    /*0x14*/ u16 hp;       ///< hit points, for stamina mode
-    /*0x18*/ float attack_ratio;
-    /*0x1C*/ float defense_ratio;
-    /*0x20*/ float model_scale;
+    u8 cpu_kind;  ///< CPU type
+    u8 cpu_level; ///< CPU level
+    u16 damage;   ///< some damage value
+    u16 damage1;  ///< some damage value
+    u16 hp;       ///< hit points, for stamina mode
+    float attack_ratio;
+    float defense_ratio;
+    float model_scale;
 };
 
 struct lbl_8046B668_t {
@@ -217,8 +212,8 @@ struct StartMeleeRules {
     u8 is_teams;
     u8 x9;
     u8 xA;
-    s8 xB; // item frequency
-    s8 xC; // SD penalty
+    s8 item_freq;
+    s8 sd_penalty;
     u8 xD;
     u16 stkind;
 
@@ -357,6 +352,22 @@ typedef enum CSSIconJointId {
     ICONJOINT_MARS = 0x22
 } CSSIconJointId;
 
+/**
+ * @brief Identifier for a single selectable character as seen in high-scores
+ * or on the CSS.
+ *
+ * #SelectableCharacterKind mirrors the first @c 0x19 entries of
+ * #CharacterKind (i.e. up to and including #CKind_Ganon),
+ * but with #CKind_Seak (Sheik) removed and collapsed into
+ * #CKind_Zelda under the single #SELKIND_ZELDA_SEAK value.
+ * Index @c 0x12 (#SELKIND_ZELDA_SEAK) therefore
+ * represents both Zelda and Sheik as a single selectable character.
+ *
+ * @see #gm_SelKindToCKind
+ * @see #gm_CKindToSelKind
+ * @see #selkind_to_ckind_map
+ * @see #ckind_to_selkind_map
+ */
 typedef enum SelectableCharacterKind {
     /* 00 */ SELKIND_CAPTAIN,    // Captain Falcon (Captain)
     /* 01 */ SELKIND_DONKEY,     // Donkey Kong (Donkey)
@@ -562,13 +573,6 @@ struct MenuKindData {
     u16* description_indices; ///< array of sis idx's for each selection
     u8 selection_count;       ///< number of options/cursors in the menu
     void (*think)(HSD_GObj*);
-};
-
-struct mnDiagram_ArchiveData {
-    /* 0x00 */ HSD_Joint* x0;
-    /* 0x04 */ HSD_AnimJoint* x4;
-    /* 0x08 */ HSD_MatAnimJoint* x8;
-    /* 0x0C */ HSD_ShapeAnimJoint* xC;
 };
 
 struct MnDiagram2RowLayout {

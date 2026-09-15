@@ -1,6 +1,5 @@
 #ifndef MELEE_GR_TYPES_H
 #define MELEE_GR_TYPES_H
-
 #include <Runtime/platform.h>
 
 #include <melee/cm/forward.h>
@@ -535,7 +534,8 @@ struct grVenom_Platform_GroundVars {
 struct grVenom_GroundVars {
     /* +00 gp+C4 */ union {
         u32 xC4; ///< @todo Not a #u32, either
-                 /// #grSmashTaunt_GroundVars or #HSD_GObj
+
+        /// #grSmashTaunt_GroundVars or #HSD_GObj
         struct {
             u8 b0 : 1;
         } xC4_flags;
@@ -1981,7 +1981,14 @@ struct Ground {
         struct grInishie2_GroundVars inishie2;
         struct grInishie2_GroundVars2 inishie22;
         struct grInishie2_GroundVars3 inishie23;
+
+        /**
+         * Japanese for "barrel," from #grKongo_801D828C and
+         * #grOldKongo_802105C8 asserts.
+         * @alias{oldkongo}
+         */
         struct grOldKongo_GroundVars taru;
+
         struct grOldPupupu_GroundVars oldpupupu;
         struct grOldPupupu_GroundVars2 oldpupupu2;
         struct grOldYoshi_Cloud_GroundVars oldyoshicloud;

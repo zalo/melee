@@ -72,10 +72,6 @@ GameModeState gm_Mode_Training_States[] = {
     { -1 },
 };
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 void gm_801B1B74(GameModeState* arg0)
 {
     VsModeData* vs_data;
@@ -98,9 +94,6 @@ void gm_801B1B74(GameModeState* arg0)
     lbDvd_SetupVsPreloadCache();
     gm_804D68C1 = lbTime_8000AF74((u32) gm_804D68C1, 1);
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 static void gm_801B07E8_layer(CSSData* css_data, s8* c_kind, s8* stocks,
                               s8* color, s8* arg4, u8* level)
@@ -132,12 +125,13 @@ void gm_801B1C24(GameModeState* arg0)
     vs->start.players[1].cpu_kind = 0;
     for (; i < 4; i++, j++) {
         vs->start.players[i] = vs->start.players[1];
-        vs->start.players[i].color = (vs->start.players[i - 1].color + 1) %
-                                     gm_80169238(vs->start.players[j].ckind);
+        vs->start.players[i].color =
+            (vs->start.players[i - 1].color + 1) %
+            gm_GetNumCostumesForCKind(vs->start.players[j].ckind);
         if (vs->start.players[i].color == vs->start.players[0].color) {
             vs->start.players[i].color =
                 (vs->start.players[i].color + 1) %
-                gm_80169238(vs->start.players[j].ckind);
+                gm_GetNumCostumesForCKind(vs->start.players[j].ckind);
         }
         vs->start.players[i].slot_type = 3;
     }
@@ -205,10 +199,6 @@ void gm_801B1EEC(GameModeState* arg0)
 
 void fn_801B1F6C(int unused) {}
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 void gm_801B1F70(GameModeState* arg0)
 {
     VsModeData* vs;
@@ -249,9 +239,6 @@ void gm_801B1F70(GameModeState* arg0)
     gm_LoadRumbleEnabled(data);
     gm_80189CDC(data);
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 void gm_801B2204(GameModeState* arg0)
 {
@@ -282,7 +269,7 @@ void gm_Mode_Training_OnInit(void)
         temp_r31->start.players[i].color = i;
         temp_r31->start.players[i].cpu_kind = 0;
         if (i != 0) {
-            temp_r31->start.players[1].ckind = CHKIND_NONE;
+            temp_r31->start.players[1].ckind = ChKind_None;
         }
         gm_80473814.saved_players[i] = temp_r31->start.players[i];
     }

@@ -342,15 +342,13 @@ void gm_SetupTitleDemo(void)
     u8 cur_id;
 
     count = 0;
-    c = 0;
-    do {
+    for (c = 0; c < CKind_Playable_Count; c++) {
         if (gm_IsCKindUnlocked(c) != 0) {
             character_pool[count] = c;
             count += 1;
         }
-        c += 1;
-    } while (c < CKIND_PLAYABLE_COUNT);
-    character_pool[count] = CKIND_PLAYABLE_COUNT;
+    }
+    character_pool[count] = CKind_Playable_Count;
     for (i = 0; i < count; i++) {
         for (j = i + 1; j < count; j++) {
             if (gm_GetCharacterUsageDirect(character_pool[i]) >
@@ -370,8 +368,8 @@ void gm_SetupTitleDemo(void)
             dup = 0;
             for (pick = 0; pick < c; pick++) {
                 if (j == gm_801BF648(pick) ||
-                    (j == CKIND_ZELDA && gm_801BF648(pick) == CKIND_SEAK) ||
-                    (j == CKIND_SEAK && gm_801BF648(pick) == CKIND_ZELDA))
+                    (j == CKind_Zelda && gm_801BF648(pick) == CKind_Seak) ||
+                    (j == CKind_Seak && gm_801BF648(pick) == CKind_Zelda))
                 {
                     dup = 1;
                 }
@@ -447,7 +445,7 @@ void gm_PreloadTitleDemo(void)
     temp_ret = 4;
     for (j = 0; j < 4; j++) {
         c_kind = gm_801BF648(j);
-        if (c_kind != CHKIND_NONE) {
+        if (c_kind != ChKind_None) {
             temp_ret |= lbAudioAx_80026E84(c_kind);
         }
     }
@@ -527,6 +525,7 @@ void gm_801BF684(s32 arg0)
     gm_8049E548.unk_C = arg0;
 }
 
+/// @returns ::GrKind
 u8 gm_801BF694(void)
 {
     return gm_8049E548.unk_C;

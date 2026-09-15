@@ -3,7 +3,6 @@
 #include <Runtime/platform.h>
 
 #include "forward.h"
-#include "grdisplay.h"
 #include "grlib.h"
 #include "grmaterial.h"
 #include "ground.h"
@@ -12,10 +11,8 @@
 #include <melee/ft/ftlib.h>
 #include <melee/it/it_26B1.h>
 #include <melee/lb/lb_00B0.h>
-#include <melee/lb/lb_00F9.h>
 #include <melee/mp/mplib.h>
 #include <sysdolphin/baselib/gobj.h>
-#include <sysdolphin/baselib/gobjgxlink.h>
 #include <sysdolphin/baselib/gobjproc.h>
 #include <sysdolphin/baselib/jobj.h>
 
@@ -24,9 +21,11 @@
                                             mpLib_GroundEnum ground_kind,
                                             float delta_y);
 
+static void stageGObj0_OnInit(Ground_GObj* gobj);
+
 StageCallbacks grYt_StageCallbacks[] = {
     {
-        grYorster_80202124,
+        stageGObj0_OnInit,
         grYorster_80202150,
         grYorster_80202158,
         grYorster_8020215C,
@@ -114,19 +113,7 @@ HSD_GObj* grYorster_8020203C(int gobj_id)
     gobj = Ground_GetStageGObj(gobj_id);
 
     if (gobj != NULL) {
-        Ground* gp = gobj->user_data;
-        gp->x8_callback = NULL;
-        gp->xC_callback = NULL;
-        GObj_SetupGXLink(gobj, grDisplay_801C5DB0, 3, 0);
-        if (callbacks->callback3 != NULL) {
-            gp->x1C_callback = callbacks->callback3;
-        }
-        if (callbacks->on_init != NULL) {
-            callbacks->on_init(gobj);
-        }
-        if (callbacks->gobj_proc != NULL) {
-            HSD_GObj_SetupProc(gobj, callbacks->gobj_proc, 4);
-        }
+        Ground_SetupStageCallbacks(gobj, callbacks);
     } else {
         OSReport("%s:%d: couldn t get gobj(id=%d)\n", __FILE__, 221, gobj_id);
     }
@@ -134,10 +121,9 @@ HSD_GObj* grYorster_8020203C(int gobj_id)
     return gobj;
 }
 
-void grYorster_80202124(Ground_GObj* gobj)
+static void stageGObj0_OnInit(Ground_GObj* gobj)
 {
-    Ground* gp = GET_GROUND(gobj);
-    grAnime_801C8138(gobj, gp->map_id, 0);
+    Ground_StartMapAnim(gobj);
 }
 
 bool grYorster_80202150(Ground_GObj* gobj)
@@ -159,7 +145,7 @@ void grYorster_80202160(HSD_GObj* gobj)
 {
     Ground* gp = GET_GROUND(gobj);
     grYorster_802022A4(gobj);
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
     mpLib_80058560();
     gp->u.yorster.xC4 = 0;
 }
@@ -169,7 +155,7 @@ void grYorster_802021AC(Ground_GObj* gobj)
     int _[2];
 
     Ground* gp = GET_GROUND(gobj);
-    Ground_801C2ED0(GET_JOBJ(gobj), gp->map_id);
+    Ground_InitMapColl(GET_JOBJ(gobj), gp->map_id);
     grAnime_801C8138(gobj, gp->map_id, 4);
     grAnime_801C7FF8(gobj, 23, 7, 3, 0.0f, 1.0f);
     grAnime_801C7FF8(gobj, 26, 7, 3, 0.0f, 1.0f);
@@ -188,8 +174,7 @@ void grYorster_80202254(Ground_GObj* gobj)
     if (gp->u.yorster.xC4 == 0) {
         grYorster_8020266C(gobj);
     }
-    lb_800115F4();
-    Ground_801C2FE0(gobj);
+    Ground_UpdateWindAndMapColl(gobj);
 }
 
 void grYorster_802022A0(HSD_GObj* gobj) {}

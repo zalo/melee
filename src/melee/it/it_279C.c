@@ -984,11 +984,6 @@ void it_80279C48(Item_GObj* item_gobj)
     item->facing_dir = dir;
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
-
 void it_80279CDC(Item_GObj* item_gobj, f32 scale)
 {
     it_8027A13C(item_gobj);
@@ -997,10 +992,6 @@ void it_80279CDC(Item_GObj* item_gobj, f32 scale)
     it_802756D0(item_gobj);
     it_8026BDB4(item_gobj);
 }
-
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 void it_80279D38(Item_GObj* item_gobj)
 {
@@ -1107,11 +1098,6 @@ void it_80279FF8(Item_GObj* item_gobj)
     }
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
-
 bool it_8027A09C(Item_GObj* item_gobj)
 {
     Item* item;
@@ -1127,10 +1113,6 @@ bool it_8027A09C(Item_GObj* item_gobj)
     item->xDD4_itemVar.pokemon_spawn.x24 -= 1.0f;
     return false;
 }
-
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 bool it_8027A118(Item_GObj* item_gobj, HSD_GObjEvent arg1)
 {
@@ -1440,6 +1422,14 @@ static inline s32 it_8027AB64_SelectKind(Item* item)
 }
 #endif
 
+static inline s32 selectPokemonFromList(Item* item, ItemKind* kinds)
+{
+    if (kinds == NULL) {
+        return It_PKind_Sonans;
+    }
+    return it_8027A780(item, kinds);
+}
+
 bool it_8027AB64(Item_GObj* item_gobj)
 {
     u8 _pad[8];
@@ -1458,11 +1448,7 @@ bool it_8027AB64(Item_GObj* item_gobj)
             spawn.kind = temp_r3 - It_PKind_Start;
         }
     } else if (gm_8018841C()) {
-        spawn.kind =
-#ifdef MUST_MATCH
-            (&common_pokemon == NULL) ? It_PKind_Sonans :
-#endif
-                                      it_8027A780(item, &common_pokemon);
+        spawn.kind = selectPokemonFromList(item, common_pokemon);
 
     } else if (gm_GetCurrentGameMode() == GM_OPENING_MV) {
         spawn.kind = it_8027AB64_SelectKind(item);

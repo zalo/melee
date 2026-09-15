@@ -1,32 +1,37 @@
 #include "grtluigi.h"
 
-#include "granime.h"
 #include "ground.h"
 #include "grzakogenerator.h"
 #include "inlines.h"
 #include "types.h"
-#include <melee/lb/lb_00F9.h>
 #include <sysdolphin/baselib/gobjproc.h>
+
+static void grTLuigi_OnInit(void);
+static void stageGObj0_OnInit(Ground_GObj* gobj);
+static void stageGObj2_OnInit(Ground_GObj* gobj);
+static void stageGObj2_GObjProc(Ground_GObj* arg0);
+static void stageGObj1_OnInit(Ground_GObj* gobj);
+static void stageGObj1_GObjProc(Ground_GObj* gobj);
 
 /* static */ StageCallbacks grTLg_803E8DF0[4] = {
     {
-        grTLuigi_80221D9C,
+        stageGObj0_OnInit,
         grTLuigi_80221DC8,
         grTLuigi_80221DD0,
         grTLuigi_80221DD4,
         0,
     },
     {
-        grTLuigi_80221E68,
+        stageGObj1_OnInit,
         grTLuigi_80221EB8,
-        grTLuigi_80221EC0,
+        stageGObj1_GObjProc,
         grTLuigi_80221EE0,
         0,
     },
     {
-        grTLuigi_80221DD8,
+        stageGObj2_OnInit,
         grTLuigi_80221E28,
-        grTLuigi_80221E30,
+        stageGObj2_GObjProc,
         grTLuigi_80221E64,
         (1 << 30) | (1U << 31),
     },
@@ -36,7 +41,7 @@ StageData grTLg_StageData = {
     Gr_Kind_TLuigi,
     grTLg_803E8DF0,
     "/GrTLg.dat",
-    grTLuigi_80221C14,
+    grTLuigi_OnInit,
     grTLuigi_80221C10,
     grTluigi_UnkStage0_OnLoad,
     grTluigi_UnkStage0_OnStart,
@@ -48,7 +53,7 @@ StageData grTLg_StageData = {
 
 void grTLuigi_80221C10(bool arg0) {}
 
-void grTLuigi_80221C14(void)
+static void grTLuigi_OnInit(void)
 {
     Ground_InitTargetStage(grTLuigi_80221CB4);
 }
@@ -81,10 +86,9 @@ HSD_GObj* grTLuigi_80221CB4(int arg0)
     return gobj;
 }
 
-void grTLuigi_80221D9C(Ground_GObj* gobj)
+static void stageGObj0_OnInit(Ground_GObj* gobj)
 {
-    Ground* gp = gobj->user_data;
-    grAnime_801C8138(gobj, gp->map_id, 0);
+    Ground_StartMapAnim(gobj);
 }
 
 bool grTLuigi_80221DC8(Ground_GObj* arg0)
@@ -96,9 +100,9 @@ void grTLuigi_80221DD0(Ground_GObj* arg0) {}
 
 void grTLuigi_80221DD4(Ground_GObj* arg0) {}
 
-void grTLuigi_80221DD8(Ground_GObj* gobj)
+static void stageGObj2_OnInit(Ground_GObj* gobj)
 {
-    Ground_JObjInline1(gobj);
+    Ground_InitMapCollAndAnim(gobj);
 }
 
 bool grTLuigi_80221E28(Ground_GObj* arg0)
@@ -106,17 +110,16 @@ bool grTLuigi_80221E28(Ground_GObj* arg0)
     return false;
 }
 
-void grTLuigi_80221E30(Ground_GObj* arg0)
+static void stageGObj2_GObjProc(Ground_GObj* arg0)
 {
-    lb_800115F4();
-    Ground_801C2FE0(arg0);
+    Ground_UpdateWindAndMapColl(arg0);
 }
 
 void grTLuigi_80221E64(Ground_GObj* arg0) {}
 
-void grTLuigi_80221E68(Ground_GObj* gobj)
+static void stageGObj1_OnInit(Ground_GObj* gobj)
 {
-    Ground_JObjInline1(gobj);
+    Ground_InitMapCollAndAnim(gobj);
 }
 
 bool grTLuigi_80221EB8(Ground_GObj* arg0)
@@ -124,9 +127,9 @@ bool grTLuigi_80221EB8(Ground_GObj* arg0)
     return false;
 }
 
-void grTLuigi_80221EC0(Ground_GObj* gobj)
+static void stageGObj1_GObjProc(Ground_GObj* gobj)
 {
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
 }
 
 void grTLuigi_80221EE0(Ground_GObj* arg0) {}

@@ -5,25 +5,19 @@
 
 #include "eflib.h"
 #include "types.h"
+#include <melee/ft/types.h>
 #include <sysdolphin/baselib/generator.h>
 #include <sysdolphin/baselib/gobj.h>
 #include <sysdolphin/baselib/jobj.h>
 
-#ifdef MELEE_NATIVE
-#include <melee/ft/types.h>
-#define EFALT_VA_ARG(t) va_arg(vlist, t)
-#define EFALT_VA_LIST vlist
-#else
-#define EFALT_VA_ARG(t) (*((t*) __va_arg(vlist_arg, _var_arg_typeof(t))))
-#define EFALT_VA_LIST vlist_arg
-#endif
+#define EFALT_VA_ARG(t) va_arg(vlist_arg, t)
 
 extern volatile u32 efLib_LoadKind;
 extern volatile s32 efLib_AnimCount;
 
 // There seems to be multiple spawners, one dispatcher
 
-void* efAlt_Spawn(s32 gfx_id, HSD_GObj* gobj, va_list vlist)
+void* efAlt_Spawn(s32 gfx_id, HSD_GObj* gobj, va_list vlist_arg)
 {
     EF_Effect* effect;
     HSD_JObj* jobj;
@@ -31,11 +25,7 @@ void* efAlt_Spawn(s32 gfx_id, HSD_GObj* gobj, va_list vlist)
     Vec3 scale;
     f32* value_ptr;
     void* ret_obj;
-#ifndef MELEE_NATIVE
-    void* vlist_arg;
 
-    vlist_arg = vlist;
-#endif
     ret_obj = NULL;
     efLib_LoadKind = EF_LOADKIND_SYNC;
     PAD_STACK(80);
@@ -148,7 +138,7 @@ void* efAlt_Spawn(s32 gfx_id, HSD_GObj* gobj, va_list vlist)
         }
         break;
     case 0x48D:
-        ret_obj = efLib_CreateGenerator_AppSRT_SetFacingDir(0xBC0, EFALT_VA_LIST);
+        ret_obj = efLib_CreateGenerator_AppSRT_SetFacingDir(0xBC0, vlist_arg);
         break;
     case 0x48E: {
         ret_obj = efLib_Create_Attach_Pos(0xBBDU, gobj, EFALT_VA_ARG(Vec3*));
@@ -220,8 +210,7 @@ void* efAlt_Spawn(s32 gfx_id, HSD_GObj* gobj, va_list vlist)
         break;
     }
     case 0x494: {
-        void* user_data;
-        HSD_JObj** jobj_ptr;
+        Fighter* fp;
         HSD_JObj* jobj;
         HSD_JObj* jobj_2;
         EF_Effect* effect_1;
@@ -230,15 +219,9 @@ void* efAlt_Spawn(s32 gfx_id, HSD_GObj* gobj, va_list vlist)
         u16 effect_flags;
 
         effect_flags = 0x41;
-        user_data = gobj->user_data;
-#ifdef MELEE_NATIVE
-        jobj = ((Fighter*) user_data)->parts[0x2C].joint;
-        jobj_2 = ((Fighter*) user_data)->parts[1].joint;
-#else
-        jobj_ptr = *(HSD_JObj***) ((u8*) user_data + 0x5E8);
-        jobj = jobj_ptr[0xB0];
-        jobj_2 = jobj_ptr[4];
-#endif
+        fp = gobj->user_data;
+        jobj = fp->parts[FtPart_R3rdNa].joint;
+        jobj_2 = fp->parts[FtPart_TransN].joint;
         ret_obj = efLib_Create_AttachChild(0x1388U, gobj, jobj);
         if (ret_obj != NULL) {
             effect_1 = ret_obj;
@@ -251,14 +234,14 @@ void* efAlt_Spawn(s32 gfx_id, HSD_GObj* gobj, va_list vlist)
                 effect_2 = (void*) effect_1->next;
                 effect_2->update = efLib_Cb_SetRotYAndTransition;
                 effect_2->lifetime = effect_flags;
-                effect_2->user_data = user_data;
+                effect_2->user_data = fp;
                 next_eff = (void*) efLib_Create_Attach(0x138AU, gobj, jobj_2);
                 effect_2->next = next_eff;
                 if (next_eff != NULL) {
                     effect_1 = (void*) effect_2->next;
                     effect_1->update = efLib_Cb_SetRotYAndTransition;
                     effect_1->lifetime = effect_flags;
-                    effect_1->user_data = user_data;
+                    effect_1->user_data = fp;
                 }
             }
         }
@@ -301,7 +284,7 @@ void* efAlt_Spawn(s32 gfx_id, HSD_GObj* gobj, va_list vlist)
             efLib_Create_AttachChild(0x138FU, gobj, EFALT_VA_ARG(HSD_JObj*));
         break;
     case 0x49A:
-        ret_obj = efLib_CreateGenerator_AppSRT_SetFacingDir(0x138B, EFALT_VA_LIST);
+        ret_obj = efLib_CreateGenerator_AppSRT_SetFacingDir(0x138B, vlist_arg);
         break;
     case 0x49B:
         ret_obj = hsd_8039EFAC(0, 5, 0x138F, EFALT_VA_ARG(HSD_JObj*));
@@ -361,16 +344,16 @@ void* efAlt_Spawn(s32 gfx_id, HSD_GObj* gobj, va_list vlist)
         ret_obj = efLib_CreateGenerator(0x7D02, EFALT_VA_ARG(Vec3*));
         break;
     case 0x4A5:
-        ret_obj = efLib_CreateGenerator_Attach_Scale(0xA028, EFALT_VA_LIST, gobj);
+        ret_obj = efLib_CreateGenerator_Attach_Scale(0xA028, vlist_arg, gobj);
         break;
     case 0x4A6:
-        ret_obj = efLib_CreateGenerator_Attach_Scale(0xA029, EFALT_VA_LIST, gobj);
+        ret_obj = efLib_CreateGenerator_Attach_Scale(0xA029, vlist_arg, gobj);
         break;
     case 0x4A7:
-        ret_obj = efLib_CreateGenerator_Attach_Scale(0xA02A, EFALT_VA_LIST, gobj);
+        ret_obj = efLib_CreateGenerator_Attach_Scale(0xA02A, vlist_arg, gobj);
         break;
     case 0x4A8:
-        ret_obj = efLib_CreateGenerator_Attach_Scale(0xA02B, EFALT_VA_LIST, gobj);
+        ret_obj = efLib_CreateGenerator_Attach_Scale(0xA02B, vlist_arg, gobj);
         break;
     case 0x4A1:
         jobj = EFALT_VA_ARG(HSD_JObj*);
@@ -474,7 +457,7 @@ void* efAlt_Spawn(s32 gfx_id, HSD_GObj* gobj, va_list vlist)
         ret_obj = hsd_8039EFAC(0, 0x2E, 0xB3B1, jobj);
         break;
     case 0x4B0:
-        ret_obj = efLib_CreateGenerator_AppSRT_SetFacingDir(0xB3B6, EFALT_VA_LIST);
+        ret_obj = efLib_CreateGenerator_AppSRT_SetFacingDir(0xB3B6, vlist_arg);
         break;
     case 0x4B1: {
         HSD_JObj* input_jobj;
@@ -550,13 +533,7 @@ void* efAlt_Spawn(s32 gfx_id, HSD_GObj* gobj, va_list vlist)
 
         cnt = efLib_AnimCount - 1;
         efLib_AnimCount = cnt;
-        // horrible. its actually just efLib_AnimQueue[cnt]
-#ifdef MELEE_NATIVE
-        HSD_JObjAnimAll(efLib_AnimQueue[cnt]);
-#else
-        HSD_JObjAnimAll(
-            ((EF_ParamEntry*) (((u32*) efLib_AnimQueue) + cnt))->gobj);
-#endif
+        HSD_JObjAnimAll(((HSD_JObj**) efLib_AnimQueue)[cnt]);
     }
 
     return ret_obj;

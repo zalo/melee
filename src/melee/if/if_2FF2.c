@@ -125,7 +125,7 @@ void fn_802FF218(HSD_GObj* arg0)
             int s;
             int tmp;
             gm_8016B774();
-            s = gm_8016C658(y);
+            s = gm_GetMatchEndPlayerScore(y);
             if (s > 9999) {
                 s = 9999;
             }
@@ -154,7 +154,7 @@ void un_802FF364(int slot)
     if ((thing && thing) && thing) {
     }
     if (gobj) {
-        HSD_GObjPLink_80390228(gobj);
+        HSD_GObjFree(gobj);
     }
     if (thing->x4) {
         HSD_SisLib_803A5CC4(thing->x4);
@@ -163,7 +163,7 @@ void un_802FF364(int slot)
     thing->x4->default_alignment = 1;
     thing->x4->default_kerning = 1;
     gm_8016B774();
-    s = gm_8016C658(slot);
+    s = gm_GetMatchEndPlayerScore(slot);
     if (s > 9999) {
         s = 9999;
     }
@@ -191,7 +191,7 @@ void un_802FF4FC(void)
         struct un_804A1F58_x8_t* thing;
         thing = (0, &base->x8[i]);
         if (thing->x0) {
-            HSD_GObjPLink_80390228(thing->x0);
+            HSD_GObjFree(thing->x0);
         }
         if (thing->x4) {
             HSD_SisLib_803A5CC4(thing->x4);

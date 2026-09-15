@@ -523,10 +523,6 @@ HSD_Particle* psGenerateParticle0(HSD_Particle** head, int linkNo, int bank,
     return pp;
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 void hsd_80398F0C(s32 linkNo, s32 bank, s32 kind, u16 texGroup, HSD_ParticleAddress cmdList,
                   s32 life, s32 zero, HSD_ParticleAddress gen, f32 pos_x, f32 pos_y, f32 pos_z,
                   f32 vel_x, f32 vel_y, f32 vel_z, f32 fric, f32 rate,
@@ -536,9 +532,6 @@ void hsd_80398F0C(s32 linkNo, s32 bank, s32 kind, u16 texGroup, HSD_ParticleAddr
                         zero, pos_x, pos_y, pos_z, vel_x, vel_y, vel_z, fric,
                         rate, angle3, (HSD_Generator*) gen, 1);
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 void hsd_80398F8C(HSD_Particle* pp, f32 angle)
 {
@@ -651,6 +644,13 @@ s32 hsd_803991D8(HSD_Generator* gen, HSD_JObj* jobj, f32 force, f32 range)
     gen->vel.x += scale * dy;
     gen->vel.y += scale * dz;
     return 0;
+}
+
+static inline void psEnableTexture(HSD_Particle* pp, u8* const* textures)
+{
+    if (textures != NULL && textures[pp->poseNum] != NULL) {
+        pp->kind |= DispTexture;
+    }
 }
 
 static inline void psReadFloat(u8** stream)
@@ -833,15 +833,8 @@ void* hsd_8039930C(HSD_Particle* pp, HSD_Particle* prev)
 
                     tga = psTexGroupArray[bank];
                     texGrp = tga[tgIdx];
-                    if (texGrp != NULL
-#ifdef MUST_MATCH
-                        && texGrp->texTable != NULL
-#endif
-                    )
-                    {
-                        if (texGrp->texTable[pp->poseNum] != NULL) {
-                            pp->kind |= DispTexture;
-                        }
+                    if (texGrp != NULL) {
+                        psEnableTexture(pp, texGrp->texTable);
                     }
                 }
                 break;
@@ -2006,15 +1999,8 @@ void* hsd_8039930C(HSD_Particle* pp, HSD_Particle* prev)
 
                         tga = psTexGroupArray[bank];
                         texGrp = tga[tgIdx];
-                        if (texGrp != NULL
-#ifdef MUST_MATCH
-                            && texGrp->texTable != NULL
-#endif
-                        )
-                        {
-                            if (texGrp->texTable[pp->poseNum] != NULL) {
-                                pp->kind |= DispTexture;
-                            }
+                        if (texGrp != NULL) {
+                            psEnableTexture(pp, texGrp->texTable);
                         }
                     }
                 }

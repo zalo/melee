@@ -237,7 +237,7 @@ void ft_80087BC0(HSD_GObj* gobj, int arg1)
 void ft_80087BEC(HSD_GObj* gobj, int arg1)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    ftCo_800A101C(fp, fp->cpu.xC, arg1, fp->cpu.x14);
+    ftCo_800A101C(fp, fp->cpu.kind, arg1, fp->cpu.x14);
 }
 
 s32 ft_GetFtKindMask(void)
@@ -246,9 +246,11 @@ s32 ft_GetFtKindMask(void)
     s32 ftKind;
     u32 result = 0;
 
-    for (gobj = HSD_GObj_Entities->fighters; gobj != 0; gobj = gobj->next) {
+    for (gobj = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_FIGHTER]; gobj != 0;
+         gobj = gobj->next)
+    {
         ftKind = (GET_FIGHTER(gobj))->kind;
-        if (ftKind < FTKIND_MASTERH) {
+        if (ftKind < Ft_Kind_MasterH) {
             result = result | 1 << ftKind;
         }
     }
@@ -359,8 +361,8 @@ s32 ft_80087D0C(Fighter* fighter, s32 sfx_id)
         break;
     case 13: {
         switch (fighter->kind) {
-        case FTKIND_POPO:
-        case FTKIND_NANA:
+        case Ft_Kind_Popo:
+        case Ft_Kind_Nana:
             if (0x1FBFD <= sfx && sfx <= 0x1FC62 &&
                 ftCommon_80080144(fighter) == true)
             {

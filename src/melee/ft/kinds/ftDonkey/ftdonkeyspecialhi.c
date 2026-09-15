@@ -14,6 +14,7 @@
 #include <melee/ft/ftanim.h>
 #include <melee/ft/ftcliffcommon.h>
 #include <melee/ft/ftcommon.h>
+#include <melee/ft/inlines.h>
 #include <melee/ft/kinds/ftCommon/ftCo_Fall.h>
 #include <melee/ft/kinds/ftCommon/ftCo_FallSpecial.h>
 #include <melee/ft/kinds/ftCommon/inlines.h>
@@ -38,8 +39,8 @@ void ftDk_SpecialHi_Enter(HSD_GObj* gobj)
     ftDonkeyAttributes* donkey_attr = getFtSpecialAttrs(fp);
     Fighter_ChangeMotionState(gobj, ftDk_MS_SpecialHi, 0, 0, 1, 0, NULL);
     setCallbacks(gobj);
-    fp->cmd_vars[0] = fp->cmd_vars[1] = fp->cmd_vars[2] = fp->cmd_vars[3] = 0;
-    ftCommon_ClampGrVel(
+    Fighter_ClearCmdVars(fp);
+    ftCommon_ClampGroundVel(
         fp, donkey_attr->SpecialHi.x54_GROUNDED_HORIZONTAL_VELOCITY);
     fp->self_vel.x = fp->gr_vel;
     fp->self_vel.y = 0;
@@ -55,7 +56,7 @@ void ftDk_SpecialAirHi_Enter(HSD_GObj* gobj)
     u8 _[8];
     Fighter_ChangeMotionState(gobj, ftDk_MS_SpecialAirHi, 0, 0, 1, 0, NULL);
     setCallbacks(gobj);
-    fp->cmd_vars[0] = fp->cmd_vars[1] = fp->cmd_vars[2] = fp->cmd_vars[3] = 0;
+    Fighter_ClearCmdVars(fp);
     ftCommon_ClampSelfVelX(
         fp, donkey_attr->SpecialHi.x54_GROUNDED_HORIZONTAL_VELOCITY);
     fp->self_vel.y = donkey_attr->SpecialHi.x4C_AERIAL_VERTICAL_VELOCITY;
@@ -95,9 +96,10 @@ void ftDk_SpecialHi_Phys(HSD_GObj* gobj)
 {
     Fighter* fp = getFighter(gobj);
     ftDonkeyAttributes* donkey_attr = getFtSpecialAttrs(fp);
-    ftCommon_8007CADC(fp, 0, donkey_attr->SpecialHi.x5C_GROUNDED_MOBILITY,
-                      donkey_attr->SpecialHi.x54_GROUNDED_HORIZONTAL_VELOCITY);
-    ftCommon_ApplyGroundMovement(gobj);
+    ftCommon_CalcGroundAccel_AccelToLStickX(
+        fp, 0, donkey_attr->SpecialHi.x5C_GROUNDED_MOBILITY,
+        donkey_attr->SpecialHi.x54_GROUNDED_HORIZONTAL_VELOCITY);
+    ftCommon_SetSelfMovementFromGroundedMovement(gobj);
 }
 
 void ftDk_SpecialAirHi_Phys(HSD_GObj* gobj)
@@ -113,8 +115,9 @@ void ftDk_SpecialAirHi_Phys(HSD_GObj* gobj)
     }
     ftCommon_Fall(fp, grav_mul * fp->co_attrs.gravity,
                   fp->co_attrs.terminal_velocity);
-    ftCommon_8007D344(fp, 0, donkey_attr->SpecialHi.x60_AERIAL_MOBILITY,
-                      donkey_attr->SpecialHi.x58_AERIAL_HORIZONTAL_VELOCITY);
+    ftCommon_CalcSelfAccel_DriftSimple(
+        fp, 0, donkey_attr->SpecialHi.x60_AERIAL_MOBILITY,
+        donkey_attr->SpecialHi.x58_AERIAL_HORIZONTAL_VELOCITY);
 }
 
 void ftDk_SpecialHi_Coll(HSD_GObj* gobj)
@@ -142,7 +145,7 @@ void ftDk_SpecialAirHi_Coll(HSD_GObj* gobj)
             ftCommon_AirToGroundStateChange(gobj, fp, ftDk_MS_SpecialHi,
                                             coll_mf);
             setCallbacks(gobj);
-            ftCommon_ClampGrVel(
+            ftCommon_ClampGroundVel(
                 fp, donkey_attr->SpecialHi.x54_GROUNDED_HORIZONTAL_VELOCITY);
         }
     } else {
@@ -150,7 +153,7 @@ void ftDk_SpecialAirHi_Coll(HSD_GObj* gobj)
             ftCommon_AirToGroundStateChange(gobj, fp, ftDk_MS_SpecialHi,
                                             coll_mf);
             setCallbacks(gobj);
-            ftCommon_ClampGrVel(
+            ftCommon_ClampGroundVel(
                 fp, donkey_attr->SpecialHi.x54_GROUNDED_HORIZONTAL_VELOCITY);
         } else if (ftCliffCommon_80081298(gobj)) {
             ftCliffCommon_80081370(gobj);

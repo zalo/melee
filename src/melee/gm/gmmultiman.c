@@ -292,12 +292,12 @@ void gm_801B6428(GameModeState* arg0)
     temp_r3->rules.x3_1 = false;
     temp_r3->rules.x3_3 = true;
     temp_r3->rules.x3_2 = true;
-    temp_r3->rules.xC = -1;
+    temp_r3->rules.sd_penalty = -1;
     temp_r3->rules.x18 = 0;
     temp_r3->rules.x20 = 0;
     temp_r3->rules.x3_7 = true;
     temp_r3->rules.x9 = 1;
-    temp_r3->rules.xB = -1;
+    temp_r3->rules.item_freq = -1;
     temp_r3->rules.on_pause_override = gm_80165290;
     gm_SetupAllPlayerDefaults(temp_r3->players);
     if (temp_r31->unk_584 == 0xE) {
@@ -392,7 +392,7 @@ void gm_801B65D4(GameModeState* arg0)
         gm_80173AA4();
         gm_80173EEC();
         gm_80172898(0x80);
-        if (temp_r25_2 != CHKIND_NONE) {
+        if (temp_r25_2 != ChKind_None) {
             gm_InitChallengerData(temp_r28->unk_584, temp_r28->unk_585,
                                   gm_804D68E8, temp_r28->unk_586, temp_r25_2,
                                   0xF);
@@ -493,9 +493,9 @@ static void gm_801B6AD8_inline(GameModeState* scene, int x)
                 temp_r31->start.players[0].nametag, 0, gm_804D68F0);
     temp_r31_2 = &lbDvd_GetPreloadCacheScene()->game_cache;
     lbDvd_SetupVsPreloadCache();
-    temp_r31_2->entries[1].char_id = CKIND_BOY;
+    temp_r31_2->entries[1].char_id = CKind_Boy;
     temp_r31_2->entries[1].color = 0;
-    temp_r31_2->entries[2].char_id = CKIND_GIRL;
+    temp_r31_2->entries[2].char_id = CKind_Girl;
     temp_r31_2->entries[2].color = 0;
     temp_r31_2->stkind = 0x11D;
     lbDvd_80018254();
@@ -518,7 +518,7 @@ void gm_801B69C0(StartMeleeData* arg0)
     arg0->rules.is_teams = true;
     arg0->rules.stkind = 0x11D;
     arg0->rules.x18 = 0;
-    arg0->rules.xB = 2;
+    arg0->rules.item_freq = 2;
     arg0->rules.x2C = 0.5F;
     arg0->rules.x20 = 0xFFFFFFFFFFFBFCFF;
     arg0->rules.on_match_start = gm_80182174;
@@ -1040,7 +1040,7 @@ void gm_801B874C(GameModeState* scene)
 
     temp_r3->rules = temp_r29->start.rules;
     gm_801B69C0(temp_r3);
-    temp_r3->rules.xB = -1;
+    temp_r3->rules.item_freq = -1;
     gmMultiman_InitScoreRules(temp_r3);
     gm_SetupAllPlayerDefaults(temp_r3->players);
 

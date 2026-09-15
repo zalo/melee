@@ -108,7 +108,7 @@ static void inlineA0(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     PAD_STACK(4 * 2);
-    fp->cmd_vars[0] = fp->cmd_vars[1] = fp->cmd_vars[2] = fp->cmd_vars[3] = 0;
+    Fighter_ClearCmdVars(fp);
     fp->mv.kb.specialn_pe.facing_dir = fp->facing_dir;
     fp->accessory4_cb = fn_8010C288;
 }
@@ -123,7 +123,6 @@ static void inlineA1(HSD_GObj* gobj, ftKirby_MotionState msid)
 void ftKb_SpecialNPe_8010C4D4(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    PAD_STACK(4 * 2);
     fp->self_vel.y = 0;
     inlineA1(gobj, ftKb_MS_PeSpecialLw);
 }
@@ -132,7 +131,6 @@ void ftKb_SpecialNPe_8010C560(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     struct ftKb_DatAttrs* da = fp->dat_attrs;
-    PAD_STACK(4 * 2);
     fp->self_vel.x /= da->specialn_pe_friction;
     inlineA1(gobj, ftKb_MS_PeSpecialAirLw);
 }
@@ -202,7 +200,7 @@ void ftKb_PeSpecialAirLw_Phys(HSD_GObj* gobj)
     } else {
         ftCommon_FallBasic(fp);
     }
-    ftCommon_ApplyFrictionAir(
+    ftCommon_CalcSelfAccel_Deaccel(
         fp, da->specialn_pe_air_horizontal_momentum_preservation);
     ftColl_8007AEE0(gobj);
 }
@@ -323,7 +321,7 @@ void ftKb_PeSpecialAirLwHit_Phys(HSD_GObj* gobj)
     ftKb_DatAttrs* da = fp->dat_attrs;
     PAD_STACK(4 * 2);
     ftCommon_Fall(fp, da->specialn_pe_fall_acceleration, da->specialn_pe_unk2);
-    ftCommon_ApplyFrictionAir(
+    ftCommon_CalcSelfAccel_Deaccel(
         fp, da->specialn_pe_air_horizontal_momentum_preservation);
 }
 

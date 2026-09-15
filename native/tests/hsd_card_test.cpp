@@ -1,7 +1,8 @@
 // End-to-end host test of Melee's save path on a 64-bit build: lbcardnew.c
-// drives the HSD memory-card library (hsd_3A94.c, hsd_3B27.c) through the
-// native card bridge onto an in-memory CARD backend. Pointer-sized queue slots
-// and every save/load/verify path are exercised under ASan/UBSan.
+// drives the HSD memory-card library (sysdolphin/baselib/card.c) through the
+// native card bridge onto an in-memory CARD backend. The typed command and
+// request queues and every save/load/verify path are exercised under
+// ASan/UBSan.
 #include <cassert>
 #include <cinttypes>
 #include <cstdio>
@@ -23,9 +24,9 @@ struct DVDDiskID { char gameName[4], company[2]; unsigned char diskNumber, gameV
 struct CardEntry { int file_size; int file_flags; unsigned char* data; };
 
 // Melee entry points (src/melee/lb/lbcardnew.c)
-int lb_8001BC18(int, char*, void**, void*, const char*, intptr_t, intptr_t, void*);
+int lb_8001BC18(int, char*, void**, void*, char*, void*, void*, void*);
 int lb_8001BD34(int, const char*, void*, void*);
-int lb_8001BE30(int, const char*, void*, const char*, intptr_t, intptr_t, void*, void*);
+int lb_8001BE30(int, const char*, void*, char*, void*, void*, void*, void*);
 unsigned lb_8001B7E0(int, char*, void*, void*, int*);
 int lb_8001B6F8(void);
 void lbCardNew_AllocWorkArea(void);
@@ -173,7 +174,7 @@ int main() {
 
     // 2. Create the save. This is the path behind the boot prompt's "Yes".
     int blocks = lb_8001C4A8(entries, icon_header);
-    int r = lb_8001BC18(0, name, (void**) entries, icon_header, comment, (intptr_t) banner.data(), (intptr_t) icons.data(), &status);
+    int r = lb_8001BC18(0, name, (void**) entries, icon_header, comment, banner.data(), icons.data(), &status);
     std::printf("create -> %d, %d blocks, %zu file(s), %u sector writes\n", r, blocks, card.files.size(), card.writes);
     assert(r == 0 && card.files.size() == 1);
     File& saved = card.files[0];
@@ -202,7 +203,7 @@ int main() {
     // 5. Rewrite with new contents (post-match autosave) and read back.
     for (int i = 1; i < 9; ++i) { fill(expected[i], 200 + i); payload[i] = expected[i]; }
     unsigned writes_before = card.writes;
-    r = finish(lb_8001BE30(0, name, entries, comment, (intptr_t) banner.data(), (intptr_t) icons.data(), &status, nullptr));
+    r = finish(lb_8001BE30(0, name, entries, comment, banner.data(), icons.data(), &status, nullptr));
     std::printf("write all -> %d, %u sector writes\n", r, card.writes - writes_before);
     assert(r == 0 && card.writes > writes_before);
     for (auto& p : payload) std::fill(p.begin(), p.end(), 0);

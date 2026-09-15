@@ -36,7 +36,7 @@ void ft_8007C17C(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     HitCapsule* hit = &fp->x1064_thrownHitbox;
-    struct ftData_x34* x34 = fp->ft_data->x34;
+    ftData_x34* x34 = fp->ft_data->x34;
     fp->x1064_thrownHitbox.x4 = 0;
     fp->x1064_thrownHitbox.state = HitCapsule_Enabled;
     lbColl_80008440(hit);
@@ -140,7 +140,7 @@ void ft_8007C4BC(Fighter_GObj* gobj)
     if (ftColl_8007B868(gobj) == 2) {
         return;
     }
-    if (fp->x221F_b4) {
+    if (fp->is_sub_fighter) {
         return;
     }
 
@@ -160,7 +160,7 @@ void ft_8007C4BC(Fighter_GObj* gobj)
             Fighter* fp1;
             HitCapsule* throw_hitbox = &fp->x1064_thrownHitbox;
 
-            for (cur = HSD_GObj_Entities->fighters; cur != NULL;
+            for (cur = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_FIGHTER]; cur != NULL;
                  cur = cur->next)
             {
                 if (gobj == cur) {
@@ -172,7 +172,7 @@ void ft_8007C4BC(Fighter_GObj* gobj)
                     fp1 = GET_FIGHTER(cur);
 
                     if (fp1->x2219_b1 || !fp1->x2227_b2 ||
-                        ftColl_8007B868(cur) == 2 || fp1->x221F_b4 ||
+                        ftColl_8007B868(cur) == 2 || fp1->is_sub_fighter ||
                         (fp1->x221C_b6 && fp1->dmg.x1868_source == gobj))
                     {
                         continue;

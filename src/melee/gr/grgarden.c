@@ -12,7 +12,7 @@
 #include "types.h"
 #include <melee/ft/ftdevice.h>
 #include <melee/ft/ftlib.h>
-#include <melee/gm/gm_16AE.h>
+#include <melee/gm/gmvs.h>
 #include <melee/it/item.h>
 #include <melee/lb/lb_00B0.h>
 #include <melee/lb/lb_00F9.h>
@@ -34,8 +34,10 @@ struct grGarden_YakumonoParam {
     float x1C;
 };
 
+static void stageGObj0_OnInit(Ground_GObj* gobj);
+
 StageCallbacks grGd_StageCallbacks[] = {
-    { grGarden_80202D60, grGarden_80202D8C, grGarden_80202D94,
+    { stageGObj0_OnInit, grGarden_80202D8C, grGarden_80202D94,
       grGarden_80202D98, 0 },
     { grGarden_80203004, grGarden_80203090, grGarden_80203098,
       grGarden_802031A0, 0 }, // cranky kong
@@ -121,10 +123,9 @@ HSD_GObj* grGarden_80202C78(int gobj_id)
     return gobj;
 }
 
-void grGarden_80202D60(Ground_GObj* gobj)
+static void stageGObj0_OnInit(Ground_GObj* gobj)
 {
-    Ground* gp = GET_GROUND(gobj);
-    grAnime_801C8138(gobj, gp->map_id, 0);
+    Ground_StartMapAnim(gobj);
 }
 
 bool grGarden_80202D8C(Ground_GObj* arg)

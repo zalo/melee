@@ -15,7 +15,6 @@
 #include "ftcliffcommon.h"
 #include "ftcommon.h"
 #include "ftwalljump.h"
-#include "inlines.h"
 #include "kinds/ftCommon/forward.h"
 #include "kinds/ftCommon/ftCo_Fall.h"
 #include "kinds/ftCommon/ftCo_Landing.h"
@@ -593,7 +592,9 @@ Fighter_GObj* ft_80082E3C(Fighter_GObj* gobj)
     HSD_GObj* cur;
     u8 _[8];
 
-    for (cur = HSD_GObj_Entities->fighters; cur != NULL; cur = cur->next) {
+    for (cur = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_FIGHTER]; cur != NULL;
+         cur = cur->next)
+    {
         if (cur != gobj) {
             Fighter* cur_fp = GET_FIGHTER(cur);
             if (cur_fp->x221D_b7) {
@@ -619,6 +620,11 @@ Fighter_GObj* ft_80082E3C(Fighter_GObj* gobj)
         }
     }
     return NULL;
+}
+
+static inline int ftGetFacingDirInt2(Fighter_GObj* gobj)
+{
+    return ftGetFacingDirInt(GET_FIGHTER(gobj));
 }
 
 void ft_80082F28(Fighter_GObj* gobj)
@@ -1234,7 +1240,7 @@ bool ft_80084A18(Fighter_GObj* gobj)
 
 float ft_GetGroundFrictionMultiplier(Fighter* fp)
 {
-    if (fp->kind == FTKIND_POPO || fp->kind == FTKIND_NANA) {
+    if (fp->kind == Ft_Kind_Popo || fp->kind == Ft_Kind_Nana) {
         return 1.0F;
     }
     return mpColl_8004CA6C(&fp->coll_data);
@@ -1371,5 +1377,5 @@ void ft_80084DB0(Fighter_GObj* gobj)
     } else {
         ftCommon_Fall(fp, co_attrs->gravity, co_attrs->terminal_velocity);
     }
-    ftCommon_8007D268(fp);
+    ftCommon_CalcSelfAccel_Drift(fp);
 }

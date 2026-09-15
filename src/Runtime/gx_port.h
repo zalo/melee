@@ -6,6 +6,9 @@ void MeleeNativeSetArrayData(int attribute, const void* data, unsigned int size,
                             unsigned char stride, int little_endian);
 #define HSD_GX_SET_ARRAY(attr, data, stride) \
     MeleeNativeSetArrayData((attr), (data), sizeof(data), (stride), 1)
+/* Upstream's GXSETARRAY(attr, data, size, stride, le) has this exact shape. */
+#define GXSETARRAY(attr, data, size, stride, le) \
+    MeleeNativeSetArrayData((attr), (data), (size), (stride), (le))
 #define HSD_FIFO_F32(value) GXParam1f32(value)
 #define HSD_FIFO_U8(value) GXParam1u8(value)
 #else

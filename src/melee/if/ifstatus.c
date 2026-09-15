@@ -172,8 +172,7 @@ void ifStatus_PercentOnDeathAnimationThink(UnkX* value, s32 arg1, s32 arg2)
     {
         HSD_JObj* jobj_r30 = DEATH_JOINT(value, i);
         ASSERT_NOT_NULL(jobj_r30, 993);
-        if (fabsf_bitwise(jobj_r30->translate.x) <
-            100.0f) { // 100.0f @ lbl_804DDA6C
+        if (fabsf_bitwise(jobj_r30->translate.x) < 100.0f) {
             float f = DEATH_VX(value, i);
             jobj_r30 = (HSD_JObj*) jobj_get(jobj_r30, value, i);
             ASSERT_NOT_NULL(jobj_r30, 1102);
@@ -650,10 +649,7 @@ void ifStatus_802F5B48(HSD_GObj* gobj)
             p->flags.unk10 = 0;
         }
         if (p->old_damage == 0) {
-            if (gm_16AE_GetUnkData_1()
-                    ->FighterMatchInfo[(s8) p->player_slot]
-                    .x4_b5)
-            {
+            if (gmVs_GetSceneState()->fighters[(s8) p->player_slot].x4_b5) {
                 ifStatus_802F6948((s8) p->player_slot);
             }
         }
@@ -816,30 +812,19 @@ HSD_GObj* ifStatus_802F6194(HSD_GObj* node, s32 n)
         gx_head = node->next_gx;
     }
     gx_cur = gx_head;
-    i = 0;
-    goto check_done;
-
-advance_node:
-    if (gx_cur == NULL) {
-        gx_next = NULL;
-    } else {
-        gx_next = gx_cur->next;
-    }
-    gx_cur = gx_next;
-    i += 1;
-
-check_done:
-    if (i >= n) {
-        return gx_cur;
-    }
-    if (gx_cur != NULL) {
-        goto advance_node;
+    for (i = 0; i < n && gx_cur != NULL; i++) {
+        if (gx_cur == NULL) {
+            gx_next = NULL;
+        } else {
+            gx_next = gx_cur->next;
+        }
+        gx_cur = gx_next;
     }
     return gx_cur;
 #endif
 }
 
-inline void ifStatus_CreateMarkGObj(HSD_GObj** gobj)
+static inline void ifStatus_CreateMarkGObj(HSD_GObj** gobj)
 {
     *gobj = GObj_Create(0xE, 0xF, 0);
 }
@@ -888,8 +873,8 @@ HSD_GObj* ifStatus_802F61FC(IfDamageState* state, s32 player_idx)
     lb_8000C07C(jobj, 0, (HSD_AnimJoint**) hud->unk26C,
                 (HSD_MatAnimJoint**) hud->unk270,
                 (HSD_ShapeAnimJoint**) hud->unk274);
-    if (chara == CKIND_MASTERH || (u32) (chara - CKIND_GKOOPS) <= 1) {
-        chara = CKIND_BOY;
+    if (chara == CKind_MasterH || (u32) (chara - CKind_GKoops) <= 1) {
+        chara = CKind_Boy;
     }
     HSD_TObjReqAnimAll(tobj, 0.5f + gm_80168B34(chara, 0, 0));
     HSD_AObjSetRate(tobj->aobj, 0.1f);
@@ -914,7 +899,8 @@ void ifStatus_802F6508(s32 arg0)
     u32 mode;
 
     if (Player_GetPlayerSlotType(arg0) != Gm_PKind_NA &&
-        (s32) ifStatus_804D6D60 > arg0 && (rules = gm_GetRules(), rules->x2_6))
+        (s32) ifStatus_804D6D60 > arg0 &&
+        (rules = gm_GetStartMeleeRules(), rules->x2_6))
     {
         hud_player = &ifStatus_GetHUDInfo()->players[(u8) arg0];
         hud_player->damage_percent = -1;
@@ -980,11 +966,7 @@ void ifStatus_802F66A4(void)
         if (reset != 0) {
 #endif
             ifStatus_804D6D60 = 0;
-            #ifdef MELEE_NATIVE
-    memzero(hud->players, sizeof(hud->players));
-#else
-    memzero(hud, 0x258);
-#endif
+            memzero(hud, sizeof(hud->players));
 #ifdef MUST_MATCH
         }
     }
@@ -997,11 +979,11 @@ void ifStatus_802F6788(u8 player_idx)
     s8 p_idx = player_idx;
     player_hud = &ifStatus_GetHUDInfo()->players[p_idx & 0xFF];
     if (player_hud->HUD_parent_entity != NULL) {
-        HSD_GObjPLink_80390228(player_hud->HUD_parent_entity);
+        HSD_GObjFree(player_hud->HUD_parent_entity);
         player_hud->HUD_parent_entity = NULL;
     }
     if (player_hud->next != NULL) {
-        HSD_GObjPLink_80390228(player_hud->next);
+        HSD_GObjFree(player_hud->next);
         player_hud->next = NULL;
     }
     ifStock_802FB650(player_idx & 0xFF);
@@ -1012,20 +994,18 @@ void ifStatus_802F6804(void)
     s32 i;
     IfDamageState* v;
 
-    i = 0;
-    do {
+    for (i = 0; i < 6; i++) {
         v = &ifStatus_GetHUDInfo()->players[i & 0xFF];
         if (v->HUD_parent_entity != NULL) {
-            HSD_GObjPLink_80390228(v->HUD_parent_entity);
+            HSD_GObjFree(v->HUD_parent_entity);
             v->HUD_parent_entity = NULL;
         }
         if (v->next != NULL) {
-            HSD_GObjPLink_80390228(v->next);
+            HSD_GObjFree(v->next);
             v->next = NULL;
         }
         ifStock_802FB650((s8) i & 0xFF);
-        i++;
-    } while (i < 6);
+    }
 }
 
 /// Hide Percentage Digits
@@ -1054,7 +1034,7 @@ void ifStatus_802F6948(s32 player_idx)
     struct StartMeleeRules* small_thing;
     IfDamageFlags* hud_player_flags;
 
-    small_thing = gm_GetRules();
+    small_thing = gm_GetStartMeleeRules();
     hud_player = &ifStatus_GetHUDInfo()->players[player_idx];
     hud_player_flags = &hud_player->flags;
     if (hud_player_flags->explode_animation != 1) {
@@ -1070,13 +1050,13 @@ static inline void ifStatus_TriggerStockLoss(s32 player_idx,
                                              void (*callback)(s32))
 {
     IfDamageState* hud_player;
-    lbl_8046B6A0_t* big_thing;
+    VsSceneController* big_thing;
     struct StartMeleeRules* small_thing;
     IfDamageFlags* hud_player_flags;
 
-    big_thing = gm_16AE_GetUnkData_0();
-    big_thing->unk_D = player_idx;
-    small_thing = gm_GetRules();
+    big_thing = gmVs_GetSceneController();
+    big_thing->state.unk_D = player_idx;
+    small_thing = gm_GetStartMeleeRules();
     hud_player = &ifStatus_GetHUDInfo()->players[player_idx];
     hud_player_flags = &hud_player->flags;
     if (hud_player_flags->explode_animation != 1) {
@@ -1086,7 +1066,7 @@ static inline void ifStatus_TriggerStockLoss(s32 player_idx,
             hud_player->unk9 = 1;
         }
     }
-    if ((big_thing->x24C8.is_stock != 0) &&
+    if ((big_thing->start.is_stock != 0) &&
         ((Player_GetPlayerSlotType(player_idx) == Gm_PKind_Human) ||
          (Player_GetPlayerSlotType(player_idx) == Gm_PKind_Cpu)) &&
         (Player_GetStocks(player_idx) == 0))
@@ -1094,7 +1074,7 @@ static inline void ifStatus_TriggerStockLoss(s32 player_idx,
         gm_8016B8D4(player_idx, Player_GetPlayerSlotType(player_idx));
     }
 
-    if (big_thing->x24C8.match_kind != 1 && big_thing->x24C8.x2_5 != 0 &&
+    if (big_thing->start.match_kind != 1 && big_thing->start.x2_5 != 0 &&
         callback != NULL)
     {
         callback(player_idx);
@@ -1103,10 +1083,10 @@ static inline void ifStatus_TriggerStockLoss(s32 player_idx,
 
 void ifStatus_802F69C0(s32 player_idx, s32 arg1)
 {
-    lbl_8046B6A0_t* big_thing;
+    VsSceneController* big_thing;
 
-    big_thing = gm_16AE_GetUnkData_0();
-    if (big_thing->x24C8.match_kind != 1 && big_thing->x24C8.x2_5 != 0) {
+    big_thing = gmVs_GetSceneController();
+    if (big_thing->start.match_kind != 1 && big_thing->start.x2_5 != 0) {
         if_802F7C30(arg1);
     }
 

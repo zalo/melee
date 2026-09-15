@@ -12,6 +12,7 @@
 #include <melee/ft/ft_0892.h>
 #include <melee/ft/ftanim.h>
 #include <melee/ft/ftcommon.h>
+#include <melee/ft/inlines.h>
 #include <melee/ft/kinds/ftCommon/ftCo_Fall.h>
 #include <melee/ft/kinds/ftCommon/inlines.h>
 #include <melee/ft/types.h>
@@ -38,7 +39,7 @@ static void reset(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     ftPe_DatAttrs* da = fp->dat_attrs;
-    fp->cmd_vars[0] = fp->cmd_vars[1] = fp->cmd_vars[2] = fp->cmd_vars[3] = 0;
+    Fighter_ClearCmdVars(fp);
     fp->self_vel.x = 0;
     fp->x6A4_transNOffset.x = 0;
     if (fp->x673 < da->x30) {
@@ -81,15 +82,15 @@ static void doAirEnd0(HSD_GObj* gobj)
         Fighter* other_fp = GET_FIGHTER(fp->unk_gobj);
         if (other_fp != NULL) {
             switch (other_fp->kind) {
-            case FTKIND_MARS:
-            case FTKIND_EMBLEM: {
+            case Ft_Kind_Mars:
+            case Ft_Kind_Emblem: {
                 FtMotionId msid = other_fp->motion_id;
                 if (msid != 369 && msid != 371) {
                     return;
                 }
                 break;
             }
-            case FTKIND_PEACH: {
+            case Ft_Kind_Peach: {
                 FtMotionId msid = other_fp->motion_id;
                 if (msid != 365 && msid != 367) {
                     return;
@@ -147,9 +148,10 @@ void ftPe_SpecialSStart_Phys(HSD_GObj* gobj)
     u8 _[8];
     Fighter* fp = GET_FIGHTER(gobj);
     ftPe_DatAttrs* da = fp->dat_attrs;
-    ftCommon_8007CA80(fp, da->specials_start_accel * fp->facing_dir,
-                      da->specials_start_vel_x * fp->facing_dir, 0);
-    ftCommon_ApplyGroundMovement(gobj);
+    ftCommon_CalcGroundAccel_AccelToVel(
+        fp, da->specials_start_accel * fp->facing_dir,
+        da->specials_start_vel_x * fp->facing_dir, 0);
+    ftCommon_SetSelfMovementFromGroundedMovement(gobj);
 }
 
 void ftPe_SpecialAirSStart_Phys(HSD_GObj* gobj)
@@ -231,7 +233,7 @@ void ftPe_SpecialAirSJump_Phys(HSD_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
     ftPe_DatAttrs* da = fp->dat_attrs;
     if (fp->cmd_vars[1]) {
-        ftCommon_ApplyFrictionAir(fp, da->x54);
+        ftCommon_CalcSelfAccel_Deaccel(fp, da->x54);
     }
     ftCommon_Fall(fp, fp->cmd_vars[1] ? da->x58_gravity : da->x50_gravity,
                   da->x5C_terminal_vel);

@@ -2,23 +2,20 @@
 
 #include "vi.h"
 #include <dolphin/gx/GXStruct.h>
-#include <melee/cm/camera.h>
 #include <melee/ef/efasync.h>
 #include <melee/ef/eflib.h>
 #include <melee/ft/ftdemo.h>
 #include <melee/gm/gm_1601.h>
-#include <melee/gm/gm_1A45.h>
+#include <melee/gm/gmscene.h>
 #include <melee/gr/grlib.h>
-#include <melee/gr/ground.h>
+#include <melee/gr/inlines.h>
 #include <melee/gr/stage.h>
 #include <melee/it/item.h>
-#include <melee/lb/lb_00F9.h>
 #include <melee/lb/lb_013B.h>
 #include <melee/lb/lbarchive.h>
 #include <melee/lb/lbaudio_ax.h>
 #include <melee/lb/lbshadow.h>
 #include <melee/lb/lbspdisplay.h>
-#include <melee/mp/mpcoll.h>
 #include <melee/pl/player.h>
 #include <melee/sc/types.h>
 #include <sysdolphin/baselib/gobjgxlink.h>
@@ -62,11 +59,7 @@ void un_8031F294(s32 arg0, s32 arg1)
     VecMtxPtr pmtx;
     PAD_STACK(16);
 
-    Camera_Init(6);
-    lb_8000FCDC();
-    mpColl_80041C78();
-    Ground_801C0378(0x40);
-    Stage_802251E8(St_Kind_Battle, 0);
+    Stage_InitScene(St_Kind_Battle, 0);
     Item_80266FA8();
     Item_80266FCC();
     Stage_8022524C();
@@ -82,8 +75,8 @@ void un_8031F294(s32 arg0, s32 arg1)
     Player_80032768(0, un_80400200.spawns);
     Player_80036F34(0, 8);
     pmtx = grLib_801C9A10();
-    Player_80036E20(CKIND_MARIO, un_804D6FCC, 5);
-    Player_SetPlayerCharacter(1, CKIND_MARIO);
+    Player_80036E20(CKind_Mario, un_804D6FCC, 5);
+    Player_SetPlayerCharacter(1, CKind_Mario);
     Player_SetCostumeId(1, 0);
     Player_SetPlayerId(1, 0);
     Player_SetSlottype(1, Gm_PKind_Demo);
@@ -97,9 +90,9 @@ void un_8031F294(s32 arg0, s32 arg1)
     HSD_JObjAnimAll(jobj);
     pmtx[1] = un_80400200.spawns[1];
     HSD_JObjReqAnimAll(jobj, un_804DE0DC);
-    if (gm_IsCKindUnlocked(CKIND_LUIGI) != 0) {
-        Player_80036E20(CKIND_LUIGI, un_804D6FCC, 5);
-        Player_SetPlayerCharacter(2, CKIND_LUIGI);
+    if (gm_IsCKindUnlocked(CKind_Luigi) != 0) {
+        Player_80036E20(CKind_Luigi, un_804D6FCC, 5);
+        Player_SetPlayerCharacter(2, CKind_Luigi);
         Player_SetCostumeId(2, 0);
         Player_SetPlayerId(2, 0);
         Player_SetSlottype(2, Gm_PKind_Demo);
@@ -140,7 +133,7 @@ void fn_8031F600(HSD_GObj* gobj)
     HSD_CObjAnim(cobj);
 
     if (170.0f == cobj->aobj->curr_frame) {
-        if (gm_IsCKindUnlocked(CKIND_LUIGI) != 0) {
+        if (gm_IsCKindUnlocked(CKind_Luigi) != 0) {
             vi_8031C9B4(0xD, 0);
             lbAudioAx_800237A8(0x209, 0x7F, 0x40);
         }
@@ -152,7 +145,7 @@ void fn_8031F600(HSD_GObj* gobj)
     }
 
     if (241.0f == cobj->aobj->curr_frame) {
-        if (gm_IsCKindUnlocked(CKIND_LUIGI) != 0) {
+        if (gm_IsCKindUnlocked(CKind_Luigi) != 0) {
             lbAudioAx_800237A8(0x20A, 0x7F, 0x40);
         }
     }
@@ -199,7 +192,7 @@ void vi1101_Scene_OnEnter(void* arg)
                             lb_80011AC4(un_804D6FC0->lights));
     GObj_SetupGXLink(temp_r28, HSD_GObj_LObjCallback, 0, 0);
 
-    if (gm_IsCKindUnlocked(CKIND_LUIGI) != 0) {
+    if (gm_IsCKindUnlocked(CKind_Luigi) != 0) {
         var_r28 = un_804D6FC0;
     } else {
         var_r28 = un_804D6FC4;

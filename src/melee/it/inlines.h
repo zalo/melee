@@ -12,15 +12,25 @@
 
 #define GET_ITEM(gobj) ((Item*) HSD_GObjGetUserData(gobj))
 
+/// @deprecated Use #GET_ITEM instead.
 static inline Item* GetItemData(HSD_GObj* gobj)
 {
     Item* item_data = gobj->user_data;
+
     return item_data;
 }
 
 static inline void itResetVelocity(Item* ip)
 {
     ip->x40_vel.x = ip->x40_vel.y = ip->x40_vel.z = 0.0F;
+}
+
+static inline void Item_ClearCmdVars(Item* ip)
+{
+    ip->xDB8_itcmd_var3 = 0;
+    ip->xDB4_itcmd_var2 = 0;
+    ip->xDB0_itcmd_var1 = 0;
+    ip->xDAC_itcmd_var0 = 0;
 }
 
 static inline void Item_SetEffectHitlagCallbacks(Item* ip)

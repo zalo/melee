@@ -13,24 +13,19 @@ struct CardEntry {
     u8* data;
 };
 
-/* 019BB8 */ int lb_80019BB8(int card_result);
-/* 019C38 */ struct CardTask* lb_80019C38(void);
-/* 019CB0 */ int lb_80019CB0(int result);
 /* 019EF0 */ void lb_80019EF0(int chan, UNK_T save_data, UNK_T status_out,
                               UNK_T callback);
-/* 01A008 */ void fn_8001A008(s32 unused, s32 card_result);
 /* 01A0B0 */ void fn_8001A0B0(int file_idx, int hsd_error);
 /* 01A184 */ int lb_8001A184(void);
 /* 01A3A4 */ int lb_8001A3A4(void);
 /* 01A4CC */ void lb_8001A4CC(const char* filename, UNK_T file_entries);
-/* 01A594 */ int lb_8001A594(char* filename, void* file_entries);
 /* 01A860 */ int lb_8001A860(void);
 /* 01A8A4 */ int lb_8001A8A4(void);
 /* 01A9CC */ int lb_8001A9CC(char* filename);
 /* 01AAE4 */ int lb_8001AAE4(const char* old_name, const char* new_name);
-/* 01AC04 */ int lb_8001AC04(UNK_T filename);
-/* 01ACEC */ int lb_8001ACEC(UNK_T file_entries);
-/* 01AE38 */ int lb_8001AE38(UNK_T file_entries);
+/* 01AC04 */ int lb_8001AC04(const char* filename);
+/* 01ACEC */ int lb_8001ACEC(struct CardEntry* file_entries);
+/* 01AE38 */ int lb_8001AE38(struct CardEntry* file_entries);
 /* 01AF84 */ int lb_8001AF84(void);
 /* 01B068 */ int lb_8001B068(void);
 /* 01B14C */ int lb_8001B14C(void);
@@ -45,22 +40,19 @@ struct CardEntry {
 /* 01BA44 */ bool lb_8001BA44(int chan, const char* filename,
                               UNK_T status_out);
 /* 01BB48 */ int lb_8001BB48(int chan, char* filename, void* file_entries,
-                             void* save_data, const char* write_buf,
-                             intptr_t write_offset, intptr_t write_len,
-                             UNK_T status_out);
+                             void* save_data, char* comment, void* banner,
+                             void* icons, UNK_T status_out);
 /* 01BC18 */ int lb_8001BC18(int chan, char* filename, void** file_entries,
-                             void* save_data, const char* write_buf,
-                             intptr_t write_offset, intptr_t write_len,
-                             UNK_T status_out);
+                             void* save_data, char* comment, void* banner,
+                             void* icons, UNK_T status_out);
 /* 01BD34 */ enum_t lb_8001BD34(int chan, const char* filename,
                                 UNK_T file_entries, UNK_T status_out);
 /* 01BE30 */ int lb_8001BE30(int chan, const char* filename,
-                             UNK_T file_entries, const char* read_buf,
-                             intptr_t read_offset, intptr_t read_len, UNK_T status_out,
-                             UNK_T callback);
+                             UNK_T file_entries, char* comment, void* banner,
+                             void* icons, UNK_T status_out, UNK_T callback);
 /* 01BF04 */ int lb_8001BF04(int chan, char* filename, void* file_entries,
-                             const char* write_buf, intptr_t write_offset,
-                             intptr_t write_len, UNK_T status_out);
+                             char* comment, void* banner, void* icons,
+                             UNK_T status_out);
 /* 01BFD8 */ int lb_8001BFD8(int chan,
                              lbCardNew_SnapshotEntry* snapshot_entries,
                              int* free_blocks, int* free_files);

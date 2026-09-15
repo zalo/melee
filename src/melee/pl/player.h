@@ -4,28 +4,29 @@
 #include <Runtime/platform.h>
 
 #include <melee/ft/forward.h>
+#include <melee/gm/forward.h>
 #include <melee/pl/forward.h>
 #include <sysdolphin/baselib/forward.h>
 
 #include <dolphin/mtx.h>
+#include <dolphin/pad.h>
 #include <melee/pl/types.h>
 #include <sysdolphin/baselib/gobj.h>
 #include <sysdolphin/baselib/jobj.h>
 
+#define PL_MAX_SUB_FIGHTERS 2
+
 typedef struct _StaticPlayer {
-    /// @at{0} @sz{4}
     /// @todo 0x02 In-Game (includes dead). 0x00 Otherwise.
     enum_t player_state;
 
-    /// @at{4} @sz{4}
-    /// @todo External ID.
-    CharacterKind player_character;
+    CharacterKind ckind;
 
-    /// @at{8} @sz{4}
-    Gm_PKind slot_type;
+    Gm_PKind pkind;
 
-    /*0x0C*/ u8 transformed[2]; // 0x0001 for normal, 0x0100 for transformed
-                                // (Probably Zelda/Sheik only)
+    /// ::bool for each index indicating whether each fighter is active
+    /*0x0C*/ u8 transformed[PL_MAX_SUB_FIGHTERS];
+
     /*0x0E*/ s16 unk0E;
 
     union {
@@ -37,19 +38,21 @@ typedef struct _StaticPlayer {
             /*0x34-0x3f*/ Vec3 some_other_player_pos;
         } byVecName;
 
-        Vec3 byIndex[4];
+        Vec3 byIndex[PAD_MAX_CONTROLLERS];
     } player_poses;
 
     /*0x40*/ f32 facing_direction;
 
-    /*0x44*/ u8 costume_id; // 00 = normal, 01 = red, 02 = blue, 03 = green
-                            // (reflected in icon immediately)
+    /*0x44*/ u8 costume_id; ///< ::CostumeId; max value depends on
+                            ///< ::CostumeListsForeachCharacter and
+                            ///< ::gm_GetNumCostumesForCKind
     /*0x45*/ u8 unk45;
-    /*0x46*/ s8 controller_index;
-    /*0x47*/ u8 team; /// 00 = red, 01 = blue, 02 = green
-    /*0x48*/ u8 player_id;
-    /*0x49*/ u8 cpu_level;
-    /*0x4A*/ u8 cpu_type;
+    /*0x46*/ s8 controller_index; ///< Physical controller port up to
+                                  ///< ::PAD_MAX_CONTROLLERS
+    /*0x47*/ u8 team;             ///< ::TeamColor
+    /*0x48*/ u8 player_id;        ///< Player "slot" up to ::GM_MAX_PLAYERS
+    /*0x49*/ u8 cpu_level;        ///< 1 to 9
+    /*0x4A*/ u8 cpu_type;         ///< ::CpuKind
     /*0x4B*/ u8 handicap;
 
     /*0x4C*/ s8 unk4C;
@@ -71,18 +74,17 @@ typedef struct _StaticPlayer {
             /*0x64*/ s16 stamina;
             /*0x66*/ s16 unk66;
         } byName;
-        s16 byIndex[4];
+        s16 byIndex[PAD_MAX_CONTROLLERS];
     } staminas;
 
-    /*0x68 - 0x6C*/ s32 falls[2]; /// other index for nana falls
+    /*0x68 - 0x6C*/ s32 falls[PL_MAX_SUB_FIGHTERS];
 
-    /*0x70-0x84*/ u32 kos_by_player[6];
+    /*0x70-0x84*/ u32 kos_by_player[GM_MAX_PLAYERS];
 
-    /// @at{88} @sz{4}
     /// @remarks If -1 in zz_0035184, then it's set to MatchInfo->frame_count
     u32 match_frame_count;
 
-    /*0x8C*/ u16 suicide_count;
+    /*0x8C*/ u16 self_destructs;
 
     /*0x8E*/ s8 stocks;
     /*0x8F*/ s8 unk8F;
@@ -93,10 +95,11 @@ typedef struct _StaticPlayer {
     /*0x98*/ s32 unk98;
     /*0x9C*/ s32 unk9C;
 
-    /*0xA0-A4*/ s32
-        joystick_direction_input_count[2]; // Incremented every time you move
-                                           // the joystick a different
-                                           // direction from neutral.
+    /**
+     * Incremented every time you move the joystick a different direction from
+     * neutral.
+     */
+    /*0xA0-A4*/ s32 joystick_direction_input_count[PL_MAX_SUB_FIGHTERS];
 
     /*0xA8*/ int nametag_slot_id;
 
@@ -134,7 +137,7 @@ typedef struct _StaticPlayer {
 
     /*0xAF*/ s8 unkAF;
 
-    /*0xB0*/ HSD_GObj* player_entity[2];
+    /*0xB0*/ HSD_GObj* player_entity[PL_MAX_SUB_FIGHTERS];
     /*0xB4*/ /*void* sub_character_entity;*/ // Used for followers, such as
                                              // Nana
 
@@ -247,9 +250,9 @@ s32 Player_GetKOsByPlayerIndex(int slot, int idx);
 void Player_UpdateKOsBySlot(int slot, bool bool_arg, int other_slot);
 u32 Player_GetMatchFrameCount(int slot);
 void Player_UpdateMatchFrameCount(int slot, bool condition);
-u32 Player_GetSuicideCount(int slot);
-void Player_SetSuicideCount(s32 slot, u32 suicide_count);
-void Player_IncSuicideCount(s32 slot, s32 condition);
+u32 Player_GetSelfDestructs(int slot);
+void Player_SetSelfDestructs(s32 slot, u32 self_destructs);
+void Player_IncSelfDestructs(s32 slot, s32 condition);
 bool Player_800353BC(s32 slot);
 bool Player_8003544C(s32 slot, bool condition);
 void Player_SetFlagsBit0(int slot, bool bit0);

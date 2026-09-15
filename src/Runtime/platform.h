@@ -52,8 +52,12 @@ typedef bool (*Predicate)(void);
 #ifndef UNUSED
 #if defined(__clang__) || defined(__GNUC__)
 #define UNUSED __attribute__((unused))
+#define ATTRIBUTE_NORETURN __attribute__((noreturn))
+#define ATTRIBUTE_NONSTRING __attribute__((nonstring))
 #else
 #define UNUSED
+#define ATTRIBUTE_NORETURN
+#define ATTRIBUTE_NONSTRING
 #endif
 #endif
 
@@ -64,46 +68,6 @@ typedef bool (*Predicate)(void);
 #define ATTRIBUTE_ALIGN(num)
 #else
 #error unknown compiler
-#endif
-#endif
-
-#ifndef SECTION_INIT
-#if defined(__MWERKS__) && !defined(M2CTX)
-#define SECTION_INIT __declspec(section ".init")
-#else
-#define SECTION_INIT
-#endif
-#endif
-
-#ifndef SECTION_CTORS
-#if defined(__MWERKS__) && !defined(M2CTX)
-#define SECTION_CTORS __declspec(section ".ctors")
-#else
-#define SECTION_CTORS
-#endif
-#endif
-
-#ifndef SECTION_DTORS
-#if defined(__MWERKS__) && !defined(M2CTX)
-#define SECTION_DTORS __declspec(section ".dtors")
-#else
-#define SECTION_DTORS
-#endif
-#endif
-
-#ifndef ATTRIBUTE_NORETURN
-#if defined(__clang__) || defined(__GNUC__)
-#define ATTRIBUTE_NORETURN __attribute__((noreturn))
-#else
-#define ATTRIBUTE_NORETURN
-#endif
-#endif
-
-#ifndef ATTRIBUTE_RESTRICT
-#if defined(__MWERKS__) && !defined(M2CTX)
-#define ATTRIBUTE_RESTRICT __restrict
-#else
-#define ATTRIBUTE_RESTRICT
 #endif
 #endif
 
@@ -131,6 +95,7 @@ typedef bool (*Predicate)(void);
 #define U8_MAX 0xFF
 #define U16_MAX 0xFFFF
 #define U32_MAX 0xFFFFFFFF
+#define U64_MAX 0xFFFFFFFFFFFFFFFF
 #define S8_MAX 0x7F
 #define S16_MAX 0x7FFF
 #define S32_MAX 0x7FFFFFFF
@@ -176,10 +141,18 @@ typedef bool (*Predicate)(void);
 #define SDATA __declspec(section ".sdata")
 #define DATA __declspec(section ".data")
 #define WEAK __declspec(weak)
+#define SECTION_INIT __declspec(section ".init")
+#define SECTION_CTORS __declspec(section ".ctors")
+#define SECTION_DTORS __declspec(section ".dtors")
+#define ATTRIBUTE_RESTRICT __restrict
 #else
 #define SDATA
 #define DATA
 #define WEAK
+#define SECTION_INIT
+#define SECTION_CTORS
+#define SECTION_DTORS
+#define ATTRIBUTE_RESTRICT
 #endif
 
 #define M_TAU 6.283185307179586

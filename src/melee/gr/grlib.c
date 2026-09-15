@@ -19,6 +19,7 @@
 #include <sysdolphin/baselib/gobjobject.h>
 #include <sysdolphin/baselib/gobjplink.h>
 #include <sysdolphin/baselib/gobjproc.h>
+#include <sysdolphin/baselib/jobj.h>
 #include <sysdolphin/baselib/psappsrt.h>
 #include <sysdolphin/baselib/psstructs.h>
 
@@ -106,22 +107,6 @@ void grLib_801C98A0(HSD_JObj* jobj)
     }
 }
 
-static inline HSD_JObj* jobj_child(HSD_JObj* node)
-{
-    if (node == NULL) {
-        return NULL;
-    }
-    return node->child;
-}
-
-static inline HSD_JObj* jobj_next(HSD_JObj* node)
-{
-    if (node == NULL) {
-        return NULL;
-    }
-    return node->next;
-}
-
 void grLib_801C9908(HSD_JObj* jobj)
 {
     HSD_Generator* cur;
@@ -143,7 +128,9 @@ void grLib_801C9908(HSD_JObj* jobj)
         return;
     }
 
-    for (jobj = jobj_child(jobj); jobj != NULL; jobj = jobj_next(jobj)) {
+    for (jobj = HSD_JObjGetChild(jobj); jobj != NULL;
+         jobj = HSD_JObjGetNext(jobj))
+    {
         grLib_801C9908(jobj);
     }
 }
@@ -222,7 +209,7 @@ static void grLib_801C9C40(HSD_GObj* gobj)
                           HSD_JObjGetTranslationY(jobj));
 
     if (aobj == NULL || aobj->flags & 0x40000000) {
-        HSD_GObjPLink_80390228(gobj);
+        HSD_GObjFree(gobj);
     }
 }
 
@@ -346,7 +333,7 @@ bool grLib_801C9EE8(Vec3* point, float offset)
     Item_GObj* cur_item;
     Item_GObj* items;
 
-    fighters = HSD_GObj_Entities->fighters;
+    fighters = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_FIGHTER];
     for (cur_fighter = fighters; cur_fighter != NULL;
          cur_fighter = cur_fighter->next)
     {
@@ -356,7 +343,7 @@ bool grLib_801C9EE8(Vec3* point, float offset)
         }
     }
 
-    items = HSD_GObj_Entities->items;
+    items = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_ITEM];
     for (cur_item = items; cur_item != NULL; cur_item = cur_item->next) {
         if (itGetKind(cur_item) != It_PKind_Random) {
             ip = GET_ITEM(cur_item);

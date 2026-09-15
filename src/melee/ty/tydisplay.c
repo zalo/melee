@@ -13,7 +13,7 @@
 #include <dolphin/mtx.h>
 #include <dolphin/os.h>
 #include <melee/db/db.h>
-#include <melee/gm/gm_1A45.h>
+#include <melee/gm/gmscene.h>
 #include <melee/if/textdraw.h>
 #include <melee/if/textlib.h>
 #include <melee/if/types.h>
@@ -430,8 +430,7 @@ void _tyDisplay_80318B1C(s32 arg0)
             i++;
         }
     } else {
-        i = 0;
-        do {
+        for (i = 0; i < TY_TROPHY_COUNT; i++) {
             if (Toy_803048C0(i) != 0) {
                 tyDisplay_8031B9DC(i);
                 grid->sort[start].key = i;
@@ -441,8 +440,7 @@ void _tyDisplay_80318B1C(s32 arg0)
                     start = 0;
                 }
             }
-            i++;
-        } while (i < TY_TROPHY_COUNT);
+        }
     }
 }
 
@@ -505,7 +503,7 @@ static inline void _tyDisplay_80319540_sort(TyDspConfig* cfg, TyDspGrid* grid)
     }
 }
 
-inline void _tyDisplay_80319994_sort(TyDspConfig* cfg, TyDspGrid* grid)
+static inline void _tyDisplay_80319994_sort(TyDspConfig* cfg, TyDspGrid* grid)
 {
     s32 pivot;
     s32 n2;
@@ -559,7 +557,7 @@ inline void _tyDisplay_80319994_sort(TyDspConfig* cfg, TyDspGrid* grid)
     }
 }
 
-inline void _tyDisplay_80318CB4_sort(TyDspConfig* cfg, TyDspGrid* grid)
+static inline void _tyDisplay_80318CB4_sort(TyDspConfig* cfg, TyDspGrid* grid)
 {
     s32 n2;
     _tyDisplay_80318B1C(cfg->x08);
@@ -1535,7 +1533,7 @@ void _tyDisplay_8031A94C(HSD_GObj* arg0)
             _tyDisplay_8031BA78(cfg->x7C, 2, HSD_JObjGetTranslationZ(trophy));
         }
         if (Toy_80305B88() & 0x20) {
-            HSD_GObjPLink_80390228(cfg->x78);
+            HSD_GObjFree(cfg->x78);
             cfg->x78 = NULL;
             while (cfg->x78 == NULL) {
                 cfg->x7C = cfg->x7C + 1;
@@ -1547,7 +1545,7 @@ void _tyDisplay_8031A94C(HSD_GObj* arg0)
             return;
         }
         if (Toy_80305B88() & 0x40) {
-            HSD_GObjPLink_80390228(cfg->x78);
+            HSD_GObjFree(cfg->x78);
             cfg->x78 = NULL;
             while (cfg->x78 == NULL) {
                 cfg->x7C = cfg->x7C - 1;
@@ -1655,13 +1653,13 @@ void _tyDisplay_8031B1FC(void)
     if ((ptr->gobj4 && ptr->gobj4) && gobj4) {
     }
     if (gobj != NULL) {
-        HSD_GObjPLink_80390228(gobj);
+        HSD_GObjFree(gobj);
         ptr->gobj0 = NULL;
     }
 
     gobj = ptr->gobj4;
     if (gobj != NULL) {
-        HSD_GObjPLink_80390228(gobj);
+        HSD_GObjFree(gobj);
         ptr->gobj4 = NULL;
     }
 
@@ -1973,7 +1971,7 @@ void _tyDisplay_8031B850(void)
 
     gobj = *(temp = &pgobj->x00);
     if (gobj != NULL) {
-        HSD_GObjProc_8038FED4(gobj);
+        HSD_GObjProc_RemoveAllProcs(gobj);
         *temp = NULL;
     }
 
@@ -1982,7 +1980,7 @@ void _tyDisplay_8031B850(void)
             lbArchive_80016EFC(_tyDisplay_804A2DD0.archive);
             _tyDisplay_804A2DD0.archive = NULL;
         }
-        HSD_GObjPLink_80390228(_tyDisplay_804D6F2C);
+        HSD_GObjFree(_tyDisplay_804D6F2C);
         _tyDisplay_804D6F2C = NULL;
     }
 

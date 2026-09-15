@@ -28,10 +28,10 @@ int main(void) {
     CHECK(OSRoundUp32B((uintptr_t)0x100000001ULL) == 0x100000020ULL);
     CHECK(OSRoundDown32B((uintptr_t)0x10000001FULL) == 0x100000000ULL);
     const u32 expected[] = {41, 51235, 6334, 59268, 51937, 15724};
-    *seed_ptr = 1;
+    *HSD_RandSeedPtr = 1;
     for (unsigned i = 0; i < sizeof(expected)/sizeof(*expected); ++i)
         CHECK((u32)HSD_Rand() == expected[i]);
-    *seed_ptr = 1;
+    *HSD_RandSeedPtr = 1;
     CHECK(HSD_Randf() == 41.0f / 65536.0f);
 
     unsigned char* arena = malloc(256);

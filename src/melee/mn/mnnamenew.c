@@ -562,7 +562,7 @@ s32 mnNameNew_8023BAA8(NameNewEntry* arg0, s32 arg1, u8 arg2)
     return (s32) arg2;
 }
 
-inline u8 GetAutoNameCharacter(u8** names, s32 char_idx)
+static inline u8 GetAutoNameCharacter(u8** names, s32 char_idx)
 {
     return (*names)[char_idx];
 }
@@ -800,7 +800,7 @@ void mnNameNew_GlyphVariantInput(HSD_GObj* gobj)
     mn_804A04F0.buttons = buttons;
     count = 0;
     if (buttons & 0x200) {
-        HSD_GObjPLink_80390228(data->variant_gobj);
+        HSD_GObjFree(data->variant_gobj);
         data->variant_gobj = NULL;
         AddCharacterToName(&mnNameNew_CurrentNameText[data->cursor_pos * 3],
                            mn_804A04F0.hovered_selection,
@@ -830,7 +830,7 @@ void mnNameNew_GlyphVariantInput(HSD_GObj* gobj)
         }
     } else {
         if (buttons & 0x20) {
-            HSD_GObjPLink_80390228(data->variant_gobj);
+            HSD_GObjFree(data->variant_gobj);
             data->variant_gobj = NULL;
             mnNameNew_8023CE4C();
             return;
@@ -1620,14 +1620,10 @@ void fn_8023DAEC(HSD_GObj* arg0)
         all_anims_done = 0;
     }
     if (all_anims_done != 0 || mn_804A04F0.x10 == 1) {
-        HSD_GObjPLink_80390228(arg0);
+        HSD_GObjFree(arg0);
     }
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 void fn_8023DBE8(HSD_GObj* arg0)
 {
     MenuFlow* flow;
@@ -1656,7 +1652,7 @@ void fn_8023DBE8(HSD_GObj* arg0)
         HSD_JObjSetFlagsAll(data->jobjs[16], JOBJ_HIDDEN);
         HSD_JObjSetFlagsAll(data->jobjs[12], JOBJ_HIDDEN);
         HSD_JObjSetFlagsAll(data->jobjs[13], JOBJ_HIDDEN);
-        HSD_GObjProc_8038FE24(HSD_GObj_804D7838);
+        HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
         proc = HSD_GObj_SetupProc(gobj, fn_8023DAEC, 0U);
         proc->flags_3 = HSD_GObj_804D783C;
         return;
@@ -1739,9 +1735,6 @@ void fn_8023DBE8(HSD_GObj* arg0)
         HSD_JObjAnimAll(jobj);
     }
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 void mnNameNew_8023E0D8(NameNewEntry* arg0)
 {

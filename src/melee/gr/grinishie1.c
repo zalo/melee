@@ -16,7 +16,6 @@
 #include <melee/it/itdrop.h>
 #include <melee/it/itspawn.h>
 #include <melee/lb/lb_00B0.h>
-#include <melee/lb/lb_00F9.h>
 #include <melee/lb/lbaudio_ax.h>
 #include <melee/mp/mplib.h>
 #include <sysdolphin/baselib/debug.h>
@@ -33,7 +32,7 @@
 /* 1FA988 */ static void grInishie1_801FA988(void);
 /* 1FA9AC */ static bool grInishie1_801FA9AC(void);
 /* 1FA9B4 */ static Ground_GObj* setupStageCallbacks(int gobj_id);
-/* 1FAAA0 */ static void grInishie1_801FAAA0(Ground_GObj*);
+/* 1FAAA0 */ static void stageGObj0_OnInit(Ground_GObj*);
 /* 1FAACC */ static bool grInishie1_801FAACC(Ground_GObj*);
 /* 1FAAD4 */ static void grInishie1_801FAAD4(Ground_GObj*);
 /* 1FAAD8 */ static void grInishie1_801FAAD8(Ground_GObj*);
@@ -165,7 +164,7 @@ GrJoint grI1_803E48C8[] = {
 
 StageCallbacks grI1_StageCallbacks[] = {
     {
-        grInishie1_801FAAA0,
+        stageGObj0_OnInit,
         grInishie1_801FAACC,
         grInishie1_801FAAD4,
         grInishie1_801FAAD8,
@@ -289,10 +288,9 @@ struct block_table_struct grI1_803E49B8[BLOCK_COUNT] = {
     { 7, 10 },  { 8, 11 },  { 9, 12 },  { 10, 13 },
 };
 
-void grInishie1_801FAAA0(Ground_GObj* gobj)
+static void stageGObj0_OnInit(Ground_GObj* gobj)
 {
-    Ground* gp = GET_GROUND(gobj);
-    grAnime_801C8138(gobj, gp->map_id, 0);
+    Ground_StartMapAnim(gobj);
 }
 
 bool grInishie1_801FAACC(Ground_GObj* gobj)
@@ -308,7 +306,7 @@ void grInishie1_801FAADC(Ground_GObj* gobj)
 {
     Ground* gp = GET_GROUND(gobj);
 
-    Ground_JObjInline1(gobj);
+    Ground_InitMapCollAndAnim(gobj);
     grInishie1_801FAD84(gobj);
     grInishie1_801FC018(gobj);
     gp->u.map.xC4_b0 = false;
@@ -325,8 +323,7 @@ void grInishie1_801FAB68(Ground_GObj* gobj)
     grInishie1_801FB3F0(gobj);
     grInishie1_801FC664(gobj);
     grInishie1_801FCB10(gobj);
-    lb_800115F4();
-    Ground_801C2FE0(gobj);
+    Ground_UpdateWindAndMapColl(gobj);
 }
 
 void grInishie1_801FABB0(Ground_GObj* gobj) {}
@@ -463,13 +460,14 @@ void grInishie1_801FAD84(HSD_GObj* gobj)
     }
 
     if (gm_8016AE80() != -1 && gm_8016B238() == 0) {
-        int item_kind = It_Common_Start;
-        do {
+        int item_kind;
+        for (item_kind = It_Common_Start; item_kind < It_Common_End;
+             item_kind++)
+        {
             if (it_8026D324(item_kind) != 0) {
                 break;
             }
-            item_kind++;
-        } while (item_kind < It_Common_End);
+        }
 
         if (item_kind != It_Common_End) {
             s32 index1 = HSD_Randi(BLOCK_COUNT);
@@ -1184,7 +1182,7 @@ void grInishie1_801FCB10(HSD_GObj* gobj)
 
 DynamicsDesc* grInishie1_801FCBB0(enum_t arg)
 {
-    return false;
+    return NULL;
 }
 
 bool grInishie1_801FCBB8(Vec3* arg, int arg0, HSD_JObj* jobj)

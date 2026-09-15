@@ -200,7 +200,7 @@ void grIzumi_OnLoad(void)
     HSD_GObj* gobj;
     HSD_LObj* lobj;
 
-    gobj = HSD_GObj_Entities->xC;
+    gobj = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_LIGHT];
     while (gobj != NULL) {
         if (HSD_GObjGetClassifier(gobj) == 0xC) {
             lobj = GET_LOBJ(gobj);
@@ -304,7 +304,7 @@ void grIzumi_801CBE64(Ground_GObj* gobj)
     HSD_TObj* tobj;
     Ground* gp = GET_GROUND(gobj);
     HSD_JObj* jobj = GET_JOBJ(gobj);
-    Ground_801C2ED0(jobj, gp->map_id);
+    Ground_InitMapColl(jobj, gp->map_id);
     grAnime_801C8138(gobj, gp->map_id, 0);
     gp->x11_flags.b012 = 1;
     gp->x10_flags.b5 = 1;
@@ -343,10 +343,10 @@ void grIzumi_801CBE64(Ground_GObj* gobj)
 #endif
     jobj = Ground_801C3FA4(gobj, 4);
     { // this looks like inlines, but there's a lot of small differences
-        u8 _[4] = { 0 };
+        u8 _[4];
         Vec3 x38;
         {
-            u8 _[8] = { 0 };
+            u8 _[8];
         }
         lb_8000B1CC(jobj, NULL, &x38);
         {
@@ -637,7 +637,7 @@ void grIzumi_801CCB18(HSD_GObj* gobj)
 void grIzumi_801CCB90(HSD_GObj* gobj, int renderpass)
 {
     /// @remarks i guess PointSize is an inline? seems odd
-    u8 _[8] = { 0 };
+    u8 _[8];
     HSD_StateSetPointSize(18, 0);
     grDisplay_801C5DB0(gobj, renderpass);
 }
@@ -746,7 +746,7 @@ void grIzumi_801CCEA0(HSD_GObj* gobj, int renderpass)
 {
     Mtx mtx;
     Vec3 vec;
-    u8 _[8] = { 0 };
+    u8 _[8];
     HSD_CObj* src;
     HSD_CObj* dst;
     IzumiReflection* refl = (IzumiReflection*) HSD_GObjGetUserData(gobj);

@@ -1,5 +1,6 @@
 #include "itsamusmissile.h"
 
+#include "inlines.h"
 #include <melee/db/db.h>
 #include <melee/ef/eflib.h>
 #include <melee/ef/efsync.h>
@@ -27,16 +28,8 @@ Item_GObj* it_802B62D0(Item_GObj* gobj, Vec3* pos, bool is_smash_missile,
 {
     SpawnItem spawn;
     spawn.kind = It_Kind_Samus_Missile;
-    spawn.prev_pos = *pos;
-    spawn.prev_pos.z = 0.0f;
-    it_8026BB68(gobj, &spawn.pos);
-    spawn.facing_dir = facing_dir;
-    spawn.x3C_damage = 0;
-    spawn.vel.x = spawn.vel.y = spawn.vel.z = 0.0f;
-    spawn.x0_parent_gobj = gobj;
-    spawn.x4_parent_gobj2 = spawn.x0_parent_gobj;
-    spawn.x44_flag.b0 = true;
-    spawn.x40 = 0;
+    Item_InitSpawnPositionFromParent(&spawn, gobj, pos);
+    Item_InitSpawnCommonFields(&spawn, gobj, facing_dir, true);
 
     {
         Item_GObj* new_gobj = Item_80268B18(&spawn);
@@ -137,19 +130,15 @@ void it_802B64FC(Item_GObj* gobj)
     ip = GET_ITEM(gobj);
     sa = ip->xC4_article_data->x4_specialAttributes;
     vec3.x = vec3.y = vec3.z = 0.0f;
-    if (it_8026B634(&ip->pos, &vec3, ip->owner, ip->facing_dir) != NULL) {
-        goto block_4;
+    if (it_8026B634(&ip->pos, &vec3, ip->owner, ip->facing_dir) == NULL) {
+        temp_ret = it_8026C258(&ip->pos, ip->facing_dir);
+        temp_r3 = temp_ret;
+        if (temp_r3 != NULL) {
+            it_8026BB88(temp_r3, &vec3);
+        } else {
+            return;
+        }
     }
-    temp_ret = it_8026C258(&ip->pos, ip->facing_dir);
-    temp_r3 = temp_ret;
-    if (temp_r3 == NULL) {
-        goto block_17;
-    }
-    it_8026BB88(temp_r3, &vec3);
-    goto block_4;
-block_17:
-    return;
-block_4:
     var_f1 = 0.0f;
     if ((vec3.x == 0.0f) && (vec3.y == 0.0f)) {
         return;
@@ -168,15 +157,11 @@ block_4:
     }
     vec0 = vec1;
     lbVector_Sub(&vec0, &vec2);
-    if ((vec0.y > 0.001f)) {
+    if (vec0.y > 0.001f) {
         ip->xDD4_itemVar.samusmissile.x8 -= sa->x18;
-        goto block_11;
+    } else if (vec0.y < 0.001f) {
+        ip->xDD4_itemVar.samusmissile.x8 += sa->x18;
     }
-    if (!(vec0.y < 0.001f)) {
-        goto block_11;
-    }
-    ip->xDD4_itemVar.samusmissile.x8 += sa->x18;
-block_11:
     itSamusMissile_ClampTurn(ip, sa);
 }
 

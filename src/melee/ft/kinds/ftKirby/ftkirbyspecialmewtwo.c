@@ -38,18 +38,16 @@ s32 ftKb_SpecialNMt_80106F44(Fighter_GObj* gobj, s32* out_charge, s32* out_max)
     Vec2 unused;
     Fighter* fp;
     ftKb_DatAttrs* da;
-    if (gobj == NULL) {
-        goto null_return;
+    if (gobj != NULL) {
+        fp = GET_FIGHTER(gobj);
+        da = fp->dat_attrs;
+        if (fp->u.kb.x98 == 0) {
+            return -1;
+        }
+        *out_charge = fp->u.kb.x9C;
+        *out_max = da->specialn_mt_charge_time;
+        return 0;
     }
-    fp = GET_FIGHTER(gobj);
-    da = fp->dat_attrs;
-    if (fp->u.kb.x98 == 0) {
-        return -1;
-    }
-    *out_charge = fp->u.kb.x9C;
-    *out_max = da->specialn_mt_charge_time;
-    return 0;
-null_return:
     return -1;
 }
 
@@ -134,20 +132,17 @@ void ftKb_SpecialNMt_8010709C(Fighter_GObj* gobj)
         return;
     }
     fp2 = fp = GET_FIGHTER(gobj);
-    if (gobj == NULL) {
-        goto skip;
+    if (gobj != NULL) {
+        if (fp->u.kb.x98 != 0) {
+            it_802C573C(fp->u.kb.x98);
+            fp->u.kb.x98 = 0;
+        }
+        if (gobj != NULL) {
+            fp = GET_FIGHTER(gobj);
+            efLib_DestroyAll(gobj);
+            fp->u.kb.xA0 = 0;
+        }
     }
-    if (fp->u.kb.x98 != 0) {
-        it_802C573C(fp->u.kb.x98);
-        fp->u.kb.x98 = 0;
-    }
-    if (gobj == NULL) {
-        goto skip;
-    }
-    fp = GET_FIGHTER(gobj);
-    efLib_DestroyAll(gobj);
-    fp->u.kb.xA0 = 0;
-skip:
     fp2->u.kb.x9C = 0;
     ftCo_800BFFAC(fp2);
     efLib_DestroyAll(gobj);
@@ -168,20 +163,17 @@ void ftKb_SpecialNMt_80107130(Fighter_GObj* gobj)
     fp = GET_FIGHTER(gobj);
     da = fp->dat_attrs;
     fp2 = fp;
-    if (gobj == NULL) {
-        goto check;
+    if (gobj != NULL) {
+        if (fp->u.kb.x98 != 0) {
+            it_802C573C(fp->u.kb.x98);
+            fp->u.kb.x98 = 0;
+        }
+        if (gobj != NULL) {
+            fp = GET_FIGHTER(gobj);
+            efLib_DestroyAll(gobj);
+            fp->u.kb.xA0 = 0;
+        }
     }
-    if (fp->u.kb.x98 != 0) {
-        it_802C573C(fp->u.kb.x98);
-        fp->u.kb.x98 = 0;
-    }
-    if (gobj == NULL) {
-        goto check;
-    }
-    fp = GET_FIGHTER(gobj);
-    efLib_DestroyAll(gobj);
-    fp->u.kb.xA0 = 0;
-check:
     if ((float) fp2->u.kb.x9C == da->specialn_mt_charge_time) {
         return;
     }
@@ -319,10 +311,7 @@ void ftKb_SpecialNMt_80107568(Fighter_GObj* gobj)
     Fighter_ChangeMotionState(gobj, ftKb_MS_MtSpecialNStart, 0, 0.0F, 1.0F,
                               0.0F, NULL);
 
-    fp->cmd_vars[3] = 0;
-    fp->cmd_vars[2] = 0;
-    fp->cmd_vars[1] = 0;
-    fp->cmd_vars[0] = 0;
+    Fighter_ClearCmdVars(fp);
 
     ftCommon_8007D7FC(fp);
 
@@ -346,10 +335,7 @@ void ftKb_SpecialNMt_80107638(Fighter_GObj* gobj)
     ftKb_DatAttrs* da = fp->dat_attrs;
     Fighter_ChangeMotionState(gobj, ftKb_MS_MtSpecialAirNStart, 0, 0.0F, 1.0F,
                               0.0F, NULL);
-    fp->cmd_vars[3] = 0;
-    fp->cmd_vars[2] = 0;
-    fp->cmd_vars[1] = 0;
-    fp->cmd_vars[0] = 0;
+    Fighter_ClearCmdVars(fp);
 
     ftKb_SpecialN_set_cbs(gobj);
     fp->mv.kb.specialhi.x0 = 0;

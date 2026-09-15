@@ -224,7 +224,7 @@ static inline void mnItemSw_CommitItems(MnItemSwData* data, s32 i, u8* order)
     for (; i < 0x1F; i++, order++) {
         mn_8022E978(*order, data->items[i]);
     }
-    gmMainLib_8015CC58()->item_freq = data->x21 - 1;
+    gmMainLib_GetGamePrefs()->item_freq = data->x21 - 1;
 }
 
 void fn_80233E10(HSD_GObj* gobj)
@@ -248,7 +248,7 @@ void fn_80233E10(HSD_GObj* gobj)
         lbCardGame_UpdatePowerTime();
         mn_804D6BC8.cooldown = 5;
         mn_8023164C();
-        HSD_GObjPLink_80390228(gobj);
+        HSD_GObjFree(gobj);
         return;
     }
 
@@ -269,7 +269,7 @@ void fn_80233E10(HSD_GObj* gobj)
                 for (; j < 0x1F; j++, order2++) {
                     mn_8022E978(*order2, data2->items[j]);
                 }
-                gmMainLib_8015CC58()->item_freq = data2->x21 - 1;
+                gmMainLib_GetGamePrefs()->item_freq = data2->x21 - 1;
             }
             return;
         }
@@ -570,7 +570,7 @@ static inline void mnItemSw_SaveSettings(HSD_GObj* gobj)
     for (; i < 0x1F; i++, order++) {
         mn_8022E978(*order, data->items[i]);
     }
-    gmMainLib_8015CC58()->item_freq = data->x21 - 1;
+    gmMainLib_GetGamePrefs()->item_freq = data->x21 - 1;
 }
 
 void fn_80234C24(HSD_GObj* gobj)
@@ -682,7 +682,7 @@ void fn_80234C24(HSD_GObj* gobj)
                     return;
                 case 2:
                 case 4:
-                    HSD_GObjPLink_80390228(gobj);
+                    HSD_GObjFree(gobj);
                     HSD_SisLib_803A5CC4((HSD_Text*) data->jobjs[7]);
                     HSD_SisLib_803A5CC4((HSD_Text*) data->jobjs[8]);
                     return;
@@ -824,7 +824,7 @@ static inline void initUserData(MnItemSwData* user_data, s32 arg0,
         user_data->items[(u8) i] = gm_8016403C(*order);
     }
 
-    user_data->x21 = gmMainLib_8015CC58()->item_freq + 1;
+    user_data->x21 = gmMainLib_GetGamePrefs()->item_freq + 1;
     user_data->x23 = (u8) arg0;
 }
 

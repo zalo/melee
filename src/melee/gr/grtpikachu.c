@@ -4,17 +4,22 @@
 #include "grzakogenerator.h"
 #include "inlines.h"
 #include "types.h"
-#include <melee/lb/lb_00F9.h>
 #include <melee/lb/types.h>
 #include <sysdolphin/baselib/gobj.h>
 #include <sysdolphin/baselib/gobjproc.h>
 
+static void grTPikachu_OnInit(void);
+static void stageGObj2_OnInit(Ground_GObj* gobj);
+static void stageGObj2_GObjProc(Ground_GObj* gobj);
+static void stageGObj1_OnInit(Ground_GObj* gobj);
+static void stageGObj1_GObjProc(Ground_GObj* gobj);
+
 StageCallbacks grTPk_StageCallbacks[] = {
     { grTPikachu_80223008, grTPikachu_80223034, grTPikachu_8022303C,
       grTPikachu_80223040, 0 },
-    { grTPikachu_802230D4, grTPikachu_80223124, grTPikachu_8022312C,
+    { stageGObj1_OnInit, grTPikachu_80223124, stageGObj1_GObjProc,
       grTPikachu_8022314C, 0 },
-    { grTPikachu_80223044, grTPikachu_80223094, grTPikachu_8022309C,
+    { stageGObj2_OnInit, grTPikachu_80223094, stageGObj2_GObjProc,
       grTPikachu_802230D0, 0xC0000000 },
     { NULL, NULL, NULL, NULL, 0 }
 };
@@ -23,7 +28,7 @@ StageData grTPk_StageData = {
     Gr_Kind_TPikachu,
     grTPk_StageCallbacks,
     "/GrTPk.dat",
-    grTPikachu_80222E80,
+    grTPikachu_OnInit,
     grTPikachu_80222E7C,
     grTpikachu_UnkStage0_OnLoad,
     grTpikachu_UnkStage0_OnStart,
@@ -38,7 +43,7 @@ void grTPikachu_80222E7C(bool unused)
     return;
 }
 
-void grTPikachu_80222E80(void)
+static void grTPikachu_OnInit(void)
 {
     Ground_InitTargetStage(grTPikachu_80222F20);
 }
@@ -95,9 +100,9 @@ void grTPikachu_80223040(Ground_GObj* gobj)
     return;
 }
 
-void grTPikachu_80223044(Ground_GObj* gobj)
+static void stageGObj2_OnInit(Ground_GObj* gobj)
 {
-    Ground_JObjInline1(gobj);
+    Ground_InitMapCollAndAnim(gobj);
 }
 
 bool grTPikachu_80223094(Ground_GObj* gobj)
@@ -105,10 +110,9 @@ bool grTPikachu_80223094(Ground_GObj* gobj)
     return false;
 }
 
-void grTPikachu_8022309C(Ground_GObj* gobj)
+static void stageGObj2_GObjProc(Ground_GObj* gobj)
 {
-    lb_800115F4();
-    Ground_801C2FE0(gobj);
+    Ground_UpdateWindAndMapColl(gobj);
 }
 
 void grTPikachu_802230D0(Ground_GObj* gobj)
@@ -116,9 +120,9 @@ void grTPikachu_802230D0(Ground_GObj* gobj)
     return;
 }
 
-void grTPikachu_802230D4(Ground_GObj* gobj)
+static void stageGObj1_OnInit(Ground_GObj* gobj)
 {
-    Ground_JObjInline1(gobj);
+    Ground_InitMapCollAndAnim(gobj);
 }
 
 bool grTPikachu_80223124(Ground_GObj* gobj)
@@ -126,9 +130,9 @@ bool grTPikachu_80223124(Ground_GObj* gobj)
     return false;
 }
 
-void grTPikachu_8022312C(Ground_GObj* gobj)
+static void stageGObj1_GObjProc(Ground_GObj* gobj)
 {
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
 }
 
 void grTPikachu_8022314C(Ground_GObj* gobj)

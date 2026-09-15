@@ -25,9 +25,8 @@
 #include "ftCo_HammerWait.h"
 #include "ftCo_ItemThrow.h"
 #include "ftCo_JumpAerial.h"
-#include "ftCo_Lift.h"
 #include "ftCo_SpecialAir.h"
-#include "ftCo_Throw.h"
+#include "inlines.h"
 #include "types.h"
 #include <dolphin/mtx.h>
 #include <melee/ef/efsync.h>
@@ -96,7 +95,7 @@ void ftCo_800C08A0(Fighter_GObj* gobj, Fighter_GObj* arg1, DynamicsDesc* arg2,
         lbColl_80008D30((HitCapsule*) &hit, (lbColl_80008D30_arg1*) arg2);
         ftColl_80078384(fp, &fp->hurt_capsules[hurt_idx], (HitCapsule*) &hit);
     }
-    pl_8003EC30(fp->player_id, fp->x221F_b4, arg3, f);
+    pl_8003EC30(fp->player_id, fp->is_sub_fighter, arg3, f);
 }
 
 void ftCo_800C09B4(Fighter_GObj* gobj)
@@ -206,7 +205,7 @@ void ftCo_800C0B20(Fighter_GObj* gobj)
 
                 ftColl_80078384(fp, &fp->hurt_capsules[hurt_idx], &hit);
             }
-            pl_8003EC30(fp->player_id, fp->x221F_b4, 1, f);
+            pl_8003EC30(fp->player_id, fp->is_sub_fighter, 1, f);
         }
     }
 }
@@ -240,9 +239,7 @@ void ftCo_800C0D0C(Fighter_GObj* gobj)
     Vec3 joint_pos;
     Vec3 hip_pos;
     Fighter* fp = GET_FIGHTER(gobj);
-    ftCommon_8007DB58(gobj);
-    ftCo_8009750C(gobj);
-    ftCo_800DD168(gobj);
+    ftCo_ReleaseItemAndVictim(gobj);
     ftCo_8008DCE0(gobj, -1, 0);
     ftCommon_8007D7FC(fp);
     Fighter_ChangeMotionState(gobj, ftCo_MS_Bury,
@@ -423,7 +420,7 @@ void ftCo_BuryJump_Phys(Fighter_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
     PAD_STACK(8);
     ftCommon_Fall(fp, fp->co_attrs.gravity, fp->co_attrs.terminal_velocity);
-    ftCommon_8007D268(fp);
+    ftCommon_CalcSelfAccel_Drift(fp);
 }
 
 void ftCo_BuryJump_Coll(Fighter_GObj* gobj)

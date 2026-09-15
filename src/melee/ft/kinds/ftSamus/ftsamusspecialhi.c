@@ -18,6 +18,7 @@
 #include <melee/ft/ftcliffcommon.h>
 #include <melee/ft/ftcommon.h>
 #include <melee/ft/ftparts.h>
+#include <melee/ft/inlines.h>
 #include <melee/ft/kinds/ftCommon/ftCo_Fall.h>
 #include <melee/ft/kinds/ftCommon/ftCo_FallSpecial.h>
 #include <melee/ft/kinds/ftCommon/ftCo_Landing.h>
@@ -33,10 +34,7 @@ void ftSs_SpecialHi_Enter(HSD_GObj* gobj)
     ftSamus_updateDamageDeathCBs(gobj);
     Fighter_SetEffectHitlagCallbacks(fp);
     ftCommon_8007D7FC(fp);
-    fp->cmd_vars[3] = 0;
-    fp->cmd_vars[2] = 0;
-    fp->cmd_vars[1] = 0;
-    fp->cmd_vars[0] = 0;
+    Fighter_ClearCmdVars(fp);
     fp->mv.ss.unk5.x0 = 0;
     ftAnim_8006EBA4(gobj);
     efSync_Spawn(1154, gobj, fp->parts[FtPart_YRotN].joint);
@@ -52,10 +50,7 @@ void ftSs_SpecialAirHi_Enter(HSD_GObj* gobj)
     ftSamus_updateDamageDeathCBs(gobj);
     Fighter_SetEffectHitlagCallbacks(fp);
     ftCommon_8007D60C(fp);
-    fp->cmd_vars[3] = 0;
-    fp->cmd_vars[2] = 0;
-    fp->cmd_vars[1] = 0;
-    fp->cmd_vars[0] = 0;
+    Fighter_ClearCmdVars(fp);
     fp->mv.ss.unk5.x0 = 0;
     fp->self_vel.y = samus_attr->x44;
     ftCommon_ClampSelfVelX(fp, samus_attr->x40);
@@ -177,8 +172,9 @@ void ftSs_SpecialHi_Phys(HSD_GObj* gobj)
     }
     if (fp->ground_or_air == 1) {
         ft_800851C0(gobj);
-        ftCommon_8007D344(fp, 0.0f, samus_attr->x3C, samus_attr->x40);
-        ftCommon_8007D268(fp);
+        ftCommon_CalcSelfAccel_DriftSimple(fp, 0.0f, samus_attr->x3C,
+                                           samus_attr->x40);
+        ftCommon_CalcSelfAccel_Drift(fp);
         return;
     }
     ft_80084F3C(gobj);
@@ -192,7 +188,8 @@ void ftSs_SpecialAirHi_Phys(HSD_GObj* gobj)
     u8 _[8];
 
     ft_80084DB0(gobj);
-    ftCommon_8007D344(fp, 0.0f, samus_attr->x3C, samus_attr->x40);
+    ftCommon_CalcSelfAccel_DriftSimple(fp, 0.0f, samus_attr->x3C,
+                                       samus_attr->x40);
 }
 
 void ftSs_SpecialHi_Coll(HSD_GObj* gobj)

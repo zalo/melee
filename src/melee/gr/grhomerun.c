@@ -17,7 +17,6 @@
 #include <melee/it/it_26B1.h>
 #include <melee/it/types.h>
 #include <melee/lb/lb_00B0.h>
-#include <melee/lb/lb_00F9.h>
 #include <melee/lb/lblanguage.h>
 #include <melee/lb/lbspdisplay.h>
 #include <melee/lb/types.h>
@@ -203,7 +202,7 @@ void grHomeRun_8021CB20(Ground_GObj* gobj)
     gp = GET_GROUND(gobj);
     jobj = GET_JOBJ(gobj);
     jobj2 = jobj;
-    Ground_801C2ED0(jobj2, gp->map_id);
+    Ground_InitMapColl(jobj2, gp->map_id);
 
     gp->u.homerun.parts =
         HSD_MemAlloc(sizeof(*gp->u.homerun.parts) * Gr_Homerun_Parts_Max);
@@ -444,8 +443,7 @@ void grHomeRun_8021D680(Ground_GObj* gobj)
 
     HSD_JObjSetTranslateX(jobj, x + 1.5F * (2150.99F * Ground_801C0498()));
 
-    lb_800115F4();
-    Ground_801C2FE0(gobj);
+    Ground_UpdateWindAndMapColl(gobj);
     mpLib_80056758(3, 0.0F, 0.0F, 20000.0F, 0.0F);
     mpJointUpdateBounding(0);
     PAD_STACK(8);
@@ -962,7 +960,7 @@ void grHomeRun_8021EDD4(void)
 
 DynamicsDesc* grHomeRun_8021EEB4(enum_t arg)
 {
-    return false;
+    return NULL;
 }
 
 bool grHomeRun_8021EEBC(Vec3* a, int b, HSD_JObj* jobj)

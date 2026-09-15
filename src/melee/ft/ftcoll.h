@@ -13,8 +13,10 @@
 
 #include <dolphin/mtx.h>
 
+/// Combo Count Logic
 /* 0763C0 */ void ftColl_800763C0(Fighter_GObj* attacker, Fighter_GObj* victim,
                                   enum_t attackID);
+
 /* 076444 */ void ftColl_80076444(Fighter_GObj* attacker,
                                   Fighter_GObj* victim);
 /* 07646C */ void ftColl_8007646C(Fighter_GObj* attackItem,
@@ -44,8 +46,8 @@
 /* 078488 */ void ftColl_80078488(Fighter*);
 /* 0784B4 */ void ftColl_800784B4(Fighter*, HitCapsule*, HitCapsule*);
 /* 078538 */ void ftColl_80078538(Fighter_GObj*, Vec3*, u32, float, float);
-/* 07861C */ UNK_RET ftColl_8007861C(Fighter_GObj*, Fighter_GObj* gobj, int,
-                                     int, int, UNK_T, u16, UNK_T, int);
+/* 07861C */ void ftColl_8007861C(Fighter_GObj*, Fighter_GObj* gobj, int, int,
+                                  int, UNK_T, u16, UNK_T, int);
 /* 078710 */ void ftColl_80078710(Fighter_GObj*, Fighter_GObj*, UNK_T arg2);
 /* 078754 */ void ftColl_80078754(Fighter_GObj*, Fighter_GObj*, bool);
 /* 0787B4 */ void ftColl_800787B4(Item_GObj*, Fighter_GObj*, int);
@@ -68,7 +70,10 @@
 /* 07AD18 */ void ftColl_8007AD18(Fighter* fp, HitCapsule*);
 /* 07AE80 */ void ftColl_8007AE80(Fighter_GObj*);
 /* 07AEE0 */ void ftColl_8007AEE0(Fighter_GObj*);
+
+/// Enable Reflect Bubble Update
 /* 07AEF8 */ void ftColl_8007AEF8(Fighter_GObj*);
+
 /* 07AF10 */ void ftColl_8007AF10(Fighter_GObj*);
 /* 07AF28 */ void ftColl_8007AF28(Fighter_GObj* gobj);
 /* 07AF60 */ void ftColl_8007AF60(Fighter_GObj*);
@@ -94,7 +99,10 @@
 /* 07B7A4 */ void ftColl_8007B7A4(Fighter_GObj* gobj, int);
 /* 07B7FC */ void ftColl_8007B7FC(Fighter*, int);
 /* 07B868 */ s32 ftColl_8007B868(Fighter_GObj* gobj);
+
+///  Update hitbox positions
 /* 07B8A8 */ void ftColl_8007B8A8(HitCapsule*, Vec3*);
+
 /* 07B8CC */ void ftColl_8007B8CC(Fighter*, Fighter_GObj*);
 /* 07B8E8 */ void ftColl_8007B8E8(Fighter_GObj*);
 /* 07B924 */ void ftColl_GetWindOffsetVec(Fighter_GObj*, Vec3* out_wind);

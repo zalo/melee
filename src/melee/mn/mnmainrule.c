@@ -186,11 +186,11 @@ void fn_8022F538(HSD_GObj* arg0)
             switch (mn_804A04F0.hovered_selection) {
             case 5:
                 mnItemSw_802358C0();
-                HSD_GObjPLink_80390228(arg0);
+                HSD_GObjFree(arg0);
                 break;
             case 6:
                 mn_802339FC();
-                HSD_GObjPLink_80390228(arg0);
+                HSD_GObjFree(arg0);
                 break;
             }
             data = HSD_GObjGetUserData(mn_804D6BD0);
@@ -199,7 +199,7 @@ void fn_8022F538(HSD_GObj* arg0)
             rules->time_limit = data->fields.x3;
             rules->handicap = data->fields.x4;
             rules->damage_ratio = data->fields.x5;
-            rules->unk_x7 = data->fields.x6;
+            rules->stage_sel = data->fields.x6;
             rules->stock_count = data->fields.x9;
             return;
         }
@@ -213,7 +213,7 @@ void fn_8022F538(HSD_GObj* arg0)
             rules->time_limit = data->fields.x3;
             rules->handicap = data->fields.x4;
             rules->damage_ratio = data->fields.x5;
-            rules->unk_x7 = data->fields.x6;
+            rules->stage_sel = data->fields.x6;
             rules->stock_count = data->fields.x9;
             mn_80229860(GM_VS);
             return;
@@ -224,7 +224,7 @@ void fn_8022F538(HSD_GObj* arg0)
             rules->time_limit = data->fields.x3;
             rules->handicap = data->fields.x4;
             rules->damage_ratio = data->fields.x5;
-            rules->unk_x7 = data->fields.x6;
+            rules->stage_sel = data->fields.x6;
             rules->stock_count = data->fields.x9;
             if (gm_GetCurrentGameMode() == GM_TOURNAMENT) {
                 HSD_SisLib_803A5E70();
@@ -251,7 +251,7 @@ void fn_8022F538(HSD_GObj* arg0)
         rules->time_limit = data->fields.x3;
         rules->handicap = data->fields.x4;
         rules->damage_ratio = data->fields.x5;
-        rules->unk_x7 = data->fields.x6;
+        rules->stage_sel = data->fields.x6;
         rules->stock_count = data->fields.x9;
         if (gm_GetCurrentGameMode() == GM_TOURNAMENT) {
             HSD_SisLib_803A5E70();
@@ -407,25 +407,21 @@ void mn_8022FB88(u8 arg0, void* arg1)
 
     if (arg0 == 0) {
         HSD_JObj* disabled_clock;
-        hide_count = 0;
-        hide_digit = digit_indices;
-        do {
+        for (hide_count = 0, hide_digit = digit_indices; hide_count < 4;
+             hide_count++, hide_digit++)
+        {
             HSD_JObjSetFlagsAll(data->x34[1].joints[*hide_digit], JOBJ_HIDDEN);
-            hide_count += 1;
-            hide_digit += 1;
-        } while (hide_count < 4);
+        }
         disabled_clock = data->x34[1].joints[4];
         HSD_JObjReqAnimAll(disabled_clock, mn_804D4B90);
         HSD_JObjAnimAll(disabled_clock);
         return;
     }
-    show_count = 0;
-    show_digit = digit_indices;
-    do {
+    for (show_count = 0, show_digit = digit_indices; show_count < 4;
+         show_count++, show_digit++)
+    {
         HSD_JObjClearFlagsAll(data->x34[1].joints[*show_digit], JOBJ_HIDDEN);
-        show_count += 1;
-        show_digit += 1;
-    } while (show_count < 4);
+    }
     enabled_clock = data->x34[1].joints[4];
     HSD_JObjReqAnimAll(enabled_clock, mn_804D6BD8);
     HSD_JObjAnimAll(enabled_clock);
@@ -469,37 +465,21 @@ void mn_8022FD18(u8 arg0)
     stock_digits = mn_804DBE04;
     time_indices = mn_804DBE08;
     if (arg0 != 0) {
-        i = 0;
-        ptr0 = stock_digits.idx;
-        do {
+        for (i = 0, ptr0 = stock_digits.idx; i < 2; i++, ptr0++) {
             HSD_JObjSetFlagsAll(data->x34[1].joints[*ptr0], JOBJ_HIDDEN);
-            i += 1;
-            ptr0 += 1;
-        } while (i < 2);
-        i = 0;
-        ptr1 = time_indices.idx;
-        do {
+        }
+        for (i = 0, ptr1 = time_indices.idx; i < 5; i++, ptr1++) {
             HSD_JObjClearFlagsAll(data->x34[1].joints[*ptr1], JOBJ_HIDDEN);
-            i += 1;
-            ptr1 += 1;
-        } while (i < 5);
+        }
         mn_8022FB88(data2->x3, data2);
         return;
     }
-    i = 0;
-    ptr2 = stock_digits.idx;
-    do {
+    for (i = 0, ptr2 = stock_digits.idx; i < 2; i++, ptr2++) {
         HSD_JObjClearFlagsAll(data->x34[1].joints[*ptr2], JOBJ_HIDDEN);
-        i += 1;
-        ptr2 += 1;
-    } while (i < 2);
-    i = 0;
-    ptr3 = time_indices.idx;
-    do {
+    }
+    for (i = 0, ptr3 = time_indices.idx; i < 5; i++, ptr3++) {
         HSD_JObjSetFlagsAll(data->x34[1].joints[*ptr3], JOBJ_HIDDEN);
-        i += 1;
-        ptr3 += 1;
-    } while (i < 5);
+    }
     val = data->x9;
     jobjs = data->x34[1].joints;
     jobj = jobjs[7];
@@ -955,7 +935,7 @@ void fn_802309F0(HSD_GObj* arg0)
                 break;
             case 2:
             case 4:
-                HSD_GObjPLink_80390228(arg0);
+                HSD_GObjFree(arg0);
                 return;
             }
         }
@@ -1000,7 +980,7 @@ void fn_802309F0(HSD_GObj* arg0)
         rules->time_limit = data->x3;
         rules->handicap = data->x4;
         rules->damage_ratio = data->x5;
-        rules->unk_x7 = data->x6;
+        rules->stage_sel = data->x6;
         rules->stock_count = data->x9;
     }
 }
@@ -1021,7 +1001,7 @@ s32 mn_80230D18(struct mn_802307F8_t* arg0, HSD_JObj* arg1, int arg2)
     }
 
     arg0->x5 = gmMainLib_GetGameRules()->damage_ratio;
-    arg0->x6 = gmMainLib_GetGameRules()->unk_x7;
+    arg0->x6 = gmMainLib_GetGameRules()->stage_sel;
     arg0->x2 = gmMainLib_GetGameRules()->mode;
     arg0->x9 = gmMainLib_GetGameRules()->stock_count;
     arg0->x3 = gmMainLib_GetGameRules()->time_limit;

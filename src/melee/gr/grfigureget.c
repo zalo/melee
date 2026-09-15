@@ -44,7 +44,7 @@ static Vec3 const grFigureGet_803B8470 = { 0.0f, 0.0f, 0.0f };
 /* 2195A0 */ static void grFigureGet_OnStart(void);
 /* 2195C4 */ static bool grFigureGet_802195C4(void);
 /* 2195CC */ static HSD_GObj* grFigureGet_802195CC(int);
-/* 2196B4 */ static void grFigureGet_802196B4(Ground_GObj*);
+/* 2196B4 */ static void stageGObj0_OnInit(Ground_GObj*);
 /* 2196E0 */ static bool grFigureGet_802196E0(Ground_GObj*);
 /* 2196E8 */ static void grFigureGet_802196E8(Ground_GObj*);
 /* 2196EC */ static void grFigureGet_802196EC(Ground_GObj*);
@@ -62,7 +62,7 @@ static Vec3 const grFigureGet_803B8470 = { 0.0f, 0.0f, 0.0f };
 
 static StageCallbacks grFigureGet_StageCallbacks[] = {
     {
-        grFigureGet_802196B4,
+        stageGObj0_OnInit,
         grFigureGet_802196E0,
         grFigureGet_802196E8,
         grFigureGet_802196EC,
@@ -136,10 +136,9 @@ HSD_GObj* grFigureGet_802195CC(int gobj_id)
     return gobj;
 }
 
-void grFigureGet_802196B4(Ground_GObj* gobj)
+static void stageGObj0_OnInit(Ground_GObj* gobj)
 {
-    Ground* gp = gobj->user_data;
-    grAnime_801C8138(gobj, gp->map_id, 0);
+    Ground_StartMapAnim(gobj);
 }
 
 bool grFigureGet_802196E0(Ground_GObj* gobj)
@@ -228,7 +227,7 @@ void grFigureGet_80219898(Ground_GObj* gobj)
     int* var_r29;
     u32 pad;
 
-    for (var_r28 = HSD_GObj_Entities->fighters; var_r28 != NULL;
+    for (var_r28 = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_FIGHTER]; var_r28 != NULL;
          var_r28 = var_r28->next)
     {
         ftLib_80086984(var_r28)->joint_id_skip = 0;

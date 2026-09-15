@@ -1,8 +1,11 @@
 #include "ifprize.h"
 
+#include <melee/cm/forward.h>
+
 #include <placeholder.h>
 #include <stdio.h>
 
+#include "forward.h"
 #include <dolphin/pad.h>
 #include <melee/gm/gm_unsplit.h>
 #include <melee/gm/gmmain_lib.h>
@@ -154,9 +157,9 @@ void fn_802FE470(HSD_GObj* gobj)
             }
             break;
         case 3:
-            HSD_GObjPLink_80390228(un_803F9D48.x18);
-            HSD_GObjPLink_80390228(un_803F9D48.x1C);
-            HSD_GObjPLink_80390228(un_803F9D48.x14);
+            HSD_GObjFree(un_803F9D48.x18);
+            HSD_GObjFree(un_803F9D48.x1C);
+            HSD_GObjFree(un_803F9D48.x14);
             lbArchive_80016EFC(un_804D6D98);
             un_803F9D48.x1 = 4;
             un_803F9D48.x0a = 0;
@@ -217,13 +220,9 @@ void un_802FE6A8(void)
 
 void un_802FE8CC(void)
 {
-    if (un_803F9D48.x0a) {
-        if (un_803F9D48.x0b) {
-            goto execute;
-        }
+    if (!un_803F9D48.x0a || !un_803F9D48.x0b) {
+        return;
     }
-    return;
-execute:
     un_803F9D48.x1 = 2;
     HSD_SisLib_803A5F50(2);
 }

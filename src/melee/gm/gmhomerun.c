@@ -63,7 +63,7 @@ void gm_801B98E8(GameModeState* scene)
                 gm_804D68F8);
     game_cache = &lbDvd_GetPreloadCacheScene()->game_cache;
     lbDvd_SetupVsPreloadCache();
-    game_cache->entries[1].char_id = CHKIND_SANDBAG;
+    game_cache->entries[1].char_id = ChKind_Sandbag;
     game_cache->entries[1].color = 0;
     game_cache->stkind = 0x54;
     lbDvd_80018254();
@@ -84,7 +84,7 @@ void gm_801B999C(GameModeState* scene)
     gm_801B0730(temp_r3, &vs->start.players[0].ckind, NULL,
                 &vs->start.players[0].color, &vs->start.players[0].nametag,
                 NULL);
-    vs->start.players[1].ckind = CHKIND_SANDBAG;
+    vs->start.players[1].ckind = ChKind_Sandbag;
     vs->start.players[1].cpu_kind = 0xF;
     vs->start.players[1].defense_ratio = 1.0f;
     vs->start.players[1].slot_type = Gm_PKind_Cpu;
@@ -111,7 +111,7 @@ void gm_801B9A3C(GameModeState* arg0)
     start->rules.x4_4 = false;
 
     start->rules.is_teams = false;
-    start->rules.xB = -1;
+    start->rules.item_freq = -1;
     start->rules.time_limit = 10;
     start->rules.game_speed = 1.0f;
     start->rules.x30 = 1.0f;

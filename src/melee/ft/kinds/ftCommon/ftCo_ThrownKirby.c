@@ -45,17 +45,17 @@ FighterKind ftCo_800BD9E0(Fighter_GObj* gobj, Fighter_GObj* victim_gobj)
     ftKb_Fighter* fp = GET_FIGHTER(gobj);
     Fighter* victim_fp = GET_FIGHTER(victim_gobj);
     FighterKind victim_kind = victim_fp->kind;
-    if (victim_kind == FTKIND_KIRBY) {
+    if (victim_kind == Ft_Kind_Kirby) {
         ftCo_800BDA50(victim_gobj);
         return victim_fp->u.kb.hat.kind;
     }
-    if ((unsigned) (victim_kind - FTKIND_BOY) <= 1 ||
-        victim_kind == FTKIND_SANDBAG)
+    if ((unsigned) (victim_kind - Ft_Kind_Boy) <= 1 ||
+        victim_kind == Ft_Kind_Sandbag)
     {
         return fp->u.kb.hat.kind;
     }
-    if (victim_kind == FTKIND_NANA) {
-        victim_kind = FTKIND_POPO;
+    if (victim_kind == Ft_Kind_Nana) {
+        victim_kind = Ft_Kind_Popo;
     }
     return victim_kind;
 }
@@ -63,7 +63,7 @@ FighterKind ftCo_800BD9E0(Fighter_GObj* gobj, Fighter_GObj* victim_gobj)
 void ftCo_800BDA50(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    if (fp->u.kb.hat.kind != FTKIND_KIRBY) {
+    if (fp->u.kb.hat.kind != Ft_Kind_Kirby) {
         /// @todo Which @c mv is this?
         fp->mv.co.thrownkirby.x18_b1 = true;
     }
@@ -96,12 +96,12 @@ static inline float inlineB1(Fighter_GObj* gobj)
     return GET_FIGHTER(gobj)->co_attrs.kirby_b_star_damage;
 }
 
-static inline void inlineB2(Fighter_GObj* gobj, Fighter_GObj* thrower_gobj,
-                            Vec3* scale, ftCommon_MotionState msid,
+static inline void inlineB2(Fighter_GObj* gobj, Fighter* fp,
+                            Fighter_GObj* thrower_gobj, Vec3* scale,
+                            ftCommon_MotionState msid,
                             KirbyVelocityFunc vel_func, GetFloatFunc get_float,
                             bool x18_b0)
 {
-    Fighter* fp = GET_FIGHTER(gobj);
     HSD_JObj* jobj = GET_JOBJ(gobj);
     fp->facing_dir = -GET_FIGHTER(thrower_gobj)->facing_dir;
     fp->mv.co.thrownkirby.thrower_gobj = thrower_gobj;
@@ -109,18 +109,7 @@ static inline void inlineB2(Fighter_GObj* gobj, Fighter_GObj* thrower_gobj,
     fp->mv.co.thrownkirby.x4 =
         vel_func(thrower_gobj, &fp->self_vel, fp->facing_dir);
     Fighter_UpdateModelScale(gobj);
-/// @todo inline this to ::HSD_JObjGetScale someway
-#ifdef MUST_MATCH
-    if (jobj == NULL) {
-        __assert("jobj.h", 823, "jobj");
-    }
-    if (&fp->mv.co.thrownkirby.scale == NULL) {
-        __assert("jobj.h", 824, "scale");
-    }
-    fp->mv.co.thrownkirby.scale = jobj->scale;
-#else
     HSD_JObjGetScale(jobj, &fp->mv.co.thrownkirby.scale);
-#endif
     Fighter_ChangeMotionState(gobj, msid, Ft_MF_SkipThrowException, 0.0f, 1.0f,
                               0.0f, thrower_gobj);
     fp->take_dmg_2_cb = ftCo_800BE7C0;
@@ -146,7 +135,7 @@ void ftCo_800BDB58(Fighter_GObj* gobj, Fighter_GObj* thrower_gobj)
     Fighter* fp = GET_FIGHTER(gobj);
     Vec3 scale;
     PAD_STACK(36);
-    inlineB2(gobj, thrower_gobj, &scale, ftCo_MS_ThrownKirbyStar,
+    inlineB2(gobj, fp, thrower_gobj, &scale, ftCo_MS_ThrownKirbyStar,
              ftKb_SpecialN_800F58AC, ftKb_SpecialN_800F5A88, false);
 
     /// @todo Possibly another callback in #inlineB2
@@ -216,7 +205,7 @@ void ftCo_800BE000(Fighter_GObj* gobj, Fighter_GObj* thrower_gobj)
     u32 unused2;
     Vec3 scale;
     PAD_STACK(12);
-    inlineB2(gobj, thrower_gobj, &scale, ftCo_MS_ThrownCopyStar,
+    inlineB2(gobj, fp, thrower_gobj, &scale, ftCo_MS_ThrownCopyStar,
              ftKb_SpecialN_800F58D8, ftKb_SpecialN_800F5AB0, true);
 
     /// @todo Possibly another callback in #inlineB2
@@ -280,12 +269,12 @@ void ftCo_800BE494(Fighter_GObj* gobj)
         } else {
             fp->self_vel.x = self_vel.x * (fp->self_vel.x < 0 ? -1 : +1);
         }
-    } else if (fp->kind == FTKIND_KIRBY && fp->mv.co.thrownkirby.x18_b1 &&
+    } else if (fp->kind == Ft_Kind_Kirby && fp->mv.co.thrownkirby.x18_b1 &&
                !fp->u.kb.hat.x8_b0)
     {
         ftKb_SpecialN_800F190C(gobj, fp->u.kb.hat.kind);
         ftKb_SpecialN_800EEEC4(gobj, fp->u.kb.hat.kind);
-        fp->u.kb.hat.kind = FTKIND_KIRBY;
+        fp->u.kb.hat.kind = Ft_Kind_Kirby;
     }
     fp->mv.co.thrownkirby.x10 = ftKb_SpecialN_800F5A98();
     ftCommon_InitGrab(fp, 0, fp->mv.co.thrownkirby.x10);

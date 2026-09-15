@@ -3,7 +3,6 @@
 #include <string.h>
 
 #include "lbarchive.h"
-#include "lbcardgame.static.h"
 #include "lbcardnew.h"
 #include "lblanguage.h"
 #include <dolphin/card.h>
@@ -11,6 +10,7 @@
 #include <melee/gm/gm_unsplit.h>
 #include <melee/gm/gmmain_lib.h>
 #include <melee/if/textlib.h>
+#include <melee/sc/types.h>
 #include <sysdolphin/baselib/cobj.h>
 #include <sysdolphin/baselib/gobj.h>
 #include <sysdolphin/baselib/gobjgxlink.h>
@@ -18,12 +18,29 @@
 #include <sysdolphin/baselib/gobjproc.h>
 #include <sysdolphin/baselib/jobj.h>
 
+struct lb_80433318_t {
+    /* +0  */ int x0;
+    /* +4  */ int x4;
+    /* +8  */ int x8;
+    /* +C  */ bool xC;
+    /* +10 */ int x10;
+    /* +14 */ int x14;
+    /* +18 */ bool enable;
+    /* +1C */ char _1C[0x40];
+    /* +5C */ void** x5C;
+    /* +60 */ int x60;
+    /* +64 */ SceneDesc* x64;
+};
+ASSERT_SIZE(struct lb_80433318_t, 0x68);
+
+/* 433318 */ static struct lb_80433318_t lb_80433318;
+
 #define _p(x) (lb_80433318.x)
 
 #ifdef MELEE_NATIVE
-/* Byte image of the console words below: banner format 2 (CI8), icon 0 in
- * format 1 with animation speed 3. The library reads these as bytes, so the
- * host word order must not change them. */
+/* Byte image of the console words below (a CardIconInfo): banner format 2,
+ * icon 0 in format 1 with animation speed 3. The library reads these as
+ * bytes, so the host word order must not change them. */
 static u8 lb_803BAB60[20] = {
     0x02, 0x00, 0x01, 0x00, 0, 0, 0, 0, 0, 0, 0x03, 0x00, 0, 0, 0, 0, 0, 0, 0, 0,
 };
@@ -57,7 +74,7 @@ void lb_8001C600(void)
     }
 }
 
-static const char* lb_8001C658(void)
+static char* lb_8001C658(void)
 {
     OSCalendarTime time;
     const char* gamedata_str;
@@ -79,7 +96,7 @@ static const char* lb_8001C658(void)
     return _p(_1C);
 }
 
-static intptr_t lb_8001C820(void)
+static void* lb_8001C820(void)
 {
     int var_r0;
 
@@ -172,7 +189,7 @@ int lb_8001CC4C(void)
 
 static int dont_inline_helper(void)
 {
-    intptr_t temp_r24;
+    void* temp_r24;
 
     if (lb_8001CAF4() != 0) {
         return 0xD;
@@ -289,28 +306,28 @@ void lb_8001CF18(void)
  * Keep private copies for the three banners and the icon set. */
 static u8 lbCardGame_NativeBanners[3][0x1800];
 static u8 lbCardGame_NativeIcons[0x600];
-static intptr_t lbCardGame_NativeIconTable[5];
+static void* lbCardGame_NativeIconTable[5];
 
 static void lbCardGame_KeepIconImages(void)
 {
-    intptr_t* source = _p(x5C);
+    void** source = _p(x5C);
     int i;
 
     if (source == NULL) {
         return;
     }
     for (i = 0; i < 3; i++) {
-        if (source[i] != 0) {
-            memcpy(lbCardGame_NativeBanners[i], (const void*) source[i],
+        if (source[i] != NULL) {
+            memcpy(lbCardGame_NativeBanners[i], source[i],
                    sizeof(lbCardGame_NativeBanners[i]));
         }
-        lbCardGame_NativeIconTable[i] = (intptr_t) lbCardGame_NativeBanners[i];
+        lbCardGame_NativeIconTable[i] = lbCardGame_NativeBanners[i];
     }
-    if (source[3] != 0) {
-        memcpy(lbCardGame_NativeIcons, (const void*) source[3],
+    if (source[3] != NULL) {
+        memcpy(lbCardGame_NativeIcons, source[3],
                sizeof(lbCardGame_NativeIcons));
     }
-    lbCardGame_NativeIconTable[3] = (intptr_t) lbCardGame_NativeIcons;
+    lbCardGame_NativeIconTable[3] = lbCardGame_NativeIcons;
     lbCardGame_NativeIconTable[4] = source[4];
     _p(x5C) = lbCardGame_NativeIconTable;
 }

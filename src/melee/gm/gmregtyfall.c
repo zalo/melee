@@ -7,17 +7,15 @@
 #include <melee/ef/efasync.h>
 #include <melee/ef/eflib.h>
 #include <melee/ft/ftdemo.h>
-#include <melee/gr/ground.h>
+#include <melee/gr/inlines.h>
 #include <melee/gr/stage.h>
 #include <melee/it/item.h>
 #include <melee/lb/lb_00B0.h>
-#include <melee/lb/lb_00F9.h>
 #include <melee/lb/lbarchive.h>
 #include <melee/lb/lbaudio_ax.h>
 #include <melee/lb/lbspdisplay.h>
 #include <melee/mn/inlines.h>
 #include <melee/mn/mnmain.h>
-#include <melee/mp/mpcoll.h>
 #include <melee/pl/player.h>
 #include <melee/sc/types.h>
 #include <melee/ty/toy.h>
@@ -203,11 +201,7 @@ void gm_801A68D8(void)
     PAD_STACK(0x18);
 
     gm_GetCurrentSceneEnterData();
-    Camera_Init(6);
-    lb_8000FCDC();
-    mpColl_80041C78();
-    Ground_801C0378(0x40);
-    Stage_802251E8(St_Kind_Dummy, NULL);
+    Stage_InitScene(St_Kind_Dummy, NULL);
     Item_80266FA8();
     Item_80266FCC();
     Stage_8022524C();
@@ -281,18 +275,18 @@ void fn_801A6B6C(HSD_GObj* gobj)
     aobj = cobj->aobj;
     if (aobj->curr_frame == aobj->end_frame) {
         Player_80031EBC(0);
-        HSD_GObjPLink_80390228(gm_804D6768);
-        HSD_GObjPLink_80390228(gm_804D6778);
-        HSD_GObjPLink_80390228(gm_804D6754);
-        HSD_GObjPLink_80390228(gm_804D676C);
-        HSD_GObjPLink_80390228(gm_804D677C);
+        HSD_GObjFree(gm_804D6768);
+        HSD_GObjFree(gm_804D6778);
+        HSD_GObjFree(gm_804D6754);
+        HSD_GObjFree(gm_804D676C);
+        HSD_GObjFree(gm_804D677C);
         mn_8022F0F0(3);
         HSD_Free(gm_80480964.x0[0][0].image_ptr);
         HSD_Free(gm_80480964.x0[0][1].image_ptr);
         HSD_Free(gm_80480964.x0[1][0].image_ptr);
         HSD_Free(gm_80480964.x0[1][1].image_ptr);
         gm_801A7B00();
-        HSD_GObjPLink_80390228(gobj);
+        HSD_GObjFree(gobj);
     }
 }
 

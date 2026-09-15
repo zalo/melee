@@ -271,7 +271,7 @@ void fn_80181C80(s32 arg0)
     if (data->x54[arg0].x4 > count && data->x8 > 0x5A) {
         if (Player_GetPlayerSlotType(sp38) != Gm_PKind_NA) {
             Player_SetFalls(sp38, 0);
-            Player_SetSuicideCount(sp38, 0);
+            Player_SetSelfDestructs(sp38, 0);
             fn_8016EF98(sp38);
         }
         data->x54[arg0].x0 = -2;
@@ -449,7 +449,7 @@ void gm_80182174(void)
 
     gm_SetupPlayerDefaults(&lbl_80472ED8.xC);
 
-    ((volatile lbl_80472ED8_t*) &lbl_80472ED8)->xC.ckind = CKIND_BOY;
+    ((volatile lbl_80472ED8_t*) &lbl_80472ED8)->xC.ckind = CKind_Boy;
     ((volatile lbl_80472ED8_t*) &lbl_80472ED8)->xC.slot_type = 1;
     ((volatile lbl_80472ED8_t*) &lbl_80472ED8)->xC.stocks = 1;
     ((volatile lbl_80472ED8_t*) &lbl_80472ED8)->xC.xD_b4 = 1;
@@ -663,8 +663,8 @@ static inline int gm_80182578_GetIndexFromPointer(const int* idx_ptr)
     return *idx_ptr;
 }
 
-inline void gm_80182578_SetTime(RecordBlock* blocks, int idx, int mode,
-                                u16 value)
+static inline void gm_80182578_SetTime(RecordBlock* blocks, int idx, int mode,
+                                       u16 value)
 {
     switch (mode) {
     case 33:

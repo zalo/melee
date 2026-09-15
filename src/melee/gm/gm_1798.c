@@ -91,7 +91,7 @@ void fn_80179854(void)
                     .is_big_loser;
         }
 
-        if (match_end->player_standings[i].slot_type != 3 && lookup != 0) {
+        if (match_end->player_standings[i].pkind != 3 && lookup != 0) {
             HSD_JObjSetTranslateX(GET_JOBJ(gobjs[i]), -300.0f);
             disp->state.x0_6 = 1;
         }
@@ -114,10 +114,10 @@ static inline void fn_80179990_set_erase_color(MatchEnd* match_end, int slot)
 {
     GXColor color;
 
-    color = gm_80160968(
-        gm_80160854((u8) slot, match_end->player_standings[slot].team,
-                    (u8) (match_end->is_teams == 1),
-                    match_end->player_standings[slot].slot_type));
+    color = gm_80160968(gm_80160854((u8) slot,
+                                    match_end->player_standings[slot].team,
+                                    (u8) (match_end->is_teams == 1),
+                                    match_end->player_standings[slot].pkind));
     HSD_SetEraseColor(color.r, color.g, color.b, color.a);
 }
 
@@ -354,11 +354,11 @@ void fn_8017A078(s32 arg0)
 
     if (mode == 0) {
         s32 kind = disp->state.char_kind[arg0];
-        if (kind == CKIND_KOOPA && disp->state.variant[arg0] == 1) {
+        if (kind == CKind_Koopa && disp->state.variant[arg0] == 1) {
             eye.z += 6.0f;
-        } else if (kind == CKIND_MARS && disp->state.variant[arg0] == 1) {
+        } else if (kind == CKind_Mars && disp->state.variant[arg0] == 1) {
             eye.z += 7.5f;
-        } else if (kind == CKIND_CAPTAIN && disp->state.variant[arg0] == 2) {
+        } else if (kind == CKind_Captain && disp->state.variant[arg0] == 2) {
             eye.z += 6.0f;
         }
     }
@@ -512,9 +512,9 @@ Fighter_GObj* fn_8017A67C(CharacterKind kind, int arg1, int arg2)
 
         if ((u32) (kind - 0x12) <= 1U) {
             if ((int) match_end->player_standings[arg2].ftkind == 7) {
-                kind = CKIND_SEAK;
+                kind = CKind_Seak;
             } else {
-                kind = CKIND_ZELDA;
+                kind = CKind_Zelda;
             }
         }
 
@@ -524,7 +524,7 @@ Fighter_GObj* fn_8017A67C(CharacterKind kind, int arg1, int arg2)
         Player_SetPlayerId(arg2, arg2);
         Player_SetSlottype(arg2, Gm_PKind_Demo);
 
-        if (kind == CKIND_GAMEWATCH) {
+        if (kind == CKind_GameWatch) {
             Player_SetFacingDirection(arg2, -1.0f);
         } else {
             Player_SetFacingDirection(arg2, 0.0f);

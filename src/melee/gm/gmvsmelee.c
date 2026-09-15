@@ -45,7 +45,7 @@ void gmVsMelee_UpdateKOCounts(u8* ko_counts, MatchEnd* end)
 {
     ssize_t i;
     for (i = 0; i < GM_MAX_PLAYERS; i++) {
-        if (end->player_standings[i].slot_type == Gm_PKind_Human) {
+        if (end->player_standings[i].pkind == Gm_PKind_Human) {
             ko_counts[i] =
                 lbTime_8000AF74(ko_counts[i], end->player_standings[i].x20);
         }
@@ -56,7 +56,7 @@ bool gmVsMelee_WasAnyPlayerHuman(MatchEnd* end)
 {
     ssize_t i;
     for (i = 0; i < GM_MAX_PLAYERS; i++) {
-        if (end->player_standings[i].slot_type == Gm_PKind_Human) {
+        if (end->player_standings[i].pkind == Gm_PKind_Human) {
             return true;
         }
     }
@@ -85,7 +85,7 @@ u8 findSmallestLoser(MatchEnd* end)
     }
 
     for (i = 0; i < GM_MAX_PLAYERS; i++) {
-        if (end->player_standings[i].slot_type == Gm_PKind_Human &&
+        if (end->player_standings[i].pkind == Gm_PKind_Human &&
             losers[i] < loser)
         {
             loser = losers[i];
@@ -206,12 +206,12 @@ void gmVsMelee_EnterVs(GameModeState* state, VsModeData* vs,
 
     {
         ssize_t i;
-        for (i = 0; i < GM_MAX_PLAYERS; i++) {
+        for (i = 0; i < Gm_Player_NumMax; i++) {
             start->players[i] = vs->start.players[i];
         }
 
         if (player_cb != NULL) {
-            for (i = 0; i < GM_MAX_PLAYERS; i++) {
+            for (i = 0; i < Gm_Player_NumMax; i++) {
                 player_cb(&start->players[i], &vs->start.players[i]);
             }
         }
@@ -230,7 +230,7 @@ void gmVsMelee_ExitVs(GameModeState* state, u8 id0, u8 id1)
     ssize_t i;
 
     for (i = 0; i < GM_MAX_PLAYERS; i++) {
-        if (exit->match_end.player_standings[i].slot_type == Gm_PKind_Human) {
+        if (exit->match_end.player_standings[i].pkind == Gm_PKind_Human) {
             gm_80162574(exit->match_end.player_standings[i].ckind,
                         exit->match_end.outcome);
         }
@@ -316,23 +316,23 @@ void gmVsMelee_ExitResults(GameModeState* state, VsModeData* vs, u8 state_id)
             unk_bool = false;
             idx = findSmallestLoser(match_end);
             unk = gm_80172DD4(gmMainLib_8015ED98()->x0);
-            if (unk != CHKIND_NONE) {
+            if (unk != ChKind_None) {
                 gm_InitChallengerData(match_end->player_standings[idx].ckind,
-                                      (match_end->player_standings[idx].x3),
+                                      (match_end->player_standings[idx].x3_b0),
                                       idx, match_end->player_standings[idx].x4,
                                       unk, 0);
                 gm_SetNextGameModeStateId(gmVsMode_State_Approach);
                 unk_bool = true;
-            } else if ((unk = gm_80172D78()) != CHKIND_NONE) {
+            } else if ((unk = gm_80172D78()) != ChKind_None) {
                 gm_InitChallengerData(match_end->player_standings[idx].ckind,
-                                      (match_end->player_standings[idx].x3),
+                                      (match_end->player_standings[idx].x3_b0),
                                       idx, match_end->player_standings[idx].x4,
                                       unk, 0);
                 gm_SetNextGameModeStateId(gmVsMode_State_Approach);
                 unk_bool = true;
-            } else if ((unk = gm_80172E74()) != CHKIND_NONE) {
+            } else if ((unk = gm_80172E74()) != ChKind_None) {
                 gm_InitChallengerData(match_end->player_standings[idx].ckind,
-                                      (match_end->player_standings[idx].x3),
+                                      (match_end->player_standings[idx].x3_b0),
                                       idx, match_end->player_standings[idx].x4,
                                       unk, 0);
                 gm_SetNextGameModeStateId(gmVsMode_State_Approach);
@@ -346,7 +346,7 @@ void gmVsMelee_ExitResults(GameModeState* state, VsModeData* vs, u8 state_id)
             gm_80172898(1);
             gm_80173EEC();
             if (!unk_bool && gm_801721EC()) {
-                gm_InitChallengerData(CHKIND_NONE, 0, idx, 120, unk, 0);
+                gm_InitChallengerData(ChKind_None, 0, idx, 120, unk, 0);
                 gm_SetNextGameModeStateId(gmVsMode_State_Prize);
                 unk_bool = true;
             }

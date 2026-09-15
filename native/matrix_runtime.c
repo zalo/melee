@@ -27,8 +27,8 @@ void MeleeNativeTestConfigureVs(VsModeData* vs)
     MeleeNativeCheckBrinstarDamage();
     // Menu and preload timing must not change the combat random sequence.
     const char* test_seed = getenv("MELEE_TEST_SEED");
-    *seed_ptr = test_seed ? (u32) strtoul(test_seed, NULL, 10) : 1;
-    fprintf(stderr, "[matrix] match seed=%u\n", *seed_ptr);
+    *HSD_RandSeedPtr = test_seed ? (u32) strtoul(test_seed, NULL, 10) : 1;
+    fprintf(stderr, "[matrix] match seed=%u\n", *HSD_RandSeedPtr);
     vs->start.rules.time_limit = 30;
     vs->start.players[0].ckind = setting("MELEE_TEST_CHARACTER", 32, CKIND_FOX);
     vs->start.players[1].ckind = setting("MELEE_TEST_OPPONENT", 32, CKIND_MARIO);

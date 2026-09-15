@@ -136,20 +136,20 @@ void ftCo_800DD398(Fighter_GObj* gobj, FtMotionId msid, FtMotionId victim_msid,
     PAD_STACK(0x10);
     fp->cmd_vars[0] = 0;
     fp->throw_flags = 0;
-    fp->mv.co.throw.x4 = 0;
-    fp->mv.co.throw.x8 = 0;
+    fp->mv.co.fighterthrow.x4 = 0;
+    fp->mv.co.fighterthrow.x8 = 0;
     Fighter_ChangeMotionState(gobj, msid, 0, 0.0f, anim_speed, 0.0f, NULL);
     ftAnim_8006EBA4(gobj);
     ftCommon_8007E2F4(fp, 0x1FF);
     ftCo_800DE3FC(fp->victim_gobj, victim_msid, anim_speed);
     switch (fp->kind) {
-    case FTKIND_KIRBY:
+    case Ft_Kind_Kirby:
         if (msid == 221) {
             Fighter* victim = GET_FIGHTER(fp->victim_gobj);
             fp->x2219_b2 = victim->x2219_b2 = 1;
         }
         break;
-    case FTKIND_SAMUS:
+    case Ft_Kind_Samus:
         ftSs_Init_CreateThrowGrappleBeam(gobj, msid, anim_speed);
         break;
     default:
@@ -174,9 +174,10 @@ void ftCo_800DD4B0(Fighter_GObj* gobj, FtMotionId msid)
     switch (msid) {
     case 222:
         switch (fp->kind) {
-        case FTKIND_GKOOPS:
-        case FTKIND_KOOPA:
-            if (victim->kind == FTKIND_PEACH || victim->kind == FTKIND_ZELDA) {
+        case Ft_Kind_GKoops:
+        case Ft_Kind_Koopa:
+            if (victim->kind == Ft_Kind_Peach || victim->kind == Ft_Kind_Zelda)
+            {
                 victim_msid = 243;
             }
         default:
@@ -196,8 +197,8 @@ void fn_800DD568(Fighter_GObj* gobj)
     if (fp->anim_cb != NULL) {
         fp->anim_cb(gobj);
     }
-    fp->mv.co.throw.x4 = 0;
-    fp->mv.co.throw.x8 = 1;
+    fp->mv.co.fighterthrow.x4 = 0;
+    fp->mv.co.fighterthrow.x8 = 1;
     if (fp->victim_gobj != NULL) {
         ftCo_800DE974(fp->victim_gobj);
     }
@@ -214,8 +215,8 @@ void fn_800DD5EC(Fighter_GObj* gobj)
         fp->anim_cb(gobj);
     }
     ftAnim_SetAnimRate(gobj, 1.0f);
-    fp->mv.co.throw.x4 = 0;
-    fp->mv.co.throw.x8 = 1;
+    fp->mv.co.fighterthrow.x4 = 0;
+    fp->mv.co.fighterthrow.x8 = 1;
     if (fp->victim_gobj != NULL) {
         ftCo_800DE974(fp->victim_gobj);
     }
@@ -270,21 +271,21 @@ void ftCo_800DD724(Fighter_GObj* gobj)
         Fighter_GObj* victim = fp->victim_gobj;
         ftCommon_8007E2F4(fp, 0);
         if (victim != NULL) {
-            pl_80040614(fp->player_id, fp->x221F_b4,
+            pl_80040614(fp->player_id, fp->is_sub_fighter,
                         GET_FIGHTER(victim)->grab_timer);
             ftCo_800DE2A8(gobj, victim);
             ftCo_800DE7C0(victim, gobj, fp->motion_id == 222);
         }
     }
-    if (fp->cmd_vars[0] != 0 && fp->mv.co.throw.x4 == 0) {
-        fp->mv.co.throw.x4 = 1;
+    if (fp->cmd_vars[0] != 0 && fp->mv.co.fighterthrow.x4 == 0) {
+        fp->mv.co.fighterthrow.x4 = 1;
         fp->cmd_vars[0] = 0;
-        fp->mv.co.throw.xC = fp->x6A4_transNOffset;
+        fp->mv.co.throw_.xC = fp->x6A4_transNOffset;
         ftAnim_SetAnimRate(gobj, 0.0f);
         if (fp->victim_gobj != NULL) {
             ftCo_800DE920(fp->victim_gobj, fp->cur_anim_frame);
         }
-        if (fp->kind == FTKIND_KIRBY && fp->motion_id == 221) {
+        if (fp->kind == Ft_Kind_Kirby && fp->motion_id == 221) {
             fp->x2219_b2 = 0;
             if (fp->victim_gobj != NULL) {
                 GET_FIGHTER(fp->victim_gobj)->x2219_b2 = 0;
@@ -316,9 +317,9 @@ void ftCo_ThrowF_Phys(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     if (fp->ground_or_air == GA_Air) {
-        if (fp->mv.co.throw.x4 != 0) {
-            fp->self_vel.x = fp->mv.co.throw.xC.z * fp->facing_dir;
-            fp->self_vel.y = fp->mv.co.throw.xC.y;
+        if (fp->mv.co.fighterthrow.x4 != 0) {
+            fp->self_vel.x = fp->mv.co.throw_.xC.z * fp->facing_dir;
+            fp->self_vel.y = fp->mv.co.throw_.xC.y;
         } else {
             ft_80085134(gobj);
         }
@@ -331,9 +332,9 @@ void ftCo_ThrowF_Coll(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     if (fp->ground_or_air == GA_Air) {
-        if (fp->mv.co.throw.x4 != 0) {
+        if (fp->mv.co.fighterthrow.x4 != 0) {
             ft_80083C00(gobj, fn_800DD568);
-        } else if (fp->mv.co.throw.x8 == 0) {
+        } else if (fp->mv.co.fighterthrow.x8 == 0) {
             ft_80083CE4(gobj, fn_800DD6E4, fn_800DD5EC);
         } else {
             ft_80083B68(gobj);
@@ -377,9 +378,9 @@ void ftCo_ThrowB_Coll(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     if (fp->ground_or_air == GA_Air) {
-        if (fp->mv.co.throw.x4 != 0) {
+        if (fp->mv.co.fighterthrow.x4 != 0) {
             ft_80083C00(gobj, fn_800DD568);
-        } else if (fp->mv.co.throw.x8 == 0) {
+        } else if (fp->mv.co.fighterthrow.x8 == 0) {
             ft_80083CE4(gobj, fn_800DD6E4, fn_800DD5EC);
         } else {
             ft_80083B68(gobj);
@@ -423,9 +424,9 @@ void ftCo_ThrowHi_Coll(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     if (fp->ground_or_air == GA_Air) {
-        if (fp->mv.co.throw.x4 != 0) {
+        if (fp->mv.co.fighterthrow.x4 != 0) {
             ft_80083C00(gobj, fn_800DD568);
-        } else if (fp->mv.co.throw.x8 == 0) {
+        } else if (fp->mv.co.fighterthrow.x8 == 0) {
             ft_80083CE4(gobj, fn_800DD6E4, fn_800DD5EC);
         } else {
             ft_80083B68(gobj);
@@ -438,7 +439,7 @@ void ftCo_ThrowHi_Coll(Fighter_GObj* gobj)
 void ftCo_ThrowHi_Cam(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    if (fp->kind == FTKIND_KIRBY && fp->motion_id == 221) {
+    if (fp->kind == Ft_Kind_Kirby && fp->motion_id == 221) {
         ftCamera_800762F4(gobj);
     } else {
         ftCamera_UpdateCameraBox(gobj);
@@ -479,9 +480,9 @@ void ftCo_ThrowLw_Coll(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     if (fp->ground_or_air == GA_Air) {
-        if (fp->mv.co.throw.x4 != 0) {
+        if (fp->mv.co.fighterthrow.x4 != 0) {
             ft_80083C00(gobj, fn_800DD568);
-        } else if (fp->mv.co.throw.x8 == 0) {
+        } else if (fp->mv.co.fighterthrow.x8 == 0) {
             ft_80083CE4(gobj, fn_800DD6E4, fn_800DD5EC);
         } else {
             ft_80083B68(gobj);

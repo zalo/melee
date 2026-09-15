@@ -1,6 +1,7 @@
 #include "mnhyaku.h"
 
 #include <melee/gm/forward.h>
+#include <melee/it/forward.h>
 #include <melee/sc/forward.h>
 
 #include "inlines.h"
@@ -122,7 +123,7 @@ void mnHyaku_8024C9F0(HSD_GObj* gobj)
     HSD_JObj* jobj = (HSD_JObj*) gobj->hsd_obj;
     f32 ret = mn_8022EC18(jobj, &mnHyaku_803EF674, 0x80);
     if (ret >= mnHyaku_803EF674.end_frame) {
-        HSD_GObjPLink_80390228(gobj);
+        HSD_GObjFree(gobj);
     }
 }
 
@@ -131,7 +132,7 @@ void mnHyaku_8024CA50(HSD_GObj* gobj)
     HSD_GObjProc* gobj_proc;
     Menu* menu = GET_MENU(gobj);
     if (mn_804A04F0.cur_menu != 0x21) {
-        HSD_GObjProc_8038FE24(HSD_GObj_804D7838);
+        HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
         gobj_proc = HSD_GObj_SetupProc(gobj, mnHyaku_8024C9F0, 0U);
         gobj_proc->flags_3 = HSD_GObj_804D783C;
         HSD_SisLib_803A5CC4(menu->text);
@@ -149,7 +150,7 @@ void mnHyaku_8024CAC8(HSD_GObj* gobj)
     jobj = (HSD_JObj*) gobj->hsd_obj;
     menu = GET_MENU(gobj);
     if (mn_804A04F0.cur_menu != 0x21) {
-        HSD_GObjProc_8038FE24(HSD_GObj_804D7838);
+        HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
         gobj_proc = HSD_GObj_SetupProc(gobj, mnHyaku_8024C9F0, 0U);
         gobj_proc->flags_3 = HSD_GObj_804D783C;
         HSD_SisLib_803A5CC4(menu->text);
@@ -157,7 +158,7 @@ void mnHyaku_8024CAC8(HSD_GObj* gobj)
     }
     res = mn_8022EC18(jobj, &mnHyaku_803EF668, 0x80);
     if (res == mnHyaku_803EF668.end_frame) {
-        HSD_GObjProc_8038FE24(HSD_GObj_804D7838);
+        HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
         gobj_proc = HSD_GObj_SetupProc(gobj, mnHyaku_8024CA50, 0U);
         gobj_proc->flags_3 = HSD_GObj_804D783C;
     }

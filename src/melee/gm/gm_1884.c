@@ -4,8 +4,8 @@
 
 #include "gm_1601.h"
 #include "gm_1A36.h"
-#include "gm_1A45.h"
 #include "gm_unsplit.h"
+#include "gmscene.h"
 #include "types.h"
 #include <dolphin/pad.h>
 #include <melee/gr/stage.h>
@@ -23,7 +23,6 @@
 #include <melee/pl/pl_040D.h>
 #include <melee/pl/player.h>
 #include <melee/sc/types.h>
-#include <Runtime/runtime.h>
 #include <sysdolphin/baselib/aobj.h>
 #include <sysdolphin/baselib/cobj.h>
 #include <sysdolphin/baselib/dobj.h>
@@ -223,8 +222,7 @@ void fn_80188644(void)
     Player_800328D4(0, &sp10);
     ifStatus_802F6508(0);
 
-    i = 0;
-    do {
+    for (i = 0; i < 4; i++) {
         if (i != 0 && i <= saved_count) {
             fn_8016EF98(i);
             if (i == 1) {
@@ -236,8 +234,7 @@ void fn_80188644(void)
                 gm_8016EDDC(i, &lbl_80473700.players[i]);
             }
         }
-        i++;
-    } while (i < 4);
+    }
 
     gm_80473814.menu_values[0] = 0;
     gm_80473814.menu_values[1] = 0;
@@ -425,7 +422,7 @@ void fn_80188EE8(HSD_GObj* gobj)
 
     PAD_STACK(8);
 
-    if (gm_801A45E8(2) != 0) {
+    if (gm_GetDbPauseFlag(2) != 0) {
         HSD_SisLib_803A6368(sub->text, 0x1E);
         HSD_JObjSetFlagsAll(sub->jobjs[3], JOBJ_HIDDEN);
     } else {
@@ -547,7 +544,7 @@ void fn_801891F4(void)
     buttons = gm_801A36C0((u8) lbl_80473700.mode);
     sub = &gm_80473814;
 
-    if (gm_801A45E8(2) != 0) {
+    if (gm_GetDbPauseFlag(2) != 0) {
         if (sub->x01 == 0) {
             fn_801651FC(0, 0);
             gm_801891F4_SetCpuType(0);
@@ -780,9 +777,8 @@ void fn_801891F4(void)
             {
                 f32 selected_speed =
                     speed_stack.speeds.values[sub->menu_values[0]];
-                lb_80019880(
-                    __cvt_dbl_usll((f64) (0.016666668f / selected_speed *
-                                          (f32) gm_801891F4_GetTickRate())));
+                lb_80019880(1 / 60.0F / selected_speed *
+                            gm_801891F4_GetTickRate());
             }
 
             fn_80188550(sub->menu_values[2] + 1);
@@ -884,7 +880,7 @@ void gm_80189CDC(StartMeleeData* arg0)
 
     arg0->rules.match_kind = 0;
     arg0->rules.is_teams = 1;
-    arg0->rules.xB = -1;
+    arg0->rules.item_freq = -1;
     arg0->rules.x20 = 0xFFFFFFFFFFFFFFFFULL;
     arg0->rules.x5_0 = 1;
 

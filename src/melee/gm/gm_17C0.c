@@ -77,7 +77,7 @@ void fn_8017C0C8(void)
     sp8.attack_ratio = Player_GetAttackRatio(2);
     sp8.defense_ratio = Player_GetUnk50(2);
     sp8.color = 0;
-    sp8.ckind = CKIND_CREZYH;
+    sp8.ckind = CKind_CrezyH;
     sp8.team = 4;
     sp8.xC_b7 = true;
     sp8.hp = lbl_804706C0.xC;
@@ -99,8 +99,8 @@ void fn_8017C1A4(HSD_GObj* unused)
     int temp_r31;
     int temp_r3;
     int temp_r3_3;
-    lbl_8046B6A0_t* temp_r3_2;
-    lbl_8046B6A0_t* temp_r3_4;
+    VsSceneController* temp_r3_2;
+    VsSceneController* temp_r3_4;
     PAD_STACK(8);
 
     temp_r31 = ftBossLib_8015C74C();
@@ -110,9 +110,9 @@ void fn_8017C1A4(HSD_GObj* unused)
     switch (tmp->x0) {
     case 0:
         if (tmp->x8 == 0) {
-            temp_r3_2 = gm_16AE_GetUnkData_0();
-            temp_r3_2->x24C8.disable_pausing = false;
-            temp_r3_2->hud_enabled = 0;
+            temp_r3_2 = gmVs_GetSceneController();
+            temp_r3_2->start.disable_pausing = false;
+            temp_r3_2->state.hud_enabled = 0;
             lbAudioAx_800237A8(0x81650, 0x7F, 0x40);
             ftLib_80086824();
             tmp->x8 = 1;
@@ -122,7 +122,7 @@ void fn_8017C1A4(HSD_GObj* unused)
         break;
     case 1:
         if (tmp->x8 == 0) {
-            gm_16AE_GetUnkData_0();
+            gmVs_GetSceneController();
             lbAudioAx_800236DC();
             ftBossLib_8015CA6C(0x1D9);
             Player_SetMoreFlagsBit4(0, 1);
@@ -137,7 +137,7 @@ void fn_8017C1A4(HSD_GObj* unused)
             fn_8017C0C8();
             tmp->x8 = 2;
         } else if (ftBossLib_8015C2A8() == 0) {
-            gm_16AE_GetUnkData_0();
+            gmVs_GetSceneController();
             Stage_80225074(0);
             ftBossLib_8015CB7C();
             Player_SetMoreFlagsBit4(0, 0);
@@ -149,8 +149,8 @@ void fn_8017C1A4(HSD_GObj* unused)
         }
         break;
     case 2:
-        temp_r3_4 = gm_16AE_GetUnkData_0();
-        temp_r3_4->hud_enabled = 1;
+        temp_r3_4 = gmVs_GetSceneController();
+        temp_r3_4->state.hud_enabled = 1;
         Stage_80225074(0);
         ftLib_800868A4();
         ftBossLib_8015CC14();
@@ -192,11 +192,11 @@ void fn_8017C1A4(HSD_GObj* unused)
         temp_r27_2 = temp_r31 + temp_r29;
         if (tmp->x8 == 0) {
             ftBossLib_8015CB9C(tmp->x4);
-            gm_801A4634(6);
+            gm_SetDbPauseFlag(6);
         } else if (tmp->x8 == temp_r31) {
             lbAudioAx_8002438C(0x4E200);
             ftBossLib_8015CC14();
-            gm_801A4674(6);
+            gm_ClearDbPauseFlag(6);
             gm_SetGameSpeed(0.5f);
         } else if (tmp->x8 >= temp_r27_2) {
             gm_SetGameSpeed(1.0f);
@@ -213,23 +213,23 @@ void fn_8017C1A4(HSD_GObj* unused)
         temp_r28 = temp_r31 + temp_r27;
         temp_r29_2 = temp_r3 + temp_r28;
         if (tmp->x8 == 0) {
-            temp_r3_4 = gm_16AE_GetUnkData_0();
-            temp_r3_4->hud_enabled = 0;
+            temp_r3_4 = gmVs_GetSceneController();
+            temp_r3_4->state.hud_enabled = 0;
             if (tmp->x4 == 2) {
                 tmp->x4 = 1;
             } else {
                 tmp->x4 = 2;
             }
             ftBossLib_8015CB9C(tmp->x4);
-            gm_801A4634(6);
+            gm_SetDbPauseFlag(6);
             Player_80031790(0);
             Player_80036844(0, 1);
-            temp_r3_4 = gm_16AE_GetUnkData_0();
-            temp_r3_4->x24C8.timer_enabled = false;
+            temp_r3_4 = gmVs_GetSceneController();
+            temp_r3_4->start.timer_enabled = false;
         } else if (tmp->x8 == temp_r31) {
             lbAudioAx_8002438C(0x4E200);
             ftBossLib_8015CC14();
-            gm_801A4674(6);
+            gm_ClearDbPauseFlag(6);
             gm_SetGameSpeed(0.5f);
             lbBgFlash_80020688(temp_r27);
         } else if (tmp->x8 == temp_r28) {
@@ -265,7 +265,7 @@ void fn_8017C71C(void)
     tmp->x8 = 0;
     tmp->xC = ftBossLib_8015C530(gm_8017E068());
     Player_SetOtherStamina(2, tmp->xC);
-    ftLib_80087508(FTKIND_CREZYH, 0);
+    ftLib_80087508(Ft_Kind_CrezyH, 0);
 }
 
 void fn_8017C7A0(void)
@@ -280,19 +280,19 @@ void fn_8017C7A0(void)
 
 void fn_8017C7EC(void)
 {
-    lbl_8046B6A0_t* temp_r31;
+    VsSceneState* scene_state;
     Unk1PData* temp_r30;
 
     temp_r30 = fn_8017DF28();
-    temp_r31 = gm_16AE_GetUnkData_1();
-    temp_r31->timer_seconds = grPushOn_80219230(temp_r30->x0.ckind);
+    scene_state = gmVs_GetSceneState();
+    scene_state->timer_seconds = grPushOn_80219230(temp_r30->x0.ckind);
 }
 
 void gm_8017C838(void)
 {
     s8 sp10[3];
 
-    lbl_8046B6A0_t* temp_r3;
+    VsSceneController* temp_r3;
     int i;
     s8 var_r3;
     s8* var_r31;
@@ -301,21 +301,21 @@ void gm_8017C838(void)
     PAD_STACK(8);
 
     temp_r30 = gm_GetAdventureData();
-    temp_r3 = gm_16AE_GetUnkData_0();
+    temp_r3 = gmVs_GetSceneController();
     var_r31 = sp10;
-    sp10[0] = FTKIND_NONE;
-    sp10[1] = FTKIND_NONE;
-    sp10[2] = FTKIND_NONE;
-    switch (temp_r3->x24C8.stkind) {
+    sp10[0] = Ft_Kind_None;
+    sp10[1] = Ft_Kind_None;
+    sp10[2] = Ft_Kind_None;
+    switch (temp_r3->start.stkind) {
     case 0x3B:
-        sp10[0] = FTKIND_YOSHI;
+        sp10[0] = Ft_Kind_Yoshi;
         break;
     case 0x3F:
-        sp10[0] = FTKIND_LINK;
+        sp10[0] = Ft_Kind_Link;
         break;
     case 0x44:
-        sp10[0] = FTKIND_KIRBY;
-        if (temp_r30->x0.x0.ckind == CKIND_KIRBY && temp_r30->x0.x0.color == 0)
+        sp10[0] = Ft_Kind_Kirby;
+        if (temp_r30->x0.x0.ckind == CKind_Kirby && temp_r30->x0.x0.color == 0)
         {
             var_r3 = 1;
         } else {
@@ -325,25 +325,25 @@ void gm_8017C838(void)
         break;
     case 0x48:
         sp10[0] = 0xC;
-        if (gm_IsCKindUnlocked(CKIND_PICHU) != 0) {
-            sp10[1] = FTKIND_PICHU;
+        if (gm_IsCKindUnlocked(CKind_Pichu) != 0) {
+            sp10[1] = Ft_Kind_Pichu;
         }
-        if (gm_IsCKindUnlocked(CKIND_PURIN) != 0) {
-            sp10[2] = FTKIND_PURIN;
+        if (gm_IsCKindUnlocked(CKind_Purin) != 0) {
+            sp10[2] = Ft_Kind_Purin;
         }
         break;
     case 0x4C:
-        sp10[0] = FTKIND_POPO;
-        sp10[1] = FTKIND_NANA;
+        sp10[0] = Ft_Kind_Popo;
+        sp10[1] = Ft_Kind_Nana;
         break;
     case 0x4E:
-        sp10[0] = FTKIND_BOY;
-        sp10[1] = FTKIND_GIRL;
+        sp10[0] = Ft_Kind_Boy;
+        sp10[1] = Ft_Kind_Girl;
         break;
     }
 
     for (i = 0; i < 3; i++) {
-        if (*var_r31 != FTKIND_MAX) {
+        if (*var_r31 != Ft_Kind_Max) {
             ftLib_80087574(*var_r31);
         }
         var_r31++;
@@ -398,7 +398,7 @@ void gm_8017CA38(DebugGameOverData* arg0, Unk1PData* arg1, gmm_x0_528_t* arg2,
         gm_8017390C(fn_8017DF90(), 0);
         gm_80173EEC();
         gm_80172898(0x40);
-        if (temp_r31 == CHKIND_NONE) {
+        if (temp_r31 == ChKind_None) {
             if (gm_80173754(1, arg1->x0.slot) == 0) {
                 gm_ChangeGameModeAfterCurrentScene(GM_MENU);
             }
@@ -483,7 +483,7 @@ u8 gm_8017CD94(UnkAdventureData* arg0, int arg1, int arg2, int arg3)
     u8 num_colors;
     u8 result;
 
-    num_colors = gm_80169238(arg1);
+    num_colors = gm_GetNumCostumesForCKind(arg1);
     if (arg0->x0.x54 != NULL) {
         result = arg0->x0.x54(arg2, arg0->x0.x0.cpu_level, arg3);
         if (num_colors != 0) {
@@ -516,7 +516,7 @@ static inline void gm_8017CE34_SetupColors(Unk1PData* arg1, s32 count,
     u8 result;
 
     for (color_idx = 0; color_idx < 3; color_idx++) {
-        num_colors = gm_80169238((u8) arg2[color_idx]);
+        num_colors = gm_GetNumCostumesForCKind((u8) arg2[color_idx]);
         if (arg1->x54 != NULL) {
             result = arg1->x54(count, arg1->x0.cpu_level, color_idx);
             if (num_colors != 0) {
@@ -594,7 +594,7 @@ void gm_8017CE34(StartMeleeData* arg0, Unk1PData* arg1, s8* arg2, u8 arg3,
 
     arg0->rules.x18 = (u32) arg1->xC.x18;
     arg0->rules.stkind = (u16) arg7;
-    arg0->rules.xB = arg1->x48((u8) count, arg1->x0.cpu_level);
+    arg0->rules.item_freq = arg1->x48((u8) count, arg1->x0.cpu_level);
 
     arg0->rules.x20 = (u64) -1;
 
@@ -637,12 +637,12 @@ void gm_8017CE34(StartMeleeData* arg0, Unk1PData* arg1, s8* arg2, u8 arg3,
         player_stocks = arg1->x0.stocks;
     }
 
-    if ((arg1->x0.ckind == CKIND_ZELDA) && (arg1->xC.x12 != 0)) {
-        player_ckind = CKIND_SEAK;
+    if ((arg1->x0.ckind == CKind_Zelda) && (arg1->xC.x12 != 0)) {
+        player_ckind = CKind_Seak;
     } else if (((arg1->x8 & 0x80) != 0) && (arg1->x9 == 1) &&
-               (arg1->x0.ckind == CKIND_POPONANA))
+               (arg1->x0.ckind == CKind_PopoNana))
     {
-        player_ckind = CHKIND_POPO;
+        player_ckind = ChKind_Popo;
     } else {
         player_ckind = (u8) arg1->x0.ckind;
     }
@@ -777,15 +777,15 @@ void gm_8017CE34(StartMeleeData* arg0, Unk1PData* arg1, s8* arg2, u8 arg3,
                 arg0->players[player_idx].xB = 0;
             }
             if (arg1->x8 & 4) {
-                arg0->players[player_idx].xC_b2 = 1;
+                arg0->players[player_idx].vs_metal = 1;
                 arg0->players[player_idx].cpu_kind = 0x1B;
             }
-            if ((s32) arg0->players[player_idx].ckind == CKIND_GKOOPS) {
+            if ((s32) arg0->players[player_idx].ckind == CKind_GKoops) {
                 arg0->players[player_idx].xC_b1 = 0;
             }
             enemy_ckind = (u8) arg0->players[player_idx].ckind;
-            if (((s8) enemy_ckind == CKIND_MASTERH) ||
-                ((s8) enemy_ckind == CKIND_CREZYH))
+            if (((s8) enemy_ckind == CKind_MasterH) ||
+                ((s8) enemy_ckind == CKind_CrezyH))
             {
                 arg0->players[player_idx].xC_b7 = 1;
                 arg0->players[player_idx].hp = 0x12C;
@@ -793,7 +793,7 @@ void gm_8017CE34(StartMeleeData* arg0, Unk1PData* arg1, s8* arg2, u8 arg3,
                 arg0->players[player_idx].xD_b0 = 1;
                 arg0->players[player_idx].xD_b2 = 1;
                 arg0->players[player_idx].spawn_dir = -1;
-                if ((s32) arg0->players[player_idx].ckind == CKIND_CREZYH) {
+                if ((s32) arg0->players[player_idx].ckind == CKind_CrezyH) {
                     arg0->players[player_idx].slot_type = 3;
                 }
                 boss_count += 1;
@@ -920,9 +920,6 @@ bool gm_8017D7AC(MatchExitInfo* arg0, Unk1PData* arg1, u8 arg2)
     return 1;
 }
 
-#ifdef MUST_MATCH
-#pragma opt_propagation off
-#endif
 static inline s32 pick_random_ckind(u8* arr, const u8* used_ckinds,
                                     const u8* preset_ckinds)
 {
@@ -941,10 +938,9 @@ static inline s32 pick_random_ckind(u8* arr, const u8* used_ckinds,
     u8* w;
     u8* w2;
 
-    base = arr;
-    scan.cursor = base;
+    scan.cursor = (base = arr);
     scan.count = 0;
-    while ((s32) *scan.cursor != CHKIND_NONE) {
+    while ((s32) *scan.cursor != ChKind_None) {
         scan.cursor++;
         scan.count++;
     }
@@ -982,7 +978,7 @@ static inline s32 pick_random_ckind(u8* arr, const u8* used_ckinds,
         w2++;
     }
 
-    return CHKIND_NONE;
+    return ChKind_None;
 }
 
 s32 fn_8017D9C0(const u8* used_ckinds, const u8* preset_ckinds)
@@ -990,7 +986,6 @@ s32 fn_8017D9C0(const u8* used_ckinds, const u8* preset_ckinds)
     return pick_random_ckind(lbl_803D79F0, used_ckinds, preset_ckinds);
 }
 #ifdef MUST_MATCH
-#pragma opt_propagation reset
 #pragma dont_inline on
 #endif
 
@@ -998,7 +993,7 @@ void gm_8017DB58(struct Unk1PData_x24* arg0)
 {
     int i;
     for (i = 0; i < 3; i++) {
-        arg0[i].ckind = CHKIND_NONE;
+        arg0[i].ckind = ChKind_None;
     }
 }
 
@@ -1089,19 +1084,19 @@ s32 fn_8017DD7C(PlayerInitData* arg0, Unk1PData_x24* arg1, u8 arg2)
     s32 index = 1;
     int i;
     for (i = 0; i < 3; i++) {
-        if (arg1[i].ckind != CHKIND_NONE) {
+        if (arg1[i].ckind != ChKind_None) {
             gm_SetupPlayerDefaults(&arg0[index]);
             arg0[index].ckind = arg1[i].ckind;
             arg0[index].slot_type = 1;
             arg0[index].stocks = 1;
             arg0[index].team = arg0->team;
-            arg0[index].color = arg1[i].x1;
-            arg0[index].cpu_kind = arg1[i].x3;
-            arg0[index].cpu_level = arg1[i].x2;
-            arg0[index].attack_ratio = arg1[i].x4;
-            arg0[index].defense_ratio = arg1[i].x8;
+            arg0[index].color = arg1[i].color;
+            arg0[index].cpu_kind = arg1[i].cpu_kind;
+            arg0[index].cpu_level = arg1[i].cpu_level;
+            arg0[index].attack_ratio = arg1[i].attack_ratio;
+            arg0[index].defense_ratio = arg1[i].defense_ratio;
             arg0[index].xD_b1 = 1;
-            if (arg0[index].ckind == CKIND_GKOOPS) {
+            if (arg0[index].ckind == CKind_GKoops) {
                 arg0[index].xC_b1 = 0;
             }
             index++;
@@ -1215,7 +1210,7 @@ bool fn_8017E160(void)
     if (var_r3 != NULL) {
         int i;
         for (i = 0; i < 3; i++) {
-            if (var_r3->xC.x24[i].ckind != CHKIND_NONE) {
+            if (var_r3->xC.x24[i].ckind != ChKind_None) {
                 return true;
             }
         }

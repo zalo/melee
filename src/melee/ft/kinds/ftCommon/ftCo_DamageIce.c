@@ -19,6 +19,7 @@
 #include "ftCo_Lift.h"
 #include "ftCo_PassiveStand.h"
 #include "ftCo_Throw.h"
+#include "inlines.h"
 #include "types.h"
 #include <dolphin/mtx.h>
 #include <melee/cm/camera.h>
@@ -59,11 +60,11 @@ void ftCo_80090984(Fighter_GObj* gobj)
 
 void ftCo_800909D0(Fighter* fp)
 {
-    u8 _[8] = { 0 };
+    u8 _[8];
     Vec3 offset;
     Vec3 pos;
     {
-        u8 _[4] = { 0 };
+        u8 _[4];
         float radius = fp->x34_scale.y * fp->co_attrs.damageice_ice_size;
         lb_8000B1CC(fp->parts[FtPart_TopN].joint, NULL, &pos);
         lb_8000B1CC(fp->parts[ftParts_GetBoneIndex(fp, FtPart_XRotN)].joint,
@@ -237,9 +238,7 @@ void ftCo_DamageIce_HitWhileFrozen(Fighter_GObj* gobj)
 
     fp = GET_FIGHTER(gobj);
 
-    ftCommon_8007DB58(gobj);
-    ftCo_8009750C(gobj);
-    ftCo_800DD168(gobj);
+    ftCo_ReleaseItemAndVictim(gobj);
     fp->x2227_b6 = true;
 
     Fighter_ChangeMotionState(gobj, ftCo_MS_DamageIce,
@@ -324,11 +323,11 @@ void ftCo_DamageIce_IASA(Fighter_GObj* gobj) {}
 
 void ftCo_DamageIce_Phys(Fighter_GObj* gobj)
 {
-    u8 _[8] = { 0 };
+    u8 _[8];
     Fighter* fp = gobj->user_data;
     ftCo_DatAttrs* co = &fp->co_attrs;
     if (fp->ground_or_air == GA_Air) {
-        ftCommon_8007CEF4(fp);
+        ftCommon_CalcSelfAccel_DeaccelAir(fp);
         ftCommon_Fall(fp, co->gravity * p_ftCommonData->damageice_gravity_mult,
                       co->terminal_velocity);
     } else {

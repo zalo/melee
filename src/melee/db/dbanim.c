@@ -50,14 +50,15 @@ void fn_ToggleMiscFighterVisuals(void)
     } else {
         db_804D6B48.MiscFighterVisualsStatus = 1;
     }
-    for (fighter = HSD_GObj_Entities->fighters; fighter != NULL;
+    for (fighter = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_FIGHTER]; fighter != NULL;
          fighter = fighter->next)
     {
         Fighter* ft = GET_FIGHTER(fighter);
         // ft->x21FC_flag.grouped_bits.b0_to_5 =
         // db_804D6B48.MiscFighterVisualsStatus;
-        ft->x21FC_flag.u8 = (ft->x21FC_flag.u8 & 3) |
-                            ((db_804D6B48.MiscFighterVisualsStatus << 2) & ~3);
+        ft->x21FC_flag.byte =
+            (ft->x21FC_flag.byte & 3) |
+            ((db_804D6B48.MiscFighterVisualsStatus << 2) & ~3);
     }
     if ((db_804D6B48.MiscFighterVisualsStatus & 0x02) != 0) {
         fn_EnableShowEnemyStompRange();
@@ -80,7 +81,7 @@ u8 fn_8022697C(Fighter_GObj* owner)
 {
     if (ftLib_80086960(owner) != 0) {
         Fighter* ft = GET_FIGHTER(owner);
-        return ft->x21FC_flag.u8;
+        return ft->x21FC_flag.byte;
     } else {
         return 0;
     }
@@ -99,7 +100,7 @@ void fn_UpdateAnimationInfo(void)
         print_newline = 0;
         DevText_Erase(text);
         DevText_SetCursorXY(text, 0, 0);
-        for (gobj = HSD_GObj_Entities->fighters; gobj != NULL;
+        for (gobj = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_FIGHTER]; gobj != NULL;
              gobj = gobj->next)
         {
             ft = gobj->user_data;
@@ -159,10 +160,10 @@ void fn_CheckAnimationInfo(int player)
             if (db_804D6B48.ShowFighterCollisionBubbles > 3) {
                 db_804D6B48.ShowFighterCollisionBubbles = 1;
             }
-            for (gobj = HSD_GObj_Entities->fighters; gobj != NULL;
-                 gobj = gobj->next)
+            for (gobj = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_FIGHTER];
+                 gobj != NULL; gobj = gobj->next)
             {
-                GET_FIGHTER(gobj)->x21FC_flag.u8 =
+                GET_FIGHTER(gobj)->x21FC_flag.byte =
                     db_804D6B48.ShowFighterCollisionBubbles;
             }
         }
@@ -172,11 +173,11 @@ void fn_CheckAnimationInfo(int player)
             unsigned int x;
             gobj = Player_GetEntity(player);
             ft = GET_FIGHTER(gobj);
-            x = (ft->x21FC_flag.u8 & 3) + 1;
+            x = (ft->x21FC_flag.byte & 3) + 1;
             if (x > 3) {
-                ft->x21FC_flag.u8 = 1;
+                ft->x21FC_flag.byte = 1;
             } else {
-                ft->x21FC_flag.u8 = x;
+                ft->x21FC_flag.byte = x;
             }
             fn_80225E6C(gobj, ft);
         }

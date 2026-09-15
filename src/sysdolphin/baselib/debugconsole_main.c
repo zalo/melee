@@ -1,5 +1,6 @@
 #include "debugconsole_main.h"
 
+#include <placeholder.h>
 #include <string.h>
 
 #include "hsd_3915.h"
@@ -681,10 +682,6 @@ void hsd_80394544(s32 col, s32 row, u32 num_cols, u32 num_rows, s32 x, s32 y,
     }
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma global_optimizer off
-#endif
 void hsd_80394668(void)
 {
     struct ParticleScreenState* sp = &hsd_804CF810;
@@ -697,11 +694,10 @@ void hsd_80394668(void)
         u32 size;
         struct ParticleScreenBuffer* src;
 
-        src = (struct ParticleScreenBuffer*) sp->x2C;
-        if ((u32) src != 0) {
+        if ((u32) (src = (struct ParticleScreenBuffer*) sp->x2C) != 0) {
             /* Copy XFB data with brightness adjustment */
-            dst_base = (s32*) sp + sp->x34;
-            dst = (struct ParticleScreenBuffer*) dst_base[9];
+            dst = (struct ParticleScreenBuffer*) (dst_base =
+                                                      (s32*) sp + sp->x34)[9];
             size = sp->x48;
 
             for (pos = 0; pos < size; pos += 2) {
@@ -760,9 +756,6 @@ void hsd_80394668(void)
         }
     }
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 void hsd_80394950(OSContext* ctx)
 {
@@ -1004,6 +997,30 @@ extern struct lbl_8040B904_t {
     UNK_T x8;
     UNK_T xC;
 } lbl_8040B904;
+
+static inline void ps_push_node(ExcptNode* node)
+{
+    if (node != NULL) {
+        fn_80394DF4(node);
+        node->next = hsd_804CF810.xD0;
+        hsd_804CF810.xD0 = node;
+        if (node->callback != NULL) {
+            node->callback(node);
+        }
+        hsd_804CF810.x0_b5 = 1;
+    }
+}
+
+static inline void ps_set_initial_node(ExcptNode* node)
+{
+    if (node != NULL) {
+        node->next = NULL;
+        hsd_804CF810.xD0 = node;
+        if (node->callback != NULL) {
+            node->callback(node);
+        }
+    }
+}
 
 static void hsd_80394E8C(struct lbl_8040B904_t* node_ptr)
 {
@@ -1316,10 +1333,6 @@ void hsd_803957C0(void* input)
     hsd_804CF810.x50 = saved;
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 s32 hsd_80395970(void)
 {
     struct ParticleScreenState* sp = &hsd_804CF810;
@@ -1356,10 +1369,6 @@ s32 hsd_80395970(void)
     hsd_80393E68(saved_x, saved_y);
     return result;
 }
-
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 extern struct lbl_8040BA5C_t {
     void* x0;
@@ -1453,44 +1462,14 @@ bool hsd_80395A78(void)
         case 0x100:
             lbl_8040BC3C.x10 = hsd_80395970();
             lbl_8040BC3C.x18 = &lbl_8040BAF0;
-            if ((ExcptNode*) &lbl_8040BC3C != NULL) {
-                fn_80394DF4((ExcptNode*) &lbl_8040BC3C);
-                ((ExcptNode*) &lbl_8040BC3C)->next =
-                    (ExcptNode*) hsd_804CF810.xD0;
-                hsd_804CF810.xD0 = &lbl_8040BC3C;
-                if (((ExcptNode*) &lbl_8040BC3C)->callback != NULL) {
-                    ((ExcptNode*) &lbl_8040BC3C)
-                        ->callback((ExcptNode*) &lbl_8040BC3C);
-                }
-                hsd_804CF810.x0_b5 = 1;
-            }
+            ps_push_node((ExcptNode*) &lbl_8040BC3C);
             return true;
         case 0x400:
             lbl_8040BC3C.x18 = &lbl_8040BAF0;
-            if ((ExcptNode*) &lbl_8040BC3C != NULL) {
-                fn_80394DF4((ExcptNode*) &lbl_8040BC3C);
-                ((ExcptNode*) &lbl_8040BC3C)->next =
-                    (ExcptNode*) hsd_804CF810.xD0;
-                hsd_804CF810.xD0 = &lbl_8040BC3C;
-                if (((ExcptNode*) &lbl_8040BC3C)->callback != NULL) {
-                    ((ExcptNode*) &lbl_8040BC3C)
-                        ->callback((ExcptNode*) &lbl_8040BC3C);
-                }
-                hsd_804CF810.x0_b5 = 1;
-            }
+            ps_push_node((ExcptNode*) &lbl_8040BC3C);
             return true;
         case 0x1000:
-            if ((ExcptNode*) &lbl_8040BA5C != NULL) {
-                fn_80394DF4((ExcptNode*) &lbl_8040BA5C);
-                ((ExcptNode*) &lbl_8040BA5C)->next =
-                    (ExcptNode*) hsd_804CF810.xD0;
-                hsd_804CF810.xD0 = (void*) &lbl_8040BA5C;
-                if (((ExcptNode*) &lbl_8040BA5C)->callback != NULL) {
-                    ((ExcptNode*) &lbl_8040BA5C)
-                        ->callback((ExcptNode*) &lbl_8040BA5C);
-                }
-                hsd_804CF810.x0_b5 = 1;
-            }
+            ps_push_node((ExcptNode*) &lbl_8040BA5C);
             return true;
         default:
             break;
@@ -1817,39 +1796,13 @@ s32 hsd_803962A8(void* data)
         case 0x100:
             lbl_8040BC3C.x10 = (s32) lbl_8040BAF0.x10;
             lbl_8040BC3C.x18 = &lbl_8040BAF0;
-#ifdef MUST_MATCH
-            if (&lbl_8040BC3C != NULL)
-#endif
-            {
-                fn_80394DF4(&lbl_8040BC3C);
-                ((ExcptNode*) &lbl_8040BC3C)->next =
-                    (ExcptNode*) hsd_804CF810.xD0;
-                hsd_804CF810.xD0 = &lbl_8040BC3C;
-                if (((ExcptNode*) &lbl_8040BC3C)->callback != NULL) {
-                    ((ExcptNode*) &lbl_8040BC3C)
-                        ->callback((ExcptNode*) &lbl_8040BC3C);
-                }
-                hsd_804CF810.x0_b5 = 1;
-            }
+            ps_push_node((ExcptNode*) &lbl_8040BC3C);
             return 1;
         case 0x200:
             ps_remove_node(&hsd_804CF810, data);
             return 1;
         case 0x1000:
-#ifdef MUST_MATCH
-            if (&lbl_8040BBE8 != NULL)
-#endif
-            {
-                fn_80394DF4((void*) &lbl_8040BBE8);
-                ((ExcptNode*) &lbl_8040BBE8)->next =
-                    (ExcptNode*) hsd_804CF810.xD0;
-                hsd_804CF810.xD0 = (ExcptNode*) &lbl_8040BBE8;
-                if (((ExcptNode*) &lbl_8040BBE8)->callback != NULL) {
-                    ((ExcptNode*) &lbl_8040BBE8)
-                        ->callback((ExcptNode*) &lbl_8040BBE8);
-                }
-                hsd_804CF810.x0_b5 = 1;
-            }
+            ps_push_node((ExcptNode*) &lbl_8040BBE8);
             return 1;
         default:
             bit <<= 1;
@@ -2023,19 +1976,7 @@ s32 hsd_80396A20(void* data)
             ps_remove_node(&hsd_804CF810, node);
             return 1;
         case 0x1000: {
-#ifdef MUST_MATCH
-            if (&lbl_8040BD74 != NULL)
-#endif
-            {
-                fn_80394DF4(&lbl_8040BD74);
-                lbl_8040BD74.x0 = hsd_804CF810.xD0;
-                hsd_804CF810.xD0 = &lbl_8040BD74;
-                if (((ExcptNode*) &lbl_8040BD74)->callback != NULL) {
-                    ((ExcptNode*) &lbl_8040BD74)
-                        ->callback((void*) &lbl_8040BD74);
-                }
-                hsd_804CF810.x0_b5 = 1;
-            }
+            ps_push_node((ExcptNode*) &lbl_8040BD74);
             return 1;
         }
         default:
@@ -2704,17 +2645,8 @@ void* fn_80397814(void* arg)
         *head = NULL;
     }
 
-/* Link exception node */
-#ifdef MUST_MATCH
-    if (&lbl_8040B8C4 != NULL)
-#endif
-    {
-        ((ExcptNode*) &lbl_8040B8C4)->next = NULL;
-        hsd_804CF810.xD0 = &lbl_8040B8C4;
-        if (((ExcptNode*) &lbl_8040B8C4)->callback != NULL) {
-            ((ExcptNode*) &lbl_8040B8C4)->callback((ExcptNode*) &lbl_8040B8C4);
-        }
-    }
+    /* Link exception node */
+    ps_set_initial_node((ExcptNode*) &lbl_8040B8C4);
 
     /* Set initialized flag */
     hsd_804CF810.x0_b5 = 1;
@@ -2842,7 +2774,7 @@ void* fn_80397814(void* arg)
         }
     }
 
-    OSPanic("debugconsole_main.c", 2228, "debug thread finished.");
+    OSPanic(__FILE__, 2228, "debug thread finished.");
 
     return NULL;
 }

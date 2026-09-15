@@ -14,8 +14,6 @@ _Static_assert(offsetof(ftCommonData,x6DC_colorsByPlayer)==0x6DC,"Common paramet
 _Static_assert(offsetof(ftCommonData,metal_armor)==0x6F0,"Common parameter numeric tail");
 _Static_assert(offsetof(ftCommonData,x808)==0x808,"Common parameter final vector");
 _Static_assert(sizeof(union CmdUnion)==4,"Serialized commands must stay four bytes");
-_Static_assert(offsetof(struct lbl_8046B6A0_24C_t,x58)==offsetof(struct MatchEnd,player_standings),"Results player overlay");
-_Static_assert(offsetof(struct lbl_8046B6A0_24C_t,x44C)==offsetof(struct MatchEnd,x44C),"Results bonus overlay");
 _Static_assert(offsetof(struct S_UNK_YOSHI2,x8_end_index)==sizeof(TempS),"Yoshi second visibility group");
 _Static_assert(offsetof(struct S_UNK_YOSHI2,xC_start_index)==sizeof(TempS)+offsetof(TempS,x4),"Yoshi second visibility indices");
 _Static_assert(sizeof(union ColorOverlay_x8_t)==4,"Color script cells must stay four bytes");

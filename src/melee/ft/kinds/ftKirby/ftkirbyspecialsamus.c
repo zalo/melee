@@ -14,6 +14,7 @@
 #include <melee/ft/ft_0892.h>
 #include <melee/ft/ftcolanim.h>
 #include <melee/ft/ftcommon.h>
+#include <melee/ft/inlines.h>
 #include <melee/ft/kinds/ftCommon/ftCo_Escape.h>
 #include <melee/ft/kinds/ftCommon/ftCo_Fall.h>
 #include <melee/ft/kinds/ftCommon/ftCo_FallSpecial.h>
@@ -37,23 +38,19 @@ int ftKb_SpecialNSs_800FCC14(Fighter_GObj* gobj, int* out1, int* out2)
     (void) U32_TO_F32;
     (void) 5.0F;
 
-    if (gobj == NULL) {
-        goto return_error;
+    if (gobj != NULL) {
+        fp = GET_FIGHTER(gobj);
+        da = fp->dat_attrs;
+
+        if (fp->u.kb.xA4 == NULL) {
+            return -1;
+        }
+
+        *out1 = fp->u.kb.xA8;
+        *out2 = (long) da->specialn_ss_charge_time;
+
+        return 0;
     }
-
-    fp = GET_FIGHTER(gobj);
-    da = fp->dat_attrs;
-
-    if (fp->u.kb.xA4 == NULL) {
-        return -1;
-    }
-
-    *out1 = fp->u.kb.xA8;
-    *out2 = (long) da->specialn_ss_charge_time;
-
-    return 0;
-
-return_error:
     return -1;
 }
 
@@ -61,28 +58,24 @@ bool ftKb_SpecialNSs_800FCC6C(Fighter_GObj* gobj)
 {
     Fighter* fp;
 
-    if (!gobj) {
-        goto end_true;
-    }
+    if (gobj) {
+        fp = GET_FIGHTER(gobj);
 
-    fp = GET_FIGHTER(gobj);
-
-    switch (fp->motion_id) {
-    case 0x197:
-    case 0x198:
-    case 0x199:
-    case 0x19A:
-    case 0x19B:
-    case 0x19C:
-        if (fp->x2070.x2071_b6) {
+        switch (fp->motion_id) {
+        case 0x197:
+        case 0x198:
+        case 0x199:
+        case 0x19A:
+        case 0x19B:
+        case 0x19C:
+            if (fp->x2070.x2071_b6) {
+                return true;
+            }
+            return false;
+        default:
             return true;
         }
-        return false;
-    default:
-        return true;
     }
-
-end_true:
     return true;
 }
 
@@ -91,38 +84,21 @@ bool ftKb_SpecialNSs_800FCCBC(Fighter_GObj* gobj)
     Fighter* fp;
     s32 motion_id;
 
-    if (!gobj) {
-        goto end_true;
+    if (gobj) {
+        fp = GET_FIGHTER(gobj);
+        motion_id = fp->motion_id;
+
+        switch (motion_id) {
+        case 0x197:
+        case 0x198:
+        case 0x19A:
+        case 0x19B:
+        case 0x19C:
+            return false;
+        default:
+            return true;
+        }
     }
-
-    fp = GET_FIGHTER(gobj);
-    motion_id = fp->motion_id;
-
-    if (motion_id == 0x199) {
-        goto ret_true;
-    }
-
-    if (motion_id >= 0x199) {
-        goto check_upper;
-    }
-
-    if (motion_id >= 0x197) {
-        goto ret_false;
-    }
-    goto ret_true;
-
-check_upper:
-    if (motion_id >= 0x19D) {
-        goto ret_true;
-    }
-
-ret_false:
-    return false;
-
-ret_true:
-    return true;
-
-end_true:
     return true;
 }
 
@@ -237,10 +213,7 @@ void ftKb_SpecialNSs_800FCF74(Fighter_GObj* gobj)
     PAD_STACK(8);
     Fighter_ChangeMotionState(gobj, ftKb_MS_SsSpecialNStart, 0, 0.0F, 1.0F,
                               0.0F, NULL);
-    fp->cmd_vars[3] = 0;
-    fp->cmd_vars[2] = 0;
-    fp->cmd_vars[1] = 0;
-    fp->cmd_vars[0] = 0;
+    Fighter_ClearCmdVars(fp);
     ftCommon_8007D7FC(fp);
     fp->self_vel.y = 0.0F;
     ftKb_SpecialN_set_cbs(gobj);
@@ -256,10 +229,7 @@ void ftKb_SpecialNSs_800FD020(Fighter_GObj* gobj)
     PAD_STACK(8);
     Fighter_ChangeMotionState(gobj, ftKb_MS_SsSpecialAirNStart, 0, 0.0F, 1.0F,
                               0.0F, NULL);
-    fp->cmd_vars[3] = 0;
-    fp->cmd_vars[2] = 0;
-    fp->cmd_vars[1] = 0;
-    fp->cmd_vars[0] = 0;
+    Fighter_ClearCmdVars(fp);
     ftKb_SpecialN_set_cbs(gobj);
     fp->mv.kb.specialhi.x0 = 1;
     fp->mv.kb.specialhi.x4 = 0;

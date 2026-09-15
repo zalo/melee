@@ -17,23 +17,13 @@
 #include <melee/ft/kinds/ftCommon/ftCo_Fall.h>
 #include <melee/ft/kinds/ftCommon/ftCo_FallSpecial.h>
 
-static inline void ftKp_SpecialHi_Enter_inline(Fighter_GObj* gobj)
-{
-    Fighter* fp = GET_FIGHTER(gobj);
-    fp->take_dmg_cb = (void (*)(HSD_GObj*)) ftKp_Init_80132B38;
-    fp->death2_cb = (void (*)(HSD_GObj*)) ftKp_Init_80132B38;
-}
-
 void ftKp_SpecialHi_Enter(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     PAD_STACK(8);
     Fighter_ChangeMotionState(gobj, 0x167, 0, 0.0f, 1.0f, 0.0f, NULL);
-    ftKp_SpecialHi_Enter_inline(gobj);
-    fp->cmd_vars[3] = 0;
-    fp->cmd_vars[2] = 0;
-    fp->cmd_vars[1] = 0;
-    fp->cmd_vars[0] = 0;
+    Fighter_SetDamageCallback(gobj, ftKp_Init_80132B38);
+    Fighter_ClearCmdVars(fp);
     fp->self_vel.y = 0.0f;
     fp->x1968_jumpsUsed = fp->co_attrs.max_jumps;
     fp->mv.co.capturekoopa.xC = 0.0f;
@@ -50,12 +40,9 @@ void ftKp_SpecialAirHi_Enter(Fighter_GObj* gobj)
     ftKoopaAttributes* da = fp->dat_attrs;
     PAD_STACK(8);
     Fighter_ChangeMotionState(gobj, 0x168, 0, 0.0f, 1.0f, 0.0f, NULL);
-    ftKp_SpecialHi_Enter_inline(gobj);
-    fp->cmd_vars[3] = 0;
-    fp->cmd_vars[2] = 0;
-    fp->cmd_vars[1] = 0;
-    fp->cmd_vars[0] = 0;
-    ftCommon_ClampGrVel(fp, da->x60);
+    Fighter_SetDamageCallback(gobj, ftKp_Init_80132B38);
+    Fighter_ClearCmdVars(fp);
+    ftCommon_ClampGroundVel(fp, da->x60);
     fp->self_vel.y = da->x54;
     fp->x1968_jumpsUsed = fp->co_attrs.max_jumps;
     fp->mv.co.capturekoopa.xC = 0.0f;
@@ -118,8 +105,8 @@ void ftKp_SpecialHi_Phys(Fighter_GObj* gobj)
     ftKoopaAttributes* da = fp->dat_attrs;
     PAD_STACK(8);
     if (fp->cmd_vars[0] == 0) {
-        ftCommon_8007CADC(fp, 0.0f, da->x68, da->x60);
-        ftCommon_ApplyGroundMovement(gobj);
+        ftCommon_CalcGroundAccel_AccelToLStickX(fp, 0.0f, da->x68, da->x60);
+        ftCommon_SetSelfMovementFromGroundedMovement(gobj);
     } else {
         ft_80084F3C(gobj);
     }
@@ -132,7 +119,7 @@ void ftKp_SpecialAirHi_Phys(Fighter_GObj* gobj)
     PAD_STACK(8);
     if (fp->cmd_vars[0] == 0) {
         ftCommon_Fall(fp, da->x58, da->x5C);
-        ftCommon_8007D344(fp, 0.0f, da->x6C, da->x64);
+        ftCommon_CalcSelfAccel_DriftSimple(fp, 0.0f, da->x6C, da->x64);
     } else {
         ft_80084DB0(gobj);
     }
@@ -159,7 +146,7 @@ void ftKp_SpecialHi_Coll(Fighter_GObj* gobj)
         ftCommon_8007D60C(fp);
         Fighter_ChangeMotionState(gobj, 0x168, 0x0C4C5292, fp->cur_anim_frame,
                                   1.0f, 0.0f, NULL);
-        ftKp_SpecialHi_Enter_inline(gobj);
+        Fighter_SetDamageCallback(gobj, ftKp_Init_80132B38);
         ftCommon_ClampSelfVelX(fp, da->x64);
         Fighter_SetEffectHitlagCallbacks(fp);
         fp->mv.kp.specials.x10 = 0;
@@ -182,13 +169,13 @@ static inline void ftKp_SpecialAirHi_Coll_inline(Fighter_GObj* gobj,
         Fighter_ChangeMotionState(gobj, 0x167, 0x0C4C5292,
                                   fp->cur_anim_frame - da->x78, 1.0f, 0.0f,
                                   NULL);
-        ftKp_SpecialHi_Enter_inline(gobj);
+        Fighter_SetDamageCallback(gobj, ftKp_Init_80132B38);
     } else {
         Fighter_ChangeMotionState(gobj, 0x167, 0x0C4C5292, fp->cur_anim_frame,
                                   1.0f, 0.0f, NULL);
-        ftKp_SpecialHi_Enter_inline(gobj);
+        Fighter_SetDamageCallback(gobj, ftKp_Init_80132B38);
     }
-    ftCommon_ClampGrVel(fp, da->x60);
+    ftCommon_ClampGroundVel(fp, da->x60);
 }
 
 static inline void ftKp_SpecialAirHi_Coll_inline_2(Fighter_GObj* gobj)

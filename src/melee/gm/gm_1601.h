@@ -6,8 +6,6 @@
 #include <melee/mn/forward.h>
 #include <melee/sc/forward.h>
 
-#include <placeholder.h>
-
 #include <dolphin/gx.h>
 #include <melee/mn/types.h>
 
@@ -18,25 +16,49 @@
 /* 160244 */ int gm_80160244(s8);
 /* 1602C0 */ void gm_801602C0(s8);
 /* 1603B0 */ void gm_801603B0(void);
+
+/// gets character victory theme id
 /* 160400 */ u32 fn_80160400(CharacterKind);
+
+/// gets character result anim path
 /* 160438 */ char* gm_80160438(s32);
+
 /* 160474 */ bool gm_80160474(CharacterKind, GameModeKind);
+
+/// gets characters trophy model
 /* 1604DC */ char* gm_801604DC(CharacterKind, GameModeKind);
+
 /* 160564 */ char* gm_80160564(CharacterKind, GameModeKind);
+
+/**
+ * @brief Returns the index used in the bitmask to represent whether or not the
+ * provided character is unlocked.
+ */
 /* 1605EC */ u8 gm_SelKindToUnlockIndex(SelectableCharacterKind);
+
+/**
+ * @brief Returns the index used in the bitmask to represent whether or not the
+ * provided character is unlocked.
+ */
 /* 160638 */ s8 gm_CKindToUnlockIndex(CharacterKind);
+
 /* 1606A8 */ u8 gm_GetCKindByUnlockIndex(int);
 /* 160710 */ u8 fn_80160710(int);
 /* 16075C */ StKind gm_GetChallengerStKind(SelectableCharacterKind);
 /* 1607A8 */ u8 fn_801607A8(int);
 /* 1607F4 */ u8 fn_801607F4(int);
 /* 160840 */ u8 fn_80160840(u8);
+
+/// gets the player hud color index
 /* 160854 */ u32 gm_80160854(u8, u8, u8, u8);
+
+/// gets the player hud color
 /* 160968 */ GXColor gm_80160968(u32);
+
 /* 160980 */ const char* gm_80160980(u8 ckind);
 /* 1609E0 */ const char* fn_801609E0(u8 ckind);
 /* 160A60 */ const char* gm_80160A60(int);
-/* 160B40 */ UNK_RET gm_80160B40(HSD_Text*, u8, u8);
+/* 160B40 */ void gm_80160B40(HSD_Text*, u8, u8);
 /* 160C90 */ void gm_80160C90(HSD_Text* text, u8 fighter_id, u8 arg2);
 /* 160DE8 */ void fn_80160DE8(HSD_JObj*, u8, s32, u8, f32, f32);
 /* 160F58 */ float fn_80160F58(u8 ckind);
@@ -47,7 +69,7 @@
 /* 162170 */ void fn_80162170(MatchEnd*);
 /* 1623A4 */ s32 gm_801623A4(MatchEnd*);
 /* 1623D8 */ int gm_801623D8(void);
-/* 1623FC */ UNK_RET gm_801623FC(int);
+/* 1623FC */ void gm_801623FC(int);
 /* 16247C */ s32 gm_8016247C(s32);
 /* 162574 */ void gm_80162574(u8, u8);
 /* 16260C */ void gm_SetupHumanResultsScreen(u8, u8);
@@ -105,24 +127,55 @@
 /* 163F2C */ int gm_GetCruelHighscore(u8);
 /* 163F50 */ int gm_GetCruelTotalHighscore(void);
 /* 163FA4 */ int fn_80163FA4(u8);
+
+/**
+ * @brief Convert a #SelectableCharacterKind into its #CharacterKind.
+ *
+ * Indexes #selkind_to_ckind_map with @p selkind. #SELKIND_ZELDA_SEAK resolves
+ * to #CharacterKind::CKind_Zelda; the Sheik half is dropped because
+ * #SelectableCharacterKind collapses Zelda/Sheik into a single slot.
+ *
+ * @param[in] selkind A #SelectableCharacterKind (e.g. the CSS slot index).
+ * @return The #CharacterKind backing the requested selectable character.
+ * @see #gm_CKindToSelKind for the inverse (lossy) mapping.
+ * @see #selkind_to_ckind_map
+ */
 /* 16400C */ u8 gm_SelKindToCKind(u8 selkind);
+
+/**
+ * @brief Convert a #CharacterKind into its #SelectableCharacterKind.
+ *
+ * Indexes #ckind_to_selkind_map with @p ckind. Both
+ * #CharacterKind::CKind_Zelda and #CharacterKind::CKind_Seak collapse onto
+ * #SELKIND_ZELDA_SEAK, so this direction is lossy with respect to the
+ * Zelda/Sheik split, not to mention all the non-playable characters.
+ *
+ * @param[in] ckind A #CharacterKind.
+ * @return The #SelectableCharacterKind representing the CSS slot for @p ckind.
+ * @see #gm_SelKindToCKind for the inverse mapping.
+ * @see #ckind_to_selkind_map
+ */
 /* 164024 */ u8 gm_CKindToSelKind(u8 ckind);
+
 /* 16403C */ bool gm_8016403C(u8 item);
 /* 1640B0 */ void fn_801640B0(u64* item_mask);
 /* 16419C */ float fn_8016419C(u8);
 /* 1641B4 */ float fn_801641B4(u8);
 /* 1641CC */ u16 gm_801641CC(u8);
 /* 1641E4 */ void gm_801641E4(u8 stage, u8 enable);
-/* 164250 */ s32 gm_80164250(u16);
+/* 164250 */ bool gm_IsStageUnlocked(u16 stkind);
 /* 1642A0 */ bool fn_801642A0(void);
 /* 164330 */ bool gm_80164330(s32);
 /* 164430 */ bool gm_80164430(u16);
 /* 164504 */ void gm_80164504(u16);
 /* 164600 */ bool gm_80164600(void);
-/* 16468C */ UNK_RET gm_8016468C(UNK_PARAMS);
+/* 16468C */ void gm_8016468C(void);
 /* 1647D0 */ void gm_801647D0(void);
 /* 1647F8 */ int gm_801647F8(u8);
+
+/// character unlocked check
 /* 164840 */ bool gm_IsCKindUnlocked(u8 ckind);
+
 /* 164910 */ void gm_UnlockCKind(CharacterKind);
 /* 164A0C */ void gm_80164A0C(u8);
 /* 164ABC */ bool gm_80164ABC(void);
@@ -131,7 +184,19 @@
 /* 16505C */ void gm_8016505C(void);
 /* 165084 */ bool gm_80165084(void);
 /* 1650E8 */ void fn_801650E8(void);
+
+/**
+ * @brief Enables the pause camera for the given player.
+ *
+ * If @p playerSlot is @c -1, switches to the pause camera with slot @c 0xB and
+ * id @c 5 (see #Camera_SetUpPauseCamera). Otherwise, switches only when the
+ * slot is a human or CPU with an active entity.
+ *
+ * @param[in] playerSlot Player slot to center the pause camera on.
+ * @param[in] playerId   Controller port / player id of the pauser.
+ */
 /* 165108 */ void gm_EnablePlayerPauseCamera(int, int);
+
 /* 165190 */ void fn_80165190(s32, s32);
 /* 1651FC */ void fn_801651FC(s32, s32);
 /* 165268 */ void gm_80165268(int);
@@ -145,13 +210,13 @@
 /* 1654A0 */ s32 fn_801654A0(MatchEnd*);
 /* 165548 */ s32 fn_80165548(MatchEnd*, s32, s32);
 /* 1656A8 */ u32 fn_801656A8(MatchEnd*, u32);
-/* 16588C */ s32 fn_8016588C(lbl_8046B6A0_24C_t*, s32);
+/* 16588C */ s32 fn_8016588C(MatchEnd*, s32);
 /* 165AC0 */ s32 fn_80165AC0(MatchEnd*);
 /* 165D60 */ MatchEnd* fn_80165D60(MatchEnd*);
 /* 165E7C */ void fn_80165E7C(MatchEnd*);
 /* 165FA4 */ s32 fn_80165FA4(MatchEnd*);
 /* 1661E0 */ s32 fn_801661E0(MatchEnd*);
-/* 166378 */ void gm_80166378(struct lbl_8046B6A0_24C_t*);
+/* 166378 */ void gm_80166378(MatchEnd*);
 /* 166A98 */ s32 gm_80166A98(MatchEnd*, u8, s8, u8, s8, u8, s8, u8, u8, u8);
 /* 166CBC */ u32 fn_80166CBC(MatchEnd*, ssize_t index);
 /* 166CCC */ void gm_80166CCC(MatchEnd*, MatchEnd*);
@@ -186,13 +251,13 @@
 /* 168B34 */ float gm_80168B34(CharacterKind, int, int);
 /* 168BF8 */ float gm_80168BF8(int);
 /* 168C5C */ void gm_80168C5C(u32);
-/* 168E54 */ UNK_RET fn_80168E54(s8, s8, u8, u8);
+/* 168E54 */ void fn_80168E54(s8, s8, u8, u8);
 /* 168F2C */ void fn_80168F2C(s8);
-/* 168F7C */ UNK_RET fn_80168F7C(UNK_PARAMS);
+/* 168F7C */ void fn_80168F7C(void);
 /* 168F88 */ void gm_80168F88(void);
 /* 168FC4 */ void gm_LoadAnnouncer(void);
 /* 169000 */ void fn_80169000(MatchEnd* arg0, u8* arg1);
-/* 169238 */ u8 gm_80169238(u8);
+/* 169238 */ u8 gm_GetNumCostumesForCKind(u8);
 /* 169264 */ u8 gm_80169264(u8);
 /* 169290 */ u8 gm_80169290(u8);
 /* 1692BC */ u8 gm_801692BC(u8);

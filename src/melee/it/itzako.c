@@ -96,11 +96,6 @@ Item_GObj* it_8027B5B0(ItemKind kind, Vec3* pos, HSD_JObj* jobj, Vec3* vel,
     return gobj;
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
-
 void it_8027B730(Item_GObj* item_gobj)
 {
     Item* item;
@@ -117,10 +112,6 @@ void it_8027B730(Item_GObj* item_gobj)
     it_80275228(item_gobj);
     it_80275240(item_gobj);
 }
-
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 static inline f32 it_8027B798_CalcAngle(GroundOrAir ground_or_air, s32 angle,
                                         ftCommonData* common_data,
@@ -298,16 +289,14 @@ void it_8027BBF4(Item_GObj* item_gobj, bool arg_chk, f64 arg8, f32 arg9)
     if (!arg_chk) {
         if (coll->env_flags & Collide_FloorMask) {
             sp68 = coll->floor.normal;
-            goto block_7;
+        } else {
+            return;
         }
-        return;
     } else if (coll->env_flags & Collide_CeilingMask) {
         sp68 = coll->ceiling.normal;
-        goto block_7;
+    } else {
+        return;
     }
-    return;
-
-block_7:
 
     sp74.x = HSD_JObjGetRotationX(item_jobj);
     sp74.y = HSD_JObjGetRotationY(item_jobj);
@@ -580,11 +569,6 @@ bool it_8027CA7C(HSD_GObj* gobj)
     return chk;
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
-
 void it_8027CAD8(Item_GObj* item_gobj)
 {
     Item* item;
@@ -622,10 +606,6 @@ void it_8027CBA4(Item_GObj* item_gobj)
     it_802754D4(item_gobj);
     it_8026B3A8(item_gobj);
 }
-
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 f32 it_8027CBFC(Item_GObj* item_gobj)
 {
@@ -709,11 +689,6 @@ void it_8027CE44(Item_GObj* item_gobj)
     grZakoGenerator_801CACB8(item_gobj);
 }
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
-
 /// Appears to be a function for Game&Watch items
 void it_8027CE64(Item_GObj* item_gobj, HSD_GObj* fighter_gobj,
                  void* arg_attr_address)
@@ -731,7 +706,3 @@ void it_8027CE64(Item_GObj* item_gobj, HSD_GObj* fighter_gobj,
     it_80274594(item_gobj);
     item->xDD4_itemVar.gamewatch.attr = arg_attr_address;
 }
-
-#ifdef MUST_MATCH
-#pragma pop
-#endif

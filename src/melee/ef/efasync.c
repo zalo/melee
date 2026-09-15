@@ -1122,12 +1122,7 @@ void* efAsync_Dispatch(s32 gfx_id, HSD_GObj* gobj, va_list vlist)
     while (efLib_AnimCount != 0) {
         count = efLib_AnimCount - 1;
         efLib_AnimCount = count;
-#ifdef MELEE_NATIVE
-        HSD_JObjAnimAll(efLib_AnimQueue[count]);
-#else
-        HSD_JObjAnimAll(
-            ((EF_ParamEntry*) (((u32*) efLib_AnimQueue) + count))->gobj);
-#endif
+        HSD_JObjAnimAll(((HSD_JObj**) efLib_AnimQueue)[count]);
     }
 #if 1
 #else
@@ -1471,7 +1466,9 @@ void efAsync_Spawn(HSD_GObj* gobj, void* queue_head, u32 spawn_kind,
         break;
     }
     va_end(vlist);
-    if ((HSD_GObj_804D7838 != NULL) && (HSD_GObj_804D7838->s_link < 9U)) {
+    if ((HSD_GObj_CurrentInvokedProc != NULL) &&
+        (HSD_GObj_CurrentInvokedProc->s_link < 9U))
+    {
         queued->next = ((EF_QueuedEffect*) queue_head)->next;
         ((EF_QueuedEffect*) queue_head)->next = queued;
         return;

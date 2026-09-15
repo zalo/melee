@@ -1,5 +1,6 @@
 #include "if_2FD9.h"
 
+#include "forward.h"
 #include "ifall.h"
 #include <melee/gm/gm_unsplit.h>
 #include <melee/lb/lbarchive.h>
@@ -224,7 +225,7 @@ void un_802FE390(void)
     PAD_STACK(8);
     for (i = 0; i < 4; i++) {
         if (un_804A1F10.x4[i] != 0) {
-            HSD_GObjPLink_80390228(un_804A1F10.x4[i]);
+            HSD_GObjFree(un_804A1F10.x4[i]);
             un_804A1F10.x4[i] = 0;
         }
     }

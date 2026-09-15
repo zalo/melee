@@ -1,6 +1,7 @@
 #ifndef MELEE_GM_EVENTDATA_H
 #define MELEE_GM_EVENTDATA_H
 #include <Runtime/platform.h>
+#include <melee/gm/forward.h>
 /// @todo ::PlayerInitData
 typedef struct gm_801BAB40_src {
     /* 0x00 */ s8 c_kind;
@@ -39,17 +40,17 @@ struct gm_evinit {
     /* 0x01 */ u32 x1_3 : 1;
     /* 0x01 */ u32 x1_4 : 1;
     /* 0x01 */ u32 x1_5 : 3;
-    /* 0x02 */ u8 unk2;
-    /* 0x03 */ s8 unk3;
-    /* 0x04 */ s8 unk4;
+    /* 0x02 */ u8 is_teams;
+    /* 0x03 */ s8 item_freq;
+    /* 0x04 */ s8 sd_penalty;
     /* 0x05 */ u8 unk5;
-    /* 0x06 */ u16 unk6;
-    /* 0x08 */ u32 unk8;
+    /* 0x06 */ u16 stkind;
+    /* 0x08 */ u32 time_limit;
     /* 0x0C */ u8 padC[4];
     /* 0x10 */ u64 x10;
     /* 0x18 */ s32 x18;
     /* 0x1C */ f32 x1C;
-    /* 0x20 */ f32 unk20;
+    /* 0x20 */ f32 game_speed;
     /* 0x24 */ f32 unk24;
 };
 
@@ -58,7 +59,7 @@ struct gm_evstage_table {
     /* 0x00 */ u8 count;
     /* 0x01 */ u8 pad1;
     /* 0x02 */ u16 stage[7];
-    /* 0x10 */ struct gm_801BAB40_src* entries[5];
+    /* 0x10 */ struct gm_801BAB40_src* entries[GM_MAX_PLAYERS];
 };
 
 struct gm_evbonus {
@@ -79,17 +80,19 @@ struct gm_evbonus {
     /* 0x17 */ u8 x17;
 };
 
+/* 0x04 */ struct gm_804D6900_x4_t {
+    int x0;
+    intptr_t x4;
+};
+
 struct gm_804D6900_t {
     /* 0x00 */ u8 kind;
     /* 0x01 */ u8 flags; ///< top 3 bits: player count
     /* 0x02 */ u8 pad2[2];
-    /* 0x04 */ struct gm_804D6900_x4_t {
-        int x0;
-        intptr_t x4;
-    }* x4;
-    /* 0x08 */ struct gm_evinit* x8;
-    /* 0x0C */ struct gm_evbonus* xC;
-    /* 0x10 */ struct gm_evstage_table* x10;
+    /* 0x04 */ struct gm_804D6900_x4_t* x4;
+    /* 0x08 */ struct gm_evinit* evinit;
+    /* 0x0C */ struct gm_evbonus* evbonus;
+    /* 0x10 */ struct gm_evstage_table* evstage_table;
     /* 0x14 */ struct gm_801BAB40_src* player_init[5];
 };
 

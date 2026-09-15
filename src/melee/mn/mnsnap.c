@@ -907,9 +907,7 @@ static inline void mnSnap_AnimateCardSlots(const s32* active_slot)
     s32 byte_off;
     f32 t;
 
-    i = 0;
-    byte_off = 4;
-    do {
+    for (i = 0, byte_off = 4; i < 2; i++, byte_off += 8) {
         if (mnSnap_804A0A10.card_status[i] != 0) {
             if (*active_slot == i) {
                 t = 1.0F;
@@ -928,9 +926,7 @@ static inline void mnSnap_AnimateCardSlots(const s32* active_slot)
         }
         HSD_JObjAnimAll(
             *((HSD_JObj**) ((((u32) (&mnSnap_804A0A10)) + byte_off) + 0x98)));
-        i++;
-        byte_off += 8;
-    } while (i < 2);
+    }
 }
 
 static inline void mnSnap_UpdateSlotStatus(s32 slot)
@@ -2400,16 +2396,16 @@ void fn_80257D7C(void)
             mn_80229894(5, 0, 3);
 
             if (mnSnap_804A0A10.main_gobj != NULL) {
-                HSD_GObjPLink_80390228(mnSnap_804A0A10.main_gobj);
+                HSD_GObjFree(mnSnap_804A0A10.main_gobj);
             }
             if (mnSnap_804A0A10.sub_gobj != NULL) {
-                HSD_GObjPLink_80390228(mnSnap_804A0A10.sub_gobj);
+                HSD_GObjFree(mnSnap_804A0A10.sub_gobj);
             }
             if (snap->cursor_gobj != NULL) {
-                HSD_GObjPLink_80390228(snap->cursor_gobj);
+                HSD_GObjFree(snap->cursor_gobj);
             }
             if (mnSnap_804A0A10.warn_gobj != NULL) {
-                HSD_GObjPLink_80390228(mnSnap_804A0A10.warn_gobj);
+                HSD_GObjFree(mnSnap_804A0A10.warn_gobj);
             }
 
             {

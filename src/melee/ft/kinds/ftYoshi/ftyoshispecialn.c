@@ -77,37 +77,37 @@ float ftYs_SpecialN_GetDatAttr24(HSD_GObj* gobj)
 
 float ftYs_SpecialN_GetExtAttr28(void)
 {
-    ftYoshiAttributes* ext_attr = gFtDataList[FTKIND_YOSHI]->ext_attr;
+    ftYoshiAttributes* ext_attr = gFtDataList[Ft_Kind_Yoshi]->ext_attr;
     return ext_attr->x28;
 }
 
 float ftYs_SpecialN_GetExtAttr2C(void)
 {
-    ftYoshiAttributes* ext_attr = gFtDataList[FTKIND_YOSHI]->ext_attr;
+    ftYoshiAttributes* ext_attr = gFtDataList[Ft_Kind_Yoshi]->ext_attr;
     return ext_attr->x2C;
 }
 
 float ftYs_SpecialN_8012CD40(void)
 {
-    ftYoshiAttributes* ext_attr = gFtDataList[FTKIND_YOSHI]->ext_attr;
+    ftYoshiAttributes* ext_attr = gFtDataList[Ft_Kind_Yoshi]->ext_attr;
     return ext_attr->x30;
 }
 
 float ftYs_SpecialN_GetExtAttr34(void)
 {
-    ftYoshiAttributes* ext_attr = gFtDataList[FTKIND_YOSHI]->ext_attr;
+    ftYoshiAttributes* ext_attr = gFtDataList[Ft_Kind_Yoshi]->ext_attr;
     return ext_attr->x34;
 }
 
 bool ftYs_SpecialN_GetExtAttr38(void)
 {
-    ftYoshiAttributes* ext_attr = gFtDataList[FTKIND_YOSHI]->ext_attr;
+    ftYoshiAttributes* ext_attr = gFtDataList[Ft_Kind_Yoshi]->ext_attr;
     return ext_attr->x38;
 }
 
 void ftYs_SpecialN_8012CD88(Vec3* arg0)
 {
-    ftYoshiAttributes* ext_attr = gFtDataList[FTKIND_YOSHI]->ext_attr;
+    ftYoshiAttributes* ext_attr = gFtDataList[Ft_Kind_Yoshi]->ext_attr;
     arg0->x = ext_attr->x3C.x;
     arg0->y = ext_attr->x3C.y;
     arg0->z = 0;
@@ -115,7 +115,7 @@ void ftYs_SpecialN_8012CD88(Vec3* arg0)
 
 float ftYs_SpecialN_8012CDB4(void)
 {
-    ftYoshiAttributes* ea = gFtDataList[FTKIND_YOSHI]->ext_attr;
+    ftYoshiAttributes* ea = gFtDataList[Ft_Kind_Yoshi]->ext_attr;
     return ea->x44 / ea->x18;
 }
 
@@ -135,8 +135,8 @@ static void setupCallbacks(Fighter_GObj* gobj, HSD_GObjEvent grab_cb,
     ftCommon_8007E2D0(fp, 4, grab_cb, arg1, grabbed_cb);
 }
 
-u32 const motion_flags0 = Ft_MF_KeepGfx | Ft_MF_SkipModel | Ft_MF_Unk19;
-u32 const motion_flags1 =
+static u32 const motion_flags0 = Ft_MF_KeepGfx | Ft_MF_SkipModel | Ft_MF_Unk19;
+static u32 const motion_flags1 =
     motion_flags0 | Ft_MF_SkipMatAnim | Ft_MF_SkipColAnim;
 static u32 const motion_flags2 = motion_flags1 | Ft_MF_KeepGfx |
                                  Ft_MF_SkipModel | Ft_MF_SkipMatAnim |

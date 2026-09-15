@@ -2,8 +2,8 @@
 
 #include "gm_1A36.h"
 #include "gm_1A3F.h"
-#include "gm_1A45.h"
 #include "gm_unsplit.h"
+#include "gmscene.h"
 #include "types.h"
 #include <dolphin/pad.h>
 #include <melee/cm/camera.h>
@@ -149,7 +149,7 @@ void fn_80187AB4(HSD_GObj* gobj)
     case 2:
         if (lb_8000B09C(jobj) == 0) {
             data->x36.done = 1;
-            HSD_GObjPLink_80390228(gobj);
+            HSD_GObjFree(gobj);
         }
         break;
     }
@@ -220,7 +220,7 @@ void fn_80187CF4(HSD_GObj* gobj)
         break;
     case 3:
         if (lb_8000B09C(jobj) == 0) {
-            HSD_GObjPLink_80390228(gobj);
+            HSD_GObjFree(gobj);
         }
         break;
     }
@@ -413,17 +413,12 @@ f32 gm_801883C0(void)
     HSD_AObj* aobj;
 
     gobj = lbl_804736C0.x8;
-    if (gobj == NULL) {
-        goto return_default;
+    if (gobj != NULL) {
+        cobj = gobj->hsd_obj;
+    } else {
+        return 0.0f;
     }
 
-    cobj = gobj->hsd_obj;
-    goto check_cobj;
-
-return_default:
-    return 0.0f;
-
-check_cobj:
     aobj = cobj->eyepos->aobj;
     if (aobj != NULL) {
         return aobj->curr_frame;

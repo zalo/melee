@@ -1,3 +1,8 @@
+/**
+ * @file
+ * @copydoc melee/mp/mplib.h
+ */
+
 #include "mplib.h"
 
 #include <Runtime/platform.h>
@@ -1657,19 +1662,15 @@ bool mpCheckFloor(float ax, float ay, float bx, float by, float y_offset,
             float x1_sp40;
             float y1_sp3C;
             float dist2;
-            int line_offset;
+            ssize_t line_offset;
         block_8:
             if (cb != NULL && !cb(gobj, line_r26 - groundCollLine)) {
                 continue;
             }
 
-#ifdef MELEE_NATIVE
-            line_offset = line_r26 - groundCollLine;
-            if (line_id_skip == line_offset)
-#else
-            if (line_id_skip ==
-                (line_offset = (s32) line_r26 - (s32) groundCollLine) / 8)
-#endif
+            if (line_id_skip == (line_offset = (intptr_t) line_r26 -
+                                               (intptr_t) groundCollLine) /
+                                    (ssize_t) sizeof(CollLine))
             {
                 continue;
             }
@@ -1681,12 +1682,8 @@ bool mpCheckFloor(float ax, float ay, float bx, float by, float y_offset,
                 continue;
             }
 
-#ifdef MELEE_NATIVE
-            mpLib_8004ED5C(line_offset, &x0_sp48, &y0_sp44, &x1_sp40,
-#else
-            mpLib_8004ED5C(line_offset / 8, &x0_sp48, &y0_sp44, &x1_sp40,
-#endif
-                           &y1_sp3C);
+            mpLib_8004ED5C(line_offset / (ssize_t) sizeof(CollLine), &x0_sp48,
+                           &y0_sp44, &x1_sp40, &y1_sp3C);
             y0_sp44 += y_offset;
             y1_sp3C += y_offset;
             if (ABS(y0_sp44 - y1_sp3C) > 0.0001) {
@@ -4691,60 +4688,33 @@ bool mpLinesConnected(int start_id, int target_id)
     return false;
 }
 
-static inline HSD_JObj* jobj_child(HSD_JObj* jobj)
-{
-    if (jobj == NULL) {
-        return NULL;
-    }
-
-    return jobj->child;
-}
-
-static inline HSD_JObj* jobj_next(HSD_JObj* jobj)
-{
-    if (jobj == NULL) {
-        return NULL;
-    }
-
-    return jobj->next;
-}
-
-static inline HSD_JObj* jobj_parent(HSD_JObj* jobj)
-{
-    if (jobj == NULL) {
-        return NULL;
-    }
-
-    return jobj->parent;
-}
-
 /// what even is this lol
 void mpLib_800552B0(int joint_id, HSD_JObj* jobj, int z)
 {
     s32 i;
     HSD_JObj* r7;
 
-    for (r7 = jobj_child(jobj), i = 0; r7 != NULL && i != z; i++) {
+    for (r7 = HSD_JObjGetChild(jobj), i = 0; r7 != NULL && i != z; i++) {
         if (!(r7->flags & CollJoint_TooFar)) {
-            if (jobj_child(r7) != NULL) {
-                r7 = jobj_child(r7);
+            if (HSD_JObjGetChild(r7) != NULL) {
+                r7 = HSD_JObjGetChild(r7);
                 continue;
             }
         }
 
-        if (jobj_next(r7) != NULL) {
-            r7 = jobj_next(r7);
+        if (HSD_JObjGetNext(r7) != NULL) {
+            r7 = HSD_JObjGetNext(r7);
             continue;
         }
 
         while (true) {
-            if (jobj_parent(r7) == NULL) {
+            if (HSD_JObjGetParent(r7) == NULL) {
                 r7 = NULL;
             } else {
-                if (jobj_next(jobj_parent(r7)) != NULL) {
-                    r7 = jobj_next(jobj_parent(r7));
+                if (HSD_JObjGetNext(HSD_JObjGetParent(r7)) != NULL) {
+                    r7 = HSD_JObjGetNext(HSD_JObjGetParent(r7));
                 } else {
-                    r7 = jobj_parent(r7);
+                    r7 = HSD_JObjGetParent(r7);
                     continue;
                 }
             }
@@ -6365,7 +6335,7 @@ void mpLib_DrawSnapping(void)
     bool var_r31;
 
     var_r31 = false;
-    ft_r27 = HSD_GObj_Entities->fighters;
+    ft_r27 = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_FIGHTER];
     if (ft_r27 != NULL) {
         Mtx spDC;
         PAD_STACK(0x30);
@@ -6432,7 +6402,7 @@ void mpLib_DrawSnapping(void)
         }
     }
 
-    if ((item_r28 = HSD_GObj_Entities->items) != NULL) {
+    if ((item_r28 = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_ITEM]) != NULL) {
         if (!var_r31) {
             Mtx sp7C;
             PAD_STACK(0x34);

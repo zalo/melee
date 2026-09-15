@@ -26,6 +26,7 @@
 #include <melee/ft/kinds/ftCommon/ftCo_Fall.h>
 #include <melee/ft/kinds/ftCommon/ftCo_FallSpecial.h>
 #include <melee/ft/kinds/ftCommon/ftCo_Landing.h>
+#include <melee/ft/kinds/ftPurin/inlines.h>
 #include <melee/ft/types.h>
 #include <melee/mp/mplib.h>
 #include <sysdolphin/baselib/gobj.h>
@@ -106,8 +107,8 @@ void fn_80100E0C(Fighter_GObj* gobj)
                 da->specialn_pr_horizontal_bounce_momentum_on_hit;
         }
         fp->self_vel.y = da->specialn_pr_vertical_bounce_momentum_on_hit;
-        fp->x74_anim_vel.y = 0;
-        fp->x74_anim_vel.x = 0;
+        fp->x74_self_accel.y = 0;
+        fp->x74_self_accel.x = 0;
         fp->xE4_ground_accel_1 = 0;
         fp->gr_vel = 0;
         fp->mv.pr.specialn.facing_dir = 0;
@@ -168,7 +169,7 @@ void ftKb_SpecialNPr_801010D4(Fighter_GObj* gobj, bool unk, MotionFlags flags,
         }
         Fighter_ChangeMotionState(gobj, msid, flags, anim_start, 1, 0, NULL);
         fp->gr_vel *= da->specialn_pr_forward_momentum_from_stick;
-        fp->x74_anim_vel.y = 0;
+        fp->x74_self_accel.y = 0;
         fp->self_vel.y = 0;
     } else {
         FtMotionId msid;
@@ -279,10 +280,10 @@ void ftKb_SpecialNPr_80101560(Fighter_GObj* gobj)
         msid = ftKb_MS_PrSpecialNStartL;
     }
     Fighter_ChangeMotionState(gobj, msid, 0, 0.0f, 1.0f, 0.0f, NULL);
-    fp->cmd_vars[0] = fp->cmd_vars[1] = fp->cmd_vars[2] = fp->cmd_vars[3] = 0;
+    Fighter_ClearCmdVars(fp);
     ftAnim_8006EBA4(gobj);
     ftKb_SpecialNPr_8010131C(gobj);
-    fp->x74_anim_vel.y = 0.0f;
+    fp->x74_self_accel.y = 0.0f;
     fp->self_vel.y = 0.0f;
     fp->mv.pr.specialn.x1C = da->specialn_pr_unk1;
 }
@@ -300,10 +301,10 @@ void ftKb_SpecialNPr_80101618(Fighter_GObj* gobj)
         msid = ftKb_MS_PrSpecialAirNStartL;
     }
     Fighter_ChangeMotionState(gobj, msid, 0, 0.0f, 1.0f, 0.0f, NULL);
-    fp->cmd_vars[0] = fp->cmd_vars[1] = fp->cmd_vars[2] = fp->cmd_vars[3] = 0;
+    Fighter_ClearCmdVars(fp);
     ftAnim_8006EBA4(gobj);
     ftKb_SpecialNPr_8010131C(gobj);
-    fp->x74_anim_vel.y = da->specialn_pr_air_height_offset_at_start;
+    fp->x74_self_accel.y = da->specialn_pr_air_height_offset_at_start;
     fp->mv.pr.specialn.x1C = da->specialn_pr_unk2;
 }
 
@@ -320,21 +321,9 @@ void ftKb_PrSpecialNStart_Anim(Fighter_GObj* gobj)
         fp->cur_anim_frame = 0;
         ftAnim_SetAnimRate(gobj, 0);
         fp->gr_vel = fp->self_vel.x = fp->facing_dir * 0.0001f;
-        fp->xE4_ground_accel_1 = fp->x74_anim_vel.x = 0;
+        fp->xE4_ground_accel_1 = fp->x74_self_accel.x = 0;
         ftPartSetRotY(fp, 0, M_PI_2);
     }
-}
-
-static inline void ftKb_PrNormalizeAndSetRollAngle(Fighter_GObj* gobj)
-{
-    Fighter* fp = GET_FIGHTER(gobj);
-    while (fp->mv.pr.specialn.x14 < 0.0f) {
-        fp->mv.pr.specialn.x14 += M_PI * 2;
-    }
-    while (fp->mv.pr.specialn.x14 > M_PI * 2) {
-        fp->mv.pr.specialn.x14 -= M_PI * 2;
-    }
-    ftPartSetRotX(fp, FtPart_YRotN, fp->mv.pr.specialn.x14);
 }
 
 void ftKb_PrSpecialNLoop_Anim(Fighter_GObj* gobj)
@@ -360,7 +349,7 @@ void ftKb_PrSpecialNLoop_Anim(Fighter_GObj* gobj)
         fp->mv.pr.specialn.x34.x *
         (fp->mv.pr.specialn.x2C *
          MTXDegToRad(da->specialn_pr_charge_spin_animation));
-    ftKb_PrNormalizeAndSetRollAngle(gobj);
+    ftPr_NormalizeAndSetRollAngle(gobj);
     ftPartSetRotY(fp, FtPart_TopN, M_PI_2);
 }
 
@@ -379,7 +368,7 @@ void ftKb_PrSpecialNFull_Anim(Fighter_GObj* gobj)
         fp->mv.pr.specialn.x34.x *
         (fp->mv.pr.specialn.x2C *
          MTXDegToRad(da->specialn_pr_charge_spin_animation));
-    ftKb_PrNormalizeAndSetRollAngle(gobj);
+    ftPr_NormalizeAndSetRollAngle(gobj);
     ftPartSetRotY(fp, FtPart_TopN, M_PI_2);
 }
 
@@ -414,7 +403,7 @@ void ftKb_PrSpecialN1_Anim(Fighter_GObj* gobj)
             MTXDegToRad(fp->mv.pr.specialn.x2C) *
             (f32) (0.2 * da->specialn_pr_unk5 * fp->mv.pr.specialn.x34.x);
         fp->mv.pr.specialn.x14 = old_angle + delta;
-        ftKb_PrNormalizeAndSetRollAngle(gobj);
+        ftPr_NormalizeAndSetRollAngle(gobj);
         fp->mv.pr.specialn.x0 -= 1;
         if (fp->mv.pr.specialn.x0 <= 0) {
             if (M_PI_2 < fp->mv.pr.specialn.x14 &&
@@ -455,7 +444,7 @@ void ftKb_PrSpecialNTurn_Anim(Fighter_GObj* gobj)
     ftKb_PrScaleAnimStep(gobj, &scale);
     fp->mv.pr.specialn.x14 +=
         0.2 * da->specialn_pr_spinning_speed_turn * -fp->mv.pr.specialn.x34.x;
-    ftKb_PrNormalizeAndSetRollAngle(gobj);
+    ftPr_NormalizeAndSetRollAngle(gobj);
     fp->mv.pr.specialn.x0 -= 1;
     if (fp->mv.pr.specialn.x0 <= 0) {
         fp->mv.pr.specialn.x0 = 0;
@@ -498,7 +487,7 @@ void ftKb_PrSpecialAirNStart_Anim(Fighter_GObj* gobj)
         fp->cur_anim_frame = 0;
         ftAnim_SetAnimRate(gobj, 0);
         fp->self_vel.x = fp->facing_dir * 0.0001f;
-        fp->x74_anim_vel.x = 0;
+        fp->x74_self_accel.x = 0;
         ftPartSetRotY(fp, 0, M_PI_2);
     }
 }
@@ -526,7 +515,7 @@ void ftKb_PrSpecialAirNLoop_Anim(Fighter_GObj* gobj)
         fp->mv.pr.specialn.x34.x *
         (fp->mv.pr.specialn.x2C *
          MTXDegToRad(da->specialn_pr_charge_spin_animation));
-    ftKb_PrNormalizeAndSetRollAngle(gobj);
+    ftPr_NormalizeAndSetRollAngle(gobj);
     ftPartSetRotY(fp, FtPart_TopN, M_PI_2);
 }
 
@@ -545,7 +534,7 @@ void ftKb_PrSpecialAirNFull_Anim(Fighter_GObj* gobj)
         fp->mv.pr.specialn.x34.x *
         (fp->mv.pr.specialn.x2C *
          MTXDegToRad(da->specialn_pr_charge_spin_animation));
-    ftKb_PrNormalizeAndSetRollAngle(gobj);
+    ftPr_NormalizeAndSetRollAngle(gobj);
     ftPartSetRotY(fp, FtPart_TopN, M_PI_2);
 }
 
@@ -585,7 +574,7 @@ void ftKb_PrSpecialAirN_Anim(Fighter_GObj* gobj)
             (0.017453292f * fp->mv.pr.specialn.x2C *
              da->specialn_pr_spin_anim_speed_after_collision);
         fp->mv.pr.specialn.x14 = old_angle + delta;
-        ftKb_PrNormalizeAndSetRollAngle(gobj);
+        ftPr_NormalizeAndSetRollAngle(gobj);
         fp->mv.pr.specialn.x0--;
         if (fp->mv.pr.specialn.x0 <= 0) {
             if (M_PI_2 < fp->mv.pr.specialn.x14 &&
@@ -627,7 +616,7 @@ void ftKb_PrSpecialN_Anim(Fighter_GObj* gobj)
         da->specialn_pr_spin_anim_speed_after_collision *
         (f32) (0.2 * da->specialn_pr_spinning_speed_turn *
                -fp->mv.pr.specialn.x34.x);
-    ftKb_PrNormalizeAndSetRollAngle(gobj);
+    ftPr_NormalizeAndSetRollAngle(gobj);
     fp->mv.pr.specialn.x0 -= 1;
     if (fp->mv.pr.specialn.x0 <= 0) {
         fp->mv.pr.specialn.x0 = 0;
@@ -671,7 +660,7 @@ void ftKb_PrSpecialNHit_Anim(Fighter_GObj* gobj)
         da->specialn_pr_spin_anim_speed_after_collision *
         (f32) (0.2 * da->specialn_pr_spinning_speed_turn *
                -fp->mv.pr.specialn.x34.x);
-    ftKb_PrNormalizeAndSetRollAngle(gobj);
+    ftPr_NormalizeAndSetRollAngle(gobj);
     ftPartSetRotY(fp, FtPart_TopN, M_PI_2);
 }
 
@@ -693,7 +682,7 @@ void ftKb_PrSpecialNLoop_IASA(Fighter_GObj* gobj)
                      ((fp->mv.pr.specialn.x2C - da->specialn_pr_charge_rate1) *
                       da->specialn_pr_air_speed);
         ftPartSetRotY(fp, FtPart_TopN, M_PI_2);
-        ftKb_PrNormalizeAndSetRollAngle(gobj);
+        ftPr_NormalizeAndSetRollAngle(gobj);
         ft_PlaySFX(fp, 0x3D0D9, 127, 64);
     }
 }
@@ -714,7 +703,7 @@ void ftKb_PrSpecialNFull_IASA(Fighter_GObj* gobj)
                      ((fp->mv.pr.specialn.x2C - da->specialn_pr_charge_rate1) *
                       da->specialn_pr_air_speed);
         ftPartSetRotY(fp, FtPart_TopN, M_PI_2);
-        ftKb_PrNormalizeAndSetRollAngle(gobj);
+        ftPr_NormalizeAndSetRollAngle(gobj);
         ft_PlaySFX(fp, 0x3D0D9, 127, 64);
     }
 }
@@ -736,7 +725,7 @@ void ftKb_PrSpecialN1_IASA(Fighter_GObj* gobj)
             fp->mv.pr.specialn.x10 = fp->gr_vel;
             fp->mv.pr.specialn.x1C = -0.05f * fp->gr_vel;
             fp->mv.pr.specialn.x24 = 0;
-            ftKb_PrNormalizeAndSetRollAngle(gobj);
+            ftPr_NormalizeAndSetRollAngle(gobj);
             ft_PlaySFX(fp, 0x3D0D9, 127, 64);
         }
     }
@@ -765,7 +754,7 @@ void ftKb_PrSpecialAirNLoop_IASA(Fighter_GObj* gobj)
             ((fp->mv.pr.specialn.x2C - da->specialn_pr_charge_rate1) *
              da->specialn_pr_air_speed);
         ftPartSetRotY(fp, FtPart_TopN, M_PI_2);
-        ftKb_PrNormalizeAndSetRollAngle(gobj);
+        ftPr_NormalizeAndSetRollAngle(gobj);
         ft_PlaySFX(fp, 0x3D0D9, 127, 64);
     }
 }
@@ -787,7 +776,7 @@ void ftKb_PrSpecialAirNFull_IASA(Fighter_GObj* gobj)
             ((fp->mv.pr.specialn.x2C - da->specialn_pr_charge_rate1) *
              da->specialn_pr_air_speed);
         ftPartSetRotY(fp, FtPart_TopN, M_PI_2);
-        ftKb_PrNormalizeAndSetRollAngle(gobj);
+        ftPr_NormalizeAndSetRollAngle(gobj);
         ft_PlaySFX(fp, 0x3D0D9, 127, 64);
     }
 }
@@ -807,8 +796,8 @@ void ftKb_PrSpecialNStart_Phys(Fighter_GObj* gobj)
     ft->gr_vel = 0.0f;
     ft->self_vel.x = 0.0001f * ft->facing_dir;
     ft->self_vel.y = 0.0f;
-    ft->x74_anim_vel.y = 0.0f;
-    ft->x74_anim_vel.x = 0.0f;
+    ft->x74_self_accel.y = 0.0f;
+    ft->x74_self_accel.x = 0.0f;
 }
 
 void ftKb_PrSpecialNLoop_Phys(Fighter_GObj* gobj)
@@ -863,23 +852,13 @@ void ftKb_PrSpecialN1_Phys(Fighter_GObj* gobj)
         }
     }
     fp->mv.pr.specialn.x18 = ABS(fp->gr_vel);
-    fp->x74_anim_vel.y = 0;
+    fp->x74_self_accel.y = 0;
     fp->self_vel.y = 0;
-    ftCommon_ApplyGroundMovement(gobj);
+    ftCommon_SetSelfMovementFromGroundedMovement(gobj);
     fp->mv.pr.specialn.x2C -= da->specialn_pr_unk8;
     if (fp->mv.pr.specialn.x2C < da->specialn_pr_some_speed_var) {
         ftKb_SpecialNPr_801010D4(gobj, false, 0x40012, 0.0f);
     }
-}
-
-static inline void ftKb_PrSetFacingDir(Fighter* fp)
-{
-    if (fp->mv.pr.specialn.facing_dir != 0.0f) {
-        fp->mv.pr.specialn.x34.x = fp->facing_dir =
-            fp->mv.pr.specialn.facing_dir;
-    }
-    fp->mv.pr.specialn.facing_dir = 0.0f;
-    fp->mv.pr.specialn.xC = 0;
 }
 
 void ftKb_PrSpecialNTurn_Phys(Fighter_GObj* gobj)
@@ -906,9 +885,9 @@ void ftKb_PrSpecialNTurn_Phys(Fighter_GObj* gobj)
             fp->gr_vel += scale * (x1C - influence);
         }
     }
-    fp->x74_anim_vel.y = 0;
+    fp->x74_self_accel.y = 0;
     fp->self_vel.y = 0;
-    ftCommon_ApplyGroundMovement(gobj);
+    ftCommon_SetSelfMovementFromGroundedMovement(gobj);
     if (fp->mv.pr.specialn.x10 > 0.0f) {
         if (fp->gr_vel < 0.0f) {
             if (ABS(fp->gr_vel) >=
@@ -918,7 +897,7 @@ void ftKb_PrSpecialNTurn_Phys(Fighter_GObj* gobj)
                 Fighter_ChangeMotionState(gobj, ftKb_MS_PrSpecialN1, mf1,
                                           fp->cur_anim_frame, 0, 0, NULL);
                 ftKb_PrSetCallbacks(gobj);
-                ftKb_PrSetFacingDir(fp);
+                ftPr_SetFacingDir(fp);
             }
         }
     } else {
@@ -930,19 +909,19 @@ void ftKb_PrSpecialNTurn_Phys(Fighter_GObj* gobj)
                 Fighter_ChangeMotionState(gobj, ftKb_MS_PrSpecialN1, mf2,
                                           fp->cur_anim_frame, 0, 0, NULL);
                 ftKb_PrSetCallbacks(gobj);
-                ftKb_PrSetFacingDir(fp);
+                ftPr_SetFacingDir(fp);
             }
         }
     }
     ftPartSetRotY(fp, FtPart_TopN, M_PI_2);
-    ftKb_PrNormalizeAndSetRollAngle(gobj);
+    ftPr_NormalizeAndSetRollAngle(gobj);
 }
 
 void ftKb_PrSpecialNEnd_Phys(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    ftCommon_ApplyFrictionGround(fp, fp->co_attrs.ground_friction);
-    ftCommon_ApplyGroundMovement(gobj);
+    ftCommon_CalcGroundAccel_Deaccel(fp, fp->co_attrs.ground_friction);
+    ftCommon_SetSelfMovementFromGroundedMovement(gobj);
 }
 
 void ftKb_PrSpecialAirNStart_Phys(Fighter_GObj* gobj)
@@ -1039,7 +1018,7 @@ void ftKb_PrSpecialN_Phys(Fighter_GObj* gobj)
     ftCommon_Fall(fp, da->specialn_pr_air_height_offset_at_start,
                   da->specialn_pr_bounciness);
     ftPartSetRotY(fp, FtPart_TopN, M_PI_2);
-    ftKb_PrNormalizeAndSetRollAngle(gobj);
+    ftPr_NormalizeAndSetRollAngle(gobj);
 }
 
 void ftKb_PrSpecialAirNEndR_Phys(Fighter_GObj* gobj)
@@ -1056,7 +1035,7 @@ void ftKb_PrSpecialNHit_Phys(Fighter_GObj* gobj)
     u8 _[8];
 
     if (fp->self_vel.y <= -da->specialn_pr_bounciness) {
-        ftCommon_8007D268(fp);
+        ftCommon_CalcSelfAccel_Drift(fp);
     }
     ftCommon_Fall(fp, da->specialn_pr_air_height_offset_at_start,
                   da->specialn_pr_bounciness);
@@ -1087,7 +1066,7 @@ void ftKb_PrSpecialNLoop_Coll(Fighter_GObj* gobj)
         Fighter_ChangeMotionState(gobj, ftKb_MS_PrSpecialAirNLoop, 0x41092U,
                                   fp->cur_anim_frame, 0, 0, NULL);
         ftKb_PrSetCallbacks(gobj);
-        ftKb_PrNormalizeAndSetRollAngle(gobj);
+        ftPr_NormalizeAndSetRollAngle(gobj);
         ftPartSetRotY(fp, FtPart_TopN, M_PI_2);
     }
 }
@@ -1100,7 +1079,7 @@ void ftKb_PrSpecialNFull_Coll(Fighter_GObj* gobj)
         Fighter_ChangeMotionState(gobj, ftKb_MS_PrSpecialAirNFull, 0x41092U,
                                   fp->cur_anim_frame, 0, 0, NULL);
         ftKb_PrSetCallbacks(gobj);
-        ftKb_PrNormalizeAndSetRollAngle(gobj);
+        ftPr_NormalizeAndSetRollAngle(gobj);
         ftPartSetRotY(fp, FtPart_TopN, M_PI_2);
     }
 }
@@ -1153,7 +1132,7 @@ void ftKb_PrSpecialN1_Coll(Fighter_GObj* gobj)
         Fighter_ChangeMotionState(gobj, ftKb_MS_PrSpecialAirN, mf,
                                   fp->cur_anim_frame, 0, 0, NULL);
         ftKb_PrSetCallbacks(gobj);
-        ftKb_PrNormalizeAndSetRollAngle(gobj);
+        ftPr_NormalizeAndSetRollAngle(gobj);
         ftPartSetRotY(fp, FtPart_TopN, M_PI_2);
         fp->mv.pr.specialn.x1C = da->specialn_pr_unk2;
     }
@@ -1219,7 +1198,7 @@ void ftKb_PrSpecialAirNLoop_Coll(Fighter_GObj* gobj)
         Fighter_ChangeMotionState(gobj, ftKb_MS_PrSpecialNLoop, 0x41092U,
                                   fp->cur_anim_frame, 0, 0, NULL);
         ftKb_PrSetCallbacks(gobj);
-        ftKb_PrNormalizeAndSetRollAngle(gobj);
+        ftPr_NormalizeAndSetRollAngle(gobj);
         ftPartSetRotY(fp, FtPart_TopN, M_PI_2);
     }
 }
@@ -1232,7 +1211,7 @@ void ftKb_PrSpecialAirNFull_Coll(Fighter_GObj* gobj)
         Fighter_ChangeMotionState(gobj, ftKb_MS_PrSpecialNFull, 0x41092U,
                                   fp->cur_anim_frame, 0, 0, NULL);
         ftKb_PrSetCallbacks(gobj);
-        ftKb_PrNormalizeAndSetRollAngle(gobj);
+        ftPr_NormalizeAndSetRollAngle(gobj);
         ftPartSetRotY(fp, FtPart_TopN, M_PI_2);
     }
 }
@@ -1294,7 +1273,7 @@ void ftKb_PrSpecialAirN_Coll(Fighter_GObj* gobj)
             }
             fp->self_vel.z = 0;
             fp->self_vel.y = 0;
-            ftKb_PrNormalizeAndSetRollAngle(gobj);
+            ftPr_NormalizeAndSetRollAngle(gobj);
             ftPartSetRotY(fp, FtPart_TopN, M_PI_2);
             atan2f(-fp->coll_data.floor.normal.x,
                    fp->coll_data.floor.normal.y);
@@ -1309,7 +1288,7 @@ void ftKb_PrSpecialAirN_Coll(Fighter_GObj* gobj)
                     fp->mv.pr.specialn.x18 * fp->mv.pr.specialn.x34.x;
                 ftPartSetRotY(fp, FtPart_TopN, M_PI_2);
             }
-            ftKb_PrNormalizeAndSetRollAngle(gobj);
+            ftPr_NormalizeAndSetRollAngle(gobj);
         }
         fp->mv.pr.specialn.x8 = 0;
         return;
@@ -1370,14 +1349,5 @@ void fn_80105978(Fighter_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
     PAD_STACK(8);
     ftPartSetRotY(fp, 0, M_PI_2 * fp->facing_dir);
-    fp->self_vel.x = -fp->self_vel.x;
-    fp->gr_vel = -fp->gr_vel;
-    fp->xE4_ground_accel_1 = -fp->xE4_ground_accel_1;
-    fp->mv.pr.specialn.x10 = -fp->mv.pr.specialn.x10;
-    fp->mv.pr.specialn.x14 = -fp->mv.pr.specialn.x14;
-    fp->mv.pr.specialn.x18 = -fp->mv.pr.specialn.x18;
-    fp->mv.pr.specialn.x1C = -fp->mv.pr.specialn.x1C;
-    fp->mv.pr.specialn.facing_dir = -fp->mv.pr.specialn.facing_dir;
-    fp->mv.pr.specialn.x34.x = -fp->mv.pr.specialn.x34.x;
-    fp->mv.pr.specialn.x34.y = -fp->mv.pr.specialn.x34.y;
+    ftPr_MirrorSpecialN(fp);
 }

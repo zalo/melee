@@ -5,7 +5,6 @@
 #include <placeholder.h>
 
 #include "grdatfiles.h"
-#include "grdisplay.h"
 #include "grlib.h"
 #include "grmaterial.h"
 #include "grzakogenerator.h"
@@ -14,16 +13,14 @@
 #include <melee/cm/camera.h>
 #include <melee/cm/types.h>
 #include <melee/ft/ftlib.h>
-#include <melee/gm/gm_16AE.h>
+#include <melee/gm/gmvs.h>
 #include <melee/if/ifhazard.h>
 #include <melee/it/it_2725.h>
 #include <melee/it/item.h>
 #include <melee/lb/lb_00B0.h>
-#include <melee/lb/lb_00F9.h>
 #include <melee/lb/types.h>
 #include <melee/mp/mplib.h>
 #include <sysdolphin/baselib/gobj.h>
-#include <sysdolphin/baselib/gobjgxlink.h>
 #include <sysdolphin/baselib/gobjproc.h>
 
 /* 1E40E4 */ static void grOnett_801E40E4(void* user_data, int joint_id,
@@ -156,19 +153,7 @@ HSD_GObj* grOnett_801E37F4(int gobj_id)
     gobj = Ground_GetStageGObj(gobj_id);
 
     if (gobj != NULL) {
-        Ground* gp = GET_GROUND(gobj);
-        gp->x8_callback = NULL;
-        gp->xC_callback = NULL;
-        GObj_SetupGXLink(gobj, grDisplay_801C5DB0, 3, 0);
-        if (callbacks->callback3 != NULL) {
-            gp->x1C_callback = callbacks->callback3;
-        }
-        if (callbacks->on_init != NULL) {
-            callbacks->on_init(gobj);
-        }
-        if (callbacks->gobj_proc != NULL) {
-            HSD_GObj_SetupProc(gobj, callbacks->gobj_proc, 4);
-        }
+        Ground_SetupStageCallbacks(gobj, callbacks);
     } else {
         OSReport("%s:%d: couldn t get gobj(id=%d)\n", __FILE__, 235, gobj_id);
     }
@@ -220,7 +205,7 @@ void grOnett_801E3A34(Ground_GObj* gobj)
     gp = GET_GROUND(gobj);
     jobj = GET_JOBJ(gobj);
 
-    Ground_801C2ED0(jobj, gp->map_id);
+    Ground_InitMapColl(jobj, gp->map_id);
     grAnime_801C8138(gobj, gp->map_id, 0);
     gp->x10_flags.b5 = 1;
 
@@ -256,7 +241,7 @@ void grOnett_801E3A34(Ground_GObj* gobj)
                     Ground_801C3FA4(gobj, 18), Ground_801C3FA4(gobj, 21));
 
     Ground_801C10B8(gobj, grOnett_801E3930);
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
 }
 
 bool grOnett_801E3C58(Ground_GObj* gobj)
@@ -278,8 +263,7 @@ void grOnett_801E3C60(Ground_GObj* gobj)
             gp->u.onett.subject->state = CmSubjectState_Inactive;
         }
     }
-    lb_800115F4();
-    Ground_801C2FE0(gobj);
+    Ground_UpdateWindAndMapColl(gobj);
 }
 
 void grOnett_801E3CE0(Ground_GObj* gobj) {}
@@ -289,7 +273,7 @@ void grOnett_801E3CE4(Ground_GObj* gobj)
     Ground* gp = GET_GROUND(gobj);
     PAD_STACK(8);
 
-    Ground_801C2ED0(GET_JOBJ(gobj), gp->map_id);
+    Ground_InitMapColl(GET_JOBJ(gobj), gp->map_id);
     grAnime_801C7FF8(gobj, 0, 7, 0, 0.0f, 0.0f);
 
     gp->u.onett_building.state = -1;
@@ -408,7 +392,7 @@ void grOnett_801E3DA0(Ground_GObj* gobj)
         gp->u.onett_building.frame = 0;
     }
 
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
 }
 
 void grOnett_801E40E0(Ground_GObj* gobj) {}
@@ -594,13 +578,13 @@ void grOnett_801E43E0(Ground_GObj* gobj)
         case 2:
             if (gp->u.onettcar.x108 != 0) {
                 int fighter_count = 0;
-                iter = HSD_GObj_Entities->fighters;
+                iter = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_FIGHTER];
                 while (iter != NULL) {
                     iter = iter->next;
                     fighter_count++;
                 }
                 gp->u.onettcar.x108 -= 1;
-                iter = HSD_GObj_Entities->fighters;
+                iter = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_FIGHTER];
                 while (iter != NULL) {
                     ftLib_80086644(iter, &pos);
                     if (pos.y <= 1.0f) {
@@ -669,7 +653,7 @@ void grOnett_801E43E0(Ground_GObj* gobj)
                 if (HSD_JObjGetTranslationX(car_jobj) <=
                     cam_z + yakumono_param->x64)
                 {
-                    iter = HSD_GObj_Entities->fighters;
+                    iter = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_FIGHTER];
                     while (iter != NULL) {
                         ftLib_80086644(iter, &pos);
                         if (pos.y <= 1.0f) {
@@ -964,18 +948,14 @@ DynamicModelDesc* grOnett_801E56FC(void)
     HSD_ASSERT(1319, archive);
     dat = archive->unk4;
     if (dat != NULL) {
-#ifdef MELEE_NATIVE
         return (DynamicModelDesc*) &dat->unk8[1];
-#else
-        return (DynamicModelDesc*) ((char*) dat->unk8 + 0x34);
-#endif
     }
     return NULL;
 }
 
 DynamicsDesc* grOnett_801E5760(enum_t arg)
 {
-    return false;
+    return NULL;
 }
 
 bool grOnett_801E5768(Vec3* a, int b, HSD_JObj* jobj)

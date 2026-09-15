@@ -23,7 +23,7 @@
 #include <melee/cm/camera.h>
 #include <melee/ft/ftdevice.h>
 #include <melee/ft/ftlib.h>
-#include <melee/gm/gm_16AE.h>
+#include <melee/gm/gmvs.h>
 #include <melee/it/it_26B1.h>
 #include <melee/it/itdrop.h>
 #include <melee/it/ithitbox.h>
@@ -160,7 +160,7 @@ struct grCastle_YakumonoParam {
     /* 0x05A */ u8 pad_x5A[2];
     /* 0x05C */ grCastleParams_Entry entries[9];
     /* 0x110 */ f32 x110;
-    /* 0x114 */ s32 x114;
+    /* 0x114 */ void* x114;
     /* 0x118 */ f32 x118;
     /* 0x11C */ f32 x11C;
     /* 0x120 */ f32 x120;
@@ -489,7 +489,7 @@ void grCastle_801CD8A8(Ground_GObj* gobj)
 
     grCastle_801CF868(gobj);
     grCastle_801CE19C(gobj);
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
     lb_800115F4();
     grCastle_801D0BBC();
     for (i = 0; i < 12; i++) {
@@ -529,7 +529,7 @@ void grCastle_801CDA0C(Ground_GObj* gobj)
     HSD_JObj* jobj = GET_JOBJ(gobj);
     f32 val;
 
-    Ground_801C2ED0(jobj, gp->map_id);
+    Ground_InitMapColl(jobj, gp->map_id);
     gp->x10_flags.b5 = 1;
 
     gp->u.castle8.plat[0].jobj = Ground_801C3FA4(gobj, 1);
@@ -567,7 +567,7 @@ void grCastle_801CDA0C(Ground_GObj* gobj)
     gp->u.castle8.plat[1].wind = 0.0f;
 
     Ground_801C10B8(gobj, grCastle_801CD9B4);
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
 }
 
 bool grCastle_801CDC3C(Ground_GObj* gobj)
@@ -660,7 +660,7 @@ void grCastle_801CDC44(Ground_GObj* gobj)
         gp->u.castle8.plat[0].wind = 0.0f;
         gp = (Ground*) ((struct grCastle_Platform*) gp + 1);
     } while (i < 2);
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
 }
 
 void grCastle_801CDF50(Ground_GObj* gobj) {}
@@ -801,7 +801,7 @@ void grCastle_801CE260(Ground_GObj* gobj)
     CmSubject* subject;
     PAD_STACK(8);
 
-    Ground_801C2ED0(jobj, gp->map_id);
+    Ground_InitMapColl(jobj, gp->map_id);
     grAnime_801C8138((HSD_GObj*) gobj, gp->map_id, 0);
 
     gp->u.castle11.xC4.b0 = 0;
@@ -975,7 +975,7 @@ void grCastle_801CE7E8(Ground_GObj* gobj)
 {
     Ground* gp = GET_GROUND(gobj);
     PAD_STACK(8);
-    Ground_801C2ED0(GET_JOBJ(gobj), gp->map_id);
+    Ground_InitMapColl(GET_JOBJ(gobj), gp->map_id);
     gp->u.castle.xC4 = 0;
     gp->u.castle.xC8 = yakumono_param->x12C[gp->u.castle.xC4];
     grAnime_801C8138(gobj, gp->map_id, gp->u.castle.xC4);
@@ -1011,7 +1011,7 @@ void grCastle_801CE8E8(Ground_GObj* gobj)
     CmSubject* subject;
     PAD_STACK(8);
 
-    Ground_801C2ED0(gobj->hsd_obj, gp->map_id);
+    Ground_InitMapColl(gobj->hsd_obj, gp->map_id);
     grAnime_801C8138((HSD_GObj*) gobj, gp->map_id, 0);
 
     gp2 = GET_GROUND(gobj);
@@ -1088,7 +1088,7 @@ void grCastle_801CEACC(Ground_GObj* gobj)
     s32 i;
     PAD_STACK(0x8);
 
-    Ground_801C2ED0(jobj, gp->map_id);
+    Ground_InitMapColl(jobj, gp->map_id);
     gp->x10_flags.b5 = 1;
     gp->u.castle10.xC4 = 0;
     HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
@@ -1180,7 +1180,7 @@ void grCastle_801CEACC(Ground_GObj* gobj)
     }
 
     grCastle_801D0298(gobj, 0);
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
     ((HSD_GObj*) gobj)->render_cb = (GObj_RenderFunc) grCastle_801D0520;
 }
 
@@ -1268,7 +1268,7 @@ void grCastle_801CEF04(Ground_GObj* gobj)
         break;
     }
     }
-    Ground_801C2FE0(gobj);
+    Ground_UpdateMapColl(gobj);
 }
 
 void grCastle_801CF0F0(Ground_GObj* gobj) {}
@@ -1279,7 +1279,7 @@ void grCastle_801CF0F4(Ground_GObj* gobj)
     HSD_JObj* jobj = GET_JOBJ(gobj);
     f32 scale;
 
-    Ground_801C2ED0(jobj, gp->map_id);
+    Ground_InitMapColl(jobj, gp->map_id);
     gp->u.castle7.xC4 = 0;
     gp->u.castle7.xD8 = 0;
     HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
@@ -1326,7 +1326,7 @@ void grCastle_801CF308(Ground_GObj* gobj)
         gp->u.castle.xC8 = -1;
         gp->u.castle11.xCA = 0;
         HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
-        grAnime_801C86D4(gp->map_id, (HSD_GObj*) gobj, 0);
+        grAnime_801C86D4(gp->map_id, gobj, 0);
         gp->u.castle5.xC4 = 2;
         /* fallthrough */
     case 2: {
@@ -1505,7 +1505,7 @@ static inline void grCastle_PickSatellite(Ground* gp, s32* wp)
             s32 random_idx = HSD_Randi(11);
             idx = random_idx;
         }
-        entity = HSD_GObj_Entities->x14;
+        entity = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_GROUND];
         {
             s32 want = targets.e[idx].map_id;
             for (; entity != NULL; entity = entity->next) {
@@ -1904,7 +1904,7 @@ void grCastle_801D0A9C(Vec3* arg0, f32 arg8)
 
 DynamicsDesc* grCastle_801D0B04(enum_t arg)
 {
-    return false;
+    return NULL;
 }
 
 bool grCastle_801D0B0C(Vec3* v, int arg1, HSD_JObj* jobj)

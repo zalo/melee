@@ -544,56 +544,50 @@ static gmClassicMatchup* gmClassic_801B2BA4(gmClassicMatchup* arg0,
 
     result = NULL;
     target_char = gmMainLib_8015CDC8()->c_kind;
-    outer = 0;
 
-    goto check;
-loop:
-    entry = &arg0[arg1[outer]];
-    for (j = 0; j < 3; j++) {
-        int cur_char = entry->x02[j];
+    for (outer = 0; outer < gmClassic_GetMatchupCount(arg0); outer++) {
+        entry = &arg0[arg1[outer]];
+        for (j = 0; j < 3; j++) {
+            int cur_char = entry->x02[j];
 
-        if (cur_char == CHKIND_NONE) {
-            continue;
-        }
-        if (gm_80164430(entry->x00) == 0) {
-            goto next;
-        }
-        if (gm_IsCKindUnlocked(cur_char) == 0) {
-            goto next;
-        }
-        if (cur_char == target_char) {
-            goto next;
-        }
+            if (cur_char == ChKind_None) {
+                continue;
+            }
+            if (gm_80164430(entry->x00) == 0) {
+                goto next;
+            }
+            if (gm_IsCKindUnlocked(cur_char) == 0) {
+                goto next;
+            }
+            if (cur_char == target_char) {
+                goto next;
+            }
 
-        for (temp_idx = 0; arg2[temp_idx].x0 != 0xD; temp_idx++) {
-            for (k = 0; k < 3; k++) {
-                if (arg2[temp_idx].xC != NULL &&
-                    cur_char == arg2[temp_idx].xC->x02[k])
-                {
-                    goto next;
+            for (temp_idx = 0; arg2[temp_idx].x0 != 0xD; temp_idx++) {
+                for (k = 0; k < 3; k++) {
+                    if (arg2[temp_idx].xC != NULL &&
+                        cur_char == arg2[temp_idx].xC->x02[k])
+                    {
+                        goto next;
+                    }
+                }
+            }
+
+            for (temp_idx = 0; arg2[temp_idx].x0 != 0xD; temp_idx++) {
+                if (arg2[temp_idx].xC != NULL) {
+                    if (Stage_8022519C(arg2[temp_idx].xC->x00) ==
+                        Stage_8022519C(entry->x00))
+                    {
+                        result = entry;
+                        goto next;
+                    }
                 }
             }
         }
-
-        for (temp_idx = 0; arg2[temp_idx].x0 != 0xD; temp_idx++) {
-            if (arg2[temp_idx].xC != NULL) {
-                if (Stage_8022519C(arg2[temp_idx].xC->x00) ==
-                    Stage_8022519C(entry->x00))
-                {
-                    result = entry;
-                    goto next;
-                }
-            }
+        if (entry != NULL) {
+            return entry;
         }
-    }
-    if (entry != NULL) {
-        return entry;
-    }
-next:
-    outer++;
-check:
-    if (outer < gmClassic_GetMatchupCount(arg0)) {
-        goto loop;
+    next:;
     }
 
     if (result != NULL) {
@@ -759,7 +753,7 @@ void gm_Mode_Classic_OnLoad(void)
 void gm_Mode_Classic_OnInit(void)
 {
     struct gmm_x0_528_t* temp_r3 = gmMainLib_8015CDC8();
-    temp_r3->c_kind = CHKIND_NONE;
+    temp_r3->c_kind = ChKind_None;
     temp_r3->color = 0;
     temp_r3->stocks = 3;
     temp_r3->cpu_level = 0;
@@ -846,8 +840,8 @@ void gmClassic_801B3500(GameModeState* arg0)
 
     ally_count = 1;
     ckind = ad->x0.x0.ckind;
-    if (ckind == CKIND_ZELDA && ad->x0.xC.x12 != 0) {
-        sd->x0D[0] = CKIND_SEAK;
+    if (ckind == CKind_Zelda && ad->x0.xC.x12 != 0) {
+        sd->x0D[0] = CKind_Seak;
     } else {
         sd->x0D[0] = ckind;
     }
@@ -898,7 +892,7 @@ void gmClassic_801B3500(GameModeState* arg0)
         s8 achar = ad->x0.xC.x24[i].ckind;
         if (achar != 0x21) {
             gc->entries[count].char_id = achar;
-            gc->entries[count].color = ad->x0.xC.x24[i].x1;
+            gc->entries[count].color = ad->x0.xC.x24[i].color;
             count++;
         }
     }

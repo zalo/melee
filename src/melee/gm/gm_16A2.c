@@ -62,8 +62,8 @@ bool gm_801693BC(int arg0)
         return true;
     }
     ckind = Player_GetPlayerCharacter(arg0);
-    ckind -= CKIND_BOY;
-    if (ckind <= CKIND_GIRL - CKIND_BOY) {
+    ckind -= CKind_Boy;
+    if (ckind <= CKind_Girl - CKind_Boy) {
         return true;
     }
     return false;
@@ -144,7 +144,7 @@ void fn_801695BC(u8 arg0, u8 arg1, u8 arg2, const u8* arg3, s8* arg4)
     u8 ncolors;
     s8 colors[6];
 
-    ncolors = gm_80169238(arg0);
+    ncolors = gm_GetNumCostumesForCKind(arg0);
     if ((s8) arg0 != 0x21) {
         ncolors_s32 = ncolors;
         for (i = 0; i < ncolors; i++) {
@@ -188,7 +188,7 @@ void fn_801695BC(u8 arg0, u8 arg1, u8 arg2, const u8* arg3, s8* arg4)
 void fn_801697FC(s8 character, s8 costume, s8 new_character, s8 new_costume,
                  s8* buf)
 {
-    u8 ncolors = gm_80169238(character);
+    u8 ncolors = gm_GetNumCostumesForCKind(character);
     int i;
 
     if (character == 0x21) {
@@ -253,7 +253,7 @@ void fn_80169900(u8 arg0, struct lbl_8046B488_t* arg1, s8* arg2, s8* arg3)
             } else {
                 var_r27 = 5;
                 if (HSD_Randi(2) != 0) {
-                    if (arg1->x1 != CHKIND_NONE &&
+                    if (arg1->x1 != ChKind_None &&
                         gm_IsCKindUnlocked(arg1->x1))
                     {
                         arg2[var_r28] = arg1->x1;
@@ -261,7 +261,7 @@ void fn_80169900(u8 arg0, struct lbl_8046B488_t* arg1, s8* arg2, s8* arg3)
                         arg2[var_r28] = arg1->x0;
                     }
                 } else {
-                    if (arg1->x2 != CHKIND_NONE &&
+                    if (arg1->x2 != ChKind_None &&
                         gm_IsCKindUnlocked(arg1->x2))
                     {
                         arg2[var_r28] = arg1->x2;
@@ -298,7 +298,7 @@ void fn_80169A84(u8 arg0, s8* arg1, s8* arg2)
             }
             i += 1;
             p += 1;
-        } while (i < CKIND_PLAYABLE_COUNT);
+        } while (i < CKind_Playable_Count);
 
         i = 0;
         p = list;
@@ -311,7 +311,7 @@ void fn_80169A84(u8 arg0, s8* arg1, s8* arg2)
             q[0x1C0] = (u8) *p;
             *p = tmp;
             p += 1;
-        } while (i < CKIND_PLAYABLE_COUNT);
+        } while (i < CKind_Playable_Count);
 
         {
             s32 j;
@@ -392,7 +392,7 @@ void fn_80169C54(s8 arg0, s8 arg1)
     for (i = 0; i < 3; i++) {
         if ((s32) *scan == 4) {
             if (st->xB == 0) {
-                count = gm_80169238(4U);
+                count = gm_GetNumCostumesForCKind(4U);
                 for (costume_idx = 0; costume_idx < count; costume_idx++) {
                     costumes[costume_idx] = costume_idx;
                     ncostumes++;
@@ -411,9 +411,7 @@ void fn_80169C54(s8 arg0, s8 arg1)
         ncostumes++;
     }
     if (ncostumes > 0) {
-        slot = 0;
-        character = &st->x0;
-        do {
+        for (slot = 0, character = &st->x0; slot < 3; slot++, character++) {
             ckind = *character;
             if (0x21 != ckind && ckind != 4) {
                 fighter0 = Player_800325C8((CharacterKind) ckind, 0);
@@ -435,9 +433,7 @@ void fn_80169C54(s8 arg0, s8 arg1)
                     }
                 }
             }
-            slot++;
-            character++;
-        } while (slot < 3);
+        }
         if (arg0 != 4) {
             extra_fighter0 = Player_800325C8((CharacterKind) arg0, 0);
             if ((extra_fighter0 != -1) && (extra_fighter0 != 4)) {
@@ -521,7 +517,7 @@ void fn_8016A09C(void)
     PAD_STACK(4);
     var_r29 = 0;
 
-    gm_16AE_GetUnkData_1();
+    gmVs_GetSceneState();
     lbl_8046B488.unk_10_b1 = 1;
     lbl_8046B488.unk_10_b0 = 0;
 
@@ -548,14 +544,14 @@ void gm_8016A164(void)
 {
     int i;
     struct lbl_8046B488_t* gp = gm_1601_GetUnkData();
-    lbl_8046B6A0_t* match_info = gm_16AE_GetUnkData_1();
+    VsSceneState* scene_state = gmVs_GetSceneState();
     PAD_STACK(4);
     if (gp == 0) {
-        if (match_info == 0) {
+        if (scene_state == 0) {
         }
     }
 
-    match_info->is_singleplayer = false;
+    scene_state->is_singleplayer = false;
     gp->x8 = 0;
     gp->x7 = 0;
     gp->unk_10_b1 = false;
@@ -707,7 +703,7 @@ void fn_8016A46C(void)
 
 void fn_8016A488(int arg0)
 {
-    if (gm_16AE_GetUnkData_1()->hud_enabled == true) {
+    if (gmVs_GetSceneState()->hud_enabled == true) {
         Player_80031848(arg0);
     }
 }
@@ -852,7 +848,7 @@ void fn_8016A4C8(void)
                 } else {
                     Player_SetMoreFlagsBit5(spawn_slot, 0);
                 }
-                if (Player_GetPlayerCharacter(spawn_slot) == CKIND_KIRBY &&
+                if (Player_GetPlayerCharacter(spawn_slot) == CKind_Kirby &&
                     gp->xE != 0)
                 {
                     int tmp = gp->x124[gm_80169384()];
@@ -905,7 +901,7 @@ void gm_8016A92C(StartMeleeRules* arg0)
 
 bool gm_8016A944(void)
 {
-    if (gm_GetRules()->x58 != NULL) {
+    if (gm_GetStartMeleeRules()->x58 != NULL) {
         return true;
     }
     return false;
@@ -966,7 +962,7 @@ bool gm_8016AC44(s8 ckind, s8 costume_id)
     s32 idx;
     s32 i;
 
-    if ((gm_GetRules()->x58 != NULL ? 1 : 0) == 1) {
+    if ((gm_GetStartMeleeRules()->x58 != NULL ? 1 : 0) == 1) {
         struct lbl_8046B668_t* ptr = &lbl_8046B668;
         idx = -1;
         for (i = 0; i < 27; i++) {

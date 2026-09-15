@@ -5,7 +5,7 @@
 #include "ifstatus.h"
 #include "types.h"
 #include <melee/gm/gm_1601.h>
-#include <melee/gm/gm_16AE.h>
+#include <melee/gm/gmvs.h>
 #include <melee/lb/lb_00B0.h>
 #include <melee/lb/lbarchive.h>
 #include <melee/lb/lbaudio_ax.h>
@@ -19,7 +19,6 @@
 
 /// Orphaned data strings from original ROM
 static char lbl_803F9780[] = "ScInfStc_scene_models";
-static char lbl_803F9798[] = "translate";
 
 static void* lbl_804A1340[13];
 
@@ -86,7 +85,7 @@ found:
                 entry->x1C(idx);
             }
             entry->x0 = NULL;
-            HSD_GObjPLink_80390228(gobj);
+            HSD_GObjFree(gobj);
         }
     }
 }
@@ -139,11 +138,10 @@ void fn_802F75D4(HSD_GObj* gobj)
         for (i = 0; i < 6; data += 2, i++) {
             if (data[1] == gobj) {
                 base[i * 2 + 1] = NULL;
-                goto done;
+                break;
             }
         }
-    done:
-        HSD_GObjPLink_80390228(gobj);
+        HSD_GObjFree(gobj);
     } else {
         HSD_JObjAnimAll(jobj);
     }
@@ -162,11 +160,10 @@ void fn_802F7670(HSD_GObj* gobj)
         for (i = 0; i < 6; data += 2, i++) {
             if (data[2] == gobj) {
                 base[i * 2 + 2] = NULL;
-                goto done;
+                break;
             }
         }
-    done:
-        HSD_GObjPLink_80390228(gobj);
+        HSD_GObjFree(gobj);
     } else {
         HSD_JObjAnimAll(jobj);
     }
@@ -233,7 +230,7 @@ HSD_GObj* fn_802F77F8(HSD_GObj* gobj, u8 slot, u16 arg2)
     }
 
     if (gobj != NULL) {
-        HSD_GObjPLink_80390228(gobj);
+        HSD_GObjFree(gobj);
     }
 
     gobj = GObj_Create(14, 15, 0);
@@ -250,7 +247,7 @@ HSD_GObj* fn_802F77F8(HSD_GObj* gobj, u8 slot, u16 arg2)
             pos = ifAll_GetPlayerHUDPosition(slot);
             HSD_JObjSetTranslate(jobj, pos);
         } else {
-            HSD_GObjPLink_80390228(gobj);
+            HSD_GObjFree(gobj);
             gobj = NULL;
         }
     }
@@ -325,7 +322,7 @@ void fn_802F7994(HSD_GObj* gobj)
         }
         if (lb_8000B09C(jobj) == 0) {
             base[slot * 2 + 1] = NULL;
-            HSD_GObjPLink_80390228(gobj);
+            HSD_GObjFree(gobj);
         } else {
             HSD_JObjAnimAll(jobj);
         }
@@ -458,12 +455,12 @@ void if_802F7E7C(void)
 
     for (i = 0; i < 6; i++) {
         if (base[i * 2 + 1] != NULL) {
-            HSD_GObjPLink_80390228(base[i * 2 + 1]);
+            HSD_GObjFree(base[i * 2 + 1]);
         }
         if (base[i * 2 + 2] != NULL) {
-            HSD_GObjPLink_80390228(base[i * 2 + 2]);
+            HSD_GObjFree(base[i * 2 + 2]);
         }
     }
 
-    memzero(base, 0x34);
+    memzero(base, sizeof(lbl_804A1340));
 }

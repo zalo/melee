@@ -7,7 +7,7 @@
 #include <math.h>
 #include <placeholder.h>
 
-#include <melee/cm/camera.h>
+#include "inlines.h"
 #include <melee/ft/ftCo_800C78B0.h>
 #include <melee/ft/ftlib.h>
 #include <melee/it/inlines.h>
@@ -176,11 +176,7 @@ bool it_2725_Logic5_DmgReceived(Item_GObj* gobj)
     ip->init_facing_dir = ip->facing_dir;
     ip->xC9C = ip->xC9C + it_8027CBFC(gobj);
     if ((ip->xC9C > attr->x0.x0_s32->x) || (ip->msid == 0x13)) {
-        it_8027C9D8(ip);
-        it_802756D0(gobj);
-        it_80275474(gobj);
-        it_8027CE44(gobj);
-        Camera_RequestQuake(QuakeKind_Small, &ip->pos);
+        Item_ZakoDefeat(gobj, ip);
         if (HSD_Randf() < it_804D6D40->x8) {
             it_802DC3DC(gobj);
         } else {
@@ -340,17 +336,17 @@ void itLikelike_UnkMotion1_Phys(Item_GObj* gobj)
     if (temp_r3 == 0) {
         if (HSD_Randi(attr->x3C) != 0) {
             ip->xDD4_itemVar.likelike.x44 = 0x3c;
-            goto block_5;
+        } else {
+            ip2 = GET_ITEM(gobj);
+            attr2 = GET_ATTRS(ip2);
+            it_80273454(gobj);
+            ip2->xDD4_itemVar.likelike.x4C = attr2->x18;
+            Item_80268E5C(gobj, 7, ITEM_ANIM_UPDATE);
+            return;
         }
-        ip2 = GET_ITEM(gobj);
-        attr2 = GET_ATTRS(ip2);
-        it_80273454(gobj);
-        ip2->xDD4_itemVar.likelike.x4C = attr2->x18;
-        Item_80268E5C(gobj, 7, ITEM_ANIM_UPDATE);
-        return;
+    } else {
+        ip->xDD4_itemVar.likelike.x44 = temp_r3 - 1;
     }
-    ip->xDD4_itemVar.likelike.x44 = temp_r3 - 1;
-block_5:
     temp_r3_2 = ip->xDD4_itemVar.likelike.x4C;
     if (temp_r3_2 == 0) {
         if (it_802D9A2C(gobj) != 0) {
@@ -359,13 +355,13 @@ block_5:
         }
         if (HSD_Randi(3) != 0) {
             ip->xDD4_itemVar.likelike.x4C = attr->x18;
-            goto block_12;
+        } else {
+            it_802DAE6C(gobj);
+            return;
         }
-        it_802DAE6C(gobj);
-        return;
+    } else {
+        ip->xDD4_itemVar.likelike.x4C = temp_r3_2 - 1;
     }
-    ip->xDD4_itemVar.likelike.x4C = temp_r3_2 - 1;
-block_12:
     temp_f2 = ip->facing_dir;
     if (((temp_f2 > 0.0f) && (ip->x70_nudge.x < 0.0f)) ||
         ((temp_f2 < 0.0f) && (ip->x70_nudge.x > 0.0f)))
@@ -473,13 +469,13 @@ void itLikelike_UnkMotion2_Phys(Item_GObj* gobj)
         }
         if (HSD_Randi(3) != 0) {
             ip->xDD4_itemVar.likelike.x4C = attr->x18;
-            goto block_15;
+        } else {
+            it_802DAE6C(gobj);
+            return;
         }
-        it_802DAE6C(gobj);
-        return;
+    } else {
+        ip->xDD4_itemVar.likelike.x4C--;
     }
-    ip->xDD4_itemVar.likelike.x4C = ip->xDD4_itemVar.likelike.x4C - 1;
-block_15:
     ip->x40_vel.x = ip->facing_dir * attr->x0.x0_f32->y;
     temp_f2 = ip->facing_dir;
     if (((temp_f2 > 0.0f) && (ip->x70_nudge.x < 0.0f)) ||
@@ -1106,14 +1102,11 @@ void it_802DBAF0(Item_GObj* arg0, s32 arg1, s32 arg2)
                 fval = attr->x34;
             }
 
-            // TODO: fix pointer hacks
             if (arg2 != 0) {
-                ftCo_800C7B0C(ip->grab_victim, &sp18, &vec,
-                              (lbColl_80008D30_arg1*) ((u8*) attr + 0x64),
+                ftCo_800C7B0C(ip->grab_victim, &sp18, &vec, &attr->x40[1],
                               fval);
             } else {
-                ftCo_800C7B0C(ip->grab_victim, &sp18, &vec,
-                              (lbColl_80008D30_arg1*) ((u8*) attr + 0x40),
+                ftCo_800C7B0C(ip->grab_victim, &sp18, &vec, &attr->x40[0],
                               fval);
             }
             ip->xDD4_itemVar.likelike.x50 = NULL;
@@ -1345,9 +1338,7 @@ bool itLikelike_UnkMotion20_Coll(Item_GObj* gobj)
 void it_802DC3DC(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    it_802762BC(ip);
-    it_8027BA54(gobj, &ip->x40_vel);
-    it_802762BC(ip);
+    Item_UpdateZakoVelocity(gobj, ip);
     Item_80268E5C(gobj, 0x15, 3);
 }
 

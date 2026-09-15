@@ -1,5 +1,8 @@
 #include "gmtitle.h"
 
+#include <melee/cm/forward.h>
+#include <melee/if/forward.h>
+
 #include "gm_unsplit.h"
 #include "gmevent.h"
 #include "gmmain_lib.h"
@@ -124,7 +127,7 @@ static void gmTitle_801A1630(HSD_GObj* gobj)
 /// @todo similar to ::gm_801AA688
 static bool isEmblemUnlocked(void)
 {
-    if (gm_IsCKindUnlocked(CKIND_MARS) || gm_IsCKindUnlocked(CKIND_EMBLEM)) {
+    if (gm_IsCKindUnlocked(CKind_Mars) || gm_IsCKindUnlocked(CKind_Emblem)) {
         return true;
     }
     return false;

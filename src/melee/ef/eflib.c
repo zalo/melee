@@ -61,8 +61,9 @@ void efLib_render_callback(HSD_GObj*, int);
 /*                       INLINES                        */
 /* ---------------------------------------------------- */
 
-void inline eflib_create_generator_add_appsrt(HSD_Generator** generator,
-                                              s32 gfx_id, HSD_JObj* jobj)
+static inline void eflib_create_generator_add_appsrt(HSD_Generator** generator,
+                                                     s32 gfx_id,
+                                                     HSD_JObj* jobj)
 {
     *generator = hsd_8039EFAC(0, gfx_id / 1000, gfx_id, jobj);
     if (*generator != NULL) {
@@ -75,11 +76,10 @@ void inline eflib_create_generator_add_appsrt(HSD_Generator** generator,
         } else {
             hsd_8039D4DC(*generator);
             *generator = NULL;
-            goto eflib_create_generator_add_appsrt_exit;
+            return;
         }
         (*generator)->type &= 0xFFFFF9FF;
         (*generator)->type |= PSAPPSRT_UNK_B11;
-    eflib_create_generator_add_appsrt_exit:;
     }
 }
 
@@ -90,7 +90,7 @@ eflib_create_effect_and_attach(int gfx_id, HSD_GObj* gobj, HSD_JObj* jobj)
     if (effect != NULL) {
         HSD_JObj* effect_jobj;
         if ((effect_jobj = GET_JOBJ(effect->gobj)) == NULL) {
-            HSD_GObjPLink_80390228(effect->gobj);
+            HSD_GObjFree(effect->gobj);
             return NULL;
         } else {
             Vec3 translate;
@@ -119,37 +119,6 @@ eflib_generator_add_appsrt(HSD_Generator* generator, s32 status)
     }
     return generator;
 }
-
-/* ---------------------------------------------------- */
-/*                       MACROS                         */
-/* ---------------------------------------------------- */
-
-/*
- * --------------------------------------------------------------------
- * TODO: Figure out how to make this an inline that keeps match at 100%
- * --------------------------------------------------------------------
- */
-#define WALK_TO_ROOT(_jobj, _label)                                           \
-    {                                                                         \
-        HSD_JObj* _parent;                                                    \
-        goto _wr_##_label;                                                    \
-        do {                                                                  \
-            if ((_jobj) == NULL) {                                            \
-                _parent = NULL;                                               \
-            } else {                                                          \
-                _parent = (_jobj)->parent;                                    \
-            }                                                                 \
-            (_jobj) = _parent;                                                \
-            _wr_##_label : if ((_jobj) == NULL)                               \
-            {                                                                 \
-                _parent = NULL;                                               \
-            }                                                                 \
-            else                                                              \
-            {                                                                 \
-                _parent = (_jobj)->parent;                                    \
-            }                                                                 \
-        } while (_parent != NULL);                                            \
-    }
 
 void efLib_Init(void)
 {
@@ -193,7 +162,7 @@ void efLib_SetFlags(HSD_GObj* gobj, s32 expire_flags)
     EF_Effect* effect_1;
     EF_Effect* effect_2;
 
-    gobj_1 = HSD_GObj_Entities->x2C;
+    gobj_1 = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_EFFECT_UNK0];
     while (gobj_1 != NULL) {
         effect_1 = GET_EFFECT(gobj_1);
         if ((effect_1 != NULL) && (effect_1->parent_gobj == gobj)) {
@@ -201,7 +170,7 @@ void efLib_SetFlags(HSD_GObj* gobj, s32 expire_flags)
         }
         gobj_1 = gobj_1->next;
     }
-    gobj_2 = HSD_GObj_Entities->x30;
+    gobj_2 = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_EFFECT_UNK1];
     while (gobj_2 != NULL) {
         effect_2 = GET_EFFECT(gobj_2);
         if ((effect_2 != NULL) && (effect_2->parent_gobj == gobj)) {
@@ -230,7 +199,7 @@ void efLib_Destroy(HSD_GObj* gobj)
             jobj = gobj->hsd_obj;
             HSD_JObjWalkTree(jobj, hsd_8039D688, NULL);
         }
-        HSD_GObjPLink_80390228(gobj);
+        HSD_GObjFree(gobj);
     }
 }
 
@@ -246,7 +215,7 @@ void efLib_DestroyAll(HSD_GObj* gobj)
             efLib_ParamTable[i].gobj = NULL;
         }
     }
-    gobj_1 = HSD_GObj_Entities->x2C;
+    gobj_1 = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_EFFECT_UNK0];
     while (gobj_1 != NULL) {
         HSD_GObj* gobj_2;
         EF_Effect* effect_1;
@@ -258,11 +227,11 @@ void efLib_DestroyAll(HSD_GObj* gobj)
             if (effect_1->gobj->obj_kind == HSD_GObj_JObjKind) {
                 HSD_JObjWalkTree(effect_1->gobj->hsd_obj, hsd_8039D688, NULL);
             }
-            HSD_GObjPLink_80390228(effect_1->gobj);
+            HSD_GObjFree(effect_1->gobj);
         }
         gobj_1 = gobj_2;
     }
-    gobj_2 = HSD_GObj_Entities->x30;
+    gobj_2 = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_EFFECT_UNK1];
     while (gobj_2 != NULL) {
         HSD_GObj* gobj_3;
         EF_Effect* effect_2;
@@ -274,7 +243,7 @@ void efLib_DestroyAll(HSD_GObj* gobj)
             if (gobj_3->obj_kind == HSD_GObj_JObjKind) {
                 HSD_JObjWalkTree(gobj_3->hsd_obj, hsd_8039D688, NULL);
             }
-            HSD_GObjPLink_80390228(effect_2->gobj);
+            HSD_GObjFree(effect_2->gobj);
         }
     }
     if (gobj->obj_kind == HSD_GObj_JObjKind) {
@@ -289,7 +258,7 @@ void efLib_PauseAll(HSD_GObj* gobj)
     EF_Effect* effect_1;
     EF_Effect* effect_2;
 
-    gobj_1 = HSD_GObj_Entities->x2C;
+    gobj_1 = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_EFFECT_UNK0];
     while (gobj_1 != NULL) {
         effect_1 = GET_EFFECT(gobj_1);
         if ((effect_1 != NULL) && (effect_1->parent_gobj == gobj)) {
@@ -298,7 +267,7 @@ void efLib_PauseAll(HSD_GObj* gobj)
         }
         gobj_1 = gobj_1->next;
     }
-    gobj_2 = HSD_GObj_Entities->x30;
+    gobj_2 = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_EFFECT_UNK1];
     while (gobj_2 != NULL) {
         effect_2 = GET_EFFECT(gobj_2);
         if ((effect_2 != NULL) && (effect_2->parent_gobj == gobj)) {
@@ -316,7 +285,7 @@ void efLib_ResumeAll(HSD_GObj* gobj)
     EF_Effect* effect_1;
     EF_Effect* effect_2;
 
-    gobj_1 = HSD_GObj_Entities->x2C;
+    gobj_1 = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_EFFECT_UNK0];
     while (gobj_1 != NULL) {
         effect_1 = GET_EFFECT(gobj_1);
         if ((effect_1 != NULL) && (effect_1->parent_gobj == gobj)) {
@@ -324,7 +293,7 @@ void efLib_ResumeAll(HSD_GObj* gobj)
         }
         gobj_1 = gobj_1->next;
     }
-    gobj_2 = HSD_GObj_Entities->x30;
+    gobj_2 = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_EFFECT_UNK1];
     while (gobj_2 != NULL) {
         effect_2 = GET_EFFECT(gobj_2);
         if ((effect_2 != NULL) && (effect_2->parent_gobj == gobj)) {
@@ -355,7 +324,7 @@ void efLib_RemoveLast(void)
     HSD_GObj* gobj;
     HSD_GObj* next;
 
-    gobj = HSD_GObj_Entities->x2C;
+    gobj = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_EFFECT_UNK0];
     while (gobj != NULL) {
         next = gobj->next;
         efLib_Destroy(gobj);
@@ -368,7 +337,7 @@ void efLib_RemoveLast(void)
         gobj = next;
     }
 
-    gobj = HSD_GObj_Entities->x30;
+    gobj = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_EFFECT_UNK1];
     while (gobj != NULL) {
         next = gobj->next;
         efLib_Destroy(gobj);
@@ -399,7 +368,7 @@ void efLib_Update(HSD_GObj* gobj)
         u16 param = effect->lifetime - 1;
         effect->lifetime = param;
         if (param == 0) {
-            HSD_GObjPLink_80390228(gobj);
+            HSD_GObjFree(gobj);
             return;
         }
     }
@@ -497,7 +466,7 @@ EF_Effect* efLib_Create(int gfx_id, HSD_GObj* parent_gobj)
     {
         HSD_JObj* jobj = HSD_JObjLoadJoint(desc->model_desc.joint);
         if (jobj == NULL) {
-            HSD_GObjPLink_80390228(effect->gobj);
+            HSD_GObjFree(effect->gobj);
             return NULL;
         }
         {
@@ -541,7 +510,7 @@ EF_Effect* efLib_Create_Attach(u32 gfx_id, HSD_GObj* gobj, HSD_JObj* jobj)
     if (effect != NULL) {
         HSD_JObj* effect_jobj;
         if ((effect_jobj = GET_JOBJ(effect->gobj)) == NULL) {
-            HSD_GObjPLink_80390228(effect->gobj);
+            HSD_GObjFree(effect->gobj);
             return NULL;
         } else {
             Vec3 translate;
@@ -860,7 +829,7 @@ void efLib_SpawnParticleEffect(int bank, s32 gfx_id, HSD_JObj* jobj, bool flag)
     HSD_JObj* root = jobj;
     s32 chk = 0;
 
-    PAD_STACK(28); // once walk macro is inlined i am sure this will auto-fix
+    PAD_STACK(28);
 
     switch (gfx_id) {
     case 0x4A38:
@@ -872,7 +841,9 @@ void efLib_SpawnParticleEffect(int bank, s32 gfx_id, HSD_JObj* jobj, bool flag)
         // attach, inherit root rot.y
         eflib_create_generator_add_appsrt(&generator, gfx_id, jobj);
         if (generator != NULL) {
-            WALK_TO_ROOT(root, 170);
+            while (HSD_JObjGetParent(root) != NULL) {
+                root = HSD_JObjGetParent(root);
+            }
             generator->appsrt->rot.y = HSD_JObjGetRotationY(root);
         }
         return;
@@ -891,7 +862,9 @@ void efLib_SpawnParticleEffect(int bank, s32 gfx_id, HSD_JObj* jobj, bool flag)
         // attach, inherit root rot.y + scale
         eflib_create_generator_add_appsrt(&generator, gfx_id, jobj);
         if (generator != NULL) {
-            WALK_TO_ROOT(root, 2f0);
+            while (HSD_JObjGetParent(root) != NULL) {
+                root = HSD_JObjGetParent(root);
+            }
             generator->appsrt->rot.y = HSD_JObjGetRotationY(root);
             HSD_JObjGetScale(root, &generator->appsrt->scale);
         }
@@ -909,7 +882,9 @@ void efLib_SpawnParticleEffect(int bank, s32 gfx_id, HSD_JObj* jobj, bool flag)
         // attach, inherit root scale
         eflib_create_generator_add_appsrt(&generator, gfx_id, jobj);
         if (generator != NULL) {
-            WALK_TO_ROOT(root, 428);
+            while (HSD_JObjGetParent(root) != NULL) {
+                root = HSD_JObjGetParent(root);
+            }
             HSD_JObjGetScale(root, &generator->appsrt->scale);
         }
         return;
@@ -923,7 +898,9 @@ void efLib_SpawnParticleEffect(int bank, s32 gfx_id, HSD_JObj* jobj, bool flag)
         if ((generator = eflib_generator_add_appsrt(
                  hsd_8039F05C(0, (gfx_id / 1000), gfx_id), 1)) != NULL)
         {
-            WALK_TO_ROOT(root, 53c);
+            while (HSD_JObjGetParent(root) != NULL) {
+                root = HSD_JObjGetParent(root);
+            }
             generator->appsrt->rot.y = HSD_JObjGetRotationY(root);
             HSD_JObjGetTranslation(root, &generator->appsrt->translate);
         }
@@ -937,7 +914,9 @@ void efLib_SpawnParticleEffect(int bank, s32 gfx_id, HSD_JObj* jobj, bool flag)
                 psAppSRT = psAddGeneratorAppSRT_begin(generator, 1);
             }
             if (psAppSRT != NULL) {
-                WALK_TO_ROOT(root, 64c);
+                while (HSD_JObjGetParent(root) != NULL) {
+                    root = HSD_JObjGetParent(root);
+                }
                 psAppSRT->rot.z = HSD_JObjGetRotationZ(root);
                 HSD_JObjGetTranslation(root, &psAppSRT->translate);
                 HSD_JObjGetScale(root, &psAppSRT->scale);
@@ -956,7 +935,9 @@ void efLib_SpawnParticleEffect(int bank, s32 gfx_id, HSD_JObj* jobj, bool flag)
                 psAppSRT = psAddGeneratorAppSRT_begin(generator, 1);
             }
             if (psAppSRT != NULL) {
-                WALK_TO_ROOT(root, 77c);
+                while (HSD_JObjGetParent(root) != NULL) {
+                    root = HSD_JObjGetParent(root);
+                }
                 psAppSRT->rot.z = HSD_JObjGetRotationZ(root);
                 HSD_JObjGetTranslation(root, &psAppSRT->translate);
                 return;
@@ -971,7 +952,9 @@ void efLib_SpawnParticleEffect(int bank, s32 gfx_id, HSD_JObj* jobj, bool flag)
                  hsd_8039F05C(0, (gfx_id / 1000), gfx_id), 1)) != NULL)
         {
             lb_8000B1CC(jobj, NULL, &generator->appsrt->translate);
-            WALK_TO_ROOT(root, 864);
+            while (HSD_JObjGetParent(root) != NULL) {
+                root = HSD_JObjGetParent(root);
+            }
             HSD_JObjGetScale(root, &generator->appsrt->scale);
         }
         return;

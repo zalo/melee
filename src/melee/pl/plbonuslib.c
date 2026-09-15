@@ -25,7 +25,7 @@
 #ifdef MUST_MATCH
 static inline float my_sqrtf(float x)
 {
-    u8 _[4] = { 0 };
+    u32 _ = 0;
     volatile float y;
     const double half = 0.5;
     const double three = 3.0;
@@ -425,8 +425,9 @@ void pl_8003E150(int slot, int arg1)
     stale_moves->x0_staleMoveTable.xCD8 += 1;
 }
 
-void pl_8003E17C(int player_id, int arg1,
-                 Item_GObj* item_gobj) // arg1 is fp->x221F_b4 from item owner
+void pl_8003E17C(
+    int player_id, int arg1,
+    Item_GObj* item_gobj) // arg1 is fp->is_sub_fighter from item owner
 {
     pl_StaleMoveTableExt_t* temp_r31 =
         Player_GetStaleMoveTableIndexPtr2(player_id);

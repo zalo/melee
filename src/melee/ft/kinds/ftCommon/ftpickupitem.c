@@ -94,12 +94,12 @@ Item_GObj* ftpickupitem_800942A0(Fighter_GObj* gobj, u32 flags)
     pickup = ftpickupitem_800942A0_inline(fp);
     offset0 = fp->ground_or_air == GA_Ground ? &pickup->gr_light_offset
                                              : &pickup->air_light_offset;
-    if (ftCo_800A2040(fp) && (signed) fp->cpu.xC == 28) {
+    if (ftCo_IsCpuControlled(fp) && (signed) fp->cpu.kind == 28) {
         return NULL;
     }
     {
         float min_dist_sq = 30000;
-        Item_GObj* cur = HSD_GObj_Entities->items;
+        Item_GObj* cur = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_ITEM];
         Item_GObj* result = NULL;
         while (cur != NULL) {
             if (Item_IsGrabbable(cur)) {
@@ -159,23 +159,23 @@ bool ftpickupitem_8009447C(Fighter_GObj* gobj, Item_GObj* item_gobj)
         case It_Kind_Heart:
             Fighter_8006CF5C(fp, it_8026B47C(item_gobj));
             Item_8026A8EC(item_gobj);
-            goto block_35;
+            break;
         case It_Kind_Tomato:
             Fighter_8006CF5C(fp, it_8026B47C(item_gobj));
             Item_8026A8EC(item_gobj);
-            goto block_35;
+            break;
         case It_Kind_Foods:
             Fighter_8006CF5C(fp, it_8026B47C(item_gobj));
             Item_8026A8EC(item_gobj);
-            goto block_35;
+            break;
         case It_Kind_Lucky_Egg:
             Fighter_8006CF5C(fp, it_8026B47C(item_gobj));
             Item_8026A8EC(item_gobj);
-            goto block_35;
+            break;
         case It_Kind_WhispyHealApple:
             Fighter_8006CF5C(fp, it_8026B47C(item_gobj));
             Item_8026A8EC(item_gobj);
-            goto block_35;
+            break;
         case It_Kind_WStar:
             ftCo_800C4724(gobj);
             return 1;
@@ -184,23 +184,22 @@ bool ftpickupitem_8009447C(Fighter_GObj* gobj, Item_GObj* item_gobj)
             return 1;
         case It_Kind_RabbitC:
             ftCommon_8007FA58(gobj, item_gobj);
-            goto block_35;
+            break;
         case It_Kind_MetalB:
             ftLib_800871A8(gobj, item_gobj);
             Item_8026A8EC(item_gobj);
-            goto block_35;
+            break;
         case It_Kind_Spycloak:
             ftCo_800C88D4(gobj, p_ftCommonData->x7CC, 1);
             Item_8026A8EC(item_gobj);
-            goto block_35;
+            break;
         case It_Kind_Coin:
             Item_8026A8EC(item_gobj);
-            goto block_35;
+            break;
         default:
             break;
         }
     }
-block_35:
     return false;
 }
 
@@ -257,12 +256,12 @@ void ftpickupitem_80094818(Fighter_GObj* gobj, bool arg1)
     Fighter* fp = gobj->user_data;
     PAD_STACK(8);
     if (fp->x1978 != NULL) {
-        pl_8003E17C(fp->player_id, fp->x221F_b4, fp->x1978);
+        pl_8003E17C(fp->player_id, fp->is_sub_fighter, fp->x1978);
     } else if (fp->item_gobj != NULL) {
         if (ftData_OnItemPickupExt[fp->kind] != NULL) {
             ftData_OnItemPickupExt[fp->kind](gobj, arg1);
         }
-        pl_8003E17C(fp->player_id, fp->x221F_b4, fp->item_gobj);
+        pl_8003E17C(fp->player_id, fp->is_sub_fighter, fp->item_gobj);
     }
 }
 
@@ -287,7 +286,7 @@ void ftpickupitem_800948A8(Fighter_GObj* gobj, Item_GObj* item_gobj)
         } else {
             ret_part = fp->ft_data->x8->x11;
         }
-        pl_8003E854(fp->player_id, fp->x221F_b4, item_gobj);
+        pl_8003E854(fp->player_id, fp->is_sub_fighter, item_gobj);
         Item_8026AB54(item_gobj, gobj, ret_part);
         if (itIsHeavy(item_gobj) == 1) {
             ft_800881D8(fp, fp->ft_data->x4C_sfx->x2C, 127, 64);

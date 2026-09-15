@@ -153,7 +153,7 @@ int main(void)
     HSD_GXSetFifoObj(GXInit(HSD_AllocateFifo(0x40000), 0x40000));
     HSD_InitComponent();
     GXSetMisc(1, 8);
-    *seed_ptr = OSGetTick();
+    *HSD_RandSeedPtr = OSGetTick();
 #ifdef MELEE_NATIVE
     {
         const char* test_seed = getenv("MELEE_TEST_SEED");
@@ -163,8 +163,8 @@ int main(void)
             if (!*test_seed || *end || value > UINT32_MAX) {
                 OSPanic(__FILE__, __LINE__, "Invalid MELEE_TEST_SEED");
             }
-            *seed_ptr = (u32) value;
-            OSReport("[input-test] initial random seed %u\n", *seed_ptr);
+            *HSD_RandSeedPtr = (u32) value;
+            OSReport("[input-test] initial random seed %u\n", *HSD_RandSeedPtr);
         }
     }
 #endif
