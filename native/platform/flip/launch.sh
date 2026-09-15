@@ -11,33 +11,18 @@ case "$driver" in
     g29)
         [ -f "$app_dir/lib/mali-g29p1/libmali.so.1" ] || { echo "Missing bundled g29 driver" >&2; exit 1; }
         export LD_LIBRARY_PATH="$app_dir/lib/mali-g29p1:$app_dir/lib:/usr/lib:/lib"
-        export MELEE_FLIP_BARRIER_EVERY="${MELEE_FLIP_BARRIER_EVERY:-0}"
-        export MELEE_FLIP_BATCH_DRAWS="${MELEE_FLIP_BATCH_DRAWS:-1}"
-        direct_default=0
-        if [ "$MELEE_FLIP_BARRIER_EVERY" = 0 ]; then direct_default=5; fi
-        export MELEE_FLIP_DIRECT_GLES="${MELEE_FLIP_DIRECT_GLES:-$direct_default}"
-        export MELEE_FLIP_ASYNC_PRESENT="${MELEE_FLIP_ASYNC_PRESENT:-1}"
-        export MELEE_FLIP_FAST_VALIDATION="${MELEE_FLIP_FAST_VALIDATION:-1}"
-        if [ "$MELEE_FLIP_DIRECT_GLES" = 5 ]; then
-            export MELEE_FLIP_DIRECT_PACKET="${MELEE_FLIP_DIRECT_PACKET:-1}"
-            export MELEE_FLIP_DIRECT_CHECKS="${MELEE_FLIP_DIRECT_CHECKS:-0}"
-            export MELEE_FLIP_PRESENT_THREAD="${MELEE_FLIP_PRESENT_THREAD:-1}"
-            export MELEE_FLIP_DIRTY_UPLOAD="${MELEE_FLIP_DIRTY_UPLOAD:-1}"
-            # Asynchronous frames: the game thread no longer joins the GX
-            # translation worker at frame end (see FLIP_HANDOFF.md).
-            export MELEE_FLIP_ASYNC_FIFO="${MELEE_FLIP_ASYNC_FIFO:-1}"
-        fi
         ;;
     g13)
+        # Untested on this branch: the per-draw texture-fetch barrier the
+        # installed g13 driver needed is gone with the direct GLES path.
         export LD_LIBRARY_PATH="$app_dir/lib:/usr/lib:/lib"
-        export MELEE_FLIP_BARRIER_EVERY="${MELEE_FLIP_BARRIER_EVERY:-1}"
-        export MELEE_FLIP_BATCH_DRAWS="${MELEE_FLIP_BATCH_DRAWS:-0}"
-        export MELEE_FLIP_DIRECT_GLES="${MELEE_FLIP_DIRECT_GLES:-0}"
         ;;
     *) echo "Unknown MELEE_FLIP_DRIVER: $driver" >&2; exit 1 ;;
 esac
-export MELEE_FLIP_VERTEX_INPUT="${MELEE_FLIP_VERTEX_INPUT:-1}"
-export MELEE_FLIP_UNIFORM_TABLE="${MELEE_FLIP_UNIFORM_TABLE:-1}"
+# Renderer options (cpuVertexDecode, resident display lists, asynchronous
+# frames, texture atlas, pass fusion, texture verification interval) are
+# upstream Aurora features that melee_native enables itself; see
+# native/FLIP_AURORA_PRS.md for the MELEE_FLIP_* overrides trials can set.
 export XDG_CONFIG_HOME="$app_dir/data/config"
 export XDG_CACHE_HOME="${MELEE_FLIP_CACHE_HOME:-$app_dir/data/cache/$driver}"
 export MELEE_FLIP_CACHE_HOME="$XDG_CACHE_HOME"

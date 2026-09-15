@@ -9,10 +9,16 @@ import time
 import unittest
 
 SOURCE = Path(__file__).resolve().parents[1] / 'platform/flip/launch.sh'
+# Flip-only renderer switches of the direct-GLES builds. This launcher must not
+# export any of them: the Aurora it runs does not read them.
+RETIRED = ['MELEE_FLIP_BARRIER_EVERY', 'MELEE_FLIP_BATCH_DRAWS', 'MELEE_FLIP_DIRECT_GLES',
+           'MELEE_FLIP_DIRECT_PACKET', 'MELEE_FLIP_DIRECT_CHECKS', 'MELEE_FLIP_PRESENT_THREAD',
+           'MELEE_FLIP_DIRTY_UPLOAD', 'MELEE_FLIP_ASYNC_PRESENT', 'MELEE_FLIP_FAST_VALIDATION',
+           'MELEE_FLIP_ASYNC_FIFO', 'MELEE_FLIP_VERTEX_INPUT', 'MELEE_FLIP_UNIFORM_TABLE']
 
 
 class LauncherTests(unittest.TestCase):
-    def run_launcher(self, mode, all_cores='1', driver='auto', bundled=False, barrier_override=None, governors=False, performance='1', pipeline_overrides=None):
+    def run_launcher(self, mode, all_cores='1', driver='auto', bundled=False, governors=False, performance='1', overrides=None):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             cpu_root = root / 'cpus'
@@ -38,8 +44,9 @@ class LauncherTests(unittest.TestCase):
             game = root / 'melee_native'
             game.write_text('''#!/bin/sh
 cat "$CPU_ROOT"/cpu*/online > observed
-printf '%s\n' "$MELEE_FLIP_BARRIER_EVERY" "$MELEE_FLIP_VERTEX_INPUT" "$MELEE_FLIP_UNIFORM_TABLE" "$LD_LIBRARY_PATH" "$MELEE_FLIP_BATCH_DRAWS" "$MELEE_FLIP_DIRECT_GLES" > renderer
-printf '%s\n' "${MELEE_FLIP_DIRECT_PACKET-unset}" "${MELEE_FLIP_DIRECT_CHECKS-unset}" "${MELEE_FLIP_PRESENT_THREAD-unset}" "${MELEE_FLIP_DIRTY_UPLOAD-unset}" > pipeline
+printf '%s\\n' "$LD_LIBRARY_PATH" "$XDG_CACHE_HOME" "$MELEE_FLIP_CACHE_HOME" > renderer
+for name in $RETIRED; do eval "printf '%s\\n' \\"$name=\\${$name-unset}\\""; done > retired
+printf '%s\\n' "${MELEE_FLIP_RESIDENT_DL-unset}" "${MELEE_FLIP_TEXTURE_ATLAS-unset}" > options
 if [ -f "$CPU_GOVERNOR" ]; then cat "$CPU_GOVERNOR" "$GPU_GOVERNOR" "$DMC_GOVERNOR" > observed_governors; fi
 printf ready > ready
 case "$GAME_MODE" in
@@ -48,16 +55,11 @@ case "$GAME_MODE" in
 esac
 ''')
             game.chmod(0o755)
-            env = dict(os.environ, CPU_ROOT=str(cpu_root), CPU_GOVERNOR=str(cpu_governor), GPU_GOVERNOR=str(gpu_governor), DMC_GOVERNOR=str(dmc_governor), GAME_MODE=mode, MELEE_FLIP_ALL_CORES=all_cores, MELEE_FLIP_DRIVER=driver, MELEE_FLIP_PERFORMANCE=performance)
-            for key in ["MELEE_FLIP_VERTEX_INPUT", "MELEE_FLIP_UNIFORM_TABLE", "MELEE_FLIP_BARRIER_EVERY", "MELEE_FLIP_BATCH_DRAWS", "MELEE_FLIP_DIRECT_GLES"]:
+            env = dict(os.environ, CPU_ROOT=str(cpu_root), CPU_GOVERNOR=str(cpu_governor), GPU_GOVERNOR=str(gpu_governor), DMC_GOVERNOR=str(dmc_governor), GAME_MODE=mode, MELEE_FLIP_ALL_CORES=all_cores, MELEE_FLIP_DRIVER=driver, MELEE_FLIP_PERFORMANCE=performance, RETIRED=' '.join(RETIRED))
+            for key in RETIRED + ['MELEE_FLIP_RESIDENT_DL', 'MELEE_FLIP_TEXTURE_ATLAS', 'MELEE_FLIP_CACHE_HOME']:
                 env.pop(key, None)
-            pipeline_keys = ['MELEE_FLIP_DIRECT_PACKET', 'MELEE_FLIP_DIRECT_CHECKS', 'MELEE_FLIP_PRESENT_THREAD', 'MELEE_FLIP_DIRTY_UPLOAD']
-            for key in pipeline_keys:
-                env.pop(key, None)
-            if pipeline_overrides:
-                env.update(zip(pipeline_keys, pipeline_overrides))
-            if barrier_override is not None:
-                env["MELEE_FLIP_BARRIER_EVERY"] = barrier_override
+            if overrides:
+                env.update(overrides)
             proc = subprocess.Popen(['sh', str(launcher)], env=env)
             try:
                 if mode == 'hold':
@@ -70,12 +72,13 @@ esac
                 self.assertEqual(result, {'hold': 143, 'fail': 7}.get(mode, 0))
                 renderer = (root / 'renderer').read_text().splitlines()
                 newer = driver != 'g13' and bundled
-                self.assertEqual(renderer[:3], [barrier_override if barrier_override is not None else ('0' if newer else '1'), '1', '1'])
-                self.assertEqual(renderer[3].split(':')[0], str(root / ('lib/mali-g29p1' if newer else 'lib')))
-                self.assertEqual(renderer[4], '1' if newer else '0')
-                self.assertEqual(renderer[5], '5' if newer and barrier_override in (None, '0') else '0')
-                self.assertEqual((root / 'pipeline').read_text().splitlines(),
-                                 pipeline_overrides or (['1', '0', '1', '1'] if renderer[5] == '5' else ['unset'] * 4))
+                self.assertEqual(renderer[0].split(':')[0], str(root / ('lib/mali-g29p1' if newer else 'lib')))
+                self.assertEqual(renderer[1], str(root / ('data/cache/g29' if newer else 'data/cache/g13')))
+                self.assertEqual(renderer[2], renderer[1])
+                self.assertEqual((root / 'retired').read_text().splitlines(), [f'{name}=unset' for name in RETIRED])
+                # Renderer options pass through untouched: the game applies its own defaults.
+                self.assertEqual((root / 'options').read_text().splitlines(),
+                                 [overrides.get('MELEE_FLIP_RESIDENT_DL', 'unset'), overrides.get('MELEE_FLIP_TEXTURE_ATLAS', 'unset')] if overrides else ['unset', 'unset'])
                 if governors:
                     self.assertEqual((root / 'observed_governors').read_text().splitlines(), ['performance'] * 3 if performance == '1' else ['schedutil', 'simple_ondemand', 'dmc_ondemand'])
                     self.assertEqual(cpu_governor.read_text().strip(), 'schedutil')
@@ -98,14 +101,11 @@ esac
     def test_signal_forwards_and_restores_cores(self):
         self.run_launcher('hold')
 
-    def test_bundled_driver_selects_barrier_free_backend(self):
+    def test_bundled_driver_is_selected_without_renderer_flags(self):
         self.run_launcher('normal', bundled=True)
 
     def test_installed_driver_can_be_selected_with_new_library_present(self):
         self.run_launcher('normal', driver='g13', bundled=True)
-
-    def test_explicit_barriers_override_new_driver_default(self):
-        self.run_launcher('normal', bundled=True, barrier_override='1')
 
     def test_opt_out_preserves_firmware_selection(self):
         self.run_launcher('normal', '0')
@@ -122,8 +122,8 @@ esac
     def test_performance_opt_out_preserves_all_governors(self):
         self.run_launcher('normal', bundled=True, governors=True, performance='0')
 
-    def test_pipeline_overrides_are_preserved(self):
-        self.run_launcher('normal', bundled=True, pipeline_overrides=['0', '1', '0', '0'])
+    def test_renderer_option_overrides_pass_through(self):
+        self.run_launcher('normal', bundled=True, overrides={'MELEE_FLIP_RESIDENT_DL': '0', 'MELEE_FLIP_TEXTURE_ATLAS': '0'})
 
 
 if __name__ == '__main__':
