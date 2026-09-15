@@ -12,8 +12,7 @@ SOURCE = Path(__file__).resolve().parents[1] / 'platform/flip/launch.sh'
 # Flip-only renderer switches of the direct-GLES builds. This launcher must not
 # export any of them: the Aurora it runs does not read them.
 RETIRED = ['MELEE_FLIP_BARRIER_EVERY', 'MELEE_FLIP_BATCH_DRAWS', 'MELEE_FLIP_DIRECT_GLES',
-           'MELEE_FLIP_DIRECT_PACKET', 'MELEE_FLIP_DIRECT_CHECKS', 'MELEE_FLIP_PRESENT_THREAD',
-           'MELEE_FLIP_DIRTY_UPLOAD', 'MELEE_FLIP_ASYNC_PRESENT', 'MELEE_FLIP_FAST_VALIDATION',
+           'MELEE_FLIP_DIRECT_PACKET', 'MELEE_FLIP_DIRECT_CHECKS',            'MELEE_FLIP_DIRTY_UPLOAD', 'MELEE_FLIP_FAST_VALIDATION',
            'MELEE_FLIP_ASYNC_FIFO', 'MELEE_FLIP_VERTEX_INPUT', 'MELEE_FLIP_UNIFORM_TABLE']
 
 
@@ -73,7 +72,7 @@ esac
                 renderer = (root / 'renderer').read_text().splitlines()
                 newer = driver != 'g13' and bundled
                 self.assertEqual(renderer[0].split(':')[0], str(root / ('lib/mali-g29p1' if newer else 'lib')))
-                self.assertEqual(renderer[1], str(root / ('data/cache/g29-aurora-prs' if newer else 'data/cache/g13-aurora-prs')))
+                self.assertEqual(renderer[1], str(root / ('data/cache/g29-aurora-prs-fast' if newer else 'data/cache/g13-aurora-prs-fast')))
                 self.assertEqual(renderer[2], renderer[1])
                 self.assertEqual((root / 'retired').read_text().splitlines(), [f'{name}=unset' for name in RETIRED])
                 # Renderer options pass through untouched: the game applies its own defaults.

@@ -1,3 +1,95 @@
+diff --git a/include/dawn/native/OpenGLBackend.h b/include/dawn/native/OpenGLBackend.h
+index 33a4a78da0..fc49a8fdb8 100644
+--- a/include/dawn/native/OpenGLBackend.h
++++ b/include/dawn/native/OpenGLBackend.h
+@@ -37,6 +37,7 @@ using EGLDisplay = void*;
+ using EGLImage = void*;
+ using GLuint = unsigned int;
+ using EGLint = int32_t;
++using GLenum = unsigned int;
+ 
+ // Define a GetProc function pointer that mirrors the one in egl.h
+ #if defined(_WIN32)
+@@ -84,6 +85,79 @@ struct DAWN_NATIVE_EXPORT ExternalImageDescriptorGLTexture : ExternalImageDescri
+ DAWN_NATIVE_EXPORT WGPUTexture
+ WrapExternalGLTexture(WGPUDevice device, const ExternalImageDescriptorGLTexture* descriptor);
+ 
++// Native OpenGL interop. An application that keeps Dawn's resource ownership, upload
++// scheduling and render pass setup can still issue the GL calls of a render pass itself,
++// in the device's GL context, and can look up the GL names behind WebGPU objects to do so.
++// Intended for draw-call-bound GLES devices (Mali, Adreno, VideoCore) where the per-draw
++// cost of the WebGPU command executor dominates.
++
++// Runs `callback` on the device's GL context with the context current, after every
++// previously enqueued GL work of the device. Returns false when the device is lost.
++using GLInteropCallback = void (*)(void* userdata);
++DAWN_NATIVE_EXPORT bool RunGLInterop(WGPUDevice device, GLInteropCallback callback, void* userdata);
++
++// Application-owned presenter running in a context that shares the device's share group.
++// `submit` takes ownership of a GL_TEXTURE_2D name holding the frame (current context's share
++// group) and returns true when it will present and later delete it; it must fence the
++// device's context before returning. `acquire` (optional) hands back a previously submitted
++// texture of this size whose presentation completed, or 0; the swapchain wraps it instead of
++// allocating new storage. `shutdown` drains queued presentations before the EGL surface is
++// destroyed.
++struct GLInteropPresentCallbacks {
++    bool (*submit)(GLuint texture, uint32_t width, uint32_t height, void* eglSurface);
++    void (*shutdown)();
++    GLuint (*acquire)(uint32_t width, uint32_t height);
++};
++DAWN_NATIVE_EXPORT void SetGLInteropPresentCallbacks(const GLInteropPresentCallbacks* callbacks);
++DAWN_NATIVE_EXPORT const GLInteropPresentCallbacks* GetGLInteropPresentCallbacks();
++
++struct DAWN_NATIVE_EXPORT GLInteropTextureInfo {
++    GLuint texture;
++    GLuint renderbuffer;
++    GLenum target;
++    uint32_t baseMipLevel;
++    uint32_t maxMipLevel;
++    GLenum swizzle[4];
++};
++struct DAWN_NATIVE_EXPORT GLInteropPipelineInfo {
++    GLuint program;
++    GLuint vertexArray;
++    GLenum topology;
++};
++DAWN_NATIVE_EXPORT GLuint GetGLInteropBuffer(WGPUBuffer buffer);
++DAWN_NATIVE_EXPORT GLuint GetGLInteropSampler(WGPUSampler sampler);
++DAWN_NATIVE_EXPORT GLInteropTextureInfo GetGLInteropTextureView(WGPUTextureView view);
++DAWN_NATIVE_EXPORT GLInteropTextureInfo GetGLInteropBindGroupTexture(WGPUBindGroup group,
++                                                                     uint32_t binding);
++DAWN_NATIVE_EXPORT GLuint GetGLInteropBindGroupSampler(WGPUBindGroup group, uint32_t binding);
++DAWN_NATIVE_EXPORT GLInteropPipelineInfo GetGLInteropRenderPipeline(WGPURenderPipeline pipeline);
++// Texture units the pipeline's program samples binding (group, binding) through; `sampler`
++// selects the sampler half of a texture/sampler pair. Returns the total count.
++DAWN_NATIVE_EXPORT uint32_t GetGLInteropTextureUnits(WGPURenderPipeline pipeline,
++                                                     uint32_t group,
++                                                     uint32_t binding,
++                                                     bool sampler,
++                                                     uint32_t* units,
++                                                     uint32_t capacity);
++// GL uniform/storage block binding index of buffer binding (group, binding), UINT32_MAX if none.
++DAWN_NATIVE_EXPORT uint32_t GetGLInteropBufferBinding(WGPURenderPipeline pipeline,
++                                                      uint32_t group,
++                                                      uint32_t binding);
++// Drains the GL texture/renderbuffer names destroyed since the last call (tracked once any
++// interop callback has been installed; any thread may destroy, call from one thread). Lets the
++// application drop caches keyed by GL name before the name is recycled. No GL calls are made.
++DAWN_NATIVE_EXPORT uint32_t GetGLInteropDestroyedTextures(WGPUDevice device,
++                                                          GLuint* out,
++                                                          uint32_t maxCount);
++
++// When installed, the callback runs after the command executor has bound and cleared a render
++// pass's framebuffer and set the default dynamic state. Returning true means the callback
++// rendered the pass; its recorded WebGPU commands are then skipped up to EndRenderPass.
++using GLInteropRenderPassCallback = bool (*)(void* userdata, uint32_t passIndex, const char* label);
++DAWN_NATIVE_EXPORT void SetGLInteropRenderPassCallback(GLInteropRenderPassCallback callback,
++                                                       void* userdata);
++DAWN_NATIVE_EXPORT bool TryGLInteropRenderPass(uint32_t passIndex, const char* label);
++
+ }  // namespace dawn::native::opengl
+ 
+ #endif  // INCLUDE_DAWN_NATIVE_OPENGLBACKEND_H_
 diff --git a/src/dawn/dawn.json b/src/dawn/dawn.json
 index 65fe897947..1412f2d806 100644
 --- a/src/dawn/dawn.json
@@ -135,19 +227,677 @@ index 450411b4c9..8a23247b42 100644
      // NWindow
      raw_ptr<void> mSwitchNWindow = nullptr;
  
+diff --git a/src/dawn/native/Toggles.cpp b/src/dawn/native/Toggles.cpp
+index 9dc22188bb..b057ca3e1f 100644
+--- a/src/dawn/native/Toggles.cpp
++++ b/src/dawn/native/Toggles.cpp
+@@ -690,6 +690,25 @@ static constexpr ToggleEnumAndInfoList kToggleNameAndInfoList = {{
+       "Compat spec, which for OpenGLES is version 3.1 with no extensions. This toggle is used by "
+       "end2end testing.",
+       "crbug.com/382084196", ToggleStage::Adapter}},
++    {Toggle::GLCacheFramebuffers,
++     {"gl_cache_framebuffers",
++      "Cache the framebuffer objects of render passes in the OpenGL backend by attachment "
++      "identity instead of creating and deleting one per render pass. Entries are dropped when "
++      "an attached texture is destroyed. Intended for use together with the native GL interop "
++      "render pass callback on tile-based mobile drivers, where framebuffer completeness "
++      "validation is expensive; it can regress drivers that block on framebuffer reuse.",
++      "https://github.com/encounter/dawn", ToggleStage::Device}},
++    {Toggle::GLInteropTiming,
++     {"gl_interop_timing",
++      "Print per-command-type and per-render-pass wall time of command buffer execution and "
++      "queue submission to stderr every 120 submits. Diagnostic for the native GL interop path.",
++      "https://github.com/encounter/dawn", ToggleStage::Device}},
++    {Toggle::GLMapFullBufferWrites,
++     {"gl_map_full_buffer_writes",
++      "Perform queue writes that replace a whole buffer through a write-only, invalidating "
++      "glMapBufferRange instead of glBufferSubData, letting the driver discard the previous "
++      "storage instead of waiting for in-flight reads of it.",
++      "https://github.com/encounter/dawn", ToggleStage::Device}},
+     {Toggle::VulkanMonolithicPipelineCache,
+      {"vulkan_monolithic_pipeline_cache",
+       "Use a monolithic VkPipelineCache per device. The embedder is responsible for calling "
+diff --git a/src/dawn/native/Toggles.h b/src/dawn/native/Toggles.h
+index dea360c23b..5c649b09fc 100644
+--- a/src/dawn/native/Toggles.h
++++ b/src/dawn/native/Toggles.h
+@@ -165,6 +165,9 @@ enum class Toggle {
+     D3D12ExpandShaderResourceStateTransitionsToCopySource,
+     GLDepthBiasModifier,
+     GLForceES31AndNoExtensions,
++    GLCacheFramebuffers,
++    GLInteropTiming,
++    GLMapFullBufferWrites,
+     VulkanMonolithicPipelineCache,
+     VulkanIncompletePipelineCacheWorkaround,
+     MetalSerializeTimestampGenerationAndResolution,
+diff --git a/src/dawn/native/opengl/CommandBufferGL.cpp b/src/dawn/native/opengl/CommandBufferGL.cpp
+index 6fb9bcd289..6ab640c24a 100644
+--- a/src/dawn/native/opengl/CommandBufferGL.cpp
++++ b/src/dawn/native/opengl/CommandBufferGL.cpp
+@@ -28,10 +28,18 @@
+ #include "src/dawn/native/opengl/CommandBufferGL.h"
+ 
+ #include <algorithm>
++#include <atomic>
++#include <chrono>
++#include <cstdio>
+ #include <cstring>
++#include <map>
++#include <mutex>
++#include <string>
++#include <unordered_map>
+ #include <utility>
+ #include <vector>
+ 
++#include "dawn/native/OpenGLBackend.h"
+ #include "partition_alloc/pointers/raw_ptr.h"
+ #include "src/dawn/common/MatchVariant.h"
+ #include "src/dawn/common/Range.h"
+@@ -836,8 +844,55 @@ MaybeError CommandBuffer::Execute(const OpenGLFunctions& gl) {
+     PassIndex nextComputePassNumber{0u};
+     PassIndex nextRenderPassNumber{0u};
+ 
++    // gl_interop_timing: per-command-type wall time, summarized every 120 submits.
++    const bool timing = ToBackend(GetDevice())->IsToggleEnabled(Toggle::GLInteropTiming);
++    static double sCommandMs[32] = {};
++    static uint64_t sCommandCount[32] = {};
++    static uint64_t sSubmits = 0;
++    std::chrono::steady_clock::time_point commandStart;
++    auto accountCommand = [&](Command t) {
++        if (!timing) {
++            return;
++        }
++        const auto now = std::chrono::steady_clock::now();
++        const unsigned i = std::min<unsigned>(static_cast<unsigned>(t), 31);
++        sCommandMs[i] += std::chrono::duration<double, std::milli>(now - commandStart).count();
++        sCommandCount[i]++;
++        commandStart = now;
++    };
++    if (timing) {
++        commandStart = std::chrono::steady_clock::now();
++    }
++    struct TimingReport {
++        bool enabled;
++        ~TimingReport() {
++            if (!enabled || ++sSubmits % 120) {
++                return;
++            }
++            fprintf(stderr, "[gl-interop-exec] submits=120");
++            for (unsigned i = 0; i < 32; ++i) {
++                if (sCommandCount[i]) {
++                    fprintf(stderr, " cmd%u=%.3fms/%llu", i, sCommandMs[i] / 120.0,
++                            static_cast<unsigned long long>(sCommandCount[i] / 120));
++                }
++            }
++            fprintf(stderr, "\n");
++            for (auto& v : sCommandMs) {
++                v = 0;
++            }
++            for (auto& c : sCommandCount) {
++                c = 0;
++            }
++        }
++    } timingReport{timing};
++
+     Command type;
+     while (mCommands.NextCommandId(&type)) {
++        struct CommandScope {
++            Command t;
++            decltype(accountCommand)& f;
++            ~CommandScope() { f(t); }
++        } commandScope{type, accountCommand};
+         switch (type) {
+             case Command::BeginComputePass: {
+                 mCommands.NextCommand<BeginComputePassCmd>();
+@@ -857,6 +912,32 @@ MaybeError CommandBuffer::Execute(const OpenGLFunctions& gl) {
+ 
+             case Command::BeginRenderPass: {
+                 auto* cmd = mCommands.NextCommand<BeginRenderPassCmd>();
++                struct PassTimer {
++                    bool enabled;
++                    const char* label;
++                    std::chrono::steady_clock::time_point start;
++                    ~PassTimer() {
++                        if (!enabled) {
++                            return;
++                        }
++                        static std::map<std::string, std::pair<double, uint64_t>> sPasses;
++                        static uint64_t sCount = 0;
++                        auto& e = sPasses[label];
++                        e.first += std::chrono::duration<double, std::milli>(
++                                       std::chrono::steady_clock::now() - start)
++                                       .count();
++                        e.second++;
++                        if (++sCount % 840 == 0) {
++                            fprintf(stderr, "[gl-interop-pass]");
++                            for (auto& [k, v] : sPasses) {
++                                fprintf(stderr, " \"%s\"=%.3fms/%llu", k.c_str(), v.first / 120.0,
++                                        static_cast<unsigned long long>(v.second));
++                            }
++                            fprintf(stderr, " (per 120 submits)\n");
++                            sPasses.clear();
++                        }
++                    }
++                } passTimer{timing, cmd->label.c_str(), std::chrono::steady_clock::now()};
+                 for (TextureBase* texture :
+                      this->GetResourceUsages().renderPasses[nextRenderPassNumber].textures) {
+                     DAWN_TRY(ToBackend(texture)->SynchronizeTextureBeforeUse());
+@@ -1312,6 +1393,88 @@ MaybeError CommandBuffer::ExecuteComputePass(const OpenGLFunctions& gl) {
+     DAWN_UNREACHABLE();
+ }
+ 
++// gl_cache_framebuffers: framebuffer objects cached by attachment identity. On tile-based
++// mobile drivers completeness validation and FBO churn are expensive, and passes over the same
++// targets recur every frame. Entries are forgotten when an attached texture is destroyed.
++namespace {
++struct CachedFramebuffer {
++    GLuint fbo;
++    std::vector<GLuint> handles;
++};
++std::unordered_map<uint64_t, CachedFramebuffer>& FramebufferCache() {
++    static std::unordered_map<uint64_t, CachedFramebuffer> cache;
++    return cache;
++}
++// Texture::DestroyImpl may run on any thread: names are queued and consumed by two readers.
++// The render pass purges its framebuffer cache with GL access; the application drains names
++// for its own caches (GetGLInteropDestroyedTextures) without touching GL, once it has
++// installed an interop callback.
++std::mutex& ForgetMutex() {
++    static std::mutex m;
++    return m;
++}
++std::vector<GLuint>& ForgetListFramebuffers() {
++    static std::vector<GLuint> list;
++    return list;
++}
++std::vector<GLuint>& ForgetListExternal() {
++    static std::vector<GLuint> list;
++    return list;
++}
++std::atomic<bool> gTrackDestroyedTextures{false};
++}  // namespace
++
++void GLInteropSetTrackDestroyedTextures(bool track) {
++    gTrackDestroyedTextures.store(track, std::memory_order_release);
++}
++
++void GLInteropForgetFramebuffers(GLuint handle) {
++    if (!handle) {
++        return;
++    }
++    std::lock_guard<std::mutex> lock(ForgetMutex());
++    ForgetListFramebuffers().push_back(handle);
++    if (gTrackDestroyedTextures.load(std::memory_order_acquire)) {
++        ForgetListExternal().push_back(handle);
++    }
++}
++
++std::vector<GLuint> GLInteropDrainDestroyedTextures() {
++    std::lock_guard<std::mutex> lock(ForgetMutex());
++    std::vector<GLuint> handles;
++    handles.swap(ForgetListExternal());
++    return handles;
++}
++
++namespace {
++// Render thread, context current: drop cached framebuffers referencing dead objects.
++void PurgeFramebufferCache(const OpenGLFunctions& gl) {
++    std::vector<GLuint> handles;
++    {
++        std::lock_guard<std::mutex> lock(ForgetMutex());
++        handles.swap(ForgetListFramebuffers());
++    }
++    if (handles.empty()) {
++        return;
++    }
++    auto& cache = FramebufferCache();
++    for (auto it = cache.begin(); it != cache.end();) {
++        bool hit = false;
++        for (GLuint h : it->second.handles) {
++            for (GLuint dead : handles) {
++                hit |= h == dead;
++            }
++        }
++        if (hit) {
++            gl.DeleteFramebuffers(1, &it->second.fbo);
++            it = cache.erase(it);
++        } else {
++            ++it;
++        }
++    }
++}
++}  // namespace
++
+ MaybeError CommandBuffer::ExecuteRenderPass(BeginRenderPassCmd* renderPass,
+                                             const OpenGLFunctions& gl,
+                                             PassIndex renderPassIndex) {
+@@ -1320,8 +1483,58 @@ MaybeError CommandBuffer::ExecuteRenderPass(BeginRenderPassCmd* renderPass,
+     const IndirectDrawMetadata& metadata = GetIndirectDrawMetadata()[renderPassIndex];
+     IndirectDrawIndex indirectDrawIndex{0u};
+ 
++    const bool cacheFramebuffers =
++        ToBackend(GetDevice())->IsToggleEnabled(Toggle::GLCacheFramebuffers);
++    // Also keeps the pending list from growing when caching is off.
++    PurgeFramebufferCache(gl);
++    bool fboCached = false;
++    uint64_t fboKey = 1469598103934665603ull;
++    std::vector<GLuint> fboHandles;
++    if (cacheFramebuffers) {
++        auto mix = [&](uint64_t v) {
++            fboKey ^= v;
++            fboKey *= 1099511628211ull;
++        };
++        for (auto i : renderPass->attachmentState->GetColorAttachmentsMask()) {
++            TextureView* view = ToBackend(renderPass->colorAttachments[i].view.Get());
++            Texture* tex = ToBackend(view->GetTexture());
++            mix(static_cast<uint8_t>(i));
++            mix(tex->GetTextureHandle());
++            mix(tex->GetRenderbufferHandle());
++            mix(view->GetTextureHandle());
++            mix(view->GetBaseMipLevel());
++            mix(view->GetBaseArrayLayer());
++            mix(renderPass->colorAttachments[i].depthSlice);
++            fboHandles.push_back(tex->GetTextureHandle());
++            fboHandles.push_back(tex->GetRenderbufferHandle());
++            fboHandles.push_back(view->GetTextureHandle());
++        }
++        if (renderPass->attachmentState->HasDepthStencilAttachment()) {
++            TextureView* view = ToBackend(renderPass->depthStencilAttachment.view.Get());
++            Texture* tex = ToBackend(view->GetTexture());
++            mix(0xD5);
++            mix(tex->GetTextureHandle());
++            mix(tex->GetRenderbufferHandle());
++            mix(view->GetTextureHandle());
++            mix(view->GetBaseMipLevel());
++            mix(view->GetBaseArrayLayer());
++            fboHandles.push_back(tex->GetTextureHandle());
++            fboHandles.push_back(tex->GetRenderbufferHandle());
++            fboHandles.push_back(view->GetTextureHandle());
++        }
++        mix(renderPass->attachmentState->GetSampleCount());
++        auto& cache = FramebufferCache();
++        if (auto it = cache.find(fboKey); it != cache.end()) {
++            fbo = it->second.fbo;
++            fboCached = true;
++        }
++    }
++
+     // Create the framebuffer used for this render pass and calls the correct glDrawBuffers
+-    {
++    if (fboCached) {
++        DAWN_GL_TRY(gl, BindFramebuffer(GL_READ_FRAMEBUFFER, 0));
++        DAWN_GL_TRY(gl, BindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo));
++    } else {
+         // TODO(kainino@chromium.org): This is added to possibly work around an issue seen on
+         // Windows/Intel. It should break any feedback loop before the clears, even if there
+         // shouldn't be any negative effects from this. Investigate whether it's actually
+@@ -1365,7 +1578,12 @@ MaybeError CommandBuffer::ExecuteRenderPass(BeginRenderPassCmd* renderPass,
+         }
+     }
+ 
+-    DAWN_TRY(CheckFramebufferComplete(gl, GL_DRAW_FRAMEBUFFER));
++    if (!fboCached) {
++        DAWN_TRY(CheckFramebufferComplete(gl, GL_DRAW_FRAMEBUFFER));
++        if (cacheFramebuffers) {
++            FramebufferCache().emplace(fboKey, CachedFramebuffer{fbo, std::move(fboHandles)});
++        }
++    }
+ 
+     // Set defaults for dynamic state before executing clears and commands.
+     PersistentPipelineState persistentPipelineState;
+@@ -1611,8 +1829,16 @@ MaybeError CommandBuffer::ExecuteRenderPass(BeginRenderPassCmd* renderPass,
+         return {};
+     };
+ 
++    // Native GL interop: the application may render this pass itself now that the framebuffer
++    // is bound, cleared and the dynamic state is at its defaults.
++    const bool interopRenderPass =
++        TryGLInteropRenderPass(static_cast<uint32_t>(renderPassIndex), renderPass->label.c_str());
+     Command type;
+     while (mCommands.NextCommandId(&type)) {
++        if (interopRenderPass && type != Command::EndRenderPass) {
++            SkipCommand(&mCommands, type);
++            continue;
++        }
+         switch (type) {
+             case Command::EndRenderPass: {
+                 mCommands.NextCommand<EndRenderPassCmd>();
+@@ -1653,7 +1879,9 @@ MaybeError CommandBuffer::ExecuteRenderPass(BeginRenderPassCmd* renderPass,
+                                         checked_cast<GLsizei>(attachmentsToDiscard.size()),
+                                         attachmentsToDiscard.data()));
+                 }
+-                DAWN_GL_TRY(gl, DeleteFramebuffers(1, &fbo));
++                if (!cacheFramebuffers) {
++                    DAWN_GL_TRY(gl, DeleteFramebuffers(1, &fbo));
++                }
+                 return {};
+             }
+ 
+diff --git a/src/dawn/native/opengl/OpenGLBackend.cpp b/src/dawn/native/opengl/OpenGLBackend.cpp
+index 93ecedb826..c5add8d735 100644
+--- a/src/dawn/native/opengl/OpenGLBackend.cpp
++++ b/src/dawn/native/opengl/OpenGLBackend.cpp
+@@ -30,12 +30,75 @@
+ 
+ #include "dawn/native/OpenGLBackend.h"
+ 
++#include <algorithm>
++#include <atomic>
+ #include <utility>
++#include <vector>
+ 
++#include "src/dawn/native/BindGroupLayoutInternal.h"
++#include "src/dawn/native/opengl/BindGroupGL.h"
++#include "src/dawn/native/opengl/BufferGL.h"
+ #include "src/dawn/native/opengl/DeviceGL.h"
++#include "src/dawn/native/opengl/PipelineLayoutGL.h"
++#include "src/dawn/native/opengl/RenderPipelineGL.h"
++#include "src/dawn/native/opengl/SamplerGL.h"
++#include "src/dawn/native/opengl/TextureGL.h"
+ 
+ namespace dawn::native::opengl {
+ 
++// Defined in CommandBufferGL.cpp.
++std::vector<GLuint> GLInteropDrainDestroyedTextures();
++void GLInteropSetTrackDestroyedTextures(bool track);
++
++namespace {
++std::atomic<GLInteropRenderPassCallback> gInteropRenderPassCallback = nullptr;
++std::atomic<void*> gInteropRenderPassUserdata = nullptr;
++std::atomic<const GLInteropPresentCallbacks*> gInteropPresentCallbacks = nullptr;
++
++bool ResolveBindingIndex(const BindGroupLayoutInternalBase* layout,
++                         uint32_t binding,
++                         BindingIndex* index) {
++    const auto& bindings = layout->GetBindingMap();
++    const auto it = bindings.find(BindingNumber(binding));
++    if (it == bindings.end()) {
++        return false;
++    }
++    *index = layout->AsBindingIndex(it->second);
++    return true;
++}
++
++GLenum InteropComponentSwizzle(wgpu::ComponentSwizzle swizzle) {
++    switch (swizzle) {
++        case wgpu::ComponentSwizzle::Zero:
++            return GL_ZERO;
++        case wgpu::ComponentSwizzle::One:
++            return GL_ONE;
++        case wgpu::ComponentSwizzle::R:
++            return GL_RED;
++        case wgpu::ComponentSwizzle::G:
++            return GL_GREEN;
++        case wgpu::ComponentSwizzle::B:
++            return GL_BLUE;
++        case wgpu::ComponentSwizzle::A:
++            return GL_ALPHA;
++        case wgpu::ComponentSwizzle::Undefined:
++            return GL_NONE;
++    }
++    return GL_NONE;
++}
++
++GLInteropTextureInfo InteropTextureInfo(TextureView* view) {
++    const auto swizzle = view->GetSwizzle();
++    return {.texture = view->GetTextureHandle(),
++            .renderbuffer = view->GetRenderbufferHandle(),
++            .target = view->GetGLTarget(),
++            .baseMipLevel = view->GetBaseMipLevel(),
++            .maxMipLevel = view->GetBaseMipLevel() + view->GetLevelCount() - 1,
++            .swizzle = {InteropComponentSwizzle(swizzle.r), InteropComponentSwizzle(swizzle.g),
++                        InteropComponentSwizzle(swizzle.b), InteropComponentSwizzle(swizzle.a)}};
++}
++}  // namespace
++
+ RequestAdapterOptionsGetGLProc::RequestAdapterOptionsGetGLProc() {
+     sType = wgpu::SType::RequestAdapterOptionsGetGLProc;
+ }
+@@ -66,4 +129,137 @@ WGPUTexture WrapExternalGLTexture(WGPUDevice device,
+     return ToAPI(ReturnToAPI(std::move(texture)));
+ }
+ 
++void SetGLInteropPresentCallbacks(const GLInteropPresentCallbacks* callbacks) {
++    if (callbacks != nullptr) {
++        GLInteropSetTrackDestroyedTextures(true);
++    }
++    gInteropPresentCallbacks.store(callbacks, std::memory_order_release);
++}
++
++const GLInteropPresentCallbacks* GetGLInteropPresentCallbacks() {
++    return gInteropPresentCallbacks.load(std::memory_order_acquire);
++}
++
++bool RunGLInterop(WGPUDevice device, GLInteropCallback callback, void* userdata) {
++    Device* backendDevice = ToBackend(FromAPI(device));
++    if (callback == nullptr) {
++        return false;
++    }
++    return !backendDevice->ConsumedError(backendDevice->EnqueueAndFlushGL(
++        [callback, userdata](const OpenGLFunctions&) -> MaybeError {
++            callback(userdata);
++            return {};
++        }));
++}
++
++GLuint GetGLInteropBuffer(WGPUBuffer buffer) {
++    return ToBackend(FromAPI(buffer))->GetHandle();
++}
++
++GLuint GetGLInteropSampler(WGPUSampler sampler) {
++    return ToBackend(FromAPI(sampler))->GetHandle();
++}
++
++GLInteropTextureInfo GetGLInteropTextureView(WGPUTextureView view) {
++    return InteropTextureInfo(ToBackend(FromAPI(view)));
++}
++
++GLInteropTextureInfo GetGLInteropBindGroupTexture(WGPUBindGroup group, uint32_t binding) {
++    auto* bindGroup = ToBackend(FromAPI(group));
++    BindingIndex index;
++    if (!ResolveBindingIndex(bindGroup->GetLayout(), binding, &index)) {
++        return {};
++    }
++    auto* textureView = bindGroup->GetBindingAsTextureView(index);
++    return InteropTextureInfo(ToBackend(textureView));
++}
++
++GLuint GetGLInteropBindGroupSampler(WGPUBindGroup group, uint32_t binding) {
++    auto* bindGroup = ToBackend(FromAPI(group));
++    BindingIndex index;
++    if (!ResolveBindingIndex(bindGroup->GetLayout(), binding, &index)) {
++        return 0;
++    }
++    auto* sampler = bindGroup->GetBindingAsSampler(index);
++    return ToBackend(sampler)->GetHandle();
++}
++
++GLInteropPipelineInfo GetGLInteropRenderPipeline(WGPURenderPipeline pipeline) {
++    auto* renderPipeline = ToBackend(FromAPI(pipeline));
++    return {.program = renderPipeline->GetProgramHandle(),
++            .vertexArray = renderPipeline->GetVertexArrayObject(),
++            .topology = renderPipeline->GetGLPrimitiveTopology()};
++}
++
++uint32_t GetGLInteropTextureUnits(WGPURenderPipeline pipeline,
++                                  uint32_t group,
++                                  uint32_t binding,
++                                  bool sampler,
++                                  uint32_t* units,
++                                  uint32_t capacity) {
++    auto* renderPipeline = ToBackend(FromAPI(pipeline));
++    auto* layout = ToBackend(renderPipeline->GetLayout());
++    const BindGroupIndex groupIndex(group);
++    if (!layout->GetBindGroupLayoutsMask()[groupIndex]) {
++        return 0;
++    }
++    BindingIndex index;
++    if (!ResolveBindingIndex(layout->GetBindGroupLayout(groupIndex), binding, &index)) {
++        return 0;
++    }
++    const auto flat = layout->GetBindingIndexInfo()[groupIndex][index];
++    const auto& source = sampler ? renderPipeline->GetTextureUnitsForSampler(flat)
++                                 : renderPipeline->GetTextureUnitsForTextureView(flat);
++    const uint32_t count = std::min<uint32_t>(capacity, source.size());
++    for (uint32_t i = 0; i < count; ++i) {
++        units[i] = static_cast<uint32_t>(source[i]);
++    }
++    return static_cast<uint32_t>(source.size());
++}
++
++uint32_t GetGLInteropBufferBinding(WGPURenderPipeline pipeline, uint32_t group, uint32_t binding) {
++    auto* renderPipeline = ToBackend(FromAPI(pipeline));
++    auto* layout = ToBackend(renderPipeline->GetLayout());
++    const BindGroupIndex groupIndex(group);
++    if (!layout->GetBindGroupLayoutsMask()[groupIndex]) {
++        return UINT32_MAX;
++    }
++    BindingIndex index;
++    if (!ResolveBindingIndex(layout->GetBindGroupLayout(groupIndex), binding, &index)) {
++        return UINT32_MAX;
++    }
++    return static_cast<uint32_t>(layout->GetBindingIndexInfo()[groupIndex][index]);
++}
++
++uint32_t GetGLInteropDestroyedTextures(WGPUDevice, GLuint* out, uint32_t maxCount) {
++    // No GL calls here: this may be called outside Dawn's scoped-current regions.
++    static thread_local std::vector<GLuint> pending;
++    if (pending.empty()) {
++        pending = GLInteropDrainDestroyedTextures();
++    }
++    uint32_t n = 0;
++    while (n < maxCount && !pending.empty()) {
++        out[n++] = pending.back();
++        pending.pop_back();
++    }
++    return n;
++}
++
++void SetGLInteropRenderPassCallback(GLInteropRenderPassCallback callback, void* userdata) {
++    if (callback == nullptr) {
++        gInteropRenderPassCallback.store(nullptr, std::memory_order_release);
++        gInteropRenderPassUserdata.store(nullptr, std::memory_order_release);
++        return;
++    }
++    GLInteropSetTrackDestroyedTextures(true);
++    gInteropRenderPassUserdata.store(userdata, std::memory_order_relaxed);
++    gInteropRenderPassCallback.store(callback, std::memory_order_release);
++}
++
++bool TryGLInteropRenderPass(uint32_t passIndex, const char* label) {
++    auto callback = gInteropRenderPassCallback.load(std::memory_order_acquire);
++    return callback != nullptr &&
++           callback(gInteropRenderPassUserdata.load(std::memory_order_relaxed), passIndex, label);
++}
++
+ }  // namespace dawn::native::opengl
+diff --git a/src/dawn/native/opengl/QueueGL.cpp b/src/dawn/native/opengl/QueueGL.cpp
+index b082e5afe0..e0622940f9 100644
+--- a/src/dawn/native/opengl/QueueGL.cpp
++++ b/src/dawn/native/opengl/QueueGL.cpp
+@@ -27,6 +27,9 @@
+ 
+ #include "src/dawn/native/opengl/QueueGL.h"
+ 
++#include <chrono>
++#include <cstdio>
++#include <cstring>
+ #include <vector>
+ 
+ #include "dawn/platform/DawnPlatform.h"
+@@ -80,14 +83,38 @@ Queue::Queue(Device* device, const QueueDescriptor* descriptor) : QueueBase(devi
+ 
+ MaybeError Queue::SubmitImpl(Span<CommandBufferBase* const> commands) {
+     Device* device = ToBackend(GetDevice());
+-    return device->EnqueueAndFlushGL([this, commands](const OpenGLFunctions& gl) -> MaybeError {
+-        TRACE_EVENT_BEGIN0(GetDevice()->GetPlatform(), Recording, "CommandBufferGL::Execute");
+-        for (CommandBufferBase* commandBuffer : commands) {
+-            DAWN_TRY(ToBackend(commandBuffer)->Execute(gl));
++    // gl_interop_timing: time spent executing commands versus the rest of the submit.
++    const bool timing = device->IsToggleEnabled(Toggle::GLInteropTiming);
++    static double sExecuteMs = 0, sTotalMs = 0;
++    static unsigned sSubmits = 0;
++    const auto submitStart = std::chrono::steady_clock::now();
++    MaybeError result = device->EnqueueAndFlushGL(
++        [this, commands, timing](const OpenGLFunctions& gl) -> MaybeError {
++            const auto executeStart = std::chrono::steady_clock::now();
++            TRACE_EVENT_BEGIN0(GetDevice()->GetPlatform(), Recording, "CommandBufferGL::Execute");
++            for (CommandBufferBase* commandBuffer : commands) {
++                DAWN_TRY(ToBackend(commandBuffer)->Execute(gl));
++            }
++            TRACE_EVENT_END0(GetDevice()->GetPlatform(), Recording, "CommandBufferGL::Execute");
++            if (timing) {
++                sExecuteMs += std::chrono::duration<double, std::milli>(
++                                  std::chrono::steady_clock::now() - executeStart)
++                                  .count();
++            }
++            return {};
++        });
++    if (timing) {
++        sTotalMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() -
++                                                              submitStart)
++                        .count();
++        if (++sSubmits % 120 == 0) {
++            fprintf(stderr,
++                    "[gl-interop-submit] execute_ms=%.3f other_ms=%.3f (per submit, 120 submits)\n",
++                    sExecuteMs / 120, (sTotalMs - sExecuteMs) / 120);
++            sExecuteMs = sTotalMs = 0;
+         }
+-        TRACE_EVENT_END0(GetDevice()->GetPlatform(), Recording, "CommandBufferGL::Execute");
+-        return {};
+-    });
++    }
++    return result;
+ }
+ 
+ MaybeError Queue::WriteBufferImpl(BufferBase* buffer,
+@@ -95,11 +122,30 @@ MaybeError Queue::WriteBufferImpl(BufferBase* buffer,
+                                   Span<const std::byte> data) {
+     DAWN_TRY(ToBackend(buffer)->EnsureDataInitializedAsDestination(bufferOffset, data.size()));
+     buffer->MarkUsedInPendingCommands();
++    const bool mapFullWrites = GetDevice()->IsToggleEnabled(Toggle::GLMapFullBufferWrites);
+     return ToBackend(GetDevice())
+         ->EnqueueGL(data,
+-                    [buffer = Ref<Buffer>(ToBackend(buffer)), bufferOffset](
++                    [buffer = Ref<Buffer>(ToBackend(buffer)), bufferOffset, mapFullWrites](
+                         const OpenGLFunctions& gl, Span<const std::byte> data) -> MaybeError {
+                         DAWN_GL_TRY(gl, BindBuffer(GL_ARRAY_BUFFER, buffer->GetHandle()));
++                        // gl_map_full_buffer_writes: a write replacing the whole buffer may
++                        // discard the previous storage. Partial writes stay on BufferSubData,
++                        // since invalidating their buffer would destroy still-live contents.
++                        // No UNSYNCHRONIZED mapping; the driver owns the hazards.
++                        if (mapFullWrites && bufferOffset == 0 && !data.empty() &&
++                            data.size() == buffer->GetAllocatedSize()) {
++                            void* mapped = DAWN_GL_TRY_ALWAYS_CHECK(
++                                gl, MapBufferRange(GL_ARRAY_BUFFER, 0,
++                                                   checked_cast<GLsizeiptr>(data.size()),
++                                                   GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT));
++                            DAWN_INVALID_IF(mapped == nullptr, "Full buffer write mapping failed");
++                            std::memcpy(mapped, data.data(), data.size());
++                            GLboolean valid =
++                                DAWN_GL_TRY_ALWAYS_CHECK(gl, UnmapBuffer(GL_ARRAY_BUFFER));
++                            DAWN_INVALID_IF(valid != GL_TRUE,
++                                            "Full buffer write mapping was lost");
++                            return {};
++                        }
+                         DAWN_GL_TRY(
+                             gl, BufferSubData(GL_ARRAY_BUFFER, checked_cast<GLintptr>(bufferOffset),
+                                               checked_cast<GLsizeiptr>(data.size()), data.data()));
 diff --git a/src/dawn/native/opengl/SwapChainEGL.cpp b/src/dawn/native/opengl/SwapChainEGL.cpp
-index 767a91db54..0052daa660 100644
+index 767a91db54..aa80486eed 100644
 --- a/src/dawn/native/opengl/SwapChainEGL.cpp
 +++ b/src/dawn/native/opengl/SwapChainEGL.cpp
-@@ -29,6 +29,7 @@
+@@ -29,6 +29,8 @@
  
  #include <utility>
  
++#include "dawn/native/OpenGLBackend.h"
 +#include "src/dawn/native/ChainUtils.h"
  #include "src/dawn/native/Surface.h"
  #include "src/dawn/native/opengl/ContextEGL.h"
  #include "src/dawn/native/opengl/DeviceGL.h"
-@@ -79,6 +80,19 @@ MaybeError SwapChainEGL::Initialize(SwapChainBase* previousSwapChain) {
+@@ -79,6 +81,19 @@ MaybeError SwapChainEGL::Initialize(SwapChainBase* previousSwapChain) {
              SwapChainEGL* previousEGLSwapChain =
                  reinterpret_cast<SwapChainEGL*>(ToBackend(previousSwapChain));
              std::swap(previousEGLSwapChain->mEGLSurface, mEGLSurface);
@@ -167,7 +917,33 @@ index 767a91db54..0052daa660 100644
          }
  
          previousSwapChain->DetachFromSurface();
-@@ -134,18 +148,37 @@ MaybeError SwapChainEGL::PresentImpl() {
+@@ -102,6 +117,25 @@ MaybeError SwapChainEGL::PresentImpl() {
+     EGLDisplay display = device->GetEGLDisplay();
+     const EGLFunctions& egl = device->GetEGL(false);
+ 
++    if (const auto* presenter = GetGLInteropPresentCallbacks()) {
++        // The presenter fences this context and assumes ownership of the GL name. The WebGPU
++        // surface texture is still destroyed at Present(), while the native name lives until
++        // the presenter's context has finished with it (and may come back through acquire()).
++        ContextEGL::ScopedMakeCurrent current;
++        DAWN_TRY_ASSIGN(current, device->GetContext()->MakeCurrent());
++        const bool submitted =
++            presenter->submit(mTexture->GetTextureHandle(), mTexture->GetWidth(Aspect::Color),
++                              mTexture->GetHeight(Aspect::Color), mEGLSurface);
++        DAWN_TRY(current.End());
++        if (submitted) {
++            mTexture->DetachHandle();
++            mTexture->APIDestroy();
++            mTexture = nullptr;
++            mTextureView = nullptr;
++            return {};
++        }
++    }
++
+     // Do the reverse-Y blit from the fake surface texture to the default framebuffer.
+     {
+         auto surfaceCurrent = device->GetContext()->SetCurrentSurfaceScope(mEGLSurface);
+@@ -134,18 +168,47 @@ MaybeError SwapChainEGL::PresentImpl() {
          DAWN_TRY(scopedCurrentContext.End());
      }
  
@@ -197,7 +973,17 @@ index 767a91db54..0052daa660 100644
 +    mCurrentBackingTexture = mNextBackingTexture;
 +    mNextBackingTexture = (mNextBackingTexture + 1) % kBackingTextureCount;
 +    GLuint& backingTexture = mBackingTextures[mCurrentBackingTexture];
-+    if (backingTexture != 0) {
++    // With an interop presenter the presented names live in its pool instead of the ring: a
++    // texture whose presentation completed is wrapped again rather than allocated anew.
++    GLuint recycled = 0;
++    if (const auto* presenter = GetGLInteropPresentCallbacks();
++        presenter != nullptr && presenter->acquire != nullptr) {
++        recycled = presenter->acquire(desc.size.width, desc.size.height);
++    }
++    if (recycled != 0) {
++        texture = AcquireRef(
++            new Texture(ToBackend(GetDevice()), Unpack(&desc), recycled, OwnsHandle::Yes));
++    } else if (backingTexture != 0) {
 +        texture = AcquireRef(
 +            new Texture(ToBackend(GetDevice()), Unpack(&desc), backingTexture, OwnsHandle::Yes));
 +        backingTexture = 0;
@@ -207,7 +993,18 @@ index 767a91db54..0052daa660 100644
      DAWN_TRY_ASSIGN(view, GetDevice()->CreateTextureView(texture.Get()));
  
      mTexture = std::move(ToBackend(texture));
-@@ -166,10 +199,25 @@ void SwapChainEGL::DetachFromSurfaceImpl() {
+@@ -159,6 +222,10 @@ ResultOrError<SwapChainTextureInfo> SwapChainEGL::GetCurrentTextureImpl() {
+ }
+ 
+ void SwapChainEGL::DetachFromSurfaceImpl() {
++    if (const auto* presenter = GetGLInteropPresentCallbacks()) {
++        // Queued presentations reference the EGL surface destroyed below.
++        presenter->shutdown();
++    }
+     if (mEGLSurface != EGL_NO_SURFACE) {
+         Device* device = ToBackend(GetDevice());
+         device->GetEGL(false).DestroySurface(device->GetEGLDisplay(), mEGLSurface);
+@@ -166,10 +233,25 @@ void SwapChainEGL::DetachFromSurfaceImpl() {
      }
  
      if (mTexture != nullptr) {
@@ -233,7 +1030,7 @@ index 767a91db54..0052daa660 100644
  }
  
  MaybeError SwapChainEGL::CreateEGLSurface(const DisplayEGL* display) {
-@@ -203,6 +251,14 @@ MaybeError SwapChainEGL::CreateEGLSurface(const DisplayEGL* display) {
+@@ -203,6 +285,14 @@ MaybeError SwapChainEGL::CreateEGLSurface(const DisplayEGL* display) {
      // constraints.
      auto TryCreateSurface = [&]() -> MaybeError {
          switch (surface->GetType()) {
@@ -288,10 +1085,10 @@ index a3b236ab49..1ec3d7068f 100644
      Ref<TextureView> mTextureView;
  
 diff --git a/src/dawn/native/opengl/TextureGL.cpp b/src/dawn/native/opengl/TextureGL.cpp
-index 98d0584f31..55a42893a0 100644
+index 98d0584f31..b936fa8fde 100644
 --- a/src/dawn/native/opengl/TextureGL.cpp
 +++ b/src/dawn/native/opengl/TextureGL.cpp
-@@ -354,8 +354,22 @@ bool Texture::IsRenderbuffer() const {
+@@ -354,8 +354,31 @@ bool Texture::IsRenderbuffer() const {
             GetFormat().HasDepthOrStencil();
  }
  
@@ -305,11 +1102,20 @@ index 98d0584f31..55a42893a0 100644
 +    return mTextureHandle;
 +}
 +
++// CommandBufferGL.cpp: cached framebuffers must not outlive their attachments.
++void GLInteropForgetFramebuffers(GLuint handle);
++
  void Texture::DestroyImpl(DestroyReason reason) {
      TextureBase::DestroyImpl(reason);
 +    if (mHandleDetached) {
-+        // The GL texture now belongs to the swapchain.
++        // The GL texture now belongs to the swapchain (or to the interop presenter, which
++        // keeps its cached framebuffers valid by pooling the name).
 +        return;
++    }
++    if (mOwnsHandle == OwnsHandle::Yes) {
++        // May run on any thread: only record the names, the render thread purges its caches.
++        GLInteropForgetFramebuffers(mTextureHandle);
++        GLInteropForgetFramebuffers(mRenderbufferHandle);
 +    }
      if (mOwnsHandle == OwnsHandle::Yes) {
          if (IsRenderbuffer()) {

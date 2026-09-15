@@ -23,10 +23,13 @@ esac
 # frames, texture atlas, pass fusion, texture verification interval) are
 # upstream Aurora features that melee_native enables itself; see
 # native/FLIP_AURORA_PRS.md for the MELEE_FLIP_* overrides trials can set.
+# Presentation worker and asynchronous DRM page flips (native side of the GLES fast path).
+export MELEE_FLIP_PRESENT_THREAD="${MELEE_FLIP_PRESENT_THREAD:-1}"
+export MELEE_FLIP_ASYNC_PRESENT="${MELEE_FLIP_ASYNC_PRESENT:-1}"
 export XDG_CONFIG_HOME="$app_dir/data/config"
 # Own cache directory: pipeline configs cached by the Flip-patched builds decode to
 # storage-buffer vertex shaders that the Mali driver cannot link under this Aurora.
-export XDG_CACHE_HOME="${MELEE_FLIP_CACHE_HOME:-$app_dir/data/cache/$driver-aurora-prs}"
+export XDG_CACHE_HOME="${MELEE_FLIP_CACHE_HOME:-$app_dir/data/cache/$driver-aurora-prs-fast}"
 export MELEE_FLIP_CACHE_HOME="$XDG_CACHE_HOME"
 export XDG_STATE_HOME="$app_dir/data/state"
 export SDL_AUDIODRIVER=alsa

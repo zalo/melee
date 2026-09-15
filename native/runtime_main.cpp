@@ -129,9 +129,24 @@ int main(int argc, char** argv) {
     config.textureVerifyInterval = static_cast<uint32_t>(number("MELEE_FLIP_TEXTURE_VERIFY_INTERVAL", 4));
     config.textureAtlas = flag("MELEE_FLIP_TEXTURE_ATLAS", true);
     config.disableRenderPassFusion = !flag("MELEE_FLIP_FUSE_PASSES", true);
-    std::fprintf(stderr, "[flip-config] cpu_vertex_decode=%d resident_dl=%d resident_budget_mb=%u async_frames=%d texture_verify_interval=%u texture_atlas=%d pass_fusion=%d\n",
+    // GLES fast path (Aurora gles-direct-submission): uniform table + batching on every path,
+    // direct GLES submission of GX passes through Dawn's native GL interop when available.
+    config.uniformTable = flag("MELEE_FLIP_UNIFORM_TABLE", true);
+    config.batchDraws = flag("MELEE_FLIP_BATCH_DRAWS", true);
+    config.glesDirectSubmission = flag("MELEE_FLIP_DIRECT_GLES", true) ? 1 : -1;
+    config.glesMappedStreams = flag("MELEE_FLIP_MAPPED_STREAM", true) ? 1 : -1;
+    config.sortOpaqueDraws = flag("MELEE_FLIP_SORT_OPAQUE", false);
+    config.renderStats = std::getenv("MELEE_FLIP_PROFILE") != nullptr;
+    config.sceneOnSurface = flag("MELEE_FLIP_SCENE_ON_SURFACE", true);
+    config.halfResolutionSpritePoints = static_cast<uint32_t>(number("MELEE_FLIP_HALFRES_SPRITES", 4000));
+    config.smallCopyPassInterval = static_cast<uint32_t>(number("MELEE_FLIP_SCALED_COPY_INTERVAL", 2));
+    // Readback checks need the scene mirrored into the EFB texture when it renders on the surface.
+    if (std::getenv("MELEE_RENDER_CHECK") || std::getenv("MELEE_MATRIX_TEST")) setenv("AURORA_SCENE_MIRROR", "1", 0);
+    std::fprintf(stderr, "[flip-config] cpu_vertex_decode=%d resident_dl=%d resident_budget_mb=%u async_frames=%d texture_verify_interval=%u texture_atlas=%d pass_fusion=%d uniform_table=%d batch_draws=%d gles_direct=%d mapped_streams=%d scene_on_surface=%d halfres_sprites=%u small_copy_interval=%u render_stats=%d\n",
                  config.cpuVertexDecode, config.residentDisplayLists, config.residentGeometryBudget / (1024u * 1024u),
-                 config.asyncFrames, config.textureVerifyInterval, config.textureAtlas, !config.disableRenderPassFusion);
+                 config.asyncFrames, config.textureVerifyInterval, config.textureAtlas, !config.disableRenderPassFusion,
+                 config.uniformTable, config.batchDraws, config.glesDirectSubmission, config.glesMappedStreams,
+                 config.sceneOnSurface, config.halfResolutionSpritePoints, config.smallCopyPassInterval, config.renderStats);
 #endif
     config.logCallback = log_message;
     config.mem1Size = MEM1_DEFAULT_SIZE;

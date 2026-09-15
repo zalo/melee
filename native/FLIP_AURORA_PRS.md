@@ -297,3 +297,38 @@ neutral. `dawn-egl-native-window.patch` on this branch is now the two-commit var
 ring, Dawn branch `bisect-surface-ring`), which is what the Flip's **Melee Native Dev** listing runs
 (`dist/flip/v155-aurora-prs-dawn13`). Presented FPS on this device is quantized by the synchronous page
 flip to 60/N; compare `[flip-present] frame_ms - drm_ms` or run with `MELEE_FLIP_ASYNC_PRESENT=1`.
+
+## Fast path layered on the PR set (`miyoo-flip-aurora-prs-fast`, 2026-09-15)
+
+This branch puts the GLES fast path back on top of the upstream-style stack, as a separate
+general-purpose layer rather than a Flip hack:
+
+- Aurora branch `gles-direct-submission` (on `integration/flip-prs-platform`): uniform table +
+  adjacent draw batching (`AuroraConfig::uniformTable`, `batchDraws`, also on the WebGPU path),
+  OpenGL ES direct submission of GX passes (`glesDirectSubmission`, `glesMappedStreams`,
+  `sortOpaqueDraws`; `lib/gfx/gles_direct.*`, `gles_mapped_streams.cpp`; CMake `AURORA_GLES_DIRECT`),
+  scene on surface + 1:1 present (`sceneOnSurface`), half-resolution sprite pass
+  (`halfResolutionSpritePoints`), small copy pass interval (`smallCopyPassInterval`), render
+  statistics (`renderStats`, `aurora_render_stats_*` C exports), `docs/gles-direct.md`.
+- Dawn branch `gl-native-interop` (on `bisect-surface-ring`): a native OpenGL interop extension
+  (`GLInterop*` API in `dawn/native/OpenGLBackend.h`) with toggles `gl_cache_framebuffers`,
+  `gl_interop_timing`, `gl_map_full_buffer_writes` (all default off; Aurora enables the first two
+  when direct submission is on).
+- Melee: `present_worker.cpp` and the direct-present `display.cpp` path return, `runtime_main.cpp`
+  sets the new config fields (each with a `MELEE_FLIP_*` override), `vi_runtime.cpp` reads the
+  render statistics, `launch.sh` exports `MELEE_FLIP_PRESENT_THREAD`/`ASYNC_PRESENT` and uses
+  `data/cache/<driver>-aurora-prs-fast`.
+
+Results (frozen Onett, `onett-v157-fast*`):
+
+| Build | Presented FPS | Frame | Game / FIFO / render worker | EFB capture |
+| --- | --- | --- | --- | --- |
+| v150 (`miyoo-flip`, monolithic patches) | 58.5-59.1 | 17.1 ms | ~5 / ~8.5 / ~13 ms | `8a3713fa00a5` |
+| v155 (PR set + surface/ring Dawn) | 19.2 | ~50 ms | 4.6 / - / ~47 ms | 487 px off by 1 vs v150 |
+| **v157 (PR set + GLES fast path)** | **58.4-59.0** | **17.0 ms** | 4.8 / 7.6 / 14-15 ms | run 1 byte-identical to v150; run 2 2837 px (the known intermittent frozen-capture nondeterminism) |
+
+Package `dist/flip/v157-aurora-prs-fast`, installed on the **Melee Native Dev** listing. Build:
+`FLIP_DAWN_PREFIX` must point at an install of the `gl-native-interop` Dawn (the melee build passes
+`AURORA_GLES_DIRECT_DAWN_INCLUDE_DIR=$FLIP_DAWN_PREFIX/include`); without the interop header Aurora
+logs "glesDirectSubmission requested, but this build has no OpenGL ES direct submission" and runs the
+WebGPU path.

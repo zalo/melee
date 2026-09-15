@@ -7,7 +7,7 @@ cmake -S "$root/native" -B "$root/build/native-flip" \
     -DCMAKE_TOOLCHAIN_FILE="$root/native/platform/flip/toolchain.cmake" \
     -DCMAKE_BUILD_TYPE=Release -DMELEE_MIYOO_FLIP=ON \
     -DAURORA_DAWN_PROVIDER=system -DDawn_DIR="$FLIP_DAWN_PREFIX/lib/cmake/Dawn" \
-    -DAURORA_NOD_PROVIDER=vendor -DRust_CARGO_TARGET=aarch64-unknown-linux-gnu \
+    -DAURORA_NOD_PROVIDER=vendor -DAURORA_GLES_DIRECT_DAWN_INCLUDE_DIR="$FLIP_DAWN_PREFIX/include" -DRust_CARGO_TARGET=aarch64-unknown-linux-gnu \
     -DBUILD_SHARED_LIBS=OFF -DSDL_UNIX_CONSOLE_BUILD=ON \
     -DSDL_X11=OFF -DSDL_WAYLAND=OFF -DSDL_KMSDRM=OFF \
     -DSDL_OPENGL=OFF -DSDL_OPENGLES=OFF -DSDL_VULKAN=OFF \
