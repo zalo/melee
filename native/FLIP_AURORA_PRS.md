@@ -5,8 +5,7 @@ Flip-specific Aurora and Dawn patches that the `miyoo-flip` branch (v143) carrie
 Its purpose is to measure, on the device, what the nine upstream-candidate Aurora
 performance branches buy by themselves, without the direct GLES escape hatch, the
 presentation worker, the Dawn framebuffer cache and swapchain pool, mapped GL
-streams, scene-on-surface, or half-resolution sprites. Nothing in this document
-has been run on the Flip yet; the device was offline when the branch was built.
+streams, scene-on-surface, or half-resolution sprites. Measured on the device on 2026-09-14: see "Results" at the end.
 
 ## What the branch carries
 
@@ -261,3 +260,21 @@ native/tools/flip_http_deploy.sh ADB SERIAL dist/flip/vNNN/melee_native /mnt/SDC
 python3 native/tools/flip_deploy.py --adb ADB --device SERIAL --root /mnt/SDCARD/Ports/melee-native-dev build dist/flip/vNNN
 adb push 'native/platform/flip/Melee Native Dev.sh' /mnt/SDCARD/Roms/PORTS/
 ```
+
+## Results (2026-09-14, frozen Onett, trial `onett-v151-*`)
+
+| Run | Presented FPS | Frame | Notes |
+| --- | --- | --- | --- |
+| v150 reference (`onett-v150-ref2`) | 58.5-59.1 | 17.1 ms | full stack |
+| `onett-v151-fresh2` (empty cache) | 18.4-19.3 | ~52 ms | after the first windows' compile stalls |
+| `onett-v151-warm` | 18.6-19.5 | ~50 ms | `[perf-breakdown] game_ms=4.6 begin_ms=47.6` |
+| `onett-v151-asyncpresent` (`MELEE_FLIP_ASYNC_PRESENT=1`) | 21.2-21.4 | ~46 ms | sync DRM flip costs ~4 ms |
+| `onett-v151-cpu` (12 s samples) | 18.8-19.6 | | render worker: libmali 70%, Dawn 19%, libc 8% |
+
+The first attempt (`onett-v151-aurora`) aborted at startup with the stale
+`cache-g29-dense` pipeline cache (see "Shader cache"). Conclusion: the Aurora PR
+set removes the translation-side cost completely (the game thread is idle 47 ms
+per frame waiting for the render worker), but Dawn's GL backend drives the Mali
+driver about four times less efficiently than the direct GLES path for the same
+~270 draws and 4 passes. Details and the remaining upstream candidates are in
+`native/FLIP_PERFORMANCE_WINS.md` ("Aurora-only: measured").
