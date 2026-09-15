@@ -247,3 +247,17 @@ the device on 2026-09-14 with the trial cache `cache-g29-dense`. The launcher
 therefore uses `data/cache/<driver>-aurora-prs`; `flip_backend_trial.py` hardcodes
 `data/diagnostics/cache-g29-dense`, so move that directory aside before trials
 of this build (and back before trials of the `miyoo-flip` build).
+
+## Installing beside the fast build
+
+The test build lives in `/mnt/SDCARD/Ports/melee-native-dev` and appears in the
+Ports list as **Melee Native Dev** (`native/platform/flip/Melee Native Dev.sh`
+pushed to `/mnt/SDCARD/Roms/PORTS/`). It reads the main install's disc image
+through `MELEE_FLIP_DISC` and keeps its own `data/` (config, saves, shader cache,
+logs). Deploy with:
+
+```sh
+native/tools/flip_http_deploy.sh ADB SERIAL dist/flip/vNNN/melee_native /mnt/SDCARD/Ports/melee-native-dev/melee_native
+python3 native/tools/flip_deploy.py --adb ADB --device SERIAL --root /mnt/SDCARD/Ports/melee-native-dev build dist/flip/vNNN
+adb push 'native/platform/flip/Melee Native Dev.sh' /mnt/SDCARD/Roms/PORTS/
+```

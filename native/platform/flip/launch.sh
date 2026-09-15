@@ -87,6 +87,8 @@ if [ "${MELEE_FLIP_ALL_CORES:-1}" = 1 ]; then
         fi
     done
 fi
-./melee_native "$app_dir/data/disc.img" >> "$XDG_STATE_HOME/game.log" 2>&1 &
+# A second install (test build) can point at the main install's disc image.
+disc_image="${MELEE_FLIP_DISC:-$app_dir/data/disc.img}"
+./melee_native "$disc_image" >> "$XDG_STATE_HOME/game.log" 2>&1 &
 game_pid=$!
 wait "$game_pid"
