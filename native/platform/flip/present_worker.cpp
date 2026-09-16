@@ -19,6 +19,8 @@
 
 extern "C" void MeleeFlipPresent();
 extern "C" int MeleeFlipRotation();
+extern "C" int MeleeFlipUsesSdlDisplay();   // 1 = SDL owns the display; present via MeleeFlipPresent().
+extern "C" void* MeleeFlipPresentSurface(); // SDL's window EGL surface (SDL path); the worker swaps it.
 
 namespace {
 using Clock = std::chrono::steady_clock;
@@ -164,8 +166,14 @@ void run() {
         }
         GLsync consumed = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
         if (!consumed || glGetError() != GL_NO_ERROR) fail("Presentation blit failed");
-        if (!eglSwapBuffers(workerDisplay, workerSurface)) fail("Presentation swap failed");
-        MeleeFlipPresent();
+        // On the SDL path MeleeFlipPresent() -> SDL_GL_SwapWindow does the eglSwapBuffers itself
+        // (plus the KMSDRM page flip), so a second swap here would present an unrendered buffer.
+        if (MeleeFlipUsesSdlDisplay()) {
+            MeleeFlipPresent();
+        } else {
+            if (!eglSwapBuffers(workerDisplay, workerSurface)) fail("Presentation swap failed");
+            MeleeFlipPresent();
+        }
         // Explicitly finish this texture's consumer before releasing ownership.
         // This wait is isolated on the presentation thread.
         GLenum result;
@@ -209,7 +217,11 @@ bool submit(GLuint texture, uint32_t width, uint32_t height, void* surface) {
     if (!worker.joinable()) {
         workerDisplay = eglGetCurrentDisplay();
         const EGLContext share = eglGetCurrentContext();
-        workerSurface = static_cast<EGLSurface>(surface);
+        // DRM path: swap the surface Dawn created on our scanout GBM window. SDL path: swap SDL's
+        // own window surface (Dawn's swapchain surface is the never-presented scratch one).
+        workerSurface = MeleeFlipUsesSdlDisplay()
+            ? static_cast<EGLSurface>(MeleeFlipPresentSurface())
+            : static_cast<EGLSurface>(surface);
         EGLint configId = 0, count = 0;
         EGLConfig config = nullptr;
         if (!eglQuerySurface(workerDisplay, workerSurface, EGL_CONFIG_ID, &configId))

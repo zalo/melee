@@ -55,8 +55,10 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "Usage: %s Melee-US-1.02-disc-image\n", argv[0]);
         return 2;
     }
-    // EGL/DRM owns presentation; SDL supplies controllers, audio and events.
-    setenv("SDL_VIDEODRIVER", "dummy", 1);
+    // SDL path (default): SDL owns the display, so let it pick the real video driver (KMSDRM).
+    // DRM path (MELEE_FLIP_DISPLAY=drm): our own EGL/DRM code owns presentation, so SDL only
+    // supplies controllers, audio and events under the dummy video driver.
+    if (!MeleeFlipSdlDisplaySelected()) setenv("SDL_VIDEODRIVER", "dummy", 1);
 #endif
     if (argc > 2) {
         std::fprintf(stderr, "Usage: %s [--setup | Melee-US-1.02-disc-image]\n", argv[0]);

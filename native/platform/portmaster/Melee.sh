@@ -88,9 +88,24 @@ case "$driver" in
 esac
 echo "GPU driver: $driver"
 
+# Display path: the binary defaults to letting the CFW's SDL own the display (KMSDRM: DRM master
+# handoff, console release, page flips) on every device, which is the only path that works on
+# handhelds whose kernels our direct DRM/KMS code cannot take over (Anbernic RG351x/AmberELEC,
+# etc.). The panel orientation is data, not a code path: we only tell the binary how far to rotate.
+# rk3326 handhelds (RG351P/M/V and relatives) mount the panel in portrait, so rotate 270; the Miyoo
+# Flip (rk3566) and most others are already landscape (0). MELEE_FLIP_DISPLAY=drm is the opt-in
+# escape hatch to the legacy direct DRM/GBM path. Anything the user exported before launch wins.
+if [ -z "${MELEE_FLIP_ROTATE:-}" ]; then
+  panel_compatible=$(tr '\0' ' ' < /proc/device-tree/compatible 2>/dev/null)
+  case "$panel_compatible" in
+    *rk3326*) export MELEE_FLIP_ROTATE=270 ;;
+    *)        export MELEE_FLIP_ROTATE=0 ;;
+  esac
+fi
+
 # Renderer defaults of the GLES fast path (presentation worker and asynchronous
-# DRM page flips). Any MELEE_FLIP_* the user exported before launch passes
-# through untouched; see README.md for the list.
+# page flips). The SDL display path requires the presentation worker. Any MELEE_FLIP_* the
+# user exported before launch passes through untouched; see README.md for the list.
 export MELEE_FLIP_PRESENT_THREAD="${MELEE_FLIP_PRESENT_THREAD:-1}"
 export MELEE_FLIP_ASYNC_PRESENT="${MELEE_FLIP_ASYNC_PRESENT:-1}"
 # MELEE_PM_SWAP_CONTROLS=0 keeps Aurora's stock pad mapping (stick moves, bottom
