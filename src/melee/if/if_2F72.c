@@ -370,7 +370,7 @@ void if_802F7E24(void)
     memzero(&scinfstc_models, sizeof(scinfstc_models));
     lbArchive_LoadSections(*ifAll_GetArchive(),
                            (void**) &scinfstc_models.scene_models,
-                           lbl_803F9780, 0);
+                           lbl_803F9780, NULL);
 }
 
 void if_802F7E7C(void)

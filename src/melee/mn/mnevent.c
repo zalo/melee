@@ -722,7 +722,7 @@ void mnEvent_8024E838(int event_idx, bool first_time)
         &MenMainConEv.animjoint, "MenMainConEv_Top_animjoint",
         &MenMainConEv.matanim_joint, "MenMainConEv_Top_matanim_joint",
         &MenMainConEv.shapeanim_joint, "MenMainConEv_Top_shapeanim_joint",
-        &MenMainMarkEv.joint, "MenMainMarkEv_Top_joint", 0);
+        &MenMainMarkEv.joint, "MenMainMarkEv_Top_joint", NULL);
 
     if (first_time == false) {
         mnEvent_8024E524(event_idx);
