@@ -473,7 +473,17 @@ s32 fn_8001F13C(THPDecComp* streamPlayer)
 #endif
 s32 fn_8001F294(void)
 {
+#ifdef MELEE_NATIVE
+    /* lbMthp_8001F800 polls this in an empty loop until the DVD read callback
+     * (another thread here, an interrupt on the GameCube) clears it. The
+     * original build kept the load in the loop with #pragma dont_inline;
+     * clang inlines the call and hoists the load, turning the loop into an
+     * unconditional branch to itself whenever a chunk read is in flight when
+     * the movie is stopped (opening-movie skip stall seen under Panfrost). */
+    return *(volatile s32*)&MoviePlayer.unk_110;
+#else
     return MoviePlayer.unk_110;
+#endif
 }
 #ifdef __MWERKS__
 #pragma pop
