@@ -98,8 +98,8 @@ S(mapmodel,struct UnkStageDat_x8_t,52,P(struct UnkStageDat_x8_t,unk0,0,AT_JOINT)
 S(mapjointpairs,NativeMapJointPairs,12,P(NativeMapJointPairs,joint,0,AT_JOINT),P(NativeMapJointPairs,pairs,4,AT_HALVES),U(NativeMapJointPairs,count,8,1));
 S(lightoverride,NativeLightOverride,8,P(NativeLightOverride,light,0,AT_LIGHT),B(NativeLightOverride,flags,4,1));
 S(shadowentry,struct GroundShadowEntry,8,P(struct GroundShadowEntry,unk0,0,AT_LIGHT_ANIM),{4,sizeof(void*),AF_BYTE,1,0});
-S(collmap,MapCollData,48,P(MapCollData,verts,0,AT_WORDS),U(MapCollData,vert_count,4,1),P(MapCollData,lines,8,AT_HALVES),U(MapCollData,line_count,12,1),H(MapCollData,floor_start,16,10),P(MapCollData,joints,36,AT_MAP_JOINT),U(MapCollData,joint_count,40,2));
-S(mapjoint,MapJoint,40,H(MapJoint,floor_start,0,10),U(MapJoint,left_bound,20,4),H(MapJoint,vtx_start,36,2));
+S(collmap,MapCollData,48,P(MapCollData,verts,0,AT_WORDS),U(MapCollData,vert_count,4,1),P(MapCollData,lines,8,AT_HALVES),U(MapCollData,line_count,12,1),H(MapCollData,ranges,16,10),P(MapCollData,joints,36,AT_MAP_JOINT),U(MapCollData,joint_count,40,2));
+S(mapjoint,MapJoint,40,H(MapJoint,ranges,0,10),U(MapJoint,left_bound,20,4),H(MapJoint,vtx_start,36,2));
 S(groundparam,GroundParam,220,U(GroundParam,y,0,1),H(GroundParam,x4,4,1),B(GroundParam,x6_pad,6,2),H(GroundParam,x8,8,2),U(GroundParam,xC,12,8),B(GroundParam,x2C_pad,44,2),H(GroundParam,x2E,46,1),U(GroundParam,x30,48,14),H(GroundParam,x68,104,36),P(GroundParam,stage_params,176,AT_STAGE_PARAM),U(GroundParam,stage_param_count,180,1),B(GroundParam,xB8,184,36));
 S(robjanim,HSD_RObjAnimJoint,8,P(HSD_RObjAnimJoint,next,0,AT_ROBJ_ANIM),P(HSD_RObjAnimJoint,aobjdesc,4,AT_AOBJ));
 S(robj,HSD_RObjDesc,12,P(HSD_RObjDesc,next,0,AT_ROBJ),U(HSD_RObjDesc,flags,4,1),P(HSD_RObjDesc,u,8,AT_NONE));

@@ -28,9 +28,9 @@ int lb_8001BC18(int, char*, void**, void*, char*, void*, void*, void*);
 int lb_8001BD34(int, const char*, void*, void*);
 int lb_8001BE30(int, const char*, void*, char*, void*, void*, void*, void*);
 unsigned lb_8001B7E0(int, char*, void*, void*, int*);
-int lb_8001B6F8(void);
+int lbCardNew_CompleteNextTask(void);
 void lbCardNew_AllocWorkArea(void);
-void lb_8001C5BC(void);
+void lbCardNew_Init(void);
 int lb_8001C4A8(void*, void*);
 
 // Runtime stubs the game code links against.
@@ -145,7 +145,7 @@ static void fill(std::vector<unsigned char>& v, unsigned seed) {
     unsigned x = seed * 2654435761u + 1;
     for (auto& b : v) { x = x * 1103515245u + 12345u; b = (unsigned char) (x >> 16); }
 }
-static int finish(int result) { while (result == 0xB) result = lb_8001B6F8(); return result; }
+static int finish(int result) { while (result == 0xB) result = lbCardNew_CompleteNextTask(); return result; }
 
 int main() {
     alarm(60);  // a stalled card queue must fail the test, not hang it
@@ -165,7 +165,7 @@ int main() {
     entries[9] = {-1, 0, nullptr};
 
     lbCardNew_AllocWorkArea();
-    lb_8001C5BC();
+    lbCardNew_Init();
     int status = 0;
     // 1. Fresh card: the load reports "no save file" (4) without touching data.
     unsigned probe = lb_8001B7E0(0, name, entries, icon_header, &status);
@@ -188,7 +188,7 @@ int main() {
     // 3. Boot again: the save is found and its directory verified. The probe
     //    reports 1 (file present) rather than 4 (absent); gm_1AED.c treats
     //    both 0 and 1 as "no prompt needed".
-    lb_8001C5BC();
+    lbCardNew_Init();
     probe = lb_8001B7E0(0, name, entries, icon_header, &status);
     std::printf("load with save -> %u (expect 1: present)\n", probe);
     assert(probe == 1);
@@ -213,7 +213,7 @@ int main() {
 
     // 6. A corrupted sector is detected by the digest check instead of being
     //    handed to the game as valid data.
-    lb_8001C5BC();
+    lbCardNew_Init();
     probe = lb_8001B7E0(0, name, entries, icon_header, &status);
     assert(probe == 1);
     card.corrupt_next_read = true;

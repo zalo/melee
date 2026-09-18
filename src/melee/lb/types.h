@@ -243,7 +243,7 @@ struct CollData {
 
 struct HSD_AllocEntry {
     struct HSD_AllocEntry* next;
-    u32* addr;
+    void* addr;
     size_t size;
 };
 
@@ -1057,5 +1057,9 @@ struct LbShadow {
 typedef struct {
     s8 x, y;
 } S8Vec2, *S8Vec2Ptr;
+
+typedef struct {
+    u8 x, y;
+} U8Vec2;
 
 #endif

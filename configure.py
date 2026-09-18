@@ -1204,7 +1204,7 @@ config.libs = [
             Object(Matching, "melee/gm/gmprogressive.c"),
             Object(Matching, "melee/gm/gmapproach.c"),
             Object(Matching, "melee/gm/gm_1ADD.c"),
-            Object(Matching, "melee/gm/gm_1AED.c"),
+            Object(Matching, "melee/gm/gmscmemcard.c"),
             Object(Matching, "melee/gm/gm_1B03.c"),
             # Game modes
             Object(Matching, "melee/gm/gmtitlemode.c"),
@@ -1983,6 +1983,7 @@ config.libs = [
             Object(Matching, "sysdolphin/baselib/hsd_3A76.c", force_optimization=True),
             Object(Matching, "sysdolphin/baselib/sislib_font.c"),
             Object(Matching, "sysdolphin/baselib/card.c"),
+            Object(Matching, "sysdolphin/baselib/crypt.c"),
             Object(
                 Matching,
                 "sysdolphin/baselib/hsd_3B33.c",

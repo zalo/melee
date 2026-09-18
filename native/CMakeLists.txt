@@ -346,8 +346,7 @@ set_tests_properties(native_card PROPERTIES LABELS melee)
 add_library(melee_hsd_card_test OBJECT
   "${MELEE_ROOT}/src/melee/lb/lbcardnew.c"
   "${MELEE_ROOT}/src/sysdolphin/baselib/card.c"
-  "${MELEE_ROOT}/src/sysdolphin/baselib/hsd_3B2B.c"
-  "${MELEE_ROOT}/src/sysdolphin/baselib/hsd_3B2E.c")
+  "${MELEE_ROOT}/src/sysdolphin/baselib/crypt.c")
 target_include_directories(melee_hsd_card_test PRIVATE $<TARGET_PROPERTY:melee_game,INCLUDE_DIRECTORIES>)
 target_compile_definitions(melee_hsd_card_test PRIVATE $<TARGET_PROPERTY:melee_game,COMPILE_DEFINITIONS>)
 target_compile_options(melee_hsd_card_test PRIVATE $<TARGET_PROPERTY:melee_game,COMPILE_OPTIONS> -fsanitize=address,undefined)

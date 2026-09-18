@@ -177,8 +177,8 @@ int main(void)
     lbHeap_80015F3C();
     lbDvd_80018F68();
     lbArq_80014D2C();
-    lb_8001C5BC();
-    lb_8001D21C();
+    lbCardNew_Init();
+    lbCardGame_Init();
     lbSnap_8001E290();
     gmMainLib_8015FCC0();
     lbMthp_8001F87C();

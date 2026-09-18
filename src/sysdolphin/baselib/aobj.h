@@ -51,11 +51,7 @@ struct HSD_AObjDesc {
     u32 flags;
     f32 end_frame;
     HSD_FObjDesc* fobjdesc;
-    #ifdef MELEE_NATIVE
-    uintptr_t obj_id;
-#else
-    u32 obj_id;
-#endif
+    HSD_IDKey obj_id;
 };
 
 struct HSD_AnimJoint {

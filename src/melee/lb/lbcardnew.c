@@ -16,16 +16,18 @@
 #define SECTOR_SIZE 0x2000
 
 typedef enum {
-    LbCardResult_Ready = 0,
-    LbCardResult_NoFile = 4,
-    LbCardResult_NullFilename = 7,
-    LbCardResult_Malformed = 9,
-    LbCardResult_PendingOps = 11,
-    LbCardResult_BadSectorSize,
-    LbCardResult_Abort,
-    LbCardResult_FatalError,
-    LbCardResult_DeviceError,
-} lbCardResult;
+    resultMask_Ready = 1 << LbCardResult_Ready,
+    resultMask_2 = 1 << LbCardResult_2,
+    resultMask_NoFile = 1 << LbCardResult_NoFile,
+    resultMask_NullFilename = 1 << LbCardResult_NullFilename,
+    resultMask_Malformed = 1 << LbCardResult_Malformed,
+    resultMask_Busy = 1 << LbCardResult_Busy,
+    resultMask_BadSectorSize = 1 << LbCardResult_BadSectorSize,
+    resultMask_Invalid = 1 << LbCardResult_Invalid,
+    resultMask_FatalError = 1 << LbCardResult_FatalError,
+    resultMask_DeviceError = 1 << LbCardResult_DeviceError,
+    resultMask_16 = 1 << LbCardResult_16,
+} resultMask;
 
 /// Operations dispatched by lb_80019CB0. Values describe observed behavior;
 /// they are separate from task result codes and the HSD request/command tags.
@@ -76,17 +78,34 @@ typedef struct {
     /* 0x10 */ char filename[CARD_FILENAME_MAX + 1];
 
     /* 0x31 */ char new_filename[CARD_FILENAME_MAX + 1];
-    /* 0x52 */ char pad_52[2];
 } CardTask;
 ASSERT_SIZE(CardTask, 0x54);
 ASSERT_OFFSET(CardTask, filename, 0x10);
 ASSERT_OFFSET(CardTask, new_filename, 0x31);
 
-struct lb_80432A68_t {
+/* 019C38 */ static CardTask* getNewTask(void);
+/* 019CB0 */ static int executeNextTask(lbCardResult result);
+/* 01A0B0 */ static void fn_8001A0B0(int file_idx, int hsd_error);
+/* 01A184 */ static int taskMount(void);
+/* 01A3A4 */ static int taskCheck(void);
+/* 01A594 */ static int taskOpen(const char* filename,
+                                 LbCardEntry* file_entries);
+/* 01A860 */ static int taskUnk3(void);
+/* 01A8A4 */ static int taskFormat(void);
+/* 01A9CC */ static int taskDelete(char* filename);
+/* 01AAE4 */ static int taskRename(const char* old_name, const char* new_name);
+/* 01AC04 */ static int taskCreate(const char* filename);
+/* 01ACEC */ static int taskRead(LbCardEntry* file_entries);
+/* 01AE38 */ static int taskWrite(LbCardEntry* file_entries);
+/* 01AF84 */ static int taskSetStatus(void);
+/* 01B068 */ static int taskReadHeader(void);
+/* 01B14C */ static int taskListSnapshots(void);
+/* 01B614 */ static int taskFindFile(const char* filename);
+/* 432A68 */ static struct {
     /* 0x000 */ void* work_area;
     /* 0x004 */ void* lib_area;
     /* 0x008 */ int chan;
-    /* 0x00C */ UNK_T save_data;
+    /* 0x00C */ void* save_data;
     /* 0x010 */ int* status;
     /* 0x014 */ char* comment;
     /* 0x018 */ void* banner;
@@ -94,38 +113,28 @@ struct lb_80432A68_t {
     /* 0x020 */ lbCardNew_SnapshotEntry* snapshot_entries;
     /* 0x024 */ int* free_blocks;
     /* 0x028 */ int* free_files;
-    /* 0x02C */ char x2C[2];
+    /* 0x02C */ char company[2];
     /* 0x02E */ char x2E;
-    /* 0x02F */ char x2F[4];
+    /* 0x02F */ char game_name[4];
     /* 0x034 */ s32 saved_error;
     /* 0x038 */ struct lb_80432A68_38_t unk_38[9];
-    /* 0x080 */ s32 unk_80;
+    /* 0x080 */ bool mounted;
     /* 0x084 */ s32 memsize;
     /* 0x088 */ s32 sectorsize;
     /* 0x08C */ s32 unused_bytes;
     /* 0x090 */ s32 unused_files;
     /* 0x094 */ CARDFileInfo file_info;
     /* 0x0A8 */ CardState card_state;
-    /* 0x50C */ void (*x50C)(int);
+    /* 0x50C */ LbCardOnFinishedCallback on_finished;
     /* 0x510 */ CardTask task_array[LbCardNewTaskArray_Max];
-    /* 0x8AC */ int pending_ops;
-}; /* size = 0x8B0 */
-ASSERT_SIZE(struct lb_80432A68_t, 0x8B0);
-ASSERT_OFFSET(struct lb_80432A68_t, card_state, 0xA8);
-ASSERT_OFFSET(struct lb_80432A68_t, x50C, 0x50C);
+    /* 0x8AC */ int tasks_remaining;
+} state;
 
-/* 019BB8 */ static int convertCardError(int card_result);
-/* 019C38 */ static CardTask* getNewTask(void);
-/* 019CB0 */ static int executeNextTask(lbCardResult result);
-/* 01A594 */ static int lb_8001A594(const char* filename,
-                                    struct CardEntry* file_entries);
-/* 432A68 */ static struct lb_80432A68_t lb_80432A68;
+#define _p(x) (state.x)
 
-#define _p(x) (lb_80432A68.x)
-
-static int convertCardError(int card_result)
+static lbCardResult convertSdkResult(int sdk_result)
 {
-    switch (card_result) {
+    switch (sdk_result) {
     case CARD_RESULT_BUSY:
     case CARD_RESULT_WRONGDEVICE:
     case CARD_RESULT_NOCARD:
@@ -143,7 +152,7 @@ static int convertCardError(int card_result)
     case CARD_RESULT_UNLOCKED:
     case CARD_RESULT_CANCELED:
     default:
-        return LbCardResult_Abort;
+        return LbCardResult_Invalid;
     }
 }
 
@@ -193,71 +202,71 @@ int executeNextTask(lbCardResult result)
             } else {
                 switch (task->type) {
                 case LbCardNewTask_Mount:
-                    result = lb_8001A184();
+                    result = taskMount();
                     break;
                 case LbCardNewTask_Check:
-                    result = lb_8001A3A4();
+                    result = taskCheck();
                     break;
                 case LbCardNewTask_Open:
-                    result =
-                        lb_8001A594(task->filename_ptr, task->file_entries);
+                    result = taskOpen(task->filename_ptr, task->file_entries);
                     break;
                 case LbCardNewTask_Unk3:
-                    result = lb_8001A860();
+                    result = taskUnk3();
                     break;
                 case LbCardNewTask_Format:
-                    result = lb_8001A8A4();
+                    result = taskFormat();
                     break;
                 case LbCardNewTask_Delete:
-                    result = lb_8001A9CC(task->filename);
+                    result = taskDelete(task->filename);
                     break;
                 case LbCardNewTask_Rename:
-                    result = lb_8001AAE4(task->filename, task->new_filename);
+                    result = taskRename(task->filename, task->new_filename);
                     break;
                 case LbCardNewTask_Create:
-                    result = lb_8001AC04(task->filename);
+                    result = taskCreate(task->filename);
                     break;
                 case LbCardNewTask_Read:
-                    result = lb_8001ACEC(task->file_entries);
+                    result = taskRead(task->file_entries);
                     break;
                 case LbCardNewTask_Write:
-                    result = lb_8001AE38(task->file_entries);
+                    result = taskWrite(task->file_entries);
                     break;
                 case LbCardNewTask_SetStatus:
-                    result = lb_8001AF84();
+                    result = taskSetStatus();
                     break;
                 case LbCardNewTask_ReadHeader:
-                    result = lb_8001B068();
+                    result = taskReadHeader();
                     break;
                 case LbCardNewTask_ListSnapshots:
-                    result = lb_8001B14C();
+                    result = taskListSnapshots();
                     break;
                 case LbCardNewTask_FindFile:
-                    result = lb_8001B614(task->filename);
+                    result = taskFindFile(task->filename);
                     break;
                 default:
                     break;
                 }
                 task->type = LbCardNewTask_None;
-                if (result != LbCardResult_PendingOps) {
+                if (result != LbCardResult_Busy) {
                     continue;
                 }
             }
         }
         break;
     }
-    if (result != LbCardResult_PendingOps && _p(x50C) != NULL) {
-        _p(x50C)(result);
-        _p(x50C) = NULL;
+    if (result != LbCardResult_Busy && _p(on_finished) != NULL) {
+        _p(on_finished)(result);
+        _p(on_finished) = NULL;
     }
-    if (result != LbCardResult_PendingOps && _p(unk_80) != 0) {
+    if (result != LbCardResult_Busy && _p(mounted) != 0) {
         CARDUnmount(_p(chan));
-        _p(unk_80) = 0;
+        _p(mounted) = 0;
     }
     return result;
 }
 
-void lb_80019EF0(int chan, UNK_T save_data, UNK_T status_out, UNK_T callback)
+static void resetState(int chan, void* save_data, int* status_out,
+                       LbCardOnFinishedCallback callback)
 {
     int i;
 
@@ -270,42 +279,42 @@ void lb_80019EF0(int chan, UNK_T save_data, UNK_T status_out, UNK_T callback)
     _p(snapshot_entries) = NULL;
     _p(free_blocks) = NULL;
     _p(free_files) = NULL;
-    _p(saved_error) = 16;
+    _p(saved_error) = LbCardResult_16;
 
     for (i = 0; i < (ssize_t) ARRAY_SIZE(_p(unk_38)); i++) {
-        _p(unk_38)[i].lb_error = 16;
+        _p(unk_38)[i].lb_error = LbCardResult_16;
         _p(unk_38)[i].hsd_result = -1;
     }
 
-    _p(unk_80) = 0;
-    _p(x50C) = callback;
+    _p(mounted) = false;
+    _p(on_finished) = callback;
 
     resetTaskArray();
 }
 
 static void onCardComplete(UNUSED s32 chan, s32 result)
 {
-    s32 error = convertCardError(result);
+    s32 error = convertSdkResult(result);
 
     if (error != 0) {
         _p(saved_error) = error;
     }
-    _p(pending_ops) -= 1;
+    _p(tasks_remaining) -= 1;
 }
 
-static int convert_hsdcard_error(int hsd_result)
+static int convertHsdResult(int hsd_result)
 {
     int lb_result;
     switch (hsd_result) {
     case 0:
     case 1:
-        lb_result = 0;
+        lb_result = LbCardResult_Ready;
         break;
     case -261:
     case -260:
     case -259:
     case -258:
-        lb_result = 2;
+        lb_result = LbCardResult_2;
         break;
     case -263:
     case -262:
@@ -316,10 +325,10 @@ static int convert_hsdcard_error(int hsd_result)
     case -265:
     case -266:
     case -267:
-        lb_result = 10;
+        lb_result = LbCardResult_10;
         break;
     default:
-        lb_result = convertCardError(hsd_result);
+        lb_result = convertSdkResult(hsd_result);
         break;
     }
     return lb_result;
@@ -329,17 +338,17 @@ void fn_8001A0B0(int file_idx, int hsd_error)
 {
     s32 error;
 
-    error = convert_hsdcard_error(hsd_error);
+    error = convertHsdResult(hsd_error);
 
     _p(unk_38)[file_idx].lb_error = error;
     _p(unk_38)[file_idx].hsd_result = hsd_error;
     if (error != 0) {
         _p(saved_error) = error;
     }
-    _p(pending_ops) -= 1;
+    _p(tasks_remaining) -= 1;
 }
 
-int lb_8001A184(void)
+int taskMount(void)
 {
     int pending_ops;
     int saved_error;
@@ -350,9 +359,9 @@ int lb_8001A184(void)
     PAD_STACK(3 * 4);
 
     did_disable = 0;
-    _p(pending_ops) = 0;
+    _p(tasks_remaining) = 0;
     probe_result = CARDProbeEx(_p(chan), &_p(memsize), &_p(sectorsize));
-    _p(saved_error) = convertCardError(probe_result);
+    _p(saved_error) = convertSdkResult(probe_result);
     if (_p(saved_error) == 0) {
         if (_p(status) != NULL) {
             *_p(status) = 0;
@@ -363,49 +372,49 @@ int lb_8001A184(void)
         mount_result =
             CARDMountAsync(_p(chan), _p(work_area), NULL, onCardComplete);
 
-        _p(saved_error) = convertCardError(mount_result);
+        _p(saved_error) = convertSdkResult(mount_result);
         if (mount_result == 0 || mount_result == -6 || mount_result == -0xD) {
-            _p(unk_80) = true;
+            _p(mounted) = true;
         }
         if (_p(saved_error) == 0) {
-            _p(pending_ops) += 1;
+            _p(tasks_remaining) += 1;
         }
     }
-    pending_ops = _p(pending_ops);
+    pending_ops = _p(tasks_remaining);
     saved_error = _p(saved_error);
     if (did_disable) {
         OSRestoreInterrupts(enabled);
     }
     if (pending_ops) {
-        return LbCardResult_PendingOps;
+        return LbCardResult_Busy;
     }
     return saved_error;
 }
 
-int lb_8001A3A4(void)
+int taskCheck(void)
 {
     int pending_ops;
     int saved_error;
     int enabled;
     int check_result;
     PAD_STACK(4 * 4);
-    _p(pending_ops) = 0;
+    _p(tasks_remaining) = 0;
     enabled = OSDisableInterrupts();
     check_result = CARDCheckAsync(_p(chan), onCardComplete);
-    _p(saved_error) = convertCardError(check_result);
+    _p(saved_error) = convertSdkResult(check_result);
     if (_p(saved_error) == LbCardResult_Ready) {
-        _p(pending_ops) += 1;
+        _p(tasks_remaining) += 1;
     }
-    pending_ops = _p(pending_ops);
+    pending_ops = _p(tasks_remaining);
     saved_error = _p(saved_error);
     OSRestoreInterrupts(enabled);
     if (pending_ops != 0) {
-        return LbCardResult_PendingOps;
+        return LbCardResult_Busy;
     }
     return saved_error;
 }
 
-void lb_8001A4CC(const char* filename, void* file_entries)
+static void setTaskFilename(const char* filename, void* file_entries)
 {
     CardTask* task = getNewTask();
     task->type = LbCardNewTask_Open;
@@ -427,7 +436,7 @@ struct SnapshotNode {
 };
 
 static inline void setupCardEntries(CardState* ctx, void* icon,
-                                    struct CardEntry* entry)
+                                    LbCardEntry* entry)
 {
     int i;
 
@@ -443,36 +452,37 @@ static inline void setupCardEntries(CardState* ctx, void* icon,
     }
 }
 
-int lb_8001A594(const char* filename, struct CardEntry* entries)
+int taskOpen(const char* filename, LbCardEntry* entries)
 {
     int open_result;
     int free_result;
     int hsd_result;
     PAD_STACK(6 * 4);
 
-    _p(pending_ops) = 0;
+    _p(tasks_remaining) = 0;
     if (_p(sectorsize) != SECTOR_SIZE) {
         _p(saved_error) = LbCardResult_BadSectorSize;
     } else {
         free_result =
             CARDFreeBlocks(_p(chan), &_p(unused_bytes), &_p(unused_files));
 
-        _p(saved_error) = convertCardError(free_result);
+        _p(saved_error) = convertSdkResult(free_result);
         if (_p(saved_error) == 0) {
             if (filename == NULL) {
                 _p(saved_error) = LbCardResult_NullFilename;
             } else {
                 open_result = CARDOpen(_p(chan), filename, &_p(file_info));
                 CARDClose(&_p(file_info));
-                HSD_ASSERT(0x2C8, _p(lib_area));
-                hsd_803B24E4(&_p(card_state), _p(chan), 0x2000, _p(lib_area));
+                HSD_ASSERT(712, _p(lib_area));
+                hsd_803B24E4(&_p(card_state), _p(chan), SECTOR_SIZE,
+                             _p(lib_area));
                 if (open_result == LbCardResult_Ready) {
                     hsd_result =
                         hsd_803B2550(&_p(card_state), filename, fn_8001A0B0);
 
-                    _p(saved_error) = convert_hsdcard_error(hsd_result);
+                    _p(saved_error) = convertHsdResult(hsd_result);
                     if (_p(saved_error) == LbCardResult_Ready) {
-                        _p(pending_ops) += 1;
+                        _p(tasks_remaining) += 1;
                     }
                 } else if (entries == NULL) {
                     _p(saved_error) = 4;
@@ -481,7 +491,7 @@ int lb_8001A594(const char* filename, struct CardEntry* entries)
                 } else {
                     setupCardEntries(&_p(card_state), _p(save_data), entries);
                     if (_p(unused_bytes) <
-                        (hsd_803B2674(&_p(card_state)) << 0xD))
+                        (hsd_803B2674(&_p(card_state)) << 13))
                     {
                         _p(saved_error) = 5;
                     } else {
@@ -491,15 +501,15 @@ int lb_8001A594(const char* filename, struct CardEntry* entries)
             }
         }
     }
-    if (_p(pending_ops) != 0) {
-        return LbCardResult_PendingOps;
+    if (_p(tasks_remaining) != 0) {
+        return LbCardResult_Busy;
     }
     return _p(saved_error);
 }
 
-int lb_8001A860(void)
+int taskUnk3(void)
 {
-    _p(pending_ops) = 0;
+    _p(tasks_remaining) = 0;
     switch (_p(saved_error)) {
     case 1:
         break;
@@ -511,7 +521,7 @@ int lb_8001A860(void)
     return _p(saved_error);
 }
 
-int lb_8001A8A4(void)
+int taskFormat(void)
 {
     int pending_ops;
     int saved_error;
@@ -522,29 +532,29 @@ int lb_8001A8A4(void)
 
     unused = 0;
     did_disable = 0;
-    _p(pending_ops) = 0;
-    if (_p(unk_80) != 0) {
+    _p(tasks_remaining) = 0;
+    if (_p(mounted) != 0) {
         enabled = OSDisableInterrupts();
         did_disable = 1;
         format_result = CARDFormatAsync(_p(chan), onCardComplete);
 
-        _p(saved_error) = convertCardError(format_result);
+        _p(saved_error) = convertSdkResult(format_result);
         if (_p(saved_error) == 0) {
-            _p(pending_ops) += 1;
+            _p(tasks_remaining) += 1;
         }
     }
-    pending_ops = _p(pending_ops);
+    pending_ops = _p(tasks_remaining);
     saved_error = _p(saved_error);
     if (did_disable != 0) {
         OSRestoreInterrupts(enabled);
     }
     if (pending_ops != 0) {
-        return LbCardResult_PendingOps;
+        return LbCardResult_Busy;
     }
     return saved_error;
 }
 
-int lb_8001A9CC(char* filename)
+int taskDelete(char* filename)
 {
     int unused;
     int pending_ops;
@@ -554,24 +564,24 @@ int lb_8001A9CC(char* filename)
     u8 _[8];
 
     unused = 0;
-    _p(pending_ops) = 0;
+    _p(tasks_remaining) = 0;
     enabled = OSDisableInterrupts();
     delete_result = CARDDeleteAsync(_p(chan), filename, onCardComplete);
 
-    _p(saved_error) = convertCardError(delete_result);
+    _p(saved_error) = convertSdkResult(delete_result);
     if (_p(saved_error) == 0) {
-        _p(pending_ops) += 1;
+        _p(tasks_remaining) += 1;
     }
-    pending_ops = _p(pending_ops);
+    pending_ops = _p(tasks_remaining);
     saved_error = _p(saved_error);
     OSRestoreInterrupts(enabled);
     if (pending_ops != 0) {
-        return LbCardResult_PendingOps;
+        return LbCardResult_Busy;
     }
     return saved_error;
 }
 
-int lb_8001AAE4(const char* old_name, const char* new_name)
+int taskRename(const char* old_name, const char* new_name)
 {
     int unused;
     int pending_ops;
@@ -581,36 +591,36 @@ int lb_8001AAE4(const char* old_name, const char* new_name)
     u8 _[8];
 
     unused = 0;
-    _p(pending_ops) = 0;
+    _p(tasks_remaining) = 0;
     enabled = OSDisableInterrupts();
     rename_result =
         CARDRenameAsync(_p(chan), old_name, new_name, onCardComplete);
-    _p(saved_error) = convertCardError(rename_result);
+    _p(saved_error) = convertSdkResult(rename_result);
     if (_p(saved_error) == 0) {
-        _p(pending_ops) += 1;
+        _p(tasks_remaining) += 1;
     }
-    pending_ops = _p(pending_ops);
+    pending_ops = _p(tasks_remaining);
     saved_error = _p(saved_error);
     OSRestoreInterrupts(enabled);
     if (pending_ops != 0) {
-        return LbCardResult_PendingOps;
+        return LbCardResult_Busy;
     }
     return saved_error;
 }
 
-int lb_8001AC04(const char* filename)
+int taskCreate(const char* filename)
 {
     int hsd_result;
     PAD_STACK(4);
 
     hsd_result = hsd_803B286C(&_p(card_state), filename, _p(comment),
                               _p(banner), _p(icons), fn_8001A0B0);
-    _p(saved_error) = convert_hsdcard_error(hsd_result);
+    _p(saved_error) = convertHsdResult(hsd_result);
     if (_p(saved_error) == 0) {
-        _p(pending_ops) += 1;
+        _p(tasks_remaining) += 1;
     }
-    if (_p(pending_ops) != 0) {
-        return LbCardResult_PendingOps;
+    if (_p(tasks_remaining) != 0) {
+        return LbCardResult_Busy;
     }
     return _p(saved_error);
 }
@@ -621,7 +631,7 @@ static inline int readCardFileSize(const volatile int* file_size)
     return *file_size;
 }
 
-int lb_8001ACEC(struct CardEntry* entries)
+int taskRead(LbCardEntry* entries)
 {
     int file_error;
     int hsd_result;
@@ -636,23 +646,23 @@ int lb_8001ACEC(struct CardEntry* entries)
         if (readCardFileSize(&_p(card_state).file_sizes[i]) != 0) {
             hsd_result =
                 hsd_803B29D8(&_p(card_state), i, entries[i].data, fn_8001A0B0);
-            _p(unk_38)[i].lb_error = convert_hsdcard_error(hsd_result);
+            _p(unk_38)[i].lb_error = convertHsdResult(hsd_result);
             _p(unk_38)[i].hsd_result = hsd_result;
             file_error = _p(unk_38)[i].lb_error;
             if (file_error == LbCardResult_Ready) {
-                _p(pending_ops) += 1;
+                _p(tasks_remaining) += 1;
             } else {
                 _p(saved_error) = file_error;
             }
         }
     }
-    if (_p(pending_ops) != 0) {
-        return LbCardResult_PendingOps;
+    if (_p(tasks_remaining) != 0) {
+        return LbCardResult_Busy;
     }
     return _p(saved_error);
 }
 
-int lb_8001AE38(struct CardEntry* entries)
+int taskWrite(LbCardEntry* entries)
 {
     int file_error;
     int hsd_result;
@@ -668,55 +678,55 @@ int lb_8001AE38(struct CardEntry* entries)
         if (readCardFileSize(&_p(card_state).file_sizes[i]) != 0) {
             hsd_result =
                 hsd_803B2A4C(&_p(card_state), i, entries[i].data, fn_8001A0B0);
-            _p(unk_38)[i].lb_error = convert_hsdcard_error(hsd_result);
+            _p(unk_38)[i].lb_error = convertHsdResult(hsd_result);
             _p(unk_38)[i].hsd_result = hsd_result;
             file_error = _p(unk_38)[i].lb_error;
             if (file_error == LbCardResult_Ready) {
-                _p(pending_ops) += 1;
+                _p(tasks_remaining) += 1;
             } else {
                 _p(saved_error) = file_error;
             }
         }
     }
-    if (_p(pending_ops) != 0) {
-        return LbCardResult_PendingOps;
+    if (_p(tasks_remaining) != 0) {
+        return LbCardResult_Busy;
     }
     return _p(saved_error);
 }
 
-int lb_8001AF84(void)
+int taskSetStatus(void)
 {
     int hsd_result = hsd_803B2928(&_p(card_state), _p(comment), _p(banner),
                                   _p(icons), fn_8001A0B0);
 
-    _p(saved_error) = convert_hsdcard_error(hsd_result);
+    _p(saved_error) = convertHsdResult(hsd_result);
 
     if (_p(saved_error) == 0) {
-        _p(pending_ops) += 1;
+        _p(tasks_remaining) += 1;
     }
-    if (_p(pending_ops) != 0) {
-        return LbCardResult_PendingOps;
+    if (_p(tasks_remaining) != 0) {
+        return LbCardResult_Busy;
     }
     return _p(saved_error);
 }
 
-int lb_8001B068(void)
+int taskReadHeader(void)
 {
     int hsd_result = hsd_803B27F4(&_p(card_state), _p(comment), _p(banner),
                                   _p(icons), fn_8001A0B0);
 
-    _p(saved_error) = convert_hsdcard_error(hsd_result);
+    _p(saved_error) = convertHsdResult(hsd_result);
 
     if (_p(saved_error) == 0) {
-        _p(pending_ops) += 1;
+        _p(tasks_remaining) += 1;
     }
-    if (_p(pending_ops) != 0) {
-        return LbCardResult_PendingOps;
+    if (_p(tasks_remaining) != 0) {
+        return LbCardResult_Busy;
     }
     return _p(saved_error);
 }
 
-int lb_8001B14C(void)
+int taskListSnapshots(void)
 {
     struct SnapshotNode* head;
     CARDStat stat[1];
@@ -733,9 +743,9 @@ int lb_8001B14C(void)
 
     head = NULL;
     disk_id = DVDGetCurrentDiskID();
-    _p(pending_ops) = 0;
+    _p(tasks_remaining) = 0;
     if (_p(free_blocks) != NULL) {
-        *_p(free_blocks) = _p(unused_bytes) / 0x2000;
+        *_p(free_blocks) = _p(unused_bytes) / SECTOR_SIZE;
     }
     if (_p(free_files) != NULL) {
         *_p(free_files) = _p(unused_files);
@@ -779,25 +789,25 @@ int lb_8001B14C(void)
     return _p(saved_error);
 }
 
-int lb_8001B614(const char* filename)
+int taskFindFile(const char* filename)
 {
     CARDStat card_stat;
     int fileno;
 
     fileno = 0;
-    _p(pending_ops) = 0;
-    for (;;) {
+    _p(tasks_remaining) = 0;
+    while (true) {
         if (CARDGetStatus(_p(chan), fileno, &card_stat) == 0 &&
-            strncmp((const char*) card_stat.company, _p(x2C), 2) == 0 &&
-            strncmp((const char*) card_stat.gameName, _p(x2F), 4) == 0 &&
+            strncmp((const char*) card_stat.company, _p(company), 2) == 0 &&
+            strncmp((const char*) card_stat.gameName, _p(game_name), 4) == 0 &&
             strcmp(card_stat.fileName, filename) == 0)
         {
-            _p(saved_error) = 0;
+            _p(saved_error) = LbCardResult_Ready;
             break;
         } else {
             fileno += 1;
             if (fileno >= 0x7F) {
-                _p(saved_error) = 0xD;
+                _p(saved_error) = LbCardResult_Invalid;
                 break;
             }
         }
@@ -810,7 +820,7 @@ s32 lb_8001B6E0(s32 file_idx)
     return _p(unk_38)[file_idx].lb_error;
 }
 
-int lb_8001B6F8(void)
+int lbCardNew_CompleteNextTask(void)
 {
     int enabled;
     int result;
@@ -821,28 +831,27 @@ int lb_8001B6F8(void)
 #endif
     hsd_803AAA48();
     enabled = OSDisableInterrupts();
-    if (_p(pending_ops) != 0) {
-        result = LbCardResult_PendingOps;
+    if (_p(tasks_remaining) != 0) {
+        result = LbCardResult_Busy;
     } else {
         result = _p(saved_error);
     }
     OSRestoreInterrupts(enabled);
-    if (result != LbCardResult_PendingOps) {
+    if (result != LbCardResult_Busy) {
         result = executeNextTask(result);
     }
     return result;
 }
 
-int lb_8001B760(int result)
+int lbCardNew_CompleteAllTasks(int result)
 {
-    if (result == 11) {
-        while ((result = lb_8001B6F8()) == 11) {
-        }
+    if (result == LbCardResult_Busy) {
+        while ((result = lbCardNew_CompleteNextTask()) == LbCardResult_Busy);
     }
     return result;
 }
 
-static inline CardTask* setup_task(CardTaskType type, int result_mask)
+static inline CardTask* setupTask(CardTaskType type, int result_mask)
 {
     CardTask* task = getNewTask();
     task->type = type;
@@ -853,27 +862,24 @@ static inline CardTask* setup_task(CardTaskType type, int result_mask)
 static inline void lb_8001A4CC_dontinline(const char* filename,
                                           void* file_entries)
 {
-    lb_8001A4CC(filename, file_entries);
+    setTaskFilename(filename, file_entries);
 }
 
 u32 lb_8001B7E0(int chan, char* filename, void* file_entries, void* save_data,
                 int* status_out)
 {
-    int enabled;
-    s32 unused;
     s32 result;
-    u8 _[0x10];
+    PAD_STACK(20);
 
-    lb_80019EF0(chan, save_data, status_out, NULL);
-    setup_task(LbCardNewTask_Mount, 0x10000);
-    setup_task(LbCardNewTask_Check, 0x201);
+    resetState(chan, save_data, status_out, NULL);
+    setupTask(LbCardNewTask_Mount, resultMask_16);
+    setupTask(LbCardNewTask_Check, resultMask_Ready | resultMask_Malformed);
     lb_8001A4CC_dontinline(filename, file_entries);
-    setup_task(LbCardNewTask_Unk3, -1);
+    setupTask(LbCardNewTask_Unk3, U32_MAX);
 
-    result = executeNextTask(0x10);
-    if (result == LbCardResult_PendingOps) {
-        while ((result = lb_8001B6F8()) == 11) {
-        }
+    result = executeNextTask(LbCardResult_16);
+    if (result == LbCardResult_Busy) {
+        while ((result = lbCardNew_CompleteNextTask()) == LbCardResult_Busy);
     }
     return result;
 }
@@ -885,31 +891,30 @@ int lb_8001B8C8(int chan)
     s32 result;
     u8 _[0x18];
 
-    lb_80019EF0(chan, 0, 0, 0);
-    setup_task(LbCardNewTask_Mount, 0x10000);
-    setup_task(LbCardNewTask_Check, 0x201);
-    setup_task(LbCardNewTask_Format, -1);
+    resetState(chan, 0, 0, 0);
+    setupTask(LbCardNewTask_Mount, resultMask_16);
+    setupTask(LbCardNewTask_Check, resultMask_Ready | resultMask_Malformed);
+    setupTask(LbCardNewTask_Format, U32_MAX);
 
-    result = executeNextTask(0x10);
-    if (result == LbCardResult_PendingOps) {
-        while ((result = lb_8001B6F8()) == 11) {
-        }
+    result = executeNextTask(LbCardResult_16);
+    if (result == LbCardResult_Busy) {
+        while ((result = lbCardNew_CompleteNextTask()) == LbCardResult_Busy);
     }
     return result;
 }
 
-int lb_8001B99C(int chan, const char* filename, UNK_T status_out)
+int lbCardNew_DeleteSnap(int chan, const char* filename, UNK_T status_out)
 {
-    int new_var;
-    lb_80019EF0(chan, 0, status_out, 0);
-    setup_task(LbCardNewTask_Mount, 0x10000);
-    setup_task(LbCardNewTask_Check, 0x201);
+    int result;
+    resetState(chan, 0, status_out, 0);
+    setupTask(LbCardNewTask_Mount, resultMask_16);
+    setupTask(LbCardNewTask_Check, resultMask_Ready | resultMask_Malformed);
     lb_8001A4CC_dontinline(filename, 0);
-    setup_task(LbCardNewTask_Unk3, -1);
-    new_var = 0x10;
-    strncpy(setup_task(LbCardNewTask_Delete, 0xE)->filename, filename,
+    setupTask(LbCardNewTask_Unk3, U32_MAX);
+    result = LbCardResult_16;
+    strncpy(setupTask(LbCardNewTask_Delete, 0xE)->filename, filename,
             CARD_FILENAME_MAX);
-    return executeNextTask(new_var);
+    return executeNextTask(result);
 }
 
 int lb_8001BA44(int chan, const char* filename, UNK_T status_out)
@@ -917,16 +922,16 @@ int lb_8001BA44(int chan, const char* filename, UNK_T status_out)
     s32 result;
     u8 _[0x10];
 
-    lb_80019EF0(chan, 0, status_out, 0);
-    setup_task(LbCardNewTask_Mount, 0x10000);
-    setup_task(LbCardNewTask_Check, 0x201);
+    resetState(chan, 0, status_out, 0);
+    setupTask(LbCardNewTask_Mount, 0x10000);
+    setupTask(LbCardNewTask_Check, 0x201);
     lb_8001A4CC_dontinline(filename, 0);
-    setup_task(LbCardNewTask_Unk3, -1);
-    strncpy(setup_task(LbCardNewTask_Delete, 0xE)->filename, filename,
+    setupTask(LbCardNewTask_Unk3, -1);
+    strncpy(setupTask(LbCardNewTask_Delete, 0xE)->filename, filename,
             CARD_FILENAME_MAX);
     result = executeNextTask(0x10);
-    if (result == LbCardResult_PendingOps) {
-        while ((result = lb_8001B6F8()) == 11) {
+    if (result == LbCardResult_Busy) {
+        while ((result = lbCardNew_CompleteNextTask()) == 11) {
         }
     }
     return result;
@@ -937,7 +942,7 @@ int lb_8001BB48(int chan, char* filename, void* file_entries, void* save_data,
 {
     int new_var;
     CardTask* task;
-    lb_80019EF0(chan, save_data, status_out, 0);
+    resetState(chan, save_data, status_out, 0);
 
     task = lb_80019C38_noinline();
     task->type = LbCardNewTask_Mount;
@@ -967,33 +972,32 @@ int lb_8001BB48(int chan, char* filename, void* file_entries, void* save_data,
 }
 
 int lb_8001BC18(int chan, char* filename, void** file_entries, void* save_data,
-                char* comment, void* banner, void* icons, UNK_T status_out)
+                char* comment, void* banner, void* icons, bool* status_out)
 {
-    int new_var;
+    size_t size;
     s32 result;
     u8 _[0x18];
 
-    lb_80019EF0(chan, save_data, status_out, 0);
+    resetState(chan, save_data, status_out, 0);
 
-    setup_task(LbCardNewTask_Mount, 0x10000);
-    new_var = 0x20;
-    setup_task(LbCardNewTask_Check, 0x201);
+    setupTask(LbCardNewTask_Mount, 0x10000);
+    size = 0x20;
+    setupTask(LbCardNewTask_Check, 0x201);
     lb_8001A4CC_dontinline(filename, file_entries);
-    setup_task(LbCardNewTask_Unk3, -1);
+    setupTask(LbCardNewTask_Unk3, -1);
 #ifdef MELEE_NATIVE
-    strncpy(setup_task(LbCardNewTask_Create, 0x10)->filename, filename,
-            new_var);
+    /* memcpy reads CARD_FILENAME_MAX bytes even from a shorter string. */
+    strncpy(setupTask(LbCardNewTask_Create, 0x10)->filename, filename, size);
 #else
-    memcpy(setup_task(LbCardNewTask_Create, 0x10)->filename, filename,
-           new_var);
+    memcpy(setupTask(LbCardNewTask_Create, 0x10)->filename, filename, size);
 #endif
     _p(comment) = comment;
     _p(banner) = banner;
     _p(icons) = icons;
     result = executeNextTask(0x10);
 
-    if (result == LbCardResult_PendingOps) {
-        while ((result = lb_8001B6F8()) == 11) {
+    if (result == LbCardResult_Busy) {
+        while ((result = lbCardNew_CompleteNextTask()) == 11) {
         }
     }
     return result;
@@ -1008,18 +1012,17 @@ int lb_8001BD34(int chan, const char* filename, UNK_T file_entries,
     CardTask* task;
     u8 _[4];
 
-    lb_80019EF0(chan, NULL, status_out, NULL);
+    resetState(chan, NULL, status_out, NULL);
 
-    setup_task(LbCardNewTask_Mount, 0x10000);
-    setup_task(LbCardNewTask_Check, 0x201);
+    setupTask(LbCardNewTask_Mount, 0x10000);
+    setupTask(LbCardNewTask_Check, 0x201);
     lb_8001A4CC_dontinline(filename, 0);
-    setup_task(LbCardNewTask_Unk3, -1);
-    setup_task(LbCardNewTask_Read, 3)->file_entries = file_entries;
+    setupTask(LbCardNewTask_Unk3, U32_MAX);
+    setupTask(LbCardNewTask_Read, 3)->file_entries = file_entries;
 
-    result = executeNextTask(0x10);
-    if (result == LbCardResult_PendingOps) {
-        while ((result = lb_8001B6F8()) == 11) {
-        }
+    result = executeNextTask(LbCardResult_16);
+    if (result == LbCardResult_Busy) {
+        while ((result = lbCardNew_CompleteNextTask()) == LbCardResult_Busy);
     }
     return result;
 }
@@ -1033,7 +1036,7 @@ int lb_8001BE30(int chan, const char* filename, UNK_T file_entries,
                 UNK_T callback)
 {
     CardTask* task;
-    lb_80019EF0(chan, 0, status_out, callback);
+    resetState(chan, 0, status_out, callback);
 
     task = getNewTask();
     task->type = LbCardNewTask_Mount;
@@ -1041,7 +1044,7 @@ int lb_8001BE30(int chan, const char* filename, UNK_T file_entries,
     task = getNewTask();
     task->type = LbCardNewTask_Check;
     task->result_mask = 0x201;
-    lb_8001A4CC(filename, 0);
+    setTaskFilename(filename, 0);
     task = getNewTask();
     task->type = LbCardNewTask_Unk3;
     task->result_mask = -1;
@@ -1065,17 +1068,17 @@ int lb_8001BF04(int chan, char* filename, void* file_entries, char* comment,
                 void* banner, void* icons, UNK_T status_out)
 {
     CardTask* task;
-    lb_80019EF0(chan, 0, status_out, 0);
+    resetState(chan, 0, status_out, 0);
     task = lb_80019C38_noinline();
     task->type = LbCardNewTask_Mount;
     task->result_mask = 0x10000;
     task = lb_80019C38_noinline();
     task->type = LbCardNewTask_Check;
-    task->result_mask = 0x201;
+    task->result_mask = resultMask_Ready | resultMask_Malformed;
     lb_8001A4CC_dontinline(filename, 0);
     task = lb_80019C38_noinline();
     task->type = LbCardNewTask_Unk3;
-    task->result_mask = -1;
+    task->result_mask = U32_MAX;
     task = lb_80019C38_noinline();
     task->type = LbCardNewTask_ReadHeader;
     task->result_mask = 2;
@@ -1095,19 +1098,18 @@ int lb_8001BFD8(int chan, lbCardNew_SnapshotEntry* snapshot_entries,
     s32 result;
     u8 _[0x18];
 
-    lb_80019EF0(chan, 0, 0, 0);
-    setup_task(LbCardNewTask_Mount, 0x10000);
-    setup_task(LbCardNewTask_Check, 0x201);
+    resetState(chan, 0, 0, 0);
+    setupTask(LbCardNewTask_Mount, resultMask_16);
+    setupTask(LbCardNewTask_Check, resultMask_Ready | resultMask_Malformed);
     lb_8001A4CC_dontinline(NULL, 0);
-    setup_task(LbCardNewTask_Unk3, -1);
-    setup_task(LbCardNewTask_ListSnapshots, 0x80);
+    setupTask(LbCardNewTask_Unk3, U32_MAX);
+    setupTask(LbCardNewTask_ListSnapshots, resultMask_NullFilename);
     _p(snapshot_entries) = snapshot_entries;
     _p(free_blocks) = free_blocks;
     _p(free_files) = free_files;
-    result = executeNextTask(0x10);
-    if (result == LbCardResult_PendingOps) {
-        while ((result = lb_8001B6F8()) == 11) {
-        }
+    result = executeNextTask(LbCardResult_16);
+    if (result == LbCardResult_Busy) {
+        while ((result = lbCardNew_CompleteNextTask()) == LbCardResult_Busy);
     }
     return result;
 }
@@ -1117,7 +1119,7 @@ int lb_8001C0F4(int chan, const char* name_a, const char* name_b,
 {
     CardTask* task;
 
-    lb_80019EF0(chan, 0, status_out, 0);
+    resetState(chan, 0, status_out, 0);
     task = lb_80019C38_noinline();
     task->type = LbCardNewTask_Mount;
     task->result_mask = 0x10000;
@@ -1183,39 +1185,39 @@ int lb_8001C2D8(int chan, const char* company, const char* game_name,
     CardTask* unused_2;
     CardTask* unused_3;
 
-    lb_80019EF0(chan, 0, 0, 0);
-    setup_task(LbCardNewTask_Mount, 0x10000);
-    setup_task(LbCardNewTask_Check, 0x201);
+    resetState(chan, 0, 0, 0);
+    setupTask(LbCardNewTask_Mount, 0x10000);
+    setupTask(LbCardNewTask_Check, 0x201);
     lb_8001A4CC_dontinline(NULL, 0);
-    setup_task(LbCardNewTask_Unk3, -1);
-    task = setup_task(LbCardNewTask_FindFile, 0x80);
-    strncpy(_p(x2C), company, 2U);
-    strncpy(_p(x2F), game_name, 4U);
+    setupTask(LbCardNewTask_Unk3, -1);
+    task = setupTask(LbCardNewTask_FindFile, 0x80);
+    strncpy(_p(company), company, 2U);
+    strncpy(_p(game_name), game_name, 4U);
     strncpy(task->filename, filename, CARD_FILENAME_MAX);
     result = executeNextTask(0x10);
-    if (result == LbCardResult_PendingOps) {
-        while ((result = lb_8001B6F8()) == 11) {
+    if (result == LbCardResult_Busy) {
+        while ((result = lbCardNew_CompleteNextTask()) == 11) {
         }
     }
     return result;
 }
 
-int lb_8001C404(int chan)
+int lbCardNew_ProbeEx(int chan)
 {
     s32 memsize;
     s32 sectorsize;
-    return convertCardError(CARDProbeEx(chan, &memsize, &sectorsize));
+    return convertSdkResult(CARDProbeEx(chan, &memsize, &sectorsize));
 }
 
 int lb_8001C4A8(void* file_entries, void* icon_data)
 {
     void* icon = icon_data;
-    struct CardEntry* entry;
+    LbCardEntry* entry;
     CardState* ctx;
 
     entry = file_entries;
     ctx = &_p(card_state);
-    hsd_803B24E4(ctx, 0, 0x2000, _p(lib_area));
+    hsd_803B24E4(ctx, 0, SECTOR_SIZE, _p(lib_area));
     hsd_SetCardIconInfo(ctx, icon);
     {
         int i;
@@ -1251,14 +1253,14 @@ void lbCardNew_AllocWorkArea(void)
 #endif
 }
 
-void lb_8001C5A4(void)
+void lbCardNew_ForgetMemory(void)
 {
     _p(work_area) = _p(lib_area) = NULL;
 }
 
-void lb_8001C5BC(void)
+void lbCardNew_Init(void)
 {
     hsd_803B2374();
-    lb_80019EF0(0, NULL, NULL, NULL);
-    _p(pending_ops) = 0;
+    resetState(0, NULL, NULL, NULL);
+    _p(tasks_remaining) = 0;
 }

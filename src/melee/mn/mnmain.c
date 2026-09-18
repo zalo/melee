@@ -1203,12 +1203,7 @@ void fn_8022AFEC(HSD_GObj* gp)
     MainMenuSelection hovered_selection;
     u8 state;
     u8 option_count;
-    u8 pad[0x20];
-#ifdef MELEE_NATIVE
-    HSD_JObj* sp20[sizeof(mn_803EAE68) / sizeof(mn_803EAE68[0])];
-#else
-    HSD_JObj* sp20[4];
-#endif
+    HSD_JObj* sp20[12];
     PAD_STACK(18);
 
     var_r26 = 0;
@@ -2600,7 +2595,7 @@ void mn_8022D7F4(HSD_GObj* gp)
             break;
         case SEL_1P_EVENT:
             sfxForward();
-            mnEvent_8024E838(0, 1);
+            mnEvent_8024E838(0, true);
             HSD_GObjFree(gp);
             break;
         case SEL_1P_TRAINING:
@@ -2731,7 +2726,7 @@ void mnMain_Scene_OnFrame(void)
         sfxBack();
         mn_8022F268();
         gm_801603B0();
-        lb_8001B760(0xB);
+        lbCardNew_CompleteAllTasks(LbCardResult_Busy);
         lbMthp_8001F800();
         mn_8022EBDC();
         HSD_SisLib_803A5E70();
@@ -2948,7 +2943,7 @@ void mnMain_Scene_OnEnter(void* user_data)
 
     switch (data->menu_kind) {
     case MENU_KIND_EVENT:
-        mnEvent_8024E838(gm_801BEB80(), 0);
+        mnEvent_8024E838(gm_801BEB80(), false);
         break;
     case MENU_KIND_MULTI_VS:
         mnHyaku_8024CD64(data->hovered_selection);
@@ -2963,7 +2958,7 @@ void mnMain_Scene_OnEnter(void* user_data)
         break;
     }
     lbAudioAx_80023F28(gmMainLib_8015ECB0());
-    lbCardGame_UpdatePowerTime();
+    lbCardGame_SaveChanges();
 }
 
 char null_terminator[1] = "\0";
