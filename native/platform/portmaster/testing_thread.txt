@@ -1,0 +1,54 @@
+Super Smash Bros. Melee (native) - testing thread
+
+Install
+1. Install melee.zip through PortMaster (or unzip it into your ports folder).
+2. Copy your own US 1.02 disc image (.iso, .gcm, .ciso or .rvz, GALE01) into ports/melee/assets/.
+3. Launch "Super Smash Bros. Melee (native)". Answer Yes at the memory-card prompt.
+The first matches stutter while shaders compile; please report FPS from the second launch on.
+Please attach ports/melee/log.txt to every report.
+
+Buttons (check each one in a VS match and in the menus)
+[ ] D-pad = control stick (move, menu cursor)
+[ ] Left stick = D-pad (taunt)
+[ ] Right stick = C-stick (smash attacks)
+[ ] A = A (attack, confirm)
+[ ] B = B (special, back)
+[ ] X = jump
+[ ] Y = jump
+[ ] R1 = Z (grab)
+[ ] L2 = L (shield)
+[ ] R2 = R (shield)
+[ ] Start = pause / start
+[ ] Start + Select = exit back to the CFW menu
+[ ] No stray keyboard input in menus or name entry
+
+CFW
+[ ] AmberELEC
+[ ] ROCKNIX (libmali)
+[ ] ROCKNIX (Panfrost)
+[ ] Knulli
+[ ] dArkOS
+[ ] Batocera
+[ ] ArkOS
+[ ] spruceOS / stock Miyoo Flip firmware
+[ ] Other: ______
+Not supported: muOS (fbdev libmali has no KMSDRM or Wayland).
+
+Resolution
+[ ] 480x320
+[ ] 640x480
+[ ] 720x720
+[ ] 1280x720 or higher
+
+Porter results
+| Device | CFW | Result |
+| --- | --- | --- |
+| Anbernic RG351P (RK3326, 480x320) | AmberELEC | menus, VS, Classic, Adventure, Event, Multi-Man, Target Test, Home-Run, Training, Tournament. 60 FPS in menus and events; build 84 in the matrix VS match (stage 31, Mario vs CKind 8) runs 13-36 FPS, performance governor included |
+| Anbernic RG351P (RK3326, 480x320) | Batocera 42 (libmali r13p0) | menus, VS, Classic, Adventure, Event, Multi-Man, Target Test, Home-Run, Training, Tournament, Data, Options, Sound Test, name entry. Matrix medians 38-49 FPS in matches and menus, 60 in Home-Run |
+| Anbernic RG351P (RK3326, 480x320) | ROCKNIX 20260901 (libmali g31) | all 13 scripted modes pass. Matrix medians: 21 FPS in the VS match, 22-58 elsewhere |
+| Anbernic RG351P (RK3326, 480x320) | ROCKNIX 20260901 (Panfrost, Mesa 26.1) | all 13 scripted modes pass since the staging-buffer change (Panfrost pins every buffer page, so the old build left the 1 GiB devices with under 50 MB free and thrashing). Slow: matrix medians 10-45 FPS, 20 in the VS match, menus at 10 FPS, and only ~60 MB of RAM stays free; libmali is the better driver here |
+| Anbernic RG351P (RK3326, 480x320) | dArkOS (RG351MP image, libmali g31 r13p0) | all 13 scripted modes pass. Matrix medians 48-60 FPS, 53 in the VS match; the fastest RG351P result. No rumble: dArkOS exposes no force-feedback device on this board |
+| Miyoo Flip (RK3566, 640x480) | stock (libmali g2p0), also g29p1 | menus, VS, Classic, Event; 50-60 FPS in matches, 60 in menus |
+| Miyoo Flip (RK3566, 640x480) | Knulli Scarab 20260511 (libmali g13p0) | all 13 scripted modes pass, but slowly: this blob drops draws, so the renderer falls back to per-draw barriers. Medians 9-20 FPS, 54 in Tournament |
+| Miyoo Flip (RK3566, 640x480) | ROCKNIX 20260901 (libmali g29p1) | all 13 scripted modes pass. Matrix medians 46-58 FPS |
+| Miyoo Flip (RK3566, 640x480) | ROCKNIX 20260901 (Panfrost, Mesa 26.1) | all 13 scripted modes pass since the staging-buffer change. Matrix medians 44-55 FPS in game modes (50 in the VS match), 29-31 in the menus; about 140 MB of RAM stays free in a match |

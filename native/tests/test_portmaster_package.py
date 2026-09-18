@@ -4,11 +4,9 @@ import importlib.util
 import json
 import os
 from pathlib import Path
-import signal
 import struct
 import subprocess
 import tempfile
-import time
 import unittest
 import xml.etree.ElementTree as ElementTree
 import zipfile
@@ -40,14 +38,17 @@ class PortJsonTests(unittest.TestCase):
         self.assertEqual(attr['title'], 'Super Smash Bros. Melee (native)')
         self.assertEqual(attr['porter'], ['sh1ftmaker'])
         self.assertIn('Aurora', attr['desc'])
-        self.assertIn('GLES', attr['desc'])
+        self.assertNotIn('GBM', attr['desc'])
         self.assertIn('melee/assets', attr['inst'])
         for extension in ['.iso', '.gcm', '.ciso', '.rvz']:
             self.assertIn(extension, attr['inst'])
-        self.assertEqual(attr['genres'], ['fighting', 'action'])
+        self.assertEqual(attr['genres'], ['action'])
+        self.assertIsNone(attr['desc_md'])
+        self.assertIsNone(attr['inst_md'])
         self.assertEqual(attr['arch'], ['aarch64'])
         self.assertEqual(attr['availability'], 'paid')
-        self.assertEqual(attr['min_glibc'], '2.36')
+        # Built against a glibc 2.30 sysroot (gettid, pthread_cond_clockwait); the static libstdc++ carries arc4random.
+        self.assertEqual(attr['min_glibc'], '2.30')
         self.assertIs(attr['rtr'], False)
         self.assertEqual(attr['runtime'], [])
         for key in ['desc_md', 'inst_md', 'image', 'exp', 'store', 'reqs']:
@@ -60,21 +61,35 @@ class PortJsonTests(unittest.TestCase):
         self.assertEqual(game.findtext('developer'), 'HAL Laboratory')
         self.assertEqual(game.findtext('publisher'), 'Nintendo')
         self.assertTrue(game.findtext('releasedate').startswith('20011121'))
-        self.assertEqual(game.findtext('image'), './melee.png')
+        # PortMaster resolves the image from the ports folder, so it carries the game folder prefix.
+        self.assertEqual(game.findtext('image'), './melee/screenshot.jpg')
+        self.assertTrue((PORT_DIR / 'screenshot.jpg').exists())
+        self.assertIsNone(game.find('players'))
         self.assertTrue(game.findtext('desc'))
 
-    def test_screenshot_is_640x480_png(self):
-        header = (PORT_DIR / 'screenshot.png').read_bytes()[:24]
-        self.assertEqual(header[:8], b'\x89PNG\r\n\x1a\n')
-        width, height = struct.unpack('>II', header[16:24])
-        self.assertEqual((width, height), (640, 480))
+    def test_screenshot_is_640x480_jpeg(self):
+        data = (PORT_DIR / 'screenshot.jpg').read_bytes()
+        self.assertEqual(data[:3], b'\xff\xd8\xff')
+        index = 2
+        while index < len(data):
+            marker = data[index + 1]
+            length = struct.unpack('>H', data[index + 2:index + 4])[0]
+            if marker in (0xc0, 0xc1, 0xc2):
+                height, width = struct.unpack('>HH', data[index + 5:index + 9])
+                self.assertEqual((width, height), (640, 480))
+                return
+            index += 2 + length
+        self.fail('no SOF marker')
 
     def test_readme_mentions_upstreams_and_controls(self):
         text = (PORT_DIR / 'README.md').read_text()
         for needle in ['doldecomp/melee', 'encounter/aurora', 'encounter/dawn', 'PortMaster',
-                       'melee/assets', 'MELEE_PM_SWAP_CONTROLS', 'Start', 'Select', 'build_portmaster.sh',
-                       'RK3566', 'untested']:
+                       'melee/assets', 'Start', 'Select', 'build_portmaster.sh']:
             self.assertIn(needle, text)
+
+    def test_port_files_use_lf(self):
+        for name in ['Melee.sh', 'port.json', 'README.md', 'gameinfo.xml']:
+            self.assertNotIn(b'\r\n', (PORT_DIR / name).read_bytes(), name)
 
 
 class LauncherTextTests(unittest.TestCase):
@@ -86,26 +101,25 @@ class LauncherTextTests(unittest.TestCase):
 
     def test_required_portmaster_calls(self):
         for needle in ['source $controlfolder/control.txt', 'mod_${CFW_NAME}.txt', 'get_controls',
-                       'GAMEDIR="/$directory/ports/melee"', 'tee "$GAMEDIR/log.txt"', '$GPTOKEYB "melee.aarch64"',
-                       'pm_platform_helper "$GAMEDIR/melee.aarch64"', 'pm_finish', './melee.aarch64 "$disc"',
-                       'libs.${DEVICE_ARCH}', '$ESUDO', 'MELEE_FLIP_PRESENT_THREAD', 'MELEE_FLIP_ASYNC_PRESENT',
-                       'MELEE_PM_DRIVER', '/proc/device-tree/compatible', 'rk3566', 'MELEE_PM_SWAP_CONTROLS',
-                       'scaling_governor', '/sys/class/devfreq/*/governor', 'cpu[0-9]*/online',
-                       'trap restore_system EXIT', 'XDG_CONFIG_HOME="$GAMEDIR/runtime/config"',
-                       'XDG_CACHE_HOME', '-nt "$CACHE_DIR/.binary-stamp"']:
+                       'GAMEDIR="/$directory/ports/melee"', 'tee "$GAMEDIR/log.txt"', '$GPTOKEYB2 "melee.aarch64" -c "$GAMEDIR/melee.ini"',
+                       'pm_platform_helper "$GAMEDIR/melee.aarch64"', 'pm_finish',
+                       'chmod +x "$GAMEDIR/melee.aarch64"',
+                       'XDG_CONFIG_HOME="$GAMEDIR/runtime/config"', 'XDG_CACHE_HOME', 'SDL_GAMECONTROLLERCONFIG']:
             self.assertIn(needle, self.text, needle)
         for extension in ['*.iso', '*.gcm', '*.ciso', '*.rvz']:
             self.assertIn(extension, self.text)
-        # No Flip-only fixed sysfs paths.
-        self.assertNotIn('fde60000.gpu', self.text)
-        self.assertNotIn('policy0/scaling_governor', self.text)
+        # PortMaster review rules: no traps, no killing gptokeyb, no bundled drivers, no sysfs tuning.
+        for needle in ['trap ', 'pkill', 'killall', 'mali', 'fde60000.gpu', 'governor', 'devfreq', 'sudo ']:
+            self.assertNotIn(needle, self.text, needle)
+
+    def test_launcher_not_executable_in_source(self):
+        self.assertFalse(os.stat(PORT_DIR / 'Melee.sh').st_mode & 0o111)
 
 
 class LauncherBehaviourTests(unittest.TestCase):
-    """Run Melee.sh against a fake PortMaster control folder, sysfs and device tree."""
+    """Run Melee.sh against a fake PortMaster control folder and sysfs."""
 
-    def run_launcher(self, mode='normal', compatible='rockchip,rk3566-evb1-ddr4-v10 rockchip,rk3566',
-                     bundled=True, disc=True, env_overrides=None):
+    def run_launcher(self, mode='normal', disc=True):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         root = Path(temporary.name)
@@ -118,7 +132,8 @@ ESUDO=""
 directory="{str(root).lstrip('/')}"
 DEVICE_ARCH=aarch64
 CFW_NAME=testcfw
-GPTOKEYB="{root}/gptokeyb"
+GPTOKEYB="{root}/gptokeyb-classic"
+GPTOKEYB2="{root}/gptokeyb"
 get_controls() {{ sdl_controllerconfig="fake-map"; }}
 pm_message() {{ printf '%s\\n' "$1" > "{root}/message"; }}
 pm_platform_helper() {{ printf '%s\\n' "$1" > "{root}/helper"; }}
@@ -127,127 +142,43 @@ pm_finish() {{ printf finished > "{root}/finished"; }}
         (control / 'mod_testcfw.txt').write_text(f'printf sourced > "{root}/mod"\n')
         (root / 'gptokeyb').write_text('#!/bin/sh\nprintf "%s\\n" "$@" > "$GPTOKEYB_LOG"\nexit 0\n')
         (root / 'gptokeyb').chmod(0o755)
-        sys_root = root / 'sys'
-        for name, value in [('cpufreq/policy0/scaling_governor', 'schedutil'), ('cpufreq/policy4/scaling_governor', 'performance')]:
-            path = sys_root / 'cpu' / name
-            path.parent.mkdir(parents=True)
-            path.write_text(value + '\n')
-            (path.parent / 'scaling_available_governors').write_text('performance schedutil\n')
-        for index, value in enumerate(['1', '0', '0'], 1):
-            cpu = sys_root / 'cpu' / f'cpu{index}'
-            cpu.mkdir(parents=True)
-            (cpu / 'online').write_text(value + '\n')
-        for name, value, available in [('fde60000.gpu', 'simple_ondemand', 'performance simple_ondemand'),
-                                       ('dmc', 'dmc_ondemand', 'dmc_ondemand performance'),
-                                       ('nogov', 'userspace', 'userspace powersave')]:
-            path = sys_root / 'devfreq' / name / 'governor'
-            path.parent.mkdir(parents=True)
-            path.write_text(value + '\n')
-            (path.parent / 'available_governors').write_text(available + '\n')
-        (root / 'compatible').write_bytes(compatible.replace(' ', '\0').encode() + b'\0')
-        if bundled:
-            library = gamedir / 'lib/mali-g29p1/libmali.so.1'
-            library.parent.mkdir(parents=True)
-            library.touch()
-        (gamedir / 'libs.aarch64').mkdir()
         if disc:
             (gamedir / 'assets').mkdir()
             (gamedir / 'assets/Melee (USA) (v1.02).RVZ').write_bytes(b'not a disc')
         text = (PORT_DIR / 'Melee.sh').read_text()
         text = text.replace('controlfolder="/roms/ports/PortMaster"', f'controlfolder="{control}"')
-        text = text.replace('/sys/devices/system/cpu/', str(sys_root / 'cpu') + '/')
-        text = text.replace('/sys/class/devfreq/', str(sys_root / 'devfreq') + '/')
-        text = text.replace('/proc/device-tree/compatible', str(root / 'compatible'))
         launcher = root / 'Melee.sh'
         launcher.write_text(text)
         game = gamedir / 'melee.aarch64'
+        # Zip extraction drops the exec bit; the launcher must restore it.
         game.write_text(f'''#!/bin/sh
 printf '%s\\n' "$1" > "{root}/disc"
-printf '%s\\n' "$LD_LIBRARY_PATH" "$XDG_CONFIG_HOME" "$XDG_STATE_HOME" "$XDG_CACHE_HOME" "$MELEE_FLIP_CACHE_HOME" > "{root}/env"
-printf '%s\\n' "${{MELEE_FLIP_PRESENT_THREAD-unset}}" "${{MELEE_FLIP_ASYNC_PRESENT-unset}}" "${{MELEE_FLIP_SWAP_CONTROLS-unset}}" "${{MELEE_FLIP_TEXTURE_ATLAS-unset}}" "$SDL_GAMECONTROLLERCONFIG" > "{root}/options"
-cat "{sys_root}"/cpu/cpu*/online > "{root}/cores"
-cat "{sys_root}"/cpu/cpufreq/policy0/scaling_governor "{sys_root}"/devfreq/fde60000.gpu/governor "{sys_root}"/devfreq/dmc/governor "{sys_root}"/devfreq/nogov/governor > "{root}/governors"
-printf ready > "{root}/ready"
-case "$GAME_MODE" in
-  hold) exec sleep 30 ;;
-  fail) exit 7 ;;
-esac
+printf '%s\\n' "$LD_LIBRARY_PATH" "$XDG_CONFIG_HOME" "$XDG_STATE_HOME" "$XDG_CACHE_HOME" "$SDL_GAMECONTROLLERCONFIG" > "{root}/env"
+[ "$GAME_MODE" = fail ] && exit 7
+exit 0
 ''')
-        game.chmod(0o755)
-        # A stale cache from an older binary must be wiped; the marker proves it.
-        cache = gamedir / 'runtime/cache/pipeline'
-        cache.mkdir(parents=True)
-        (cache / 'stale.bin').touch()
-        (cache / '.binary-stamp').touch()
-        os.utime(cache / '.binary-stamp', (0, 0))
+        game.chmod(0o644)
         env = dict(os.environ, GAME_MODE=mode, GPTOKEYB_LOG=str(root / 'gptokeyb.log'), HOME=str(root))
-        for key in ['MELEE_FLIP_PRESENT_THREAD', 'MELEE_FLIP_ASYNC_PRESENT', 'MELEE_FLIP_SWAP_CONTROLS',
-                    'MELEE_FLIP_TEXTURE_ATLAS', 'MELEE_FLIP_CACHE_HOME', 'MELEE_PM_DRIVER', 'MELEE_PM_DISC',
-                    'MELEE_PM_SWAP_CONTROLS', 'MELEE_PM_PERFORMANCE', 'MELEE_PM_ALL_CORES']:
-            env.pop(key, None)
-        if env_overrides:
-            env.update(env_overrides)
-        proc = subprocess.Popen(['bash', str(launcher)], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        try:
-            if mode == 'hold':
-                deadline = time.monotonic() + 5
-                while not (root / 'ready').exists() and time.monotonic() < deadline:
-                    time.sleep(.01)
-                self.assertTrue((root / 'ready').exists())
-                proc.send_signal(signal.SIGTERM)
-            result = proc.wait(timeout=30)
-        finally:
-            if proc.poll() is None:
-                proc.kill()
-                proc.wait()
+        result = subprocess.run(['bash', str(launcher)], env=env, stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL, timeout=30).returncode
         return root, gamedir, result
 
-    def test_normal_run_selects_bundled_driver_on_rk3566(self):
+    def test_normal_run(self):
         root, gamedir, result = self.run_launcher()
         self.assertEqual(result, 0)
         self.assertTrue((root / 'mod').exists())
         self.assertEqual((root / 'disc').read_text().strip(), str(gamedir / 'assets/Melee (USA) (v1.02).RVZ'))
         env = (root / 'env').read_text().splitlines()
-        self.assertEqual(env[0].split(':')[:2], [str(gamedir / 'lib/mali-g29p1'), str(gamedir / 'libs.aarch64')])
-        self.assertEqual(env[1], str(gamedir / 'runtime/config'))
-        self.assertEqual(env[2], str(gamedir / 'runtime/state'))
-        self.assertEqual(env[3], str(gamedir / 'runtime/cache/pipeline'))
-        self.assertEqual(env[4], env[3])
-        options = (root / 'options').read_text().splitlines()
-        self.assertEqual(options[:4], ['1', '1', 'unset', 'unset'])
-        self.assertEqual(options[4], 'fake-map')
-        self.assertEqual((root / 'cores').read_text().split(), ['1', '1', '1'])
-        self.assertEqual((root / 'governors').read_text().split(), ['performance', 'performance', 'performance', 'userspace'])
-        # Restored after exit.
-        self.assertEqual([(root / f'sys/cpu/cpu{i}/online').read_text().strip() for i in range(1, 4)], ['1', '0', '0'])
-        self.assertEqual((root / 'sys/cpu/cpufreq/policy0/scaling_governor').read_text().strip(), 'schedutil')
-        self.assertEqual((root / 'sys/devfreq/fde60000.gpu/governor').read_text().strip(), 'simple_ondemand')
-        self.assertEqual((root / 'sys/devfreq/dmc/governor').read_text().strip(), 'dmc_ondemand')
-        self.assertEqual((root / 'gptokeyb.log').read_text().strip(), 'melee.aarch64')
+        # Nothing is bundled (static C++ runtime), so the launcher leaves the library path alone.
+        self.assertNotIn('libs.aarch64', env[0])
+        self.assertEqual(env[1:4], [str(gamedir / 'runtime/config'), str(gamedir / 'runtime/state'),
+                                    str(gamedir / 'runtime/cache')])
+        self.assertEqual(env[4], 'fake-map')
+        self.assertEqual((root / 'gptokeyb.log').read_text().split(),
+                         ['melee.aarch64', '-c', str(gamedir / 'melee.ini')])
         self.assertEqual((root / 'helper').read_text().strip(), str(gamedir / 'melee.aarch64'))
         self.assertTrue((root / 'finished').exists())
-        self.assertFalse((gamedir / 'runtime/cache/pipeline/stale.bin').exists())
-        self.assertTrue((gamedir / 'runtime/cache/pipeline/.binary-stamp').exists())
         self.assertTrue((gamedir / 'log.txt').exists())
-
-    def test_system_driver_on_other_soc_and_passthrough(self):
-        root, gamedir, result = self.run_launcher(compatible='rockchip,rk3326', env_overrides={
-            'MELEE_FLIP_TEXTURE_ATLAS': '0', 'MELEE_PM_SWAP_CONTROLS': '0', 'MELEE_FLIP_PRESENT_THREAD': '0'})
-        self.assertEqual(result, 0)
-        env = (root / 'env').read_text().splitlines()
-        self.assertEqual(env[0].split(':')[0], str(gamedir / 'libs.aarch64'))
-        self.assertNotIn('mali-g29p1', env[0])
-        self.assertEqual((root / 'options').read_text().splitlines()[:4], ['0', '1', '0', '0'])
-
-    def test_driver_override_and_missing_bundle(self):
-        root, gamedir, result = self.run_launcher(compatible='rockchip,rk3326', env_overrides={'MELEE_PM_DRIVER': 'bundled'})
-        self.assertEqual(result, 0)
-        self.assertEqual((root / 'env').read_text().splitlines()[0].split(':')[0], str(gamedir / 'lib/mali-g29p1'))
-        root, gamedir, result = self.run_launcher(bundled=False, env_overrides={'MELEE_PM_DRIVER': 'bundled'})
-        self.assertEqual(result, 1)
-        self.assertFalse((root / 'disc').exists())
-        root, gamedir, result = self.run_launcher(env_overrides={'MELEE_PM_DRIVER': 'system'})
-        self.assertNotIn('mali-g29p1', (root / 'env').read_text().splitlines()[0])
 
     def test_missing_disc_reports_and_exits(self):
         root, gamedir, result = self.run_launcher(disc=False)
@@ -255,19 +186,10 @@ esac
         self.assertIn('melee/assets', (root / 'message').read_text())
         self.assertFalse((root / 'disc').exists())
 
-    def test_failure_and_signal_restore_system_state(self):
-        for mode, expected in [('fail', 7), ('hold', 143)]:
-            root, gamedir, result = self.run_launcher(mode=mode)
-            self.assertEqual(result, expected, mode)
-            self.assertEqual([(root / f'sys/cpu/cpu{i}/online').read_text().strip() for i in range(1, 4)], ['1', '0', '0'])
-            self.assertEqual((root / 'sys/cpu/cpufreq/policy0/scaling_governor').read_text().strip(), 'schedutil')
-            self.assertEqual((root / 'sys/devfreq/dmc/governor').read_text().strip(), 'dmc_ondemand')
-
-    def test_performance_opt_out(self):
-        root, gamedir, result = self.run_launcher(env_overrides={'MELEE_PM_PERFORMANCE': '0', 'MELEE_PM_ALL_CORES': '0'})
-        self.assertEqual(result, 0)
-        self.assertEqual((root / 'cores').read_text().split(), ['1', '0', '0'])
-        self.assertEqual((root / 'governors').read_text().split(), ['schedutil', 'simple_ondemand', 'dmc_ondemand', 'userspace'])
+    def test_game_failure_still_finishes(self):
+        root, gamedir, result = self.run_launcher(mode='fail')
+        self.assertTrue((root / 'disc').exists())
+        self.assertTrue((root / 'finished').exists())
 
 
 class AssembleTests(unittest.TestCase):
@@ -275,34 +197,99 @@ class AssembleTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             bundle = root / 'bundle'
-            (bundle / 'lib/mali-g29p1').mkdir(parents=True)
+            (bundle / 'lib').mkdir(parents=True)
             (bundle / 'licenses').mkdir()
             (bundle / 'melee_native').write_bytes(b'\x7fELF\x02\x01\x01' + bytes(9) + struct.pack('<HH', 3, 183) + bytes(44))
             (bundle / 'lib/libstdc++.so.6').write_bytes(b'cpp')
-            (bundle / 'lib/mali-g29p1/libmali.so.1').write_bytes(b'mali')
             (bundle / 'licenses/Aurora.txt').write_text('license')
+            (bundle / 'licenses/Mali.txt').write_text('driver eula')
             (bundle / 'launch.sh').write_text('flip only')
             tree, zip_path = package.assemble(bundle, root / 'out')
             self.assertEqual(tree, root / 'out/melee')
-            for name in ['port.json', 'Melee.sh', 'README.md', 'gameinfo.xml', 'screenshot.png',
-                         'melee/melee.aarch64', 'melee/libs.aarch64/libstdc++.so.6', 'melee/lib/mali-g29p1/libmali.so.1',
-                         'melee/licenses/Aurora.txt', 'melee/assets/README.txt']:
+            for name in ['port.json', 'Melee.sh', 'README.md', 'gameinfo.xml', 'screenshot.jpg',
+                         'melee/melee.aarch64', 'melee/melee.ini',
+                         'melee/licenses/LICENSE.Aurora.txt', 'melee/assets/README.txt']:
                 self.assertTrue((tree / name).exists(), name)
+            self.assertFalse((tree / 'melee/libs.aarch64').exists())
+            self.assertEqual([p.name for p in (tree / 'melee/licenses').iterdir()], ['LICENSE.Aurora.txt'])
             self.assertTrue((tree / 'melee/runtime').is_dir())
             self.assertFalse((tree / 'melee/launch.sh').exists())
-            self.assertTrue(os.access(tree / 'Melee.sh', os.X_OK))
+            self.assertFalse((tree / 'melee/lib').exists())
+            self.assertFalse(os.access(tree / 'Melee.sh', os.X_OK))
             self.assertTrue(os.access(tree / 'melee/melee.aarch64', os.X_OK))
             with zipfile.ZipFile(zip_path) as archive:
                 names = set(archive.namelist())
-                for name in ['Melee.sh', 'port.json', 'melee/melee.aarch64', 'melee/libs.aarch64/libstdc++.so.6',
-                             'melee/licenses/Aurora.txt', 'melee/assets/README.txt', 'melee/runtime/']:
+                for name in ['Melee.sh', 'port.json', 'melee/melee.aarch64', 'melee/melee.ini',
+                             'melee/licenses/LICENSE.Aurora.txt', 'melee/assets/README.txt', 'melee/runtime/']:
                     self.assertIn(name, names, name)
+                self.assertFalse([n for n in names if 'libstdc++' in n or 'libs.aarch64' in n])
                 self.assertFalse([n for n in names if not (n.startswith('melee/') or n in ('Melee.sh', 'port.json'))])
-                self.assertEqual((archive.getinfo('Melee.sh').external_attr >> 16) & 0o777, 0o755)
                 self.assertEqual((archive.getinfo('melee/melee.aarch64').external_attr >> 16) & 0o777, 0o755)
                 self.assertTrue(is_aarch64_elf(archive.read('melee/melee.aarch64')[:20]))
             with self.assertRaises(FileExistsError):
                 package.assemble(bundle, root / 'out')
+
+
+class RustLicenseTests(unittest.TestCase):
+    def test_notices_from_fake_build_and_registry(self):
+        spec = importlib.util.spec_from_file_location('rust_licenses', NATIVE / 'tools/rust_licenses.py')
+        rust_licenses = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(rust_licenses)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            build = root / 'build'
+            target = build / 'cargo/nod-ffi_1/aarch64-unknown-linux-gnu/release/.fingerprint'
+            target.mkdir(parents=True)
+            for name in ['nod-0123456789abcdef', 'bytes-0123456789abcdef', 'bzip2-sys-fedcba9876543210']:
+                (target / name).mkdir()
+            # Host-only build tools must not be listed.
+            (build / 'cargo/nod-ffi_1/release/.fingerprint/cc-0123456789abcdef').mkdir(parents=True)
+            nod = build / '_deps/aurora_nod-src'
+            nod.mkdir(parents=True)
+            (nod / 'LICENSE-MIT').write_text('nod mit')
+            (nod / 'Cargo.lock').write_text('''
+[[package]]
+name = "nod"
+version = "2.0.0"
+
+[[package]]
+name = "bytes"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "bzip2-sys"
+version = "0.1.13+1.0.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "cc"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+''')
+            registry = root / 'cargo/registry/src/index.crates.io-1'
+            for crate, license_expr in [('bytes-1.0.0', 'MIT'), ('bzip2-sys-0.1.13+1.0.8', 'MIT/Apache-2.0')]:
+                (registry / crate).mkdir(parents=True)
+                (registry / crate / 'Cargo.toml').write_text(f'[package]\nname = "x"\nlicense = "{license_expr}"\n')
+                (registry / crate / 'LICENSE-MIT').write_text('same mit text')
+            (registry / 'bzip2-sys-0.1.13+1.0.8/bzip2-1.0.8').mkdir()
+            (registry / 'bzip2-sys-0.1.13+1.0.8/bzip2-1.0.8/LICENSE').write_text('Julian Seward')
+            licenses = root / 'licenses'
+            licenses.mkdir()
+            written = rust_licenses.write_notices(build, licenses, cargo_home=root / 'cargo')
+            self.assertEqual(sorted(written), ['bzip2.txt', 'rust-crates.txt'])
+            text = (licenses / 'rust-crates.txt').read_text()
+            for needle in ['bytes 1.0.0', 'License: MIT', 'bzip2-sys 0.1.13+1.0.8', 'nod 2.0.0', 'nod mit',
+                           'same text as bytes 1.0.0 LICENSE-MIT']:
+                self.assertIn(needle, text)
+            self.assertNotIn('cc 1.0.0', text)
+            self.assertEqual(text.count('same mit text'), 1)
+            self.assertIn('Julian Seward', (licenses / 'bzip2.txt').read_text())
+            (registry / 'bytes-1.0.0/Cargo.toml').unlink()
+            (registry / 'bytes-1.0.0/LICENSE-MIT').unlink()
+            (registry / 'bytes-1.0.0').rmdir()
+            with self.assertRaises(RuntimeError):
+                rust_licenses.write_notices(build, licenses, cargo_home=root / 'cargo')
 
 
 @unittest.skipUnless(ZIP.exists(), 'no built melee.zip (set MELEE_PORTMASTER_ZIP)')
@@ -310,22 +297,23 @@ class BuiltZipTests(unittest.TestCase):
     def test_zip_layout_and_binary(self):
         with zipfile.ZipFile(ZIP) as archive:
             names = set(archive.namelist())
-            self.assertIn('Melee.sh', names)
-            self.assertIn('port.json', names)
-            self.assertIn('melee/melee.aarch64', names)
-            self.assertIn('melee/libs.aarch64/libstdc++.so.6', names)
-            self.assertIn('melee/assets/README.txt', names)
-            self.assertIn('melee/runtime/', names)
-            self.assertTrue([n for n in names if n.startswith('melee/licenses/') and n.endswith('.txt')])
+            for name in ['Melee.sh', 'port.json', 'melee/melee.aarch64',
+                         'melee/assets/README.txt', 'melee/runtime/']:
+                self.assertIn(name, names, name)
+            licenses = [n for n in names if n.startswith('melee/licenses/') and not n.endswith('/')]
+            self.assertTrue(licenses)
+            for name in licenses:
+                self.assertRegex(name, r'^melee/licenses/LICENSE\.[^/]+\.txt$')
             self.assertFalse([n for n in names if n.lower().endswith(('.iso', '.gcm', '.ciso', '.rvz', '.img'))])
+            self.assertFalse([n for n in names if 'mali' in n.lower() or 'libegl' in n.lower() or 'libgles' in n.lower()])
             self.assertFalse([n for n in names if not (n.startswith('melee/') or n in ('Melee.sh', 'port.json'))])
             self.assertTrue(is_aarch64_elf(archive.read('melee/melee.aarch64')[:20]))
-            self.assertTrue(is_aarch64_elf(archive.read('melee/libs.aarch64/libstdc++.so.6')[:20]))
+            self.assertFalse([n for n in names if 'libstdc++' in n or 'libs.aarch64' in n])
             self.assertEqual(json.loads(archive.read('port.json')), json.loads((PORT_DIR / 'port.json').read_text()))
             self.assertEqual(archive.read('Melee.sh'), (PORT_DIR / 'Melee.sh').read_bytes())
         tree = ZIP.parent / 'melee'
         if tree.exists():
-            for name in ['port.json', 'README.md', 'gameinfo.xml', 'screenshot.png', 'Melee.sh', 'melee/melee.aarch64']:
+            for name in ['port.json', 'README.md', 'gameinfo.xml', 'screenshot.jpg', 'Melee.sh', 'melee/melee.aarch64']:
                 self.assertTrue((tree / name).exists(), name)
 
 

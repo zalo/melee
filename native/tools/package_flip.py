@@ -9,6 +9,8 @@ import shutil
 import struct
 import subprocess
 
+import rust_licenses
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -73,6 +75,8 @@ def main():
         notices[Path(name).stem] = Path(source)
     for name, source in notices.items():
         shutil.copy2(source, args.output / 'licenses' / (name + '.txt'))
+    # The disc reader's Rust crates and the C libraries they vendor (bzip2, zstd, liblzma).
+    rust_licenses.write_notices(args.build, args.output / 'licenses')
     print(args.output)
 
 

@@ -1,6 +1,6 @@
 #!/bin/sh
-# One-command PortMaster build: Aurora checkout, Flip SDK/Dawn preparation,
-# AArch64 cross build, PortMaster packaging.
+# One-command PortMaster build: Aurora checkout, SDK/Dawn preparation, AArch64 cross build
+# (cortex-a35 baseline so one binary runs on RK3326, RK3566, H700 and newer), packaging.
 #
 # Inputs (environment; defaults point at the layout the port was developed in):
 #   FLIP_TOOLCHAIN    Bootlin aarch64--glibc--stable-2023.08-1 SDK with the device
@@ -8,7 +8,7 @@
 #   FLIP_DAWN_PREFIX  Dawn install built from native/platform/flip/dawn-gl-interop.patch
 #                     (prepare_flip.py builds it into build/flip-tools/dawn-install)
 #   RUSTUP_HOME, CARGO_HOME, RUST_TOOLCHAIN   host Rust for Aurora's nod/wgpu build tools
-#   MALI_G29          optional libmali.so.1 (g29p1) to bundle for RK3566 devices
+#   MELEE_BUILD_DIR   build tree (default build/portmaster-a35)
 #   BUILD_JOBS        parallel jobs (default 6)
 #   PORTMASTER_OUTPUT output directory (default dist/portmaster)
 set -eu
@@ -17,6 +17,8 @@ tools="$root/build/flip-tools"
 export RUSTUP_HOME="${RUSTUP_HOME:-$tools/rustup}"
 export CARGO_HOME="${CARGO_HOME:-$tools/cargo}"
 export PATH="$CARGO_HOME/bin:$PATH"
+export MELEE_BUILD_DIR="${MELEE_BUILD_DIR:-$root/build/portmaster-a35}"
+export FLIP_CPU=cortex-a35
 rust_toolchain="${RUST_TOOLCHAIN:-stable-x86_64-unknown-linux-gnu}"
 output="${PORTMASTER_OUTPUT:-$root/dist/portmaster}"
 
@@ -30,23 +32,44 @@ if [ -z "${FLIP_TOOLCHAIN:-}" ] || [ -z "${FLIP_DAWN_PREFIX:-}" ]; then
     : "${FLIP_DAWN_PREFIX:=$tools/dawn-install}"
 fi
 export FLIP_TOOLCHAIN FLIP_DAWN_PREFIX
+sdk=$FLIP_TOOLCHAIN
 
 if [ ! -x "$CARGO_HOME/bin/rustup" ]; then
     echo "rustup not found at $CARGO_HOME/bin/rustup; install it with RUSTUP_HOME/CARGO_HOME under $tools" >&2
     exit 1
 fi
 
-echo "== Cross build (melee_native for AArch64)"
+# port.json promises min_glibc 2.30 (ArkOS), but the SDK's glibc is 2.37. The release link therefore
+# uses a copy of the SDK whose sysroot carries glibc 2.30 (native/tools/glibc230_toolchain.sh).
+# MELEE_MIN_GLIBC=sdk skips that and links against the SDK as is (needs glibc 2.34+ on the device).
+link_flags=
+if [ "${MELEE_MIN_GLIBC:-2.30}" != "sdk" ]; then
+    hybrid="${FLIP_TOOLCHAIN_GLIBC230:-$tools/aarch64--glibc-2.30-hybrid}"
+    [ -d "$hybrid" ] || sh "$root/native/tools/glibc230_toolchain.sh" build "$sdk" "$hybrid"
+    export FLIP_TOOLCHAIN="$hybrid"
+    # The SDK's libdrm/libz link stubs reference glibc 2.33/2.34 symbols; the device's own copies are loaded at run time.
+    link_flags="-DCMAKE_EXE_LINKER_FLAGS=-Wl,--allow-shlib-undefined"
+fi
+
+echo "== Cross build (melee_native for AArch64, -mcpu=$FLIP_CPU, toolchain $FLIP_TOOLCHAIN)"
+# Mali-G31 (RK3326) reports the GLES minimum GL_MAX_UNIFORM_BLOCK_SIZE of 16 KiB, so the uniform
+# window must be 16 KiB (Aurora's default is 64); the vertex stream is Aurora's default 5 MiB.
 sh "$root/native/platform/flip/build.sh" \
-    -DRust_RUSTUP="$CARGO_HOME/bin/rustup" -DRust_TOOLCHAIN="$rust_toolchain" "$@"
+    -DRust_RUSTUP="$CARGO_HOME/bin/rustup" -DRust_TOOLCHAIN="$rust_toolchain" \
+    -DAURORA_UNIFORM_WINDOW_KIB=16 -DAURORA_VERTEX_BUFFER_MIB=5 ${link_flags:+"$link_flags"} "$@"
+
+if [ -n "$link_flags" ]; then
+    echo "== glibc check"
+    sh "$root/native/tools/glibc230_toolchain.sh" verify "$sdk" "$MELEE_BUILD_DIR/melee_native"
+fi
 
 echo "== Packaging"
 rm -rf "$output/melee" "$output/melee.zip"
-set -- --output "$output"
-if [ -n "${MALI_G29:-}" ]; then set -- "$@" --mali-g29 "$MALI_G29"; fi
-python3 "$root/native/tools/package_portmaster.py" "$@"
+# The plain SDK: package_flip.py strips with it and reads its libstdc++.so.6 for the Flip bundle
+# (dropped again for PortMaster); the glibc 2.30 toolchain has no shared libstdc++.
+python3 "$root/native/tools/package_portmaster.py" --build "$MELEE_BUILD_DIR" --sdk "$sdk" --output "$output"
 stamp=$(git -C "$root" rev-parse --short HEAD 2>/dev/null || echo local)
 mkdir -p "$tools"
-cp "$root/build/native-flip/melee_native" "$tools/melee_native-portmaster-$stamp-symbols"
+cp "$MELEE_BUILD_DIR/melee_native" "$tools/melee_native-portmaster-$stamp-symbols"
 echo "symbols: $tools/melee_native-portmaster-$stamp-symbols"
 sha256sum "$output/melee.zip"

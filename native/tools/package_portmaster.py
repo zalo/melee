@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """Build the PortMaster port of the native Melee port from the AArch64 cross build.
 
-Reuses package_flip.py for the stripped binary, libstdc++, the optional Mali
-g29p1 driver and the license set, then lays them out as PortMaster expects:
+Reuses package_flip.py for the stripped binary and the license set, then lays them out as
+PortMaster-New expects:
 
     <output>/melee/            unzipped tree in the PortMaster-New ports/<name>/ layout
-        port.json, Melee.sh, README.md, gameinfo.xml, screenshot.png
-        melee/melee.aarch64, melee/libs.aarch64/, melee/lib/mali-g29p1/ (optional),
-        melee/licenses/, melee/assets/README.txt, melee/runtime/
+        port.json, Melee.sh, README.md, gameinfo.xml, screenshot.jpg (+ cover.jpg)
+        melee/melee.aarch64, melee/melee.ini (gptokeyb2 config),
+        melee/licenses/LICENSE.<component>.txt, melee/assets/README.txt, melee/runtime/
     <output>/melee.zip         Melee.sh + melee/ (+ port.json) at the zip root
 
-No disc image or other game asset is ever included.
+No disc image, GPU driver or other system library is ever included; the C++ runtime is linked
+statically into melee.aarch64.
 """
 import argparse
 import hashlib
@@ -27,13 +28,14 @@ PORT_DIR = ROOT / 'native/platform/portmaster'
 PORT_NAME = 'melee'
 LAUNCHER = 'Melee.sh'
 BINARY = 'melee.aarch64'
-METADATA = ['port.json', 'README.md', 'gameinfo.xml', 'screenshot.png']
-OPTIONAL_METADATA = ['cover.png']
+GPTK_CONFIG = 'melee.ini'
+METADATA = ['port.json', 'README.md', 'gameinfo.xml', 'screenshot.jpg']
+OPTIONAL_METADATA = ['cover.jpg']
 ASSETS_README = '''Put your own Super Smash Bros. Melee disc image in this directory.
 
 Supported: the US 1.02 release (GALE01) as .iso, .gcm, .ciso or .rvz. Dump it
-from a disc you own (Dolphin wiki: Ripping Games). The launcher picks the first
-image it finds here; MELEE_PM_DISC=/path/to/image overrides.
+from a disc you own (Dolphin wiki: Ripping Games). The launcher uses the first
+image it finds here.
 
 Nothing in this port includes or downloads game data.
 '''
@@ -42,8 +44,8 @@ Nothing in this port includes or downloads game data.
 def assemble(bundle, output, port_dir=PORT_DIR):
     """Turn a package_flip.py bundle directory into the PortMaster tree and zip.
 
-    Returns (tree, zip_path). `bundle` must contain melee_native, lib/libstdc++.so.6,
-    licenses/ and optionally lib/mali-g29p1/libmali.so.1.
+    Returns (tree, zip_path). `bundle` must contain melee_native and licenses/<component>.txt;
+    anything else in it (lib/, launch.sh) is Flip-only and ignored.
     """
     bundle = Path(bundle)
     output = Path(output)
@@ -51,24 +53,22 @@ def assemble(bundle, output, port_dir=PORT_DIR):
     data = tree / PORT_NAME
     if tree.exists():
         raise FileExistsError(f'{tree} already exists; remove it first')
-    (data / 'libs.aarch64').mkdir(parents=True)
-    (data / 'licenses').mkdir()
+    (data / 'licenses').mkdir(parents=True)
     (data / 'assets').mkdir()
     (data / 'runtime').mkdir()
 
     shutil.copy2(bundle / 'melee_native', data / BINARY)
     os.chmod(data / BINARY, 0o755)
-    shutil.copy2(bundle / 'lib/libstdc++.so.6', data / 'libs.aarch64/libstdc++.so.6')
-    mali = bundle / 'lib/mali-g29p1/libmali.so.1'
-    if mali.exists():
-        (data / 'lib/mali-g29p1').mkdir(parents=True)
-        shutil.copy2(mali, data / 'lib/mali-g29p1/libmali.so.1')
     for license_file in sorted((bundle / 'licenses').iterdir()):
-        shutil.copy2(license_file, data / 'licenses' / license_file.name)
+        if license_file.stem.startswith('Mali'):
+            continue
+        shutil.copy2(license_file, data / 'licenses' / f'LICENSE.{license_file.stem}.txt')
     (data / 'assets/README.txt').write_text(ASSETS_README)
+    shutil.copy2(port_dir / GPTK_CONFIG, data / GPTK_CONFIG)
 
-    shutil.copy2(port_dir / LAUNCHER, tree / LAUNCHER)
-    os.chmod(tree / LAUNCHER, 0o755)
+    # PortMaster convention: the launcher is committed 644; the CFW sets the exec bit.
+    shutil.copyfile(port_dir / LAUNCHER, tree / LAUNCHER)
+    os.chmod(tree / LAUNCHER, 0o644)
     for name in METADATA:
         shutil.copy2(port_dir / name, tree / name)
     for name in OPTIONAL_METADATA:
@@ -100,9 +100,8 @@ def add_to_zip(archive, path, name):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--build', type=Path, default=ROOT / 'build/native-flip')
+    parser.add_argument('--build', type=Path, default=ROOT / 'build/portmaster-a35')
     parser.add_argument('--sdk', type=Path, default=os.environ.get('FLIP_TOOLCHAIN'))
-    parser.add_argument('--mali-g29', type=Path, help='Bundle the verified g29p1 GLES library (RK3566 only)')
     parser.add_argument('--output', type=Path, default=ROOT / 'dist/portmaster')
     args = parser.parse_args()
     if not args.sdk:
@@ -112,8 +111,6 @@ def main():
         bundle = Path(temporary) / 'bundle'
         command = [sys.executable, str(ROOT / 'native/tools/package_flip.py'), '--build', str(args.build),
                    '--sdk', str(args.sdk), '--output', str(bundle)]
-        if args.mali_g29:
-            command += ['--mali-g29', str(args.mali_g29)]
         subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
         tree, zip_path = assemble(bundle, args.output)
     digest = hashlib.sha256(zip_path.read_bytes()).hexdigest()
