@@ -54,8 +54,12 @@ fi
 echo "== Cross build (melee_native for AArch64, -mcpu=$FLIP_CPU, toolchain $FLIP_TOOLCHAIN)"
 # Mali-G31 (RK3326) reports the GLES minimum GL_MAX_UNIFORM_BLOCK_SIZE of 16 KiB, so the uniform
 # window must be 16 KiB (Aurora's default is 64); the vertex stream is Aurora's default 5 MiB.
+# The expected Aurora revision is a CMake cache variable, so a build tree configured before a pin
+# bump would keep the old value and fail the revision check; pass bootstrap.py's pin explicitly.
+aurora_rev=$(sed -n "s/^revision = '\([0-9a-f]*\)'.*/\1/p" "$root/native/tools/bootstrap.py")
 sh "$root/native/platform/flip/build.sh" \
     -DRust_RUSTUP="$CARGO_HOME/bin/rustup" -DRust_TOOLCHAIN="$rust_toolchain" \
+    -DMELEE_AURORA_EXPECTED_REV="$aurora_rev" \
     -DAURORA_UNIFORM_WINDOW_KIB=16 -DAURORA_VERTEX_BUFFER_MIB=5 ${link_flags:+"$link_flags"} "$@"
 
 if [ -n "$link_flags" ]; then
