@@ -56,7 +56,7 @@ Porter results (13 scripted modes: VS match, Classic, Adventure, Event, Multi-Ma
 | Anbernic RG351P (RK3326, 480x320) | dArkOS (RG351MP image, libmali g31 r13p0) | all modes pass; medians 48-60 FPS, 53 in the VS match, the fastest RG351P result. No rumble: dArkOS exposes no force-feedback device on this board |
 | Miyoo Flip (RK3566, 640x480) | stock firmware (libmali g2p0), also g29p1 | menus, VS, Classic, Event; 50-60 FPS in matches, 60 in menus |
 | Miyoo Flip (RK3566, 640x480) | Knulli Scarab 20260511 (libmali g13p0) | all modes pass but slowly: this blob drops draws, so the renderer falls back to per-draw barriers; medians 9-20 FPS, 54 in Tournament |
-| Miyoo Flip (RK3566, 640x480) | ROCKNIX 20260901 (libmali g29p1) | all modes pass; medians 46-58 FPS |
-| Miyoo Flip (RK3566, 640x480) | ROCKNIX 20260901 (Panfrost, Mesa 26.1) | all modes pass; medians 44-55 FPS in game modes (50 in the VS match), 29-31 in the menus, about 140 MB of RAM free |
+| Miyoo Flip (RK3566, 640x480) | ROCKNIX 20260901 (libmali g29p1) | all modes pass; medians 46-58 FPS (final build: VS match 50, Event 52, Tournament 56) |
+| Miyoo Flip (RK3566, 640x480) | ROCKNIX 20260901 (Panfrost, Mesa 26.1) | all modes pass; medians 41-56 FPS in game modes (41-50 in the VS match), 29-30 in the menus, about 110-140 MB of RAM free |
 
 Untested so far: muOS, ArkOS, resolutions above 640x480, H700 / A133P / Snapdragon devices. Reports from those are the most useful.
