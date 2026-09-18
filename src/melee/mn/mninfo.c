@@ -180,6 +180,27 @@ DATA char gap_07_803EFCE0_data[8] = "";
 #pragma pop
 #endif
 
+#ifdef MELEE_NATIVE
+/// mnInfo_803EFC08 spells these bytes as big-endian floats, which a
+/// little-endian host reads back byte-swapped (main.dol 0x803EFC08).
+static MnInfoDataLayout mnInfo_NativeLayout = {
+    { 0.0f, 199.0f, 0.0f },
+    { 0x505, 0x506, 0x507, 0x508 },
+    "%s.%s.%s",
+    "%s:%s:%s",
+    "Can't get user_data.\n",
+    "mninfo.c",
+    "user_data",
+    "MenMainConCo_Top_joint",
+    "MenMainConCo_Top_animjoint",
+    "MenMainConCo_Top_matanim_joint",
+    "MenMainConCo_Top_shapeanim_joint",
+};
+#define MNINFO_LAYOUT (&mnInfo_NativeLayout)
+#else
+#define MNINFO_LAYOUT ((MnInfoDataLayout*) mnInfo_803EFC08)
+#endif
+
 #ifdef MUST_MATCH
 #pragma push
 #pragma dont_inline on
@@ -199,9 +220,14 @@ s32 mnInfo_80251D58(mnInfo_GObj* arg0, s32 arg1, u32 arg2, u32 arg3)
     MnInfoDataLayout* layout;
 
     data = arg0->user_data;
-    layout = (MnInfoDataLayout*) mnInfo_803EFC08;
+    layout = MNINFO_LAYOUT;
+#ifdef MELEE_NATIVE
+    slot = &data->left_column[arg1];
+    if (*slot != NULL) {
+#else
     slot = (HSD_Text**) ((u8*) data + (arg1 * 4));
     if (*(slot += 2) != NULL) {
+#endif
         HSD_SisLib_803A5CC4(data->left_column[arg1]);
     }
     text = HSD_SisLib_803A6754(0, 1);
@@ -247,8 +273,13 @@ void mnInfo_80251F04(mnInfo_GObj* arg0, s32 arg1, u32 arg2)
     MnInfoData* data;
 
     data = arg0->user_data;
+#ifdef MELEE_NATIVE
+    slot = &data->right_column[arg1];
+    if (*slot != NULL) {
+#else
     slot = (HSD_Text**) ((u8*) data + (arg1 * 4));
     if (*(slot += 6) != NULL) {
+#endif
         HSD_SisLib_803A5CC4(data->right_column[arg1]);
     }
     text = HSD_SisLib_803A5ACC(0, 0, -5.0f, (3.45f * (f32) arg1) + -5.9f,
@@ -561,7 +592,7 @@ s32 mnInfo_80252758(void)
     HSD_GObj* gobj;
     HSD_Archive* archive;
     StaticModelDesc* model = &mnInfo_804A0958;
-    MnInfoDataLayout* layout = (MnInfoDataLayout*) mnInfo_803EFC08;
+    MnInfoDataLayout* layout = MNINFO_LAYOUT;
     char* top_joint = layout->top_joint;
     HSD_AnimJoint** animjoint = &model->animjoint;
     PAD_STACK(8);

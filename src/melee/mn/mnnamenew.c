@@ -52,6 +52,24 @@ typedef struct MnNameNewGlyphTable {
     GlyphChar* upper_glyphs[50][4];
 } MnNameNewGlyphTable;
 
+#ifdef MELEE_NATIVE
+/// On the GameCube the layout is one span across adjacent statics. A native
+/// build does not keep them contiguous, so the view points at each one.
+typedef struct MnNameNewDataLayout {
+    AnimLoopSettings* anim;
+    u16* key_jobj_ids;
+    char** x34;
+    char** xFC;
+    char** character_bytes;
+    GlyphRow* lower_glyphs;
+    GlyphRow* upper_glyphs;
+    Vec3* x8CC;
+} MnNameNewDataLayout;
+#define MNNAMENEW_LAYOUT (&mnNameNew_NativeLayout)
+#define MNNAMENEW_X8CC(layout) ((layout)->x8CC)
+#else
+#define MNNAMENEW_LAYOUT ((MnNameNewDataLayout*) mnNameNew_803EDA58)
+#define MNNAMENEW_X8CC(layout) (&(layout)->x8CC)
 typedef struct MnNameNewDataLayout {
     AnimLoopSettings anim[3];
     u16 key_jobj_ids[8];
@@ -63,6 +81,7 @@ typedef struct MnNameNewDataLayout {
     Vec3 x8CC;
     Vec3 x8D8;
 } MnNameNewDataLayout;
+#endif
 
 extern StaticModelDesc mnNameNew_804A06F0;
 extern StaticModelDesc mnNameNew_804A0700;
@@ -222,6 +241,19 @@ static MnNameNewGlyphTable mnNameNew_GlyphTable = {
 Vec3 unk_vec = { -0.8f, 0.4f, 0.0f };
 static Vec3 mnNameNew_803EE330 = { -0.7f, 0.7f, 0.0f };
 
+#ifdef MELEE_NATIVE
+static MnNameNewDataLayout mnNameNew_NativeLayout = {
+    mnNameNew_803EDA58,
+    mnNameNew_KeyMap.key_jobj_ids,
+    (char**) mnNameNew_KeyMap.x34,
+    (char**) mnNameNew_KeyMap.xFC,
+    (char**) mnNameNew_KeyMap.character_bytes,
+    (GlyphRow*) mnNameNew_GlyphTable.lower_glyphs,
+    (GlyphRow*) mnNameNew_GlyphTable.upper_glyphs,
+    &mnNameNew_803EE330,
+};
+#endif
+
 void mnNameNew_8023B0F8(HSD_GObj* arg0, u8 arg1)
 {
     HSD_JObj* jobj;
@@ -377,7 +409,7 @@ HSD_Text* mnNameNew_KeySetup(NameNewEntry* arg0, u8 arg1)
 
     PAD_STACK(16);
 
-    layout = (MnNameNewDataLayout*) mnNameNew_803EDA58;
+    layout = MNNAMENEW_LAYOUT;
     key_color = mnNameNew_804DBF44;
     selected_key_color = mnNameNew_804DBF48;
 
@@ -419,7 +451,7 @@ HSD_Text* mnNameNew_KeySetup(NameNewEntry* arg0, u8 arg1)
         }
     }
 
-    lb_8000B1CC(key_jobj, &layout->x8CC, &text_pos);
+    lb_8000B1CC(key_jobj, MNNAMENEW_X8CC(layout), &text_pos);
     pos_x = text_pos.x;
     pos_y = -text_pos.y;
     pos_z = text_pos.z;
@@ -739,7 +771,7 @@ char* AddCharacterToName(char* arg0, u8 arg1, u8 arg2, u8 arg3)
     char** table;
     MnNameNewDataLayout* layout;
 
-    layout = (MnNameNewDataLayout*) mnNameNew_803EDA58;
+    layout = MNNAMENEW_LAYOUT;
     switch (arg3) {
     case 0:
     case 1: {
@@ -939,7 +971,7 @@ void mnNameNew_MainInput(HSD_GObj* arg0)
         NameNewEntry* entry = mnNameNew_804D6C08->user_data;
         data = entry;
     }
-    layout = (MnNameNewDataLayout*) mnNameNew_803EDA58;
+    layout = MNNAMENEW_LAYOUT;
 
     if (data->variant_gobj != NULL) {
         mnNameNew_GlyphVariantInput(arg0);
@@ -1379,12 +1411,12 @@ HSD_Text* mnNameNew_8023D130(GlyphVariantEntry* arg0, u16 arg1, u8 arg2,
     Vec3 text_pos;
     GXColor glyph_color;
 
-    layout = (MnNameNewDataLayout*) mnNameNew_803EDA58;
+    layout = MNNAMENEW_LAYOUT;
     text = HSD_SisLib_803A6754(0, (s32) mn_804D6BB4);
     jobj14 = arg0->jobjs[4];
     jobj18 = arg0->jobjs[5];
     jobj1C = arg0->jobjs[6];
-    lb_8000B1CC(jobj14, &layout->x8CC, &text_pos);
+    lb_8000B1CC(jobj14, MNNAMENEW_X8CC(layout), &text_pos);
     pos_x = text_pos.x;
     pos_y = -text_pos.y;
     pos_z = text_pos.z;
@@ -1594,7 +1626,7 @@ void fn_8023DAEC(HSD_GObj* arg0)
 
     PAD_STACK(8);
 
-    layout = (MnNameNewDataLayout*) mnNameNew_803EDA58;
+    layout = MNNAMENEW_LAYOUT;
     if ((data = arg0->user_data)->key_text != NULL) {
         HSD_SisLib_803A5CC4(data->key_text);
         data->key_text = NULL;
@@ -1744,7 +1776,7 @@ void mnNameNew_8023E0D8(NameNewEntry* arg0)
     u16* jobj_ids;
     s32 i;
 
-    layout = (MnNameNewDataLayout*) mnNameNew_803EDA58;
+    layout = MNNAMENEW_LAYOUT;
     anim = layout->anim;
     jobj = arg0->jobjs[12];
     HSD_JObjReqAnim(jobj, anim[2].start_frame);

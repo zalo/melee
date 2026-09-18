@@ -82,7 +82,11 @@ void mpIsland_8005A728(void)
         line_idx = map->floor_start;
         z_val = 0.0f;
         while (count != 0) {
+#ifdef MELEE_NATIVE
+            seg.p = HSD_MemAlloc(sizeof(*seg.p));
+#else
             seg.p = HSD_MemAlloc(0x2C);
+#endif
             mpIsland_AssertSeg(seg.p);
             if (prev) {
                 prev->next = seg.p;
@@ -147,7 +151,11 @@ void mpIsland_8005A728(void)
         line_idx = map->ceiling_start;
         z_val = 0.0f;
         while (count != 0) {
+#ifdef MELEE_NATIVE
+            seg.p = HSD_MemAlloc(sizeof(*seg.p));
+#else
             seg.p = HSD_MemAlloc(0x2C);
+#endif
             mpIsland_AssertSeg(seg.p);
             if (prev) {
                 prev->next = seg.p;
@@ -552,7 +560,11 @@ void mpIsland_8005B004(mp_UnkStruct0** arg0, mp_UnkStruct0** arg1, int arg2,
         if ((mpisp = *arg1) != NULL) {
             *arg1 = mpisp->next;
         } else {
+#ifdef MELEE_NATIVE
+            mpisp = HSD_MemAlloc(sizeof(*mpisp));
+#else
             mpisp = HSD_MemAlloc(0x2C);
+#endif
             mpIsland_AssertSeg(mpisp);
         }
 

@@ -143,7 +143,11 @@ f32 gm_8018A314(u8 difficulty, u8 stage_slot)
            100.0F;
 }
 
+#ifdef MELEE_NATIVE
+void fn_8018A364(intptr_t arg0_int)
+#else
 void fn_8018A364(int arg0_int)
+#endif
 {
     MatchEnd* arg0 = (MatchEnd*) arg0_int;
     struct StartMeleeRules* rules;

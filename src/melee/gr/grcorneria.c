@@ -67,7 +67,12 @@ struct grCorneria_YakumonoParam {
     /* 0x78 */ s32 x78;
     /* 0x7C */ s32 x7C;
     /* 0x80 */ s32 x80;
+#ifdef MELEE_NATIVE
+    // Serialized 32-bit slot; resolved with GR_MATERIAL_SCRIPT.
+    /* 0x84 */ u32 x84;
+#else
     /* 0x84 */ void* x84;
+#endif
     /* 0x88 */ f32 x88;
 };
 

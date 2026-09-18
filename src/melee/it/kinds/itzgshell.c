@@ -20,7 +20,13 @@
 #include <sysdolphin/baselib/random.h>
 
 typedef struct itGShell_Attrs {
+#ifdef MELEE_NATIVE
+    // Stage shells start with a common-attribute pointer, stored as a host
+    // pointer by the archive; the code only reads x4 onward.
+    void* x0;
+#else
     float x0;
+#endif
     float x4;
     float x8;
     float xC;
@@ -39,7 +45,12 @@ typedef struct itGShell_Attrs {
 } itGShell_Attrs;
 
 typedef struct itZGShell_Attrs {
+#ifdef MELEE_NATIVE
+    void* x0;
+    char pad4[0x34];
+#else
     char pad0[0x38];
+#endif
     float x38;
     Vec x3C;
 } itZGShell_Attrs;

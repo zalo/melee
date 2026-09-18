@@ -83,8 +83,17 @@ static u16 mnDataDel_803EF8C8[] = {
     0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC6,
 };
 static Vec3 lbl_803EF8D4 = { -5.5F, -2.8F, 23 };
+#ifdef MELEE_NATIVE
+// Init loads all three blocks through assets[0..2]; native compilers do not
+// lay separate statics out contiguously, so keep them in one array.
+static StaticModelDesc mnDataDel_ModelDescs[3];
+#define mnDataDel_804A0918 mnDataDel_ModelDescs[0]
+#define mnDataDel_804A0928 mnDataDel_ModelDescs[1]
+#define mnDataDel_804A0938 mnDataDel_ModelDescs[2]
+#else
 static StaticModelDesc mnDataDel_804A0918;
 static StaticModelDesc mnDataDel_804A0928;
 static StaticModelDesc mnDataDel_804A0938;
+#endif
 
 #endif

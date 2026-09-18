@@ -57,8 +57,13 @@ void un_8031D9E4(int arg0, int arg1, int arg2)
     un_804D6F84[3] = arg2;
 }
 
+#ifdef MELEE_NATIVE
+void un_8031D9F8(CharacterKind char_kind, int costume, int spawn_mode,
+                 intptr_t spawn_count)
+#else
 void un_8031D9F8(CharacterKind char_kind, int costume, int spawn_mode,
                  int spawn_count)
+#endif
 {
     s32 pad0;
     s32 pad1;
@@ -223,7 +228,11 @@ void vi0501_Scene_OnEnter(void* arg)
     }
 
     un_8031D9F8(desc->p1_char_index, desc->p1_costume_index,
+#ifdef MELEE_NATIVE
+                desc->p2_costume_index, (intptr_t) (&desc->spawn_count));
+#else
                 desc->p2_costume_index, (int) (&desc->spawn_count));
+#endif
     lbAudioAx_800237A8(0x20B, 0x7F, 0x40);
     lbAudioAx_800237A8(0x20C, 0x7F, 0x40);
 }

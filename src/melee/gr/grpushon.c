@@ -43,15 +43,32 @@ struct grPushOn_LightConfig {
 
 struct grPushon_YakumonoParam {
     s32 x0;
+#ifdef MELEE_NATIVE
+    s32 x4;
+    s32 x8;
+    s32 xC;
+    s32 x10;
+    s32 x14;
+#else
     DynamicsDesc* x4;
     DynamicsDesc* x8;
     DynamicsDesc* xC;
     DynamicsDesc* x10;
     DynamicsDesc* x14;
+#endif
     bool x18;
     struct grPushOn_Entry x1c[0x1E];
     struct grPushOn_Lookup x10c[0x21];
 };
+
+#ifdef MELEE_NATIVE
+// Serialized DynamicsDesc slots stay 32-bit; the archive resolves them.
+void* MeleeNativeScriptPointer(const void*);
+#define YAKUMONO_DYNAMICS(field) \
+    ((DynamicsDesc*) MeleeNativeScriptPointer(&yakumono_param->field))
+#else
+#define YAKUMONO_DYNAMICS(field) (yakumono_param->field)
+#endif
 
 static struct grPushon_YakumonoParam* yakumono_param;
 
@@ -711,21 +728,21 @@ DynamicsDesc* grPushOn_80219458(enum_t arg0)
         if (joint != -1) {
             if (joint == 1) {
                 mpLineGetKind(arg0);
-                return yakumono_param->x4;
+                return YAKUMONO_DYNAMICS(x4);
             }
             if (joint == 2) {
                 kind = mpLineGetKind(arg0);
                 if (kind == CollLine_Floor) {
-                    return yakumono_param->x8;
+                    return YAKUMONO_DYNAMICS(x8);
                 }
                 if (kind == CollLine_Ceiling) {
-                    return yakumono_param->xC;
+                    return YAKUMONO_DYNAMICS(xC);
                 }
                 if (kind == CollLine_RightWall) {
-                    return yakumono_param->x10;
+                    return YAKUMONO_DYNAMICS(x10);
                 }
                 if (kind == CollLine_LeftWall) {
-                    return yakumono_param->x14;
+                    return YAKUMONO_DYNAMICS(x14);
                 }
                 return NULL;
             }

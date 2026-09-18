@@ -783,6 +783,14 @@ void mnDiagram2_PopulateStatRows(HSD_GObj* gobj, u8 scroll_offset,
     }
 }
 
+#ifdef MELEE_NATIVE
+/// anim[1] is mnDiagram2_803EEB60[1] on the GameCube; the row layout static
+/// does not reach it natively.
+#define MNDIAGRAM2_ARROW_ANIM(base) (&mnDiagram2_803EEB60[1])
+#else
+#define MNDIAGRAM2_ARROW_ANIM(base) (&(base)->anim[1])
+#endif
+
 typedef struct MnDiagram2DataLayout {
     u8 stat_name_ids[0x90];
     AnimLoopSettings anim[2];
@@ -819,7 +827,7 @@ void mnDiagram2_UpdateScrollArrows(HSD_GObj* gobj)
     data = HSD_GObjGetUserData(gobj);
 
     jobj = data->down_arrow;
-    mn_8022ED6C(jobj, &base->anim[1]);
+    mn_8022ED6C(jobj, MNDIAGRAM2_ARROW_ANIM(base));
     if (data->is_name_mode) {
         if (data->scroll_offset + 10 < 0x18) {
             HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
@@ -835,7 +843,7 @@ void mnDiagram2_UpdateScrollArrows(HSD_GObj* gobj)
     }
 
     jobj = data->up_arrow;
-    mn_8022ED6C(jobj, &base->anim[1]);
+    mn_8022ED6C(jobj, MNDIAGRAM2_ARROW_ANIM(base));
     if (data->scroll_offset) {
         HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
     } else {
@@ -843,7 +851,7 @@ void mnDiagram2_UpdateScrollArrows(HSD_GObj* gobj)
     }
 
     jobj = data->left_arrow;
-    mn_8022ED6C(jobj, &base->anim[1]);
+    mn_8022ED6C(jobj, MNDIAGRAM2_ARROW_ANIM(base));
     if (data->is_name_mode) {
         if (data->selected_name_idx) {
             HSD_JObjClearFlagsAll(jobj, JOBJ_HIDDEN);
@@ -859,7 +867,7 @@ void mnDiagram2_UpdateScrollArrows(HSD_GObj* gobj)
     }
 
     jobj = data->right_arrow;
-    mn_8022ED6C(jobj, &base->anim[1]);
+    mn_8022ED6C(jobj, MNDIAGRAM2_ARROW_ANIM(base));
     if (data->is_name_mode != 0) {
         if (data->selected_name_idx !=
             mnDiagram_GetNextNameIndex(data->selected_name_idx))
@@ -900,7 +908,11 @@ void mnDiagram2_Think(HSD_GObj* gobj)
             HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
             proc = HSD_GObj_SetupProc(gobj, mnDiagram2_OnAnimComplete, 0);
             proc->flags_3 = HSD_GObj_804D783C;
+#ifdef MELEE_NATIVE
+            HSD_JObjSetFlagsAll(data->x10, JOBJ_HIDDEN);
+#else
             HSD_JObjSetFlagsAll(((HSD_JObj**) data)[4], JOBJ_HIDDEN);
+#endif
             if (data->header_text != NULL) {
                 HSD_SisLib_803A5CC4(data->header_text);
                 data->header_text = NULL;

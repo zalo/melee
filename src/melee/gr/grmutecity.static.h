@@ -18,11 +18,17 @@ typedef struct grMc_CarEntry {
         u8 b1 : 1;
     } x22_flags;
     /* 0x23 */ u8 x23;
+#ifdef MELEE_NATIVE
+    intptr_t x24; ///< Item GObj; pointer-sized on the host.
+#else
     /* 0x24 */ s32 x24;
+#endif
     /* 0x28 */ s32 x28;
 } grMc_CarEntry;
 
+#ifndef MELEE_NATIVE
 ASSERT_SIZE(grMc_CarEntry, 0x2C);
+#endif
 
 static grMc_CarEntry grMc_8049F4B8[30];
 

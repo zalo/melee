@@ -35,8 +35,19 @@ struct lbl_80472E48_t {
 }; /* size = 0x80 */
 ASSERT_SIZE(struct lbl_80472E48_t, 0x80);
 
+#ifdef MELEE_NATIVE
+// Several functions overlay {lbl_80472E48_t; s32[4]} on &lbl_80472E48; native
+// compilers do not lay separate statics out contiguously, so keep one object.
+static struct {
+    struct lbl_80472E48_t e48;
+    s32 ec8[4];
+} gm_180A_State;
+#define lbl_80472E48 gm_180A_State.e48
+#define lbl_80472EC8 gm_180A_State.ec8
+#else
 static struct lbl_80472E48_t lbl_80472E48;
 static s32 lbl_80472EC8[4];
+#endif
 
 static HSD_Archive* lbl_804D65C8;
 static DynamicModelDesc** lbl_804D65CC;

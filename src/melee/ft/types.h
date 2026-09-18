@@ -1146,7 +1146,11 @@ struct CpuFighter {
     /*  +44 */ Fighter* x44;
     /*  +48 */ UNK_T x48;
     /*  +4C */ Item* x4C;
+#ifdef MELEE_NATIVE
+    /*  +50 */ uintptr_t x50;
+#else
     /*  +50 */ u32 x50;
+#endif
     /*  +54 */ Vec2 x54;
     /*  +5C */ float x5C;
     /*  +60 */ int x60;

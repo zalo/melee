@@ -549,6 +549,12 @@ void ifMagnify_802FC750(void)
     /// @todo Member accesses in the body fold into the condition's address.
     for (i = 0; i < 6; i++) {
         if (base->player[i].gobj != NULL) {
+#ifdef MELEE_NATIVE
+            // (u32) base truncates the 64-bit address of the static.
+            HSD_GObjFree(base->player[i].gobj);
+            base->player[i].gobj = NULL;
+            continue;
+#endif
             HSD_GObjFree(*(HSD_GObj**) ((u32) base +
                                         i * (s32) sizeof(ifMagnifyPlayer) +
                                         (s32) offsetof(ifMagnify, player)));

@@ -90,6 +90,13 @@ static struct {
     u8 pad_74[0x78 - 0x74];
 } lbl_80479A98;
 
+#ifdef MELEE_NATIVE
+// +0x28 is x28 on the GameCube; natively the x24 pointer moves the union.
+#define GM_19EF_JOBJ_SLOT(i) (lbl_80479A98.x28.jobj_slots[i])
+#else
+#define GM_19EF_JOBJ_SLOT(i) (((HSD_JObj**) ((u8*) &lbl_80479A98 + 0x28))[i])
+#endif
+
 static void fn_8019F2D4(u32 arg0);
 
 static void fn_8019EFC4(HSD_PadStatus* pad)
@@ -134,11 +141,11 @@ static void fn_8019EFC4(HSD_PadStatus* pad)
             for (i = 10; i > 0; i--) {
                 if (i > lbl_80479A98.x70) {
                     HSD_JObjSetFlags(
-                        ((HSD_JObj**) ((u8*) &lbl_80479A98 + 0x28))[i],
+                        GM_19EF_JOBJ_SLOT(i),
                         JOBJ_HIDDEN);
                 } else {
                     HSD_JObjClearFlags(
-                        ((HSD_JObj**) ((u8*) &lbl_80479A98 + 0x28))[i],
+                        GM_19EF_JOBJ_SLOT(i),
                         JOBJ_HIDDEN);
                 }
             }

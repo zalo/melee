@@ -40,8 +40,21 @@ StageData grTPr_StageData = {
 };
 
 typedef struct grTPrSpecialParams {
+#ifdef MELEE_NATIVE
+    s32 x0;
+#else
     DynamicsDesc* x0;
+#endif
 } grTPrSpecialParams;
+
+#ifdef MELEE_NATIVE
+// Serialized DynamicsDesc slots stay 32-bit; the archive resolves them.
+void* MeleeNativeScriptPointer(const void*);
+#define YAKUMONO_DYNAMICS(field) \
+    ((DynamicsDesc*) MeleeNativeScriptPointer(&yakumono_param->field))
+#else
+#define YAKUMONO_DYNAMICS(field) (yakumono_param->field)
+#endif
 
 static grTPrSpecialParams* yakumono_param;
 
@@ -178,10 +191,10 @@ DynamicsDesc* grTPurin_802234F8(enum_t arg0)
         if (i != -1) {
             mpLineGetKind(arg0);
             if (i == (0 << 0)) {
-                return yakumono_param->x0;
+                return YAKUMONO_DYNAMICS(x0);
             }
             if (i == (1 << 0)) {
-                return yakumono_param->x0;
+                return YAKUMONO_DYNAMICS(x0);
             }
         }
     }

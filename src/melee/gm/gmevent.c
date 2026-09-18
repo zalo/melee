@@ -503,7 +503,11 @@ void onEnterVs(GameModeState* arg0)
             gm_8016A434();
         }
         if (event_info[level]->x4 != NULL) {
+#ifdef MELEE_NATIVE
+            gm_8016A404((intptr_t) event_info[level]->x4);
+#else
             gm_8016A404((s32) event_info[level]->x4);
+#endif
         }
         if (levels[level]->evbonus->x15 != 0) {
             gm_8016A424(levels[level]->evbonus->x15);

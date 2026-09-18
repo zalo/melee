@@ -73,7 +73,11 @@
 /* 16BF74 */ MatchOutcome gm_GetFFAOutcome(void);
 /* 16C0C8 */ MatchOutcome gm_GetTeamBattleOutcome(void);
 /* 16C35C */ MatchOutcome gm_GetMatchOutcome(void);
+#ifdef MELEE_NATIVE
+/* 16C46C */ void fn_8016C46C(intptr_t);
+#else
 /* 16C46C */ void fn_8016C46C(int);
+#endif
 /* 16C4F4 */ void fn_8016C4F4(MatchEnd*);
 /* 16C5C0 */ int gm_8016C5C0(int pl_slot);
 /* 16C658 */ int gm_GetMatchEndPlayerScore(int);

@@ -127,6 +127,37 @@ static u16 mnVibration_PortPanelJointIds[4] = { 0x16, 0x15, 0x14, 0x13 };
 s32 mnVibration_804D4FF0 = 0x20010000;
 SDATA char mnVibration_804D4FF4[] = "jobj.h";
 SDATA char mnVibration_804D4FFC[] = "jobj";
+#ifdef MELEE_NATIVE
+// Init reads the archive symbol names through MnVibrationDataLayout cast from
+// &mnVibration_803EECE0; native compilers do not lay the separate statics out
+// contiguously, so keep the whole block in one object.
+static MnVibrationDataLayout mnVibration_Layout = {
+    { 0.0f, 20.0f, -0.1f },
+    { 50.0f, 70.0f, -0.1f },
+    { 0.0f, 14.0f, -0.1f },
+    { -0.4f, 0.5f, 0.0f },
+    "Can't get user_data.\n",
+    "mnvibration.c",
+    "user_data",
+    "MenMainConVi_Top_joint",
+    "MenMainConVi_Top_animjoint",
+    "MenMainConVi_Top_matanim_joint",
+    "MenMainConVi_Top_shapeanim_joint",
+    "MenMainCtlVi_Top_joint",
+    "MenMainCtlVi_Top_animjoint",
+    "MenMainCtlVi_Top_matanim_joint",
+    "MenMainCtlVi_Top_shapeanim_joint",
+    "MenMainOnoffVi_Top_joint",
+    "MenMainOnoffVi_Top_animjoint",
+    "MenMainOnoffVi_Top_matanim_joint",
+    "MenMainOnoffVi_Top_shapeanim_joint",
+    "MenMainCursorVi_Top_joint",
+};
+#define mnVibration_803EECE0 mnVibration_Layout.intro_anim
+#define mnVibration_803EECEC mnVibration_Layout.main_anim
+#define mnVibration_803EECF8 mnVibration_Layout.cursor_anim
+#define mnVibration_803EED04 mnVibration_Layout.name_pos
+#else
 AnimLoopSettings mnVibration_803EECE0 = { 0.0f, 20.0f, -0.1f };
 AnimLoopSettings mnVibration_803EECEC = { 50.0f, 70.0f, -0.1f };
 AnimLoopSettings mnVibration_803EECF8 = { 0.0f, 14.0f, -0.1f };
@@ -156,6 +187,7 @@ static char mnVibration_803EEEB8[0x20] = "MenMainCursorVi_Top_joint";
 #ifdef MUST_MATCH
 #pragma pop
 #endif
+#endif // MELEE_NATIVE
 
 // --- Globals ---
 HSD_GObj* mnVibration_804D6C28;
@@ -185,10 +217,20 @@ typedef struct MnVibrationData {
 } MnVibrationData;
 
 // The asset blocks are also addressed as a contiguous array in Init.
+#ifdef MELEE_NATIVE
+// Separate statics are not laid out contiguously by native compilers, so
+// Init's assets[1..3] writes missed the blocks (Rumble screen: NULL joint).
+static MnVibrationJointAssets mnVibration_JointAssets[4];
+#define mnVibration_804A0868 mnVibration_JointAssets[0]
+#define mnVibration_804A0878 mnVibration_JointAssets[1]
+#define mnVibration_804A0888 mnVibration_JointAssets[2]
+#define mnVibration_804A0898 mnVibration_JointAssets[3]
+#else
 static MnVibrationJointAssets mnVibration_804A0868;
 static MnVibrationJointAssets mnVibration_804A0878;
 static MnVibrationJointAssets mnVibration_804A0888;
 static MnVibrationJointAssets mnVibration_804A0898;
+#endif
 
 /// --- Function Implementation ---
 

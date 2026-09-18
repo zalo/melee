@@ -579,6 +579,15 @@ void mnSnap_80253E90(s32 idx)
 /// Animates the memory card slot selector highlights.
 /// The walk advances through card_status, while byte_off selects the slot
 /// animation pointers from the interleaved slot fields.
+#ifdef MELEE_NATIVE
+/// byte_off counts 4-byte pointer slots from slot_a_jobj on the GameCube.
+#define MNSNAP_SLOT_ANIM(byte_off)                                             \
+    ((&mnSnap_804A0A10.slot_a_jobj)[(byte_off) / 4])
+#else
+#define MNSNAP_SLOT_ANIM(byte_off)                                             \
+    (*(HSD_JObj**) ((u32) &mnSnap_804A0A10 + (byte_off) + 0x98))
+#endif
+
 void mnSnap_80253F60(void)
 {
     s32 byte_off;
@@ -587,22 +596,22 @@ void mnSnap_80253F60(void)
 
     for (i = 0; i < 2; i++) {
         byte_off = (i * 2 + 1) * 4;
+#ifdef MELEE_NATIVE
+        if (mnSnap_804A0A10.card_status[i] != 0) {
+#else
         if (walk[0x94] != 0) {
+#endif
             f32 t;
             if (mnSnap_804A0A10.active_slot == i) {
                 t = 1.0F;
             } else {
                 t = 0.0F;
             }
-            HSD_JObjReqAnimAll(
-                *(HSD_JObj**) ((u32) &mnSnap_804A0A10 + byte_off + 0x98), t);
+            HSD_JObjReqAnimAll(MNSNAP_SLOT_ANIM(byte_off), t);
         } else {
-            HSD_JObjReqAnimAll(
-                *(HSD_JObj**) ((u32) &mnSnap_804A0A10 + byte_off + 0x98),
-                2.0F);
+            HSD_JObjReqAnimAll(MNSNAP_SLOT_ANIM(byte_off), 2.0F);
         }
-        HSD_JObjAnimAll(
-            *(HSD_JObj**) ((u32) &mnSnap_804A0A10 + byte_off + 0x98));
+        HSD_JObjAnimAll(MNSNAP_SLOT_ANIM(byte_off));
         walk++;
     }
 }
@@ -733,12 +742,12 @@ static inline void mnSnap_RefreshSlotSelection(mnSnap_State* snap,
                     t = 0.0F;
                 }
                 HSD_JObjReqAnimAll(
-                    *(HSD_JObj**) ((u32) snap + byte_off + 0x98), t);
+                    MNSNAP_SLOT_ANIM(byte_off), t);
             } else {
                 HSD_JObjReqAnimAll(
-                    *(HSD_JObj**) ((u32) snap + byte_off + 0x98), 2.0F);
+                    MNSNAP_SLOT_ANIM(byte_off), 2.0F);
             }
-            HSD_JObjAnimAll(*(HSD_JObj**) ((u32) snap + byte_off + 0x98));
+            HSD_JObjAnimAll(MNSNAP_SLOT_ANIM(byte_off));
         }
     }
 
@@ -915,17 +924,15 @@ static inline void mnSnap_AnimateCardSlots(const s32* active_slot)
                 t = 0.0F;
             }
             HSD_JObjReqAnimAll(
-                *((HSD_JObj**) ((((u32) (&mnSnap_804A0A10)) + byte_off) +
-                                0x98)),
+                MNSNAP_SLOT_ANIM(byte_off),
                 t);
         } else {
             HSD_JObjReqAnimAll(
-                *((HSD_JObj**) ((((u32) (&mnSnap_804A0A10)) + byte_off) +
-                                0x98)),
+                MNSNAP_SLOT_ANIM(byte_off),
                 2.0F);
         }
         HSD_JObjAnimAll(
-            *((HSD_JObj**) ((((u32) (&mnSnap_804A0A10)) + byte_off) + 0x98)));
+            MNSNAP_SLOT_ANIM(byte_off));
     }
 }
 
@@ -989,19 +996,11 @@ static inline void mnSnap_RefreshSlotAnimations(int i, s32* byte_off,
             } else {
                 t = 0.0F;
             }
-            HSD_JObjReqAnimAll(M2C_FIELD((u32) &mnSnap_804A0A10 + (*byte_off),
-                                         HSD_JObj**,
-                                         offsetof(mnSnap_State, slot_a_jobj)),
-                               t);
+            HSD_JObjReqAnimAll(MNSNAP_SLOT_ANIM(*byte_off), t);
         } else {
-            HSD_JObjReqAnimAll(M2C_FIELD((u32) &mnSnap_804A0A10 + (*byte_off),
-                                         HSD_JObj**,
-                                         offsetof(mnSnap_State, slot_a_jobj)),
-                               2.0F);
+            HSD_JObjReqAnimAll(MNSNAP_SLOT_ANIM(*byte_off), 2.0F);
         }
-        HSD_JObjAnimAll(M2C_FIELD((u32) &mnSnap_804A0A10 + (*byte_off),
-                                  HSD_JObj**,
-                                  offsetof(mnSnap_State, slot_a_jobj)));
+        HSD_JObjAnimAll(MNSNAP_SLOT_ANIM(*byte_off));
     }
 }
 
@@ -1242,20 +1241,15 @@ void fn_802545C4(void)
                         t = 0.0F;
                     }
                     HSD_JObjReqAnimAll(
-                        *((HSD_JObj**) ((((u32) (&mnSnap_804A0A10)) +
-                                         byte_off) +
-                                        0x98)),
+                        MNSNAP_SLOT_ANIM(byte_off),
                         t);
                 } else {
                     HSD_JObjReqAnimAll(
-                        *((HSD_JObj**) ((((u32) (&mnSnap_804A0A10)) +
-                                         byte_off) +
-                                        0x98)),
+                        MNSNAP_SLOT_ANIM(byte_off),
                         2.0F);
                 }
                 HSD_JObjAnimAll(
-                    *((HSD_JObj**) ((((u32) (&mnSnap_804A0A10)) + byte_off) +
-                                    0x98)));
+                    MNSNAP_SLOT_ANIM(byte_off));
             }
 
             slot = *active_slot;

@@ -4,6 +4,13 @@ static uint32_t movieReadWord(const void* data) {
     const uint8_t* p=data;
     return (uint32_t)p[0]<<24 | (uint32_t)p[1]<<16 | (uint32_t)p[2]<<8 | p[3];
 }
+#include <stdio.h>
+#include <stdlib.h>
+/* MELEE_TRACE_MOVIE=1: once a second, where the player's read/decode/display counters sit. */
+static int movieTraceEnabled = -1;
+static uint32_t movieTraceReads, movieTraceDecodes, movieTraceAlarms, movieTraceDraws;
+static int movieTexObjsReady;
+static int32_t movieUploadedFrame;
 #else
 #define movieReadWord(p) (*(u32*)(p))
 #endif
@@ -116,6 +123,9 @@ static void fn_8001E910(int arg0, int arg1, void* arg2, int cancelflag)
     BOOL intr;
 
     HSD_ASSERT(328, !cancelflag);
+#ifdef MELEE_NATIVE
+    movieTraceReads++;
+#endif
 
     tick_diff = OSGetTick() - streamPlayer->unk_13C;
     streamPlayer->unk_134 = tick_diff;
@@ -352,6 +362,9 @@ static s32 fn_8001EF5C(THPDecComp* data)
     BOOL intr;
 
     if ((u32) data->unk_94 != data->unk_90) {
+#ifdef MELEE_NATIVE
+        movieTraceDecodes++;
+#endif
         intr = OSDisableInterrupts();
         data->unk_98 = THPVideoDecode(
             &data->unk_A8, &spC, (void*) data->unk_98,
@@ -512,6 +525,9 @@ void fn_8001F2A4(OSAlarm* alarm, OSContext* context)
     u32 frame;
 
     lbMthp_GetPlayer(&streamPlayer, &rate_table);
+#ifdef MELEE_NATIVE
+    movieTraceAlarms++;
+#endif
 
     frame = lbMthp_GetFrame(rate_table, streamPlayer->unk_80);
 
@@ -560,6 +576,9 @@ void lbMthp_8001F410(const char* filename, u32* rate_table, void* buf,
     fn_8001ECF4(&MoviePlayer, buf);
     MoviePlayer.unk_144 = 0;
     MoviePlayer.unk_148 = 1;
+#ifdef MELEE_NATIVE
+    movieTexObjsReady = 0;
+#endif
     OSCreateAlarm(&MoviePlayer.alarm);
     OSSetPeriodicAlarm(&streamPlayer->alarm, OSSecondsToTicks(1.0f / 60),
                        OSSecondsToTicks(1.0f / 60), fn_8001F2A4);
@@ -628,6 +647,43 @@ void lbMthp_8001F67C(HSD_GObj* gobj, int arg1)
     PAD_STACK(8);
 
     fn_8001EF5C(streamPlayer);
+#ifdef MELEE_NATIVE
+    if (movieTraceEnabled < 0) {
+        movieTraceEnabled = getenv("MELEE_TRACE_MOVIE") != NULL;
+    }
+    if (movieTraceEnabled && ++movieTraceDraws % 60 == 0) {
+        fprintf(stderr,
+                "[movie] draws=%u reads=%u decodes=%u alarms=%u frame=%u "
+                "counter=%u buffered=%d minbuf=%d inflight=%d next_read=%u "
+                "write=%u shown=%u decoded=%d file_frame=%u\n",
+                movieTraceDraws, movieTraceReads, movieTraceDecodes,
+                movieTraceAlarms, streamPlayer->unk_78, streamPlayer->unk_80,
+                streamPlayer->unk_108, streamPlayer->unk_10C,
+                streamPlayer->unk_110, streamPlayer->unk_8C,
+                streamPlayer->unk_88, streamPlayer->unk_90,
+                streamPlayer->unk_94, streamPlayer->unk_74);
+    }
+#endif
+#ifdef MELEE_NATIVE
+    /* The planes are rewritten in place every frame, and GXInitTexObj resets the object's data version, so the
+     * texture cache only notices a new frame through its sampled content check. Init the objects once and bump
+     * the version with GXInitTexObjData whenever a new frame is decoded. */
+    if (streamPlayer->unk_148 != 0 && movieTexObjsReady) {
+        if (movieUploadedFrame != streamPlayer->unk_94) {
+            movieUploadedFrame = streamPlayer->unk_94;
+            GXInitTexObjData(&streamPlayer->unk_178, streamPlayer->unk_50);
+            GXInitTexObjData(&streamPlayer->unk_198, streamPlayer->unk_54);
+            GXInitTexObjData(&streamPlayer->unk_1B8, streamPlayer->unk_58);
+        }
+        GXLoadTexObj(&streamPlayer->unk_178, GX_TEXMAP0);
+        GXLoadTexObj(&streamPlayer->unk_198, GX_TEXMAP1);
+        GXLoadTexObj(&streamPlayer->unk_1B8, GX_TEXMAP2);
+        HSD_SObjLib_803A49E0(gobj, arg1);
+        return;
+    }
+    movieTexObjsReady = streamPlayer->unk_148 != 0;
+    movieUploadedFrame = streamPlayer->unk_94;
+#endif
     if (streamPlayer->unk_148 != 0) {
         GXInitTexObj(&streamPlayer->unk_178, streamPlayer->unk_50,
                      streamPlayer->width, streamPlayer->height, GX_TF_I8,

@@ -57,17 +57,40 @@
 #include <sysdolphin/baselib/tobj.h>
 #include <sysdolphin/baselib/wobj.h>
 
+#ifdef MELEE_NATIVE
+STATIC_ASSERT(offsetof(struct TyGObjX8_, x28) == offsetof(HSD_GObj, hsd_obj));
+STATIC_ASSERT(offsetof(struct TyLightGObj_, x28) == offsetof(HSD_GObj, hsd_obj));
+STATIC_ASSERT(offsetof(struct ToyDataX8, x28) == offsetof(HSD_GObj, hsd_obj));
+STATIC_ASSERT(offsetof(struct ToyDataJObj, x4) == offsetof(HSD_SObj, next));
+STATIC_ASSERT(offsetof(struct ToyDataJObj, x40) == offsetof(HSD_SObj, x40));
+STATIC_ASSERT(offsetof(struct ToyJObjNode, x4) == offsetof(HSD_SObj, next));
+STATIC_ASSERT(offsetof(struct ToyJObjNode, x40) == offsetof(HSD_SObj, x40));
+#endif
+
 typedef struct ToyDisplayList {
     /* 0x000 */ ToyListEntry entries[13];
     /* 0x138 */ ToyListEntry* first_entry;
     /* 0x13C */ ToyListEntry* last_entry;
     /* 0x140 */ ToyListEntry* selected_entry;
+#ifdef MELEE_NATIVE
+    HSD_Text* pad_144[4];
+#else
     /* 0x144 */ u8 pad_144[0x154 - 0x144];
+#endif
     /* 0x154 */ s16 selectedIdx;
     /* 0x156 */ u8 pad_156;
     /* 0x157 */ s8 visible_count;
 } ToyDisplayList;
 ASSERT_SIZE(ToyDisplayList, 0x158);
+#ifdef MELEE_NATIVE
+STATIC_ASSERT(sizeof(ToyDisplayList) == sizeof(TyDisplayData));
+STATIC_ASSERT(offsetof(ToyDisplayList, selected_entry) ==
+              offsetof(TyDisplayData, selected_entry));
+STATIC_ASSERT(offsetof(ToyDisplayList, selectedIdx) ==
+              offsetof(TyDisplayData, selectedIdx));
+STATIC_ASSERT(offsetof(ToyDisplayList, visible_count) ==
+              offsetof(TyDisplayData, visible_count));
+#endif
 
 typedef struct ToyUnkJObjData {
     /* 0x00 */ u8 pad_00[0x10];
@@ -2003,8 +2026,8 @@ void _Toy_80306C5C(HSD_GObj* arg0)
     lobj = data->hsd_obj;
 
     while (lobj != NULL) {
-        HSD_LObjSetPosition(lobj, (Vec3*) (table + 0x1C));
-        HSD_LObjSetInterest(lobj, (Vec3*) (table + 0x7C));
+        HSD_LObjSetPosition(lobj, (Vec3*) (table + 0x1C + TY_ED4_SHIFT));
+        HSD_LObjSetInterest(lobj, (Vec3*) (table + 0x7C + TY_ED4_SHIFT));
         table += 0xC;
         if (lobj == NULL) {
             next = NULL;
@@ -2034,6 +2057,18 @@ void Toy_80306D14(void)
     }
 }
 
+#ifdef MELEE_NATIVE
+/// The retail code reaches #_Toy_803FDDE4 through fixed offsets from the
+/// TyLight.dat string; host data isn't laid out contiguously, so index the
+/// table directly.
+#define TY_LIGHT_SYMBOL(base, arg0, idx, sym)                                  \
+    ((void) (base), (idx) = _Toy_803FDDE4.values[arg0].index,                  \
+     (sym) = _Toy_803FDDE4.symbols[idx].name)
+#else
+#define TY_LIGHT_SYMBOL(base, arg0, idx, sym)                                  \
+    ((idx) = (base)->entries[arg0].idx, (sym) = (base)->symbols[idx].name)
+#endif
+
 void Toy_80306D70(s32 arg0)
 {
     UNUSED u8 framepad[8];
@@ -2053,12 +2088,10 @@ void Toy_80306D70(s32 arg0)
             HSD_GObjProc_RemoveAllProcs(data->gobj);
             HSD_GObjFree(data->gobj);
             data->gobj = NULL;
-            idx = base->entries[arg0].idx;
-            sym = base->symbols[idx].name;
+            TY_LIGHT_SYMBOL(base, arg0, idx, sym);
             sp14 = HSD_ArchiveGetPublicAddress(data->archive, sym);
         } else {
-            idx = base->entries[arg0].idx;
-            sym = base->symbols[idx].name;
+            TY_LIGHT_SYMBOL(base, arg0, idx, sym);
             data->archive =
                 lbArchive_80016DBC(_Toy_str_TyLight_dat, &sp14, sym, NULL);
         }
@@ -2077,8 +2110,7 @@ void Toy_80306D70(s32 arg0)
                 HSD_GObj_80390CD4(data->gobj);
             }
         } else {
-            idx = base->entries[arg0].idx;
-            sym = base->symbols[idx].name;
+            TY_LIGHT_SYMBOL(base, arg0, idx, sym);
             OSReport("*** Can not Load Light Label(%s)\n", sym);
             HSD_ASSERT(2253, 0);
         }
@@ -2108,7 +2140,7 @@ HSD_LObj* Toy_LoadLObjList(LightList** list, s32* hasAnim)
     while (*list != NULL) {
         lobj = HSD_LObjLoadDesc((*list)->desc);
         if (lobj != NULL) {
-            animFlag = base + idx + 0xDC;
+            animFlag = base + idx + 0xDC + TY_ED4_SHIFT;
             anims = (*list)->anims;
             *animFlag = 0;
             if (anims != NULL && *anims != NULL) {
@@ -2121,8 +2153,8 @@ HSD_LObj* Toy_LoadLObjList(LightList** list, s32* hasAnim)
                     *animFlag = 1;
                 }
             }
-            HSD_LObjGetPosition(lobj, (Vec3*) (base + idx * 0xC + 0x1C));
-            HSD_LObjGetInterest(lobj, (Vec3*) (base + idx * 0xC + 0x7C));
+            HSD_LObjGetPosition(lobj, (Vec3*) (base + idx * 0xC + 0x1C + TY_ED4_SHIFT));
+            HSD_LObjGetInterest(lobj, (Vec3*) (base + idx * 0xC + 0x7C + TY_ED4_SHIFT));
             idx += 1;
         }
         if (prev != NULL) {
@@ -2337,8 +2369,15 @@ void Toy_80307470(s32 arg0)
         tg->x0 = NULL;
     }
 
+#ifdef MELEE_NATIVE
+    // data + 0x188 is #_Toy_803FDEA0 on the disc layout.
+    (void) data;
+    label = &_Toy_803FDEA0[arg0];
+    joint[0] = HSD_ArchiveGetPublicAddress(tg->x50, *label);
+#else
     label = &data->ptrs[arg0];
     joint[0] = HSD_ArchiveGetPublicAddress(tg->x50, *(label += 0x188 / 4));
+#endif
 
     if (joint[0] != NULL) {
         tg->x0 = GObj_Create(9, 9, 0);
@@ -2401,8 +2440,15 @@ void _Toy_803075E8(s32 arg0)
         Toy_sbss_804D6ED8->x8->x28->x4->x4->x40 = 9;
     }
 
+#ifdef MELEE_NATIVE
+    // data + 0x1A4 is #_Toy_803FDEBC on the disc layout.
+    (void) data;
+    ptr = &_Toy_803FDEBC[arg0];
+    if (*ptr != NULL) {
+#else
     ptr = (char**) (data + arg0 * 4);
     if (*(ptr += 0x69) != NULL) {
+#endif
         joint = HSD_ArchiveGetPublicAddress(td->archive, *ptr);
         if (joint != NULL) {
             td->gobj = GObj_Create(4, 7, 0);
@@ -2582,11 +2628,20 @@ void Toy_80307E84(HSD_GObj* gobj)
     HSD_JObj* jobj1;
 
     base = (s32*) &_Toy_804A26B8;
+#ifdef MELEE_NATIVE
+    // The jobj pointers are host-sized; use the typed anim fields.
+    state = &((Toy26B8*) base)->anim;
+    idx = state->x0E;
+    x0F_val = state->x0F;
+    jobj0 = state->jobj[(s32) idx];
+    jobj1 = state->jobj[(s32) (idx ^ 1)];
+#else
     state = (ToyAnimState*) ((u8*) base + 0x3F0);
     idx = M2C_FIELD(base, s8*, 0x3FE);
     x0F_val = M2C_FIELD(base, s8*, 0x3FF);
     jobj0 = (HSD_JObj*) base[idx + (0x3F4 / 4)];
     jobj1 = (HSD_JObj*) base[(idx ^ 1) + (0x3F4 / 4)];
+#endif
 
     if (x0F_val <= 0) {
         if (state->x10 == 1) {
@@ -2722,6 +2777,25 @@ void Toy_80308250(u8* arg0, s16 arg1, s32 arg2)
     void* sym;
     char* ptr;
     ptr = Toy_8030813C(arg1);
+
+#ifdef MELEE_NATIVE
+    {
+        // Callers pass a ToyListEntry-shaped buffer with host pointers.
+        ToyListEntry* entry = (ToyListEntry*) arg0;
+        if (entry->archive != NULL) {
+            lbArchive_80016EFC(entry->archive);
+            entry->archive = NULL;
+        }
+        entry->archive_name = ptr + 4;
+        entry->symbol_name = ptr + 0x24;
+        entry->trophy_id = arg1;
+        if (arg2 == 0) {
+            entry->archive = lbArchive_LoadSymbols(
+                entry->archive_name, &sym, entry->symbol_name, NULL);
+        }
+        return;
+    }
+#endif
 
     if (*(HSD_Archive**) (arg0 + 0x14) != NULL) {
         lbArchive_80016EFC(*(HSD_Archive**) (arg0 + 0x14));
@@ -5786,7 +5860,7 @@ void Toy_80310324(void)
 
     memzero(_Toy_sbss_804D6E68, sizeof(*_Toy_sbss_804D6E68));
     _Toy_8030FA50();
-    memzero(Toy_sbss_804D6ED4, 0xE4);
+    memzero(Toy_sbss_804D6ED4, TY_ED4_SIZE);
     Toy_80306D70(0);
     _Toy_80307018();
 
@@ -5806,11 +5880,22 @@ void Toy_80310324(void)
     _Toy_803078E4();
 
     gobj = ((ToyGlobalsS_*) Toy_sbss_804D6ED8)->xC;
+#ifdef MELEE_NATIVE
+    // Raw GC offsets: hsd_obj (+0x28), then the SObj list's x40 flags and next (+0x4).
+    {
+        HSD_SObj* sobj = gobj->hsd_obj;
+        while (sobj != NULL) {
+            sobj->x40 = 9;
+            sobj = sobj->next;
+        }
+    }
+#else
     gobj = *(HSD_GObj**) ((char*) gobj + 0x28);
     while (gobj != NULL) {
         *(s32*) ((char*) gobj + 0x40) = 9;
         gobj = *(HSD_GObj**) ((char*) gobj + 0x4);
     }
+#endif
 
     if (gm_IsCurrently1PMode() != 0 ||
         gm_GetCurrentGameMode() == GM_TOY_LOTTERY)
@@ -5841,8 +5926,14 @@ void Toy_80310324(void)
 
     _Toy_80307828(0);
 
+#ifdef MELEE_NATIVE
+    // ToyGlobalsS_ is host-sized differently; use the typed field.
+    _Toy_sbss_804D6E68->x58 = 0x95E;
+    (void) tg5;
+#else
     tg5 = (ToyGlobalsS_*) _Toy_sbss_804D6E68;
     tg5->x58 = 0x95E;
+#endif
 
     _Toy_8030715C(0.0f, 0.0f);
 
@@ -5965,8 +6056,13 @@ void Toy_80310660(s32 arg0)
         if (*(void**) ty27 != NULL) {
             HSD_GObjFree(*(void**) ty27);
             *(void**) ty27 = NULL;
+#ifdef MELEE_NATIVE
+            ((ToyAnimState*) ty27)->jobj[1] = NULL;
+            ((ToyAnimState*) ty27)->jobj[0] = NULL;
+#else
             *(void**) (ty27 + 0x8) = NULL;
             *(void**) (ty27 + 0x4) = NULL;
+#endif
         }
 
         if (*(void**) ty26 != NULL) {
@@ -6514,9 +6610,16 @@ void _Toy_80311F5C(void)
     void** p1 = (void**) Toy_sbss_804D6ED8;
     void** p2 = (void**) _Toy_sbss_804D6E68;
 
+#ifdef MELEE_NATIVE
+    // Word 0x14 is the archive at 0x50 on disc; index by field natively.
+    if (Toy_sbss_804D6ED8->archive != NULL) {
+        Toy_sbss_804D6ED8->archive = NULL;
+    }
+#else
     if (p1[0x14] != NULL) {
         p1[0x14] = NULL;
     }
+#endif
     if (p1[0] != NULL) {
         p1[0] = NULL;
     }

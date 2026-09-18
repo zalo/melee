@@ -145,6 +145,16 @@ typedef void (*lbl_803D9FD8_fn)(s32*, u32, u32);
     fn_80195CCC, fn_80194F30, fn_8019610C, fn_8019610C,
 };
 
+#ifdef MELEE_NATIVE
+/// The table is stored as big-endian byte pairs; the GameCube code reads it as
+/// u16s, which a little-endian host would turn into out-of-range SIS ids.
+static u16 tmSettingTableU16(s32 index)
+{
+    u8* bytes = (u8*) &lbl_803D9F80;
+    return (u16) ((bytes[index * 2] << 8) | bytes[index * 2 + 1]);
+}
+#endif
+
 void fn_80190ABC(int mode)
 {
     struct Lbl804799B8_t* state = &lbl_804799B8;
@@ -165,13 +175,24 @@ void fn_80190ABC(int mode)
 
     switch (mode) {
     case 0: {
+#ifdef MELEE_NATIVE
+        HSD_SisLib_803A6368(
+            tm->x4E0, tmSettingTableU16(opt * 2 + !!gm_804771C4.match_type));
+#else
         HSD_SisLib_803A6368(tm->x4E0,
                             (table + opt * 2)[!!gm_804771C4.match_type]);
+#endif
         break;
     }
     case 2: {
+#ifdef MELEE_NATIVE
+        HSD_SisLib_803A6368(
+            tm->x4E8[opt],
+            tmSettingTableU16(opt * 2 + !!gm_804771C4.match_type + 0xE));
+#else
         HSD_SisLib_803A6368(tm->x4E8[opt],
                             (table + opt * 2 + !!gm_804771C4.match_type)[0xE]);
+#endif
         break;
     }
     case 3: {
@@ -192,11 +213,19 @@ void fn_80190ABC(int mode)
                 display_val = val + 0xD7;
                 break;
             default:
+#ifdef MELEE_NATIVE
+                display_val = lbl_803D9D20.x0[val] + tmSettingTableU16(opt + 0x1A);
+#else
                 display_val = lbl_803D9D20.x0[val] + table[opt + 0x1A];
+#endif
                 break;
             }
         } else {
+#ifdef MELEE_NATIVE
+            display_val = tmSettingTableU16(opt + 0x1A);
+#else
             display_val = table[opt + 0x1A];
+#endif
             display_val += (&tm->match_type)[opt];
         }
         HSD_SisLib_803A6368(tm->x500[opt], display_val);
@@ -1487,7 +1516,11 @@ void fn_801935B8(void)
     table = &lbl_803D9F80;
     tm = gm_GetTournamentData();
     fn_8018FBE0(0, 0, 0, 5, 5, 0x3e7, 3);
+#ifdef MELEE_NATIVE
+    fn_801902F0((intptr_t) fn_80190174(lbl_804D664C->cameras->desc));
+#else
     fn_801902F0((s32) fn_80190174(lbl_804D664C->cameras->desc));
+#endif
     fn_80193308();
     fn_8019027C(lbl_804D664C->lights);
     fn_8019035C(0, lbl_804D664C->models[5], 0, 0x1A, 2, 1, fn_801910E0, 0.0f);

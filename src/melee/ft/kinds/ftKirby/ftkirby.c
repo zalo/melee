@@ -2510,9 +2510,16 @@ void ftKb_Init_800EE528(void)
     ftKirby_CostumeArchive** struct_list = ftKb_Init_803C9FC8;
 
     s32 i;
+#ifdef MELEE_NATIVE
+    // The table holds pointers; 32-bit slots would clear only half of it.
+    (void) number_list;
+    memset(&ft_80459B88, 0, sizeof(ft_80459B88));
+#endif
     for (i = 0; i < Ft_Kind_Max; i++) {
         ftKirby_CostumeArchive* unk_struct;
+#ifndef MELEE_NATIVE
         number_list[i] = 0;
+#endif
         unk_struct = struct_list[i];
         if (unk_struct) {
             unk_struct[0].joint = NULL;
@@ -2678,6 +2685,31 @@ void ftKb_Init_LoadSpecialAttrs(HSD_GObj* gobj)
     COPY_ATTRS(gobj, ftKb_DatAttrs);
 }
 
+#ifdef MELEE_NATIVE
+/* The Game & Watch copy's hat_dynamics[4] is a word block of RGBA colors (word 1
+ * is the item color, word 2 the outline, like x4_GAMEWATCH_COLOR and
+ * x14_GAMEWATCH_OUTLINE). The words are stored in host order, so rebuild the
+ * bytes; the callers pass 4-byte GXColor slots, not pointers. */
+static void ftKb_GwCopyColor(u32 word, GXColor* color)
+{
+    color->r = word >> 24;
+    color->g = word >> 16;
+    color->b = word >> 8;
+    color->a = word;
+}
+
+void ftKb_Init_800EEB00(Fighter_GObj* gobj, ArticleDynamicBones** arg1)
+{
+    u32* words = (u32*) ft_80459B88.hats[Ft_Kind_Pichu]->hat_dynamics[4];
+    ftKb_GwCopyColor(words[1], (GXColor*) arg1);
+}
+
+void ftKb_Init_800EEB1C(Fighter_GObj* gobj, s32* arg1)
+{
+    u32* words = (u32*) ft_80459B88.hats[Ft_Kind_Pichu]->hat_dynamics[4];
+    ftKb_GwCopyColor(words[2], (GXColor*) arg1);
+}
+#else
 void ftKb_Init_800EEB00(Fighter_GObj* gobj, ArticleDynamicBones** arg1)
 {
     *arg1 = ft_80459B88.hats[Ft_Kind_Pichu]->hat_dynamics[4]->ftDynamicBones;
@@ -2687,6 +2719,7 @@ void ftKb_Init_800EEB1C(Fighter_GObj* gobj, s32* arg1)
 {
     *arg1 = ft_80459B88.hats[Ft_Kind_Pichu]->hat_dynamics[4]->x4;
 }
+#endif
 
 void ftKb_Init_OnKnockbackEnter(HSD_GObj* gobj)
 {
@@ -2865,6 +2898,16 @@ void ftKb_SpecialN_800EF040(Fighter_GObj* gobj, int arg1, KirbyHatStruct* hat)
     }
 }
 
+#ifdef MELEE_NATIVE
+/* The hat DObj lists are read as HSD_DObj*[] (see 800EF35C), so the
+ * byte-offset writers must step by the host pointer size. */
+#define FTKB_DOBJ_OFF(n) ((n) * (s32) sizeof(HSD_DObj*))
+#define FTKB_DOBJ_STRIDE ((s32) sizeof(HSD_DObj*))
+#else
+#define FTKB_DOBJ_OFF(n) ((n) << 2)
+#define FTKB_DOBJ_STRIDE 4
+#endif
+
 /// @todo `byte_base` is only ever written; both callers derive their
 /// destination offset from `total_dobjs` instead.
 static inline void
@@ -2934,7 +2977,7 @@ void ftKb_SpecialN_800EF0E4(Fighter_GObj* gobj, int arg1, u8* arg2)
                                     &current_joint, &joint_idx, &byte_base);
     joint_idx = 0;
     arg2_idx = 0;
-    byte_off = total_dobjs << 2;
+    byte_off = FTKB_DOBJ_OFF(total_dobjs);
     insert_part_idx = 0;
     while (current_joint != NULL) {
         group_count = 0;
@@ -2974,8 +3017,8 @@ void ftKb_SpecialN_800EF0E4(Fighter_GObj* gobj, int arg1, u8* arg2)
                     hsdChangeClass(mobj, &ftMObj);
                 }
                 dobj = (dobj != NULL) ? dobj->next : NULL;
-                dst_off += 4;
-                byte_off += 4;
+                dst_off += FTKB_DOBJ_STRIDE;
+                byte_off += FTKB_DOBJ_STRIDE;
                 total_dobjs += 1;
                 group_count += 1;
             }
@@ -3040,7 +3083,7 @@ void ftKb_SpecialN_800EF438(Fighter_GObj* gobj, KirbyHatStruct* hat)
                                         &insert_part_idx, &current_joint,
                                         &joint_idx, &byte_base);
         joint_idx = 0;
-        byte_off = total_dobjs << 2;
+        byte_off = FTKB_DOBJ_OFF(total_dobjs);
         insert_part_idx = 0;
         while (current_joint != NULL) {
             group_count = 0;
@@ -3082,8 +3125,8 @@ void ftKb_SpecialN_800EF438(Fighter_GObj* gobj, KirbyHatStruct* hat)
                         hsdChangeClass(mobj, &ftMObj);
                     }
                     dobj = (dobj != NULL) ? dobj->next : NULL;
-                    dst_off += 4;
-                    byte_off += 4;
+                    dst_off += FTKB_DOBJ_STRIDE;
+                    byte_off += FTKB_DOBJ_STRIDE;
                     total_dobjs += 1;
                     group_count += 1;
                 }
@@ -3131,9 +3174,16 @@ void ftKb_SpecialN_800EF69C(Fighter_GObj* gobj, int arg1, KirbyHatStruct* hat)
             jobj = bone->joint;
             dobj = (HSD_DObj*) jobj;
             if (jobj != NULL && (bone->flags_b6 || bone->flags2_b7)) {
+#ifdef MELEE_NATIVE
+                /* Byte 9 is flags2 only on the 32-bit MSB-first layout; on
+                 * the host it is inside x4_jobj2, so name the bits. */
+                if (bone->flags2_b6) {
+                    if (bone->flags2_b5) {
+#else
                 u8* b9p = &((u8*) bone)[9];
                 if ((*b9p >> 1) & 1) {
                     if ((*b9p >> 2) & 1) {
+#endif
                         dobj = fp->x203C.data[bone->xD];
                     } else {
                         dobj = fp->dobj_list.data[bone->xD];
@@ -3726,7 +3776,11 @@ u8* ftKb_SpecialN_800F1420(Fighter_GObj* gobj, const u32* arg1)
             if (mobj != NULL) {
                 HSD_Material* mat = mobj->mat;
                 if (mat != NULL) {
+#ifdef MELEE_NATIVE
+                    ftKb_GwCopyColor(*arg1, &mat->diffuse);
+#else
                     *(u32*) &mat->diffuse = *arg1;
+#endif
                 }
             }
         }
@@ -3753,8 +3807,13 @@ void ftKb_SpecialN_800F14B4(Fighter_GObj* gobj)
     fp->u.kb.hat.x24.xC[4] = lookup;
     fp->x5AC.xC[4] = lookup;
     ftParts_80074D7C(&fp->u.kb.hat.x24, 4, &fp->u.kb.hat.x14);
+#ifdef MELEE_NATIVE
+    ftKb_SpecialN_800F1420(gobj, &((u32*) hat->hat_dynamics[4])[1]);
+    ftKb_GwCopyColor(((u32*) hat->hat_dynamics[4])[2], &fp->x610_color_rgba[1]);
+#else
     ftKb_SpecialN_800F1420(gobj, (u32*) ((u8*) hat->hat_dynamics[4] + 4));
     *(u32*) &fp->x610_color_rgba[1] = *(u32*) ((u8*) hat->hat_dynamics[4] + 8);
+#endif
     Fighter_UpdateModelScale(gobj);
 }
 #ifdef MUST_MATCH

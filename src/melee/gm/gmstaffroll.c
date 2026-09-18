@@ -60,6 +60,19 @@ typedef struct {
 /* 4D67FC */ static SortBufEntry* staffInfoSortBuf;
 /* 4D6800 */ static int gm_804D6800;
 
+#ifdef MELEE_NATIVE
+/// Both buffers hold 198 entries; their GameCube byte sizes assume 32-bit
+/// pointers.
+#define staffInfo_t staffInfo_native_t
+#define staffInfoSortBuf_t staffInfoSortBuf_native_t
+struct staffInfo_t {
+    char pad_0[(0x948 / 0xC) * sizeof(*staffInfo)];
+};
+struct staffInfoSortBuf_t {
+    char pad_0[(0x2E68 / 0x3C) * sizeof(SortBufEntry)];
+};
+#endif
+
 struct gm_804D6804_t {
     /* +0 */ float x0;
     /* +4 */ float x4;
@@ -1085,7 +1098,12 @@ void fn_801AB200(HSD_GObj* gobj)
 
         if (gm_804D6814 >= 0x1285 && gm_804D680C == NULL) {
             tally_count = 0;
+#ifdef MELEE_NATIVE
+            // The big-endian word 0xFFB40000 reads as RGBA FF B4 00 00.
+            tally_color2 = (GXColor) { 0xFF, 0xB4, 0x00, 0x00 };
+#else
             tally_color2 = *(GXColor*) &gm_804DAAEC;
+#endif
             for (j = 0; j < 6; j++) {
                 HSD_SisLib_803A5CC4(gm_80480D58[j]);
                 gm_80480D58[j] = NULL;

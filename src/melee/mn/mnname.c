@@ -785,6 +785,31 @@ static inline HSD_JObj* mnName_802388D4_noinline(HSD_GObj* gobj, u8 index)
 #endif
 HSD_JObj* mnName_802388D4(HSD_GObj* gobj, u8 index)
 {
+#ifdef MELEE_NATIVE
+    MnName_GObj* data = (MnName_GObj*) gobj;
+    HSD_JObj* result;
+
+    if (index < 0x18) {
+        HSD_JObj* jobj = data->gobj.user_data_remove_func;
+        s32 i;
+
+        result = (jobj == NULL) ? NULL : jobj->child;
+        for (i = 0; i < index; i++) {
+            result = (result == NULL) ? NULL : result->next;
+        }
+        return result;
+    }
+
+    switch (index) {
+    case 0x18:
+        return data->gobj.gxlink_prios_hi;
+    case 0x19:
+        return data->gobj.proc;
+    case 0x1A:
+        return data->gobj.render_cb;
+    }
+    return (HSD_JObj*) gobj;
+#else
     u8* p = (u8*) gobj;
     HSD_JObj* result;
 
@@ -811,6 +836,7 @@ HSD_JObj* mnName_802388D4(HSD_GObj* gobj, u8 index)
     }
 
     return (HSD_JObj*) gobj;
+#endif
 }
 
 #ifdef __MWERKS__
@@ -1548,7 +1574,11 @@ HSD_GObj* mnName_8023A59C(u8 arg0)
                        archive->matanim_joint, archive->shapeanim_joint);
     HSD_JObjReqAnimAll(root_jobj[0], 0.0f);
     HSD_JObjAnimAll(root_jobj[0]);
+#ifdef MELEE_NATIVE
+    user_data = (MnName_GObj*) HSD_MemAlloc(sizeof(MnName_GObj));
+#else
     user_data = (MnName_GObj*) HSD_MemAlloc(0x44);
+#endif
     HSD_ASSERTREPORT(0x67CU, user_data, "Can't get user_data.\n");
     GObj_InitUserData(gobj, 0U, HSD_Free, user_data);
     *(u8*) &user_data->gobj.classifier = (u8) mn_804A04F0.cur_menu;
@@ -1560,8 +1590,13 @@ HSD_GObj* mnName_8023A59C(u8 arg0)
     user_data->text = NULL;
     user_data->text2 = NULL;
     for (i = 0; i < 0xD; i++) {
+#ifdef MELEE_NATIVE
+        lb_80011E24(root_jobj[0], (HSD_JObj**) (&user_data->gobj.next + i), i,
+                    -1);
+#else
         lb_80011E24(root_jobj[0],
                     (HSD_JObj**) ((u8*) user_data + (i << 2) + 8), i, -1);
+#endif
     }
     if (mn_804A04F0.x10 == 1) {
         struct mn_80231634_t* p =
@@ -1570,7 +1605,11 @@ HSD_GObj* mnName_8023A59C(u8 arg0)
         if (p == NULL) {
             j = NULL;
         } else {
+#ifdef MELEE_NATIVE
+            j = HSD_JObjGetChild((HSD_JObj*) p);
+#else
             j = (HSD_JObj*) p->x10;
+#endif
         }
         HSD_JObjRemoveAll(j);
         if (user_data->text != NULL) {
@@ -1588,7 +1627,11 @@ HSD_GObj* mnName_8023A59C(u8 arg0)
         mnName_80239A24((HSD_GObj*) user_data);
         mnName_80238754_noinline((HSD_GObj*) user_data);
     }
+#ifdef MELEE_NATIVE
+    jobj7[0] = user_data->gobj.gxlink_prios_hi;
+#else
     jobj7[0] = ((HSD_JObj**) user_data)[9];
+#endif
     HSD_JObjReqAnimAll(jobj7[0],
                        mnName_804D4BD0[mn_804A04F0.hovered_selection == 0x18]);
     HSD_JObjAnimAll(jobj7[0]);
@@ -1643,7 +1686,11 @@ void mnName_8023A9B4(u8 arg0)
         if (p == NULL) {
             jobj = NULL;
         } else {
+#ifdef MELEE_NATIVE
+            jobj = HSD_JObjGetChild((HSD_JObj*) p);
+#else
             jobj = (HSD_JObj*) p->x10;
+#endif
         }
         HSD_JObjRemoveAll(jobj);
         if (gobj2->text != NULL) {
@@ -1730,6 +1777,19 @@ s32 mnName_8023AC40(void)
         &mnNameNew_804A0720[0].shapeanim_joint,
         "MenMainSbaseEtNw_Top_shapeanim_joint", NULL);
 
+#ifdef MELEE_NATIVE
+    // The names sit at fixed .data offsets from mnName_803ED538 on the
+    // GameCube; natively the objects are not contiguous.
+    if (lbLang_IsSavedLanguageUS()) {
+        lbArchive_LoadSections(archive, (void**) &AutoNamesList,
+                               "mnNameAutoNameUs", (void**) &NotAllowedNamesList,
+                               "mnNameRefuseNameUs", NULL);
+    } else {
+        lbArchive_LoadSections(archive, (void**) &AutoNamesList,
+                               "mnNameAutoName", (void**) &NotAllowedNamesList,
+                               "mnNameRefuseName", NULL);
+    }
+#else
     if (lbLang_IsSavedLanguageUS()) {
         lbArchive_LoadSections(
             archive, (void**) &AutoNamesList, (char*) mnName_803ED538 + 0x4D0,
@@ -1739,6 +1799,7 @@ s32 mnName_8023AC40(void)
             archive, (void**) &AutoNamesList, (char*) mnName_803ED538 + 0x4F8,
             (void**) &NotAllowedNamesList, (char*) mnName_803ED538 + 0x508, NULL);
     }
+#endif
 
     mn_804A04F0.prev_menu = mn_804A04F0.cur_menu;
     mn_804A04F0.cur_menu = 0x12;

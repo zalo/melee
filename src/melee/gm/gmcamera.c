@@ -53,8 +53,13 @@ u8* gmCamera_801A2224(u8* arg0, u32 arg1)
 {
     u32 masked_arg1;
     u32 cond_flag = 0;
+#ifdef MELEE_NATIVE
+    // The font table and SIS tables are host pointers: font 3, entry 2.
+    u8* slus2_arr_ptr = ((u8**) HSD_SisLib_804D1124[3])[2];
+#else
     u8* slus2_arr_ptr =
         ((SisLibUnkStruct*) HSD_SisLib_804D1124)->x0C_ptr->x08_arr;
+#endif
 
     if (arg1 >= 0x2710U) {
         arg1 = 0x270F;

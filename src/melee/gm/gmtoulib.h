@@ -56,7 +56,11 @@
 /* 190174 */ HSD_GObj* fn_80190174(HSD_CObjDesc*);
 /* 1901F8 */ HSD_GObj* fn_801901F8(HSD_CObjDesc*);
 /* 19027C */ void fn_8019027C(UNK_T lights);
+#ifdef MELEE_NATIVE
+/* 1902F0 */ void fn_801902F0(intptr_t arg0);
+#else
 /* 1902F0 */ void fn_801902F0(int arg0);
+#endif
 /* 19035C */ HSD_GObj* fn_8019035C(bool, DynamicModelDesc*, int, int, int,
                                    bool, void (*)(HSD_GObj*), float);
 /* 19044C */ void fn_8019044C(HSD_JObj*, float);

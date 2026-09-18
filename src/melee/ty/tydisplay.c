@@ -59,7 +59,7 @@ static size_t const _tyDisplay_804D6F10_len = 300;
 /* 31B328 */ static void _tyDisplay_8031B328(void);
 /* 31B850 */ static void _tyDisplay_8031B850(void);
 /* 31BA78 */ static void _tyDisplay_8031BA78(s32, s32, f32);
-/* 31BBF4 */ static s32 _tyDisplay_8031BBF4(s8);
+/* 31BBF4 */ static intptr_t _tyDisplay_8031BBF4(s8);
 /* 31BC54 */ static HSD_GObj* _tyDisplay_8031BC54(s32);
 /* 31BF34 */ static void _tyDisplay_8031BF34(s32 arg0);
 /* 31C1D0 */ static void _tyDisplay_8031C1D0(void);
@@ -1815,7 +1815,7 @@ void tyDisplay_Scene_OnEnter(void* arg0)
     _tyDisplay_804D6F14 = HSD_MemAlloc(sizeof(*_tyDisplay_804D6F14));
     _tyDisplay_804D6F18 = HSD_MemAlloc(sizeof(*_tyDisplay_804D6F18));
     _tyDisplay_804D6F1C = HSD_MemAlloc(sizeof(*_tyDisplay_804D6F1C));
-    Toy_sbss_804D6ED4 = HSD_MemAlloc(0xE4);
+    Toy_sbss_804D6ED4 = HSD_MemAlloc(TY_ED4_SIZE);
 
     cfg = _tyDisplay_804D6F18;
     data = _tyDisplay_804D6F1C;
@@ -1843,7 +1843,7 @@ void tyDisplay_Scene_OnEnter(void* arg0)
     Toy_8031263C();
     memzero(_tyDisplay_804D6F1C, sizeof(*_tyDisplay_804D6F1C));
     memzero(_tyDisplay_804D6F18, sizeof(*_tyDisplay_804D6F18));
-    memzero(Toy_sbss_804D6ED4, 0xE4);
+    memzero(Toy_sbss_804D6ED4, TY_ED4_SIZE);
 
     cfg->x08 = Toy_GetTrophyTotal();
 
@@ -1867,7 +1867,7 @@ void tyDisplay_Scene_OnEnter(void* arg0)
     }
 
     for (i = 0; i < 0x2B; i++) {
-        s32 ret = _tyDisplay_8031BBF4((s8) i);
+        intptr_t ret = _tyDisplay_8031BBF4((s8) i);
         data->archives[i] = lbArchive_LoadSymbols((char*) ret, NULL);
     }
 
@@ -2152,7 +2152,27 @@ void _tyDisplay_8031BA78(s32 arg0, s32 arg1, f32 farg0)
     },
 };
 
-s32 tyDisplay_8031BB34(s8 idx)
+#ifdef MELEE_NATIVE
+/// The native compiler does not emit the three tables back-to-back, so the retail cast from
+/// #_tyDisplay_803B8988 read arch_names from unrelated memory and the Classic intro trophy
+/// display crashed in lbFileGetFullName. Build the contiguous block the retail code addresses.
+static const TyDspNameTables* tyDisplay_GetNameTables(void)
+{
+    static TyDspNameTables tables;
+    s32 i;
+
+    if (tables.jobj_names[0] == NULL) {
+        for (i = 0; i < 43; i++) {
+            tables.jobj_names[i] = _tyDisplay_803B8988.entries[i];
+            tables.matanim_names[i] = _tyDisplay_803B8A34.entries[i];
+        }
+        tables.arch_names = _tyDisplay_803B8AE0;
+    }
+    return &tables;
+}
+#endif
+
+intptr_t tyDisplay_8031BB34(s8 idx)
 {
     TyDspArchNames table = _tyDisplay_803B8988;
 
@@ -2160,7 +2180,7 @@ s32 tyDisplay_8031BB34(s8 idx)
         idx = 0;
     }
 
-    return (s32) table.entries[idx];
+    return (intptr_t) table.entries[idx];
 }
 
 char* tyDisplay_8031BB94(s8 idx)
@@ -2174,13 +2194,13 @@ char* tyDisplay_8031BB94(s8 idx)
     return (char*) table.entries[idx];
 }
 
-s32 _tyDisplay_8031BBF4(s8 arg0)
+intptr_t _tyDisplay_8031BBF4(s8 arg0)
 {
     TyDspArchNames table = _tyDisplay_803B8AE0;
     if (arg0 == -1) {
         arg0 = 0;
     }
-    return (s32) table.entries[arg0];
+    return (intptr_t) table.entries[arg0];
 }
 
 HSD_GObj* _tyDisplay_8031BC54(s32 arg0)
@@ -2392,7 +2412,11 @@ s32 tyDisplay_8031C454(s32 arg0)
     const TyDspNameTables* tables;
 
     PAD_STACK(0x4);
+#ifdef MELEE_NATIVE
+    tables = tyDisplay_GetNameTables();
+#else
     tables = (TyDspNameTables const*) &_tyDisplay_803B8988;
+#endif
     result = 0;
     archArr = _tyDisplay_804A2DE8;
 
@@ -2452,8 +2476,12 @@ HSD_JObj* tyDisplay_8031C5E4(s32 arg0)
     HSD_JObj* root;
     HSD_JObj* child;
     u8 cat;
+#ifdef MELEE_NATIVE
+    const TyDspNameTables* tables = tyDisplay_GetNameTables();
+#else
     const TyDspNameTables* tables =
         (TyDspNameTables const*) &_tyDisplay_803B8988;
+#endif
 
     HSD_Archive** archives = _tyDisplay_804A2DE8;
     u8 _3[4];

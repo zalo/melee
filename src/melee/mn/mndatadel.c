@@ -53,6 +53,13 @@ static inline f32 mnDataDel_8024E940_inline(HSD_JObj* arg0)
     return mn_8022F298(arg0);
 }
 
+#ifdef MELEE_NATIVE
+/// mn_80231634 returns a JObj pointer natively; an s32 truncates it.
+typedef intptr_t mnDataDel_JObjInt;
+#else
+typedef s32 mnDataDel_JObjInt;
+#endif
+
 void mnDataDel_8024E940(void)
 {
     u32 pad1;
@@ -63,7 +70,7 @@ void mnDataDel_8024E940(void)
     f32 tmp2;
     f32 temp_f31;
     s32* data;
-    s32 temp_ret;
+    mnDataDel_JObjInt temp_ret;
     struct MnDataDelGObjUserData* temp_r31;
     int i;
     s32 var_r30;
@@ -119,7 +126,7 @@ void mnDataDel_8024EA6C(void)
     u32* data;
     enum_t lang;
     int i;
-    s32 temp_ret;
+    mnDataDel_JObjInt temp_ret;
     u8 pad[0x8];
     HSD_JObj* sp18;
     PAD_STACK(0x10);
@@ -391,7 +398,7 @@ void fn_8024F318(HSD_GObj* gobj)
     HSD_Text* text;
     f32 tmp2;
     f32 frame;
-    s32 temp_ret;
+    mnDataDel_JObjInt temp_ret;
     s32 sis_id;
     u32 buttons;
     u8 cursor;
@@ -689,17 +696,23 @@ void fn_8024FBA4(HSD_GObj* gobj)
     frame = mn_8022EE84(GET_JOBJ(gobj), &mnDataDel_803EF870.xC,
                         (enum _HSD_TypeMask) 0x480);
     for (i = 0; i < 6; i++) {
+#ifdef MELEE_NATIVE
+        mn_8022EE84(((struct MnDataDelGObjUserData*) user_data)
+                        ->x10[mnDataDel_803EF8AC[i]],
+                    &data->xC, (enum _HSD_TypeMask) 0x480);
+#else
         mn_8022EE84(
             *(HSD_JObj**) (user_data + mnDataDel_803EF8AC[i] * 4 + 0x10),
             &data->xC, (enum _HSD_TypeMask) 0x480);
+#endif
     }
     if (frame >= data->xC.end_frame) {
         HSD_GObjFree(gobj);
     }
 }
 
-static inline HSD_JObj* fn_8024FC48_inline(int arg0);
-static inline HSD_JObj* fn_8024FC48_inline(int arg0)
+static inline HSD_JObj* fn_8024FC48_inline(mnDataDel_JObjInt arg0);
+static inline HSD_JObj* fn_8024FC48_inline(mnDataDel_JObjInt arg0)
 {
     return (HSD_JObj*) arg0;
 }
@@ -717,15 +730,29 @@ void fn_8024FC48(HSD_GObj* gobj)
         HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
         proc = HSD_GObj_SetupProc(gobj, fn_8024FBA4, 0);
         proc->flags_3 = HSD_GObj_804D783C;
+#ifdef MELEE_NATIVE
+        HSD_SisLib_803A5CC4(
+            ((struct MnDataDelGObjUserData*) user_data)->xC);
+#else
         HSD_SisLib_803A5CC4(*(HSD_Text**) (user_data + 0xC));
+#endif
     } else {
         for (i = 0; i < 6; i++) {
+#ifdef MELEE_NATIVE
+            lb_80011E24(
+                fn_8024FC48_inline(mn_80231634(
+                    (struct mn_80231634_t*) ((struct MnDataDelGObjUserData*)
+                                                 gobj->user_data)
+                        ->x10[mnDataDel_803EF8AC[i]])),
+                &jobj, 1, -1);
+#else
             lb_80011E24(
                 fn_8024FC48_inline(mn_80231634(
                     *(struct mn_80231634_t**) ((u8*) gobj->user_data +
                                                mnDataDel_803EF8AC[i] * 4 +
                                                0x10))),
                 &jobj, 1, -1);
+#endif
             if (user_data[0] == i) {
                 mn_8022EC18(jobj, &mnDataDel_803EF888, (HSD_TypeMask) 0x400);
             } else {
@@ -758,15 +785,27 @@ void fn_8024FD40(HSD_GObj* gobj)
         HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
         proc = HSD_GObj_SetupProc(gobj, fn_8024FBA4, 0);
         proc->flags_3 = HSD_GObj_804D783C;
+#ifdef MELEE_NATIVE
+        HSD_SisLib_803A5CC4(
+            ((struct MnDataDelGObjUserData*) user_data)->xC);
+#else
         HSD_SisLib_803A5CC4(*(HSD_Text**) (user_data + 0xC));
+#endif
         return;
     }
     frame =
         mn_8022EE84(jobj, &mnDataDel_803EF870.x0, (enum _HSD_TypeMask) 0x480);
     for (i = 0; i < 6; i++) {
+#ifdef MELEE_NATIVE
+        mn_8022EE84(((struct MnDataDelGObjUserData*) user_data)
+                        ->x10[mnDataDel_803EF8AC[i]],
+                    mnDataDel_GetAnimSettings(data),
+                    (enum _HSD_TypeMask) 0x480);
+#else
         mn_8022EE84(
             *(HSD_JObj**) (user_data + mnDataDel_803EF8AC[i] * 4 + 0x10),
             mnDataDel_GetAnimSettings(data), (enum _HSD_TypeMask) 0x480);
+#endif
     }
     if (frame == data->x0.end_frame) {
         HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
@@ -818,12 +857,20 @@ void mnDataDel_8024FE4C(u8 arg0)
     user_data->xC = NULL;
     GObj_InitUserData(gobj, 0U, HSD_Free, user_data);
     i = (enabled = 0);
+#ifdef MELEE_NATIVE
+    (void) cursor;
+    do {
+        lb_80011E24(root, &user_data->x10[i], i, -1);
+        i++;
+    } while (i < (int) ARRAY_SIZE(user_data->x10));
+#else
     cursor = (u8*) user_data + i * 4;
     do {
         lb_80011E24(root, (HSD_JObj**) (cursor + 0x10), i, -1);
         i++;
         cursor += 4;
     } while (i < (int) ARRAY_SIZE(user_data->x10));
+#endif
     proc = HSD_GObj_SetupProc(gobj, fn_8024FD40, 0U);
     proc->flags_3 = HSD_GObj_804D783C;
     assets = &mnDataDel_804A0928;

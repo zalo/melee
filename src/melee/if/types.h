@@ -159,10 +159,22 @@ struct DevText {
 ASSERT_SIZE(struct DevText, 0x34);
 
 struct un_804D6EF4_t {
+#ifdef MELEE_NATIVE
+    /* +0x00 */ uintptr_t x00;
+#else
     /* +0x00 */ u32 x00;
+#endif
     /* +0x04 */ HSD_GObj* unk4;
+#ifdef MELEE_NATIVE
+    /* +0x08 */ uintptr_t x08;
+#else
     /* +0x08 */ u32 x08;
+#endif
+#ifdef MELEE_NATIVE
+    /* +0x0C */ uintptr_t x0C;
+#else
     /* +0x0C */ u32 x0C;
+#endif
     /* +0x10 */ HSD_JObj* jobjs[16];
     /* +0x50 */ HSD_Archive* archive;
     /* +0x54 */ s16 x54;
@@ -199,6 +211,21 @@ struct un_80304138_objalloc_t_x8 {
     float x1C;
 };
 ASSERT_SIZE(struct un_80304138_objalloc_t_x8, 0x20);
+
+#ifdef MELEE_NATIVE
+/// SmSt.dat smSoundTestLoadData. The GameCube code reads it as an int array;
+/// natively the label tables are host pointers.
+struct SmSoundTestLoadData {
+    int mode_count;
+    char** mode_names;
+    char** fgm_group_names;
+    char** fgm_names;
+    int fgm_count;
+    int* fgm_ids;
+    int* fgm_group_sizes;
+    char** bgm_names;
+};
+#endif
 
 struct un_80304138_objalloc_t {
     unsigned char x0;
@@ -286,7 +313,13 @@ struct IfStockData {
 };
 
 struct IfStockDataOffset {
+#ifdef MELEE_NATIVE
+    /* 64-bit pointers move x204; the fixed 0x204 overwrote player[5] and
+     * jobj. */
+    u8 x0[offsetof(struct ifStock_804A1378, x204)];
+#else
     u8 x0[0x204];
+#endif
 };
 
 #endif

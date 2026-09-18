@@ -188,9 +188,16 @@ typedef struct StageIdPair {
 
 struct GroundVars_unk {
     int xC4;
+#ifdef MELEE_NATIVE
+    // Home-Run Contest keeps HSD_Text/HSD_JObj pointers in these slots.
+    intptr_t xC8;
+    intptr_t xCC;
+    intptr_t xD0;
+#else
     int xC8;
     int xCC;
     int xD0;
+#endif
     HSD_GObj* text_gobj;
     int xD8;
     int xDC;
@@ -1735,7 +1742,11 @@ struct grShrineroute_GroundVars {
     /*  +A gp+CE */ u16 xCE;
     /*  +C gp+D0 */ u16 xD0;
     u8 _pad[0xD4 - 0xD2];
+#ifdef MELEE_NATIVE
+    /* +10 gp+D4 */ uintptr_t xD4;
+#else
     /* +10 gp+D4 */ u32 xD4;
+#endif
     /* +14 gp+D8 */ struct {
         /* +0 */ Vec3 offset;
         /* +C */ HSD_JObj* jobj;

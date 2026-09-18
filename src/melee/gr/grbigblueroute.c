@@ -1044,9 +1044,13 @@ void grBigBlueRoute_8020CD20(Ground_GObj* gobj)
         }
 
         i++;
+#ifdef MELEE_NATIVE
+        jobj = (jobj != NULL) ? jobj->next : NULL;
+#else
         jobj = (jobj != NULL) ? (HSD_JObj*) grBigBlueRoute_8020DA9C(
                                     (struct grBigBlueRoute_8020DA9C_t*) jobj)
                               : NULL;
+#endif
     } while (i < 31);
 }
 #undef RE_ENTRY

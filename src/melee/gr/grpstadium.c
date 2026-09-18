@@ -2075,7 +2075,14 @@ void grStadium_801D4548(Ground_GObj* gobj)
         }
         break;
     case 2:
+#ifdef MELEE_NATIVE
+        // temp_r31 is the stadium's ground: through grStadium_Display the 8-byte xD8 pointer
+        // covers stadium.xDC/xDE on a 64-bit host and zeroes the transformation type read below
+        // (HSD_ASSERT 0xA67). On console the write is stadium.xD8's four bytes.
+        temp_r31->u.stadium.xD8 = 0;
+#else
         temp_r31->u.display.xD8 = NULL;
+#endif
         temp_r3_6 = Ground_GetMapGObj(1);
         if (temp_r3_6 != NULL) {
             temp_r0_2 = temp_r31->u.stadium.xDE;

@@ -23,7 +23,12 @@ typedef struct {
     u8 b7 : 1, b6 : 1, b5 : 1, b4 : 1, b3 : 1, b2 : 1, b1 : 1, b0 : 1;
 } u8_bits;
 
+#ifdef MELEE_NATIVE
+/// Read as UnkAllstarData (0xA0 on the GameCube, larger with native pointers).
+static u8 lbl_80472CB0[sizeof(struct UnkAllstarData)];
+#else
 static u8 lbl_80472CB0[0x78];
+#endif
 
 AllstarStageEntry lbl_803D85F0[55] = {
     { 4, 0, 0x3c, 0xaf, { 0, 0, 9 } },
@@ -158,7 +163,11 @@ bool fn_8017EDDC(void)
     return false;
 }
 
+#ifdef MELEE_NATIVE
+void fn_8017EE40(intptr_t arg0_int)
+#else
 void fn_8017EE40(int arg0_int)
+#endif
 {
     MatchEnd* arg0 = (MatchEnd*) arg0_int;
     struct StartMeleeRules* rules;

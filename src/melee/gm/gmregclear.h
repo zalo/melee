@@ -71,7 +71,11 @@
 /* 17E7E0 */ bool gm_8017E7E0(void);
 /* 17F294 */ int fn_8017F294(void);
 /* 17E7FC */ void gm_8017E7FC(u8);
+#ifdef MELEE_NATIVE
+/* 17E8A4 */ void fn_8017E8A4(intptr_t);
+#else
 /* 17E8A4 */ void fn_8017E8A4(int);
+#endif
 /* 17EB30 */ UnkAllstarData* gm_GetAllStarData(void);
 /* 17EB3C */ u8 gm_8017EB3C(u8, u8);
 /* 17EB64 */ u8 gm_8017EB64(u8 difficulty, u8 stage_slot, u8 arg2);
@@ -85,7 +89,11 @@
 /* 17ED3C */ f32 gm_8017ED3C(u8, u8);
 /* 17ED8C */ f32 gm_8017ED8C(u8, u8);
 /* 17EDDC */ bool fn_8017EDDC(void);
+#ifdef MELEE_NATIVE
+/* 17EE40 */ void fn_8017EE40(intptr_t);
+#else
 /* 17EE40 */ void fn_8017EE40(int);
+#endif
 /* 17F008 */ int fn_8017F008(void);
 /* 17F09C */ s32 fn_8017F09C(void);
 /* 17F14C */ s32 fn_8017F14C(void* arg0);

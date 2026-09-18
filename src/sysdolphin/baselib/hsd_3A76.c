@@ -459,7 +459,25 @@ static void sisFitLineToBox(HSD_Text* text, f32 measured_width)
     }
 }
 
+#ifdef MELEE_NATIVE
+static void HSD_SisLib_803A84BC_Impl(HSD_GObj* gobj, int pass,
+                                     HSD_Text* pass_text);
+
 void HSD_SisLib_803A84BC(HSD_GObj* gobj, int pass)
+{
+    HSD_SisLib_803A84BC_Impl(gobj, pass, (HSD_Text*) (intptr_t) pass);
+}
+
+void HSD_SisLib_803A84BC_Text(HSD_Text* text)
+{
+    HSD_SisLib_803A84BC_Impl(NULL, 0, text);
+}
+
+static void HSD_SisLib_803A84BC_Impl(HSD_GObj* gobj, int pass,
+                                     HSD_Text* pass_text)
+#else
+void HSD_SisLib_803A84BC(HSD_GObj* gobj, int pass)
+#endif
 {
     // clang-format off
     HSD_Text *text;
@@ -499,7 +517,11 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, int pass)
         }
         text = HSD_GObjGetUserData(gobj);
     } else {
+#ifdef MELEE_NATIVE
+        text = pass_text;
+#else
         text = (HSD_Text*) pass;
+#endif
     }
     if (text->hidden == 0 && text->sis_buffer != NULL) {
         u8 *sis_cursor = (u8 *)text->sis_buffer;

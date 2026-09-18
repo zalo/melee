@@ -23,6 +23,7 @@
 #include <sysdolphin/baselib/sislib.h>
 #include <sysdolphin/baselib/video.h>
 #ifdef MELEE_NATIVE
+#include <stdlib.h>
 extern void MeleeNativeInputScene(int);
 #endif
 
@@ -387,6 +388,22 @@ void gm_801A4510(void)
     } else {
         state_machine.routing.curr_mode = GM_BOOT;
     }
+#ifdef MELEE_NATIVE
+    {
+        // Test hook: boot straight into a game mode (e.g. 21 =
+        // GM_CLASSIC_GOVER for the trophy fall, staff roll and ending).
+        const char* test_mode = getenv("MELEE_TEST_BOOT_MODE");
+        if (test_mode != NULL) {
+            char* end;
+            unsigned long value = strtoul(test_mode, &end, 0);
+            if (!*test_mode || *end || value >= GM_COUNT) {
+                OSPanic(__FILE__, __LINE__, "Invalid MELEE_TEST_BOOT_MODE");
+            }
+            state_machine.routing.curr_mode = (u8) value;
+            OSReport("[input-test] boot game mode %lu\n", value);
+        }
+    }
+#endif
     state_machine.routing.prev_mode = GM_COUNT;
 
     while (true) {

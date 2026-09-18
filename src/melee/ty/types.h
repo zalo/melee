@@ -107,39 +107,34 @@ struct TyDspEntry {
 };
 ASSERT_SIZE(struct TyDspEntry, 0x10);
 
-struct ToySubStructS_ {
-    u8 pad0[0x10];
-    s16 x10;
+struct ToyListEntry {
+    /* 0x00 */ struct ToyListEntry* prev;
+    /* 0x04 */ struct ToyListEntry* next;
+    /* 0x08 */ char* archive_name;
+    /* 0x0C */ char* symbol_name;
+    /* 0x10 */ s16 trophy_id;
+    /* 0x12 */ u8 pad_12[2];
+    /* 0x14 */ HSD_Archive* archive;
 };
 
-struct ToyGlobalsS_ {
-    HSD_GObj* x0;
-    u8 x4;
-    HSD_GObj* x8;
-    HSD_GObj* xC;
-    s32 x10;
-    u8 pad14[0x1C];
-    void* x30;
-    u8 pad34[0x1C];
-    void* x50;
-    HSD_Archive* x54;
-    s32 x58;
-    u8 pad0[0x140 - 0x5C];
-    ToySubStructS_* x140;
-    void* x144;
-    void* x148;
-    void* x14C;
-    void* x150;
-    s16 x154;
+/// #Toy_sbss_804D6EE0 is one buffer seen through TyDisplayData, ToyDisplayList,
+/// tyDispData and ToyGlobalsS_. It starts with 13 ToyListEntry (0x14 bytes on
+/// disc, 0x30 on a 64-bit host), so natively every view is placed after them.
+#ifdef MELEE_NATIVE
+struct TyDisplayData {
+    ToyListEntry entries[13];
+    ToyListEntry* first_entry;
+    ToyListEntry* last_entry;
+    ToyListEntry* selected_entry;
+    HSD_Text* x144;
+    HSD_Text* x148;
+    HSD_Text* x14C;
+    HSD_Text* x150;
+    s16 selectedIdx;
+    u8 pad_156;
+    s8 visible_count;
 };
-
-struct TyFiguponED4 {
-    /* 0x00 */ u32 x0;
-    /* 0x04 */ u32 x4;
-    /* 0x08 */ u8 pad_08[0x4];
-    /* 0x0C */ u32 xC;
-};
-
+#else
 struct TyDisplayData {
     /* 0x000 */ u8 pad_000[0x138];
     /* 0x138 */ ToyListEntry* first_entry;
@@ -150,16 +145,77 @@ struct TyDisplayData {
     /* 0x156 */ u8 pad_156;
     /* 0x157 */ s8 visible_count;
 };
+#endif
 
-struct ToyListEntry {
-    /* 0x00 */ struct ToyListEntry* prev;
-    /* 0x04 */ struct ToyListEntry* next;
-    /* 0x08 */ char* archive_name;
-    /* 0x0C */ char* symbol_name;
-    /* 0x10 */ s16 trophy_id;
-    /* 0x12 */ u8 pad_12[2];
-    /* 0x14 */ HSD_Archive* archive;
+struct ToySubStructS_ {
+#ifdef MELEE_NATIVE
+    void* pad0[4];
+#else
+    u8 pad0[0x10];
+#endif
+    s16 x10;
 };
+
+struct ToyGlobalsS_ {
+    HSD_GObj* x0;
+    u8 x4;
+    HSD_GObj* x8;
+    HSD_GObj* xC;
+    s32 x10;
+#ifdef MELEE_NATIVE
+    // x10..x30 is a nine-jobj list filled by lb_8001204C (Toy_80307470),
+    // followed by seven more words before x50; all host pointers.
+    void* pad14[7];
+    void* x30;
+    void* pad34[7];
+#else
+    u8 pad14[0x1C];
+    void* x30;
+    u8 pad34[0x1C];
+#endif
+    void* x50;
+    HSD_Archive* x54;
+    s32 x58;
+#ifdef MELEE_NATIVE
+    // Only #Toy_sbss_804D6EE0 is read past x58; see TyDisplayData.
+    u8 pad0[0x280 - 0xB4];
+#else
+    u8 pad0[0x140 - 0x5C];
+#endif
+    ToySubStructS_* x140;
+    void* x144;
+    void* x148;
+    void* x14C;
+    void* x150;
+    s16 x154;
+};
+
+/// #Toy_sbss_804D6ED4 is one 0xE4 buffer seen through TyFiguponED4, TyLightData,
+/// tyUnkStruct, TyCleanupObj, ToyCameraControl, TyLightArray_ and raw offsets.
+/// Its header is four pointers (0x10 bytes on disc); on a 64-bit host it is 0x20,
+/// so every offset past the header moves by TY_ED4_SHIFT.
+#ifdef MELEE_NATIVE
+#define TY_ED4_SHIFT 0x10
+#else
+#define TY_ED4_SHIFT 0
+#endif
+#define TY_ED4_SIZE (0xE4 + TY_ED4_SHIFT)
+
+#ifdef MELEE_NATIVE
+struct TyFiguponED4 {
+    uintptr_t x0;
+    uintptr_t x4;
+    uintptr_t pad_08;
+    uintptr_t xC;
+};
+#else
+struct TyFiguponED4 {
+    /* 0x00 */ u32 x0;
+    /* 0x04 */ u32 x4;
+    /* 0x08 */ u8 pad_08[0x4];
+    /* 0x0C */ u32 xC;
+};
+#endif
 
 struct Toy26B8 {
     /* 0x000 */ Vec3 x0;
@@ -284,7 +340,14 @@ struct TyDspBgData {
 
 struct TyDspArchiveHolder {
     /*  +0 */ UNK_T x0;
+#ifdef MELEE_NATIVE
+    // Passed to Toy_803087F4 as a ToyEntryData.
+    void* pad_4[3];
+    s16 pad_10;
+    u8 pad_12[2];
+#else
     /*  +4 */ u8 pad_4[0x10];
+#endif
     /* +14 */ HSD_Archive* archive;
 };
 
@@ -310,9 +373,16 @@ struct TyListGobjEntry {
 };
 
 struct TyListRow {
+#ifdef MELEE_NATIVE
+    // A view of TyListArg: links[3] and jobjs[3] are host pointers.
+    void* pad_0[3];
+    HSD_JObj* jobj;
+    void* pad_10[2];
+#else
     /* 0x00 */ u8 pad_0[0xC];
     /* 0x0C */ HSD_JObj* jobj;
     /* 0x10 */ u8 pad_10[0x18 - 0x10];
+#endif
     /* 0x18 */ HSD_Text* text0;
     /* 0x1C */ HSD_Text* text1;
     /* 0x20 */ HSD_Text* text2;
@@ -324,16 +394,34 @@ struct TyListRow {
     /* 0x30 */ f32 x30;
 };
 
+#ifdef MELEE_NATIVE
+STATIC_ASSERT(offsetof(TyListRow, jobj) == offsetof(TyListArg, jobjs[0]));
+STATIC_ASSERT(offsetof(TyListRow, text0) == offsetof(TyListArg, texts[0]));
+STATIC_ASSERT(offsetof(TyListRow, x24) == offsetof(TyListArg, x24));
+STATIC_ASSERT(offsetof(TyListRow, idx) == offsetof(TyListArg, idx));
+STATIC_ASSERT(offsetof(TyListRow, x28) == offsetof(TyListArg, x28));
+STATIC_ASSERT(offsetof(TyListRow, x30) == offsetof(TyListArg, x30));
+#endif
+
 struct DigitInit {
     s32 x0, x4, x8, xC;
 };
 
+#ifdef MELEE_NATIVE
+struct TyLightData {
+    void* pad;
+    HSD_GObj* gobj;
+    void* pad8;
+    HSD_Archive* archive;
+};
+#else
 struct TyLightData {
     /* 0x00 */ u8 pad[4];
     /* 0x04 */ HSD_GObj* gobj;
     /* 0x08 */ u8 pad8[4];
     /* 0x0C */ HSD_Archive* archive;
 };
+#endif
 
 struct ToyNameData {
     s16 x0;
@@ -374,8 +462,14 @@ struct TyCleanupObj {
     /* 0x10 */ void* x10;
 };
 
+// TyGObjX8_, TyLightGObj_ and ToyDataX8 read a GObj's hsd_obj, which is at 0x28 with 4-byte
+// pointers and 0x40 on a 64-bit host (asserted in toy.c).
 struct TyGObjX8_ {
+#ifdef MELEE_NATIVE
+    u8 pad[0x40];
+#else
     u8 pad[0x28];
+#endif
     HSD_CObj* x28;
 };
 
@@ -383,7 +477,12 @@ struct TyCameraData_ {
     void* x0;
     void* x4;
     TyGObjX8_* x8;
+#ifdef MELEE_NATIVE
+    // Slots 3..5 are gobj pointers; see Toy6E68.
+    void* padC[3];
+#else
     u8 padC[0x18 - 0x0C];
+#endif
     f32 x18;
     f32 x1C;
     f32 x20;
@@ -395,14 +494,18 @@ struct TyCameraData_ {
 };
 
 struct TyLightGObj_ {
+#ifdef MELEE_NATIVE
+    u8 pad[0x40];
+#else
     u8 pad[0x28];
+#endif
     HSD_LObj* x28;
 };
 
 struct TyLightArray_ {
     void* x0;
     TyLightGObj_* x4;
-    u8 pad08[0x14 - 0x08];
+    u8 pad08[0x14 + TY_ED4_SHIFT - 2 * sizeof(void*)];
     f32 x14;
     f32 x18;
     s32 x1C;
@@ -416,27 +519,52 @@ struct TyLightArray_ {
     s8 xDC[8];
 };
 
+// ToyDataJObj and ToyJObjNode are HSD_SObj views (x4 = next, x40 = flags); on a 64-bit host
+// next is at 0x08 and x40 at 0x50 (asserted in toy.c).
 struct ToyDataJObj {
     /* 0x00 */ void* x0;
     /* 0x04 */ struct ToyDataJObj* x4;
+#ifdef MELEE_NATIVE
+    u8 pad10[0x50 - 0x10];
+#else
     /* 0x08 */ u8 pad08[0x40 - 0x08];
+#endif
     /* 0x40 */ s32 x40;
 };
 
 struct ToyDataX8 {
+#ifdef MELEE_NATIVE
+    u8 pad0[0x40];
+#else
     /* 0x00 */ u8 pad0[0x28];
+#endif
     /* 0x28 */ ToyDataJObj* x28;
 };
 
+#ifdef MELEE_NATIVE
+/// Another view of #Toy_sbss_804D6ED8; mirrors the native #ToyED8Data layout
+/// (x0C is gobj2, x58 is x58).
+struct tyLightData {
+    void* _pad0[3];
+    HSD_GObj* x0C;
+    char _pad1[0xB0 - 0x20];
+    void* x58;
+};
+#else
 struct tyLightData {
     /* 0x00 */ char _pad0[0x0C];
     /* 0x0C */ HSD_GObj* x0C;
     /* 0x10 */ char _pad1[0x48];
     /* 0x58 */ void* x58;
 };
+#endif
 
 struct tyDispData {
+#ifdef MELEE_NATIVE
+    u8 pad[0x288];
+#else
     u8 pad[0x144];
+#endif
     HSD_Text* x144;
     HSD_Text* x148;
     HSD_Text* x14C;
@@ -444,14 +572,24 @@ struct tyDispData {
 };
 
 struct un_804D6E68_t {
+#ifdef MELEE_NATIVE
+    void* pad[6];
+#else
     /* 0x00 */ u8 pad[0x18];
+#endif
     /* 0x18 */ f32 x18;
 };
 
 struct ToyJObjNode {
+#ifdef MELEE_NATIVE
+    void* x0;
+    void* x4;
+    u8 x10[0x50 - 0x10];
+#else
     u8 x0[0x4];
     void* x4;
     u8 x8[0x40 - 0x8];
+#endif
     s32 x40;
 };
 
@@ -459,12 +597,18 @@ struct ToyCameraControl {
     /*  +0 */ HSD_GObj* x00;
     /*  +4 */ HSD_GObj* x04;
     /*  +8 */ HSD_GObj* x08;
+#ifdef MELEE_NATIVE
+    void* pad;
+#else
     /*  +C */ u8 pad[0x4];
+#endif
     /* +10 */ s32 x10;
     /* +14 */ f32 x14;
     /* +18 */ f32 x18;
 };
+#ifndef MELEE_NATIVE
 ASSERT_SIZE(ToyCameraControl, 0x1C);
+#endif
 
 struct ToyTransitionObj {
     u8 pad[0x20];
@@ -477,7 +621,13 @@ struct Toy6E68 {
     ToyTransitionObj* x4;
     void* x8;
     ToyTransitionObj* xC;
+#ifdef MELEE_NATIVE
+    // Toy_80310660 and the camera setup use slots 0..5 as gobj pointers.
+    void* x10;
+    void* x14;
+#else
     u8 pad10[0x18 - 0x10];
+#endif
     f32 x18;
     f32 x1C;
     f32 x20;
@@ -499,6 +649,17 @@ struct Toy6E68 {
     s8 x60;
     s8 x61;
 };
+
+#ifdef MELEE_NATIVE
+/// #_Toy_sbss_804D6E68 is seen through Toy6E68, TyCameraData_,
+/// un_804D6E68_t and void**; the floats follow six host pointers.
+STATIC_ASSERT(offsetof(Toy6E68, x18) == 6 * sizeof(void*));
+STATIC_ASSERT(offsetof(un_804D6E68_t, x18) == offsetof(Toy6E68, x18));
+STATIC_ASSERT(offsetof(TyCameraData_, x8) == offsetof(Toy6E68, x8));
+STATIC_ASSERT(offsetof(TyCameraData_, x18) == offsetof(Toy6E68, x18));
+STATIC_ASSERT(offsetof(TyCameraData_, x2C) == offsetof(Toy6E68, x2C));
+STATIC_ASSERT(offsetof(TyCameraData_, x58) == offsetof(Toy6E68, x58));
+#endif
 
 struct Ty25Entry {
     u8 pad[0x14];
@@ -550,6 +711,43 @@ struct TyListWaitData {
 /// @todo = ToyGlobalsS_
 /// @todo = TyArchiveData
 /// @todo = tyLightData
+#ifdef MELEE_NATIVE
+// Toy_sbss_804D6ED8 is read through ToyED8Data, ToyGlobalsS_ and
+// TyArchiveData; with 8-byte pointers the byte pads no longer line up, so
+// place the shared fields where ToyGlobalsS_ puts them (x50 = TyMnView
+// archive, x54 = TyMnBg archive).
+struct ToyED8Data {
+    HSD_JObj** x0;
+    HSD_GObj* gobj;
+    ToyDataX8* x8;
+    HSD_GObj* gobj2;
+    // Words 0x10..0x30 are the nine-jobj panel list (see ToyGlobalsS_ x10).
+    void* pad_10[2];
+    HSD_JObj* jobjs[3];
+    void* pad_24[3];
+    HSD_JObj* x30;
+    void* pad_34[7];
+    HSD_Archive* archive;
+    HSD_Archive* x54;
+    UNK_T x58;
+};
+STATIC_ASSERT(offsetof(struct ToyED8Data, jobjs) ==
+              offsetof(struct ToyGlobalsS_, x10) + 2 * sizeof(void*));
+STATIC_ASSERT(offsetof(struct ToyED8Data, x30) ==
+              offsetof(struct ToyGlobalsS_, x10) + 8 * sizeof(void*));
+STATIC_ASSERT(offsetof(struct ToyED8Data, gobj2) ==
+              offsetof(struct ToyGlobalsS_, xC));
+STATIC_ASSERT(offsetof(struct ToyED8Data, x30) ==
+              offsetof(struct ToyGlobalsS_, x30));
+STATIC_ASSERT(offsetof(struct ToyED8Data, archive) ==
+              offsetof(struct ToyGlobalsS_, x50));
+STATIC_ASSERT(offsetof(struct ToyED8Data, x54) ==
+              offsetof(struct ToyGlobalsS_, x54));
+STATIC_ASSERT(offsetof(struct ToyED8Data, gobj2) ==
+              offsetof(struct tyLightData, x0C));
+STATIC_ASSERT(offsetof(struct ToyED8Data, x58) ==
+              offsetof(struct tyLightData, x58));
+#else
 struct ToyED8Data {
     /*  +0 */ HSD_JObj** x0;
     /*  +4 */ HSD_GObj* gobj;
@@ -564,6 +762,7 @@ struct ToyED8Data {
     /* 0x54 */ u32 x54;
     UNK_T x58;
 };
+#endif
 ASSERT_OFFSET(struct ToyED8Data, x0, 0x0);
 ASSERT_OFFSET(struct ToyED8Data, gobj, 0x4);
 ASSERT_OFFSET(struct ToyED8Data, gobj2, 0xC);
@@ -574,9 +773,17 @@ ASSERT_OFFSET(struct ToyED8Data, x54, 0x54);
 ASSERT_SIZE(struct ToyED8Data, 0x5C);
 struct TyArchiveData {
     HSD_GObj* gobj;
+#ifdef MELEE_NATIVE
+    u8 pad[0x98];
+#else
     u8 pad[0x4C];
+#endif
     void* data;
 };
+#ifdef MELEE_NATIVE
+STATIC_ASSERT(offsetof(struct TyArchiveData, data) ==
+              offsetof(struct ToyGlobalsS_, x50));
+#endif
 
 struct TyFiguponInner {
     u8 pad[0x4D];
@@ -612,7 +819,11 @@ struct ToyTable {
 };
 
 typedef struct ToyEntryData {
+#ifdef MELEE_NATIVE
+    void* x0[2];
+#else
     u8 x0[0x8];
+#endif
     char* x8;
     char* xC;
     s16 x10;
@@ -640,5 +851,37 @@ struct lbl_803FDDE4_t {
     } values[6];
 };
 ASSERT_SIZE(struct lbl_803FDDE4_t, 0x78);
+
+#ifdef MELEE_NATIVE
+// Views of #Toy_sbss_804D6ED4 must agree on the shifted native layout.
+STATIC_ASSERT(offsetof(TyLightData, gobj) == offsetof(TyCleanupObj, x4));
+STATIC_ASSERT(offsetof(TyLightData, archive) == offsetof(TyCleanupObj, xC));
+STATIC_ASSERT(offsetof(TyLightData, archive) ==
+              offsetof(struct TyFiguponED4, xC));
+STATIC_ASSERT(offsetof(ToyCameraControl, x10) ==
+              offsetof(ToyGlobalsS_, x10));
+STATIC_ASSERT(offsetof(ToyCameraControl, x14) == offsetof(TyLightArray_, x14));
+STATIC_ASSERT(offsetof(TyLightArray_, x1C) == 0x1C + TY_ED4_SHIFT);
+STATIC_ASSERT(offsetof(TyLightArray_, x7C) == 0x7C + TY_ED4_SHIFT);
+STATIC_ASSERT(offsetof(TyLightArray_, xDC) == 0xDC + TY_ED4_SHIFT);
+STATIC_ASSERT(offsetof(TyLightArray_, xDC) + 8 == TY_ED4_SIZE);
+
+// Views of #Toy_sbss_804D6EE0 and of a single trophy entry.
+STATIC_ASSERT(offsetof(ToyGlobalsS_, x140) ==
+              offsetof(TyDisplayData, selected_entry));
+STATIC_ASSERT(offsetof(ToyGlobalsS_, x144) == offsetof(TyDisplayData, x144));
+STATIC_ASSERT(offsetof(ToyGlobalsS_, x150) == offsetof(TyDisplayData, x150));
+STATIC_ASSERT(offsetof(ToyGlobalsS_, x154) ==
+              offsetof(TyDisplayData, selectedIdx));
+STATIC_ASSERT(offsetof(tyDispData, x144) == offsetof(TyDisplayData, x144));
+STATIC_ASSERT(offsetof(ToySubStructS_, x10) ==
+              offsetof(ToyListEntry, trophy_id));
+STATIC_ASSERT(offsetof(ToyEntryData, x8) ==
+              offsetof(ToyListEntry, archive_name));
+STATIC_ASSERT(offsetof(ToyEntryData, x10) == offsetof(ToyListEntry, trophy_id));
+STATIC_ASSERT(offsetof(ToyEntryData, x14) == offsetof(ToyListEntry, archive));
+STATIC_ASSERT(offsetof(struct TyDspArchiveHolder, archive) ==
+              offsetof(ToyListEntry, archive));
+#endif
 
 #endif

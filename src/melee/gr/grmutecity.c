@@ -1723,7 +1723,7 @@ void grMuteCity_801F1A34(HSD_GObj* arg0, Ground_GObj* arg1)
                             HSD_JObjSetTranslate(new_jobj, &spawn_pos);
                         }
                     }
-                    if ((u32) grMc_8049F4B8[car_idx].x24 != 0) {
+                    if (grMc_8049F4B8[car_idx].x24 != 0) {
                         grMaterial_801C8CDC(
                             (HSD_GObj*) grMc_8049F4B8[car_idx].x24);
                         grMc_8049F4B8[car_idx].x24 = 0;
@@ -1792,7 +1792,7 @@ void grMuteCity_801F1A34(HSD_GObj* arg0, Ground_GObj* arg1)
                 -100.0f < car_pos.z && car_pos.z < 50.0f)
             {
                 if (!grMc_8049F4B8[car_idx].x22_flags.b0 &&
-                    (u32) grMc_8049F4B8[car_idx].x24 == 0)
+                    grMc_8049F4B8[car_idx].x24 == 0)
                 {
                     Item_GObj* item_gobj = grMaterial_801C8CFC(
                         0, 2, car_gp, jobj, grMuteCity_801F1A0C,
@@ -1801,11 +1801,11 @@ void grMuteCity_801F1A34(HSD_GObj* arg0, Ground_GObj* arg1)
                         grMaterial_801C8DE0(item_gobj, 0.0f, 0.0f, -12.0f,
                                             0.0f, 0.0f, 2.0f, 15.0f);
                         grMaterial_801C8E08(item_gobj);
-                        grMc_8049F4B8[car_idx].x24 = (s32) item_gobj;
+                        grMc_8049F4B8[car_idx].x24 = (intptr_t) item_gobj;
                     }
                 }
             } else {
-                if ((u32) grMc_8049F4B8[car_idx].x24 != 0) {
+                if (grMc_8049F4B8[car_idx].x24 != 0) {
                     grMaterial_801C8CDC(
                         (HSD_GObj*) grMc_8049F4B8[car_idx].x24);
                     grMc_8049F4B8[car_idx].x24 = 0;

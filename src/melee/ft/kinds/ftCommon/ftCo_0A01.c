@@ -116,7 +116,11 @@
 /* 0A5CE0 */ static Fighter* ftCo_800A5CE0(Fighter* fp);
 /* 0A5F4C */ static Item* ftCo_800A5F4C(Fighter* fp, ItemKind);
 /* 0A61D8 */ static Item* ftCo_800A61D8(Fighter* fp);
+#ifdef MELEE_NATIVE
+/* 0A648C */ static intptr_t ftCo_800A648C(Fighter* fp);
+#else
 /* 0A648C */ static int ftCo_800A648C(Fighter* fp);
+#endif
 /* 0A6700 */ static bool ftCo_800A6700(Fighter* fp, Vec3*, Vec3*);
 /* 0A6A98 */ static s32 ftCo_800A6A98(Fighter* fp, Vec3* arg1);
 /* 0A6D2C */ static s32 ftCo_800A6D2C(Fighter* fp, Vec3* arg1);
@@ -3161,7 +3165,11 @@ static inline HSD_GObj* ftCo_800A648C_inline3(HSD_GObj* cur)
     return cur->next;
 }
 
+#ifdef MELEE_NATIVE
+intptr_t ftCo_800A648C(Fighter* fp)
+#else
 int ftCo_800A648C(Fighter* fp)
+#endif
 {
     Item* ip;
     Item* closest;
@@ -3192,7 +3200,11 @@ int ftCo_800A648C(Fighter* fp)
             }
         }
     }
+#ifdef MELEE_NATIVE
+    return (intptr_t) closest;
+#else
     return (int) closest;
+#endif
 }
 
 static inline bool ftCo_800A6700_inline0(Fighter* fp, f32 x, f32 y)

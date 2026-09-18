@@ -761,6 +761,25 @@ struct un_803FA258_t {
 /* 4D6E10 */ static s32 un_804D6E10;
 /* 4D6E14 */ static s32 un_804D6E14;
 
+#ifdef MELEE_NATIVE
+#define SOUNDTEST_LOAD_DATA ((struct SmSoundTestLoadData*) un_804D6DA8)
+
+void un_802FF7DC(void)
+{
+    // The overlay addresses un_803F9FA4 through the label strings before it;
+    // natively those blocks are not contiguous, so use the table directly.
+    struct SmSoundTestLoadData* syms;
+    lbArchive_LoadSymbols(un_803F9FA4.x160, &un_804D6DA8, un_803F9FA4.x16C,
+                          NULL);
+    syms = SOUNDTEST_LOAD_DATA;
+    un_803F9FA4.entries[1].x18 = syms->mode_count;
+    un_803F9FA4.entries[1].xC = syms->mode_names;
+    un_803F9FA4.entries[6].xC = syms->fgm_group_names;
+    un_803F9FA4.entries[7].xC = syms->fgm_names;
+    un_803F9FA4.entries[7].x18 = syms->fgm_count;
+    un_803F9FA4.entries[8].xC = syms->bgm_names;
+}
+#else
 void un_802FF7DC(void)
 {
     struct un_803F9F28_t* data = (struct un_803F9F28_t*) un_803F9F28;
@@ -774,6 +793,7 @@ void un_802FF7DC(void)
     data->x174 = syms[4];
     data->x188 = syms[7];
 }
+#endif
 
 bool un_802FF884(char* arg0)
 {
@@ -836,11 +856,19 @@ bool un_802FF9DC(enum soundtest_callback_arg0 arg0)
     s32 total;
 
     i = un_804D6DB4 = 0;
+#ifdef MELEE_NATIVE
+    for (; i < un_804D6DB0; i++) {
+        un_804D6DB4 += SOUNDTEST_LOAD_DATA->fgm_group_sizes[i];
+    }
+    un_803F9FA4.entries[7].x14 = (f32) un_804D6DB4;
+    total = un_804D6DB4 + SOUNDTEST_LOAD_DATA->fgm_group_sizes[un_804D6DB0];
+#else
     for (; i < un_804D6DB0; i++) {
         un_804D6DB4 += ((int**) un_804D6DA8)[6][i];
     }
     un_803F9FA4.entries[7].x14 = (f32) un_804D6DB4;
     total = un_804D6DB4 + ((int**) un_804D6DA8)[6][un_804D6DB0];
+#endif
     un_803F9FA4.entries[7].x18 = (f32) total;
     return 0;
 }
@@ -849,7 +877,11 @@ bool un_802FFB58(enum soundtest_callback_arg0 arg0)
 {
     if (arg0 == 1) {
         lbAudioAx_80023694();
+#ifdef MELEE_NATIVE
+        lbAudioAx_80023B24(SOUNDTEST_LOAD_DATA->fgm_ids[un_804D6DB4]);
+#else
         lbAudioAx_80023B24(((int**) un_804D6DA8)[5][un_804D6DB4]);
+#endif
     } else if (arg0 == 0) {
         lbAudioAx_80023694();
     }

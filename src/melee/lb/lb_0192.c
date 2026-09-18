@@ -167,7 +167,11 @@ void lb_800192A8(void (*cb)(void))
             GXInvalidateVtxCache();
             GXInvalidateTexAll();
             HSD_StartRender(HSD_RP_SCREEN);
+#ifdef MELEE_NATIVE
+            HSD_SisLib_803A84BC_Text(lb_804D63D0);
+#else
             HSD_SisLib_803A84BC(NULL, (u32) lb_804D63D0);
+#endif
             HSD_Init_803755A8();
             HSD_VICopyXFBAsync(HSD_RP_SCREEN);
             if (cb != NULL) {

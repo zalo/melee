@@ -8,12 +8,47 @@
 #include <sysdolphin/baselib/gobj.h>
 #include <sysdolphin/baselib/jobj.h>
 
+#ifdef MELEE_NATIVE
+/// The name menu's user data borrows the HSD_GObj field names for 13 JObj
+/// slots written at a pointer stride from +8. On the GameCube that matches the
+/// real HSD_GObj layout; natively the u64 gxlink_prios would break the stride,
+/// so the slots are mirrored here with host-sized pointers.
+typedef struct MnName_UserData {
+    u16 classifier;
+    u8 p_link;
+    u8 gx_link;
+    u8 p_priority;
+    u8 render_priority;
+    u8 obj_kind;
+    u8 user_data_kind;
+    void* next;
+    void* prev;
+    void* next_gx;
+    void* prev_gx;
+    void* proc;
+    void* render_cb;
+    void* gxlink_prios_lo;
+    void* gxlink_prios_hi;
+    void* hsd_obj;
+    void* user_data;
+    void* user_data_remove_func;
+    void* x34_unk;
+} MnName_UserData;
+
+typedef struct MnName_GObj {
+    MnName_UserData gobj;
+    void* x38;
+    HSD_Text* text;
+    HSD_Text* text2;
+} MnName_GObj;
+#else
 typedef struct MnName_GObj {
     /* +00 */ HSD_GObj gobj;
     /* +38 */ void* x38;
     /* +3C */ HSD_Text* text;
     /* +40 */ HSD_Text* text2;
 } MnName_GObj;
+#endif
 
 /* 23749C */ char* mnName_8023749C(int slot);
 /* 23754C */ char* GetNameText(int slot);

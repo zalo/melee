@@ -306,7 +306,13 @@ static inline void mnDiagram3_RebuildRowLabels(Diagram3* data, char* base,
     base_idx = data->scroll_offset;
     spacing = HSD_JObjGetTranslationY(data->jobjs[9]) -
               HSD_JObjGetTranslationY(data->jobjs[8]);
+#ifdef MELEE_NATIVE
+    // base + 0x18 and base + 0x3C are the GameCube .data neighbours of
+    // mnDiagram3_803EEC10; natively the objects are not contiguous.
+    lb_8000B1CC(data->jobjs[8], (Vec3*) &mnDiagram3_803EEC28, pos);
+#else
     lb_8000B1CC(data->jobjs[8], (Vec3*) (base + 0x18), pos);
+#endif
     for (i = 0; i < count; i++) {
         text = HSD_SisLib_803A5ACC(0, 1, pos->x - 6.5f,
                                    -spacing * (f32) i + -pos->y, pos->z, 6.5f,
@@ -314,7 +320,12 @@ static inline void mnDiagram3_RebuildRowLabels(Diagram3* data, char* base,
         data->row_labels[i] = text;
         HSD_SisLib_803A6368(
             text,
+#ifdef MELEE_NATIVE
+            ((u16*) &mnDiagram3_803EEC4C)[mnDiagram3_GetRowStat(data, base_idx,
+                                                                 i)]);
+#else
             ((u16*) (base + 0x3C))[mnDiagram3_GetRowStat(data, base_idx, i)]);
+#endif
     }
 }
 

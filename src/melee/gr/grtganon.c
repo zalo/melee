@@ -41,10 +41,25 @@ StageData grTGn_StageData = {
 };
 
 typedef struct grTGn_YakumonoParam {
+#ifdef MELEE_NATIVE
+    s32 x0;
+    s32 x4;
+    s32 x8;
+#else
     DynamicsDesc* x0;
     DynamicsDesc* x4;
     DynamicsDesc* x8;
+#endif
 } grTGn_YakumonoParam;
+
+#ifdef MELEE_NATIVE
+// Serialized DynamicsDesc slots stay 32-bit; the archive resolves them.
+void* MeleeNativeScriptPointer(const void*);
+#define YAKUMONO_DYNAMICS(field) \
+    ((DynamicsDesc*) MeleeNativeScriptPointer(&yakumono_param->field))
+#else
+#define YAKUMONO_DYNAMICS(field) (yakumono_param->field)
+#endif
 
 static grTGn_YakumonoParam* yakumono_param;
 
@@ -160,15 +175,15 @@ DynamicsDesc* grTGanon_802249B4(enum_t arg0)
             i = mpLineGetKind(arg0);
 
             if (i == CollLine_Ceiling) {
-                return yakumono_param->x0;
+                return YAKUMONO_DYNAMICS(x0);
             }
 
             if (i == CollLine_RightWall) {
-                return yakumono_param->x4;
+                return YAKUMONO_DYNAMICS(x4);
             }
 
             if (i == CollLine_LeftWall) {
-                return yakumono_param->x8;
+                return YAKUMONO_DYNAMICS(x8);
             }
 
             return NULL;

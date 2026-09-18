@@ -294,7 +294,21 @@ void HSD_ShadowSetActive(HSD_Shadow* shadow, int active)
             HSD_ShadowSetSize(shadow, idesc->width, idesc->height);
         }
 
+#ifdef MELEE_NATIVE
+        {
+            /* Test switch: keep the shadow texture off every material. */
+            char* getenv(const char*);
+            static int no_shadows = -1;
+            if (no_shadows < 0) {
+                no_shadows = getenv("MELEE_NO_SHADOWS") != NULL;
+            }
+            if (!no_shadows) {
+                HSD_MObjAddShadowTexture(shadow->texture);
+            }
+        }
+#else
         HSD_MObjAddShadowTexture(shadow->texture);
+#endif
     } else {
         HSD_MObjDeleteShadowTexture(shadow->texture);
     }

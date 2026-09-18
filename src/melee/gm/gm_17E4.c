@@ -309,7 +309,11 @@ typedef struct {
 #pragma push
 #pragma dont_inline on
 #endif
+#ifdef MELEE_NATIVE
+void fn_8017E8A4(intptr_t arg0_int)
+#else
 void fn_8017E8A4(int arg0_int)
+#endif
 {
     MatchEnd* arg0 = (MatchEnd*) arg0_int;
     VsSceneController* gm = gmVs_GetSceneController();

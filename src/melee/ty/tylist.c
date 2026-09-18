@@ -163,7 +163,12 @@ void _tyList_80312904(void* arg0, s8 arg1)
     text->font_size.y = 0.029f;
     HSD_SisLib_803A6368(row->text1, 0x13B);
 
+#ifdef MELEE_NATIVE
+    // The SIS table is host pointers; 0x4B8 is entry 0x12E on disc.
+    digits = ((u8**) HSD_SisLib_804D1124[0])[0x4B8 / 4 + row->x28];
+#else
     digits = ((u8**) ((char*) HSD_SisLib_804D1124[0] + 0x4B8))[row->x28];
+#endif
     _tyList_80312834((char*) digits, Toy_803048C0(Toy_80308354(row->idx)));
 
     row->text2->default_alignment = 2;

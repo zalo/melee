@@ -1,8 +1,14 @@
 #ifdef MELEE_NATIVE
 #define CASTLE_DYNAMICS(gp) ((gp)->u.castle9.dynamics)
+// Camera subjects and material gobjs kept by the moving platforms are host
+// pointers; use the views whose slots are pointer-sized.
+#define CASTLE_PLAT_PTR(gp, field) ((gp)->u.castle11.field)
+#define CASTLE_LIFT_PTR(gp, field) ((gp)->u.castle9.field)
 #define CASTLE_SELECTION(gp, field) ((gp)->u.castle9.field)
 #else
 #define CASTLE_DYNAMICS(gp) ((gp)->u.castle3.x1C)
+#define CASTLE_PLAT_PTR(gp, field) ((gp)->u.arwing.field)
+#define CASTLE_LIFT_PTR(gp, field) ((gp)->u.arwing.field)
 #define CASTLE_SELECTION(gp, field) ((gp)->u.castle4.field)
 #endif
 
@@ -806,12 +812,13 @@ void grCastle_801CE260(Ground_GObj* gobj)
 
     gp->u.castle11.xC4.b0 = 0;
     gp->u.icemt.x2 = gp->map_id - 8;
-    gp->u.arwing.xCC = 0;
+    CASTLE_PLAT_PTR(gp, xCC) = 0;
     gp->u.flatzone.xCA = yakumono_param->entries[gp->u.icemt.x2].x0;
 
     gp2 = GET_GROUND(gobj);
-    *(u32*) &gp2->u.arwing.xD8 = (u32) Camera_80029044(2);
-    subject = (CmSubject*) *(u32*) &gp2->u.arwing.xD8;
+    *(GrCastlePtr*) &CASTLE_PLAT_PTR(gp2, xD8) =
+        (GrCastlePtr) Camera_80029044(2);
+    subject = (CmSubject*) *(GrCastlePtr*) &CASTLE_PLAT_PTR(gp2, xD8);
     if (subject != NULL) {
         subject->target_ext.h.x = yakumono_param->x118;
         subject->target_ext.h.y = yakumono_param->x11C;
@@ -820,10 +827,10 @@ void grCastle_801CE260(Ground_GObj* gobj)
     }
 
     grMaterial_801C94D8(jobj);
-    gp->u.arwing.xD0 = (u32) grMaterial_801C8CFC(
+    CASTLE_PLAT_PTR(gp, xD0) = (GrCastlePtr) grMaterial_801C8CFC(
         0, 3, gp, Ground_801C3FA4((HSD_GObj*) gobj, 0),
         (void (*)(Item_GObj*, Ground*)) fn_801CE3A0, NULL, NULL);
-    it_80275414((Item_GObj*) gp->u.arwing.xD0);
+    it_80275414((Item_GObj*) CASTLE_PLAT_PTR(gp, xD0));
     Ground_801C5440(gp, 0, 0x53025U);
 }
 
@@ -1015,18 +1022,18 @@ void grCastle_801CE8E8(Ground_GObj* gobj)
     grAnime_801C8138((HSD_GObj*) gobj, gp->map_id, 0);
 
     gp2 = GET_GROUND(gobj);
-    gp2->u.arwing.xC8 = (u32) Camera_80029044(2);
-    subject = (CmSubject*) gp2->u.arwing.xC8;
+    CASTLE_LIFT_PTR(gp2, xC8) = (GrCastlePtr) Camera_80029044(2);
+    subject = (CmSubject*) CASTLE_LIFT_PTR(gp2, xC8);
     if (subject != NULL) {
         subject->target_ext.h.x = yakumono_param->x134;
         subject->target_ext.h.y = yakumono_param->x138;
         subject->target_ext.v.x = yakumono_param->x13C;
         subject->target_ext.v.y = yakumono_param->x140;
     }
-    gp->u.arwing.xC4 = (u32) grMaterial_801C8CFC(
+    CASTLE_LIFT_PTR(gp, xC4) = (GrCastlePtr) grMaterial_801C8CFC(
         0, 4, gp, Ground_801C3FA4((HSD_GObj*) gobj, 0),
         (void (*)(Item_GObj*, Ground*)) fn_801CE9DC, NULL, NULL);
-    it_80275414((Item_GObj*) gp->u.arwing.xC4);
+    it_80275414((Item_GObj*) CASTLE_LIFT_PTR(gp, xC4));
     Ground_801C5440(gp, 0, 0x53024U);
 }
 
@@ -1042,7 +1049,7 @@ void grCastle_801CE9E8(Ground_GObj* gobj)
     Vec3 pos;
     Ground* tmp;
     Ground* gp = GET_GROUND(gobj);
-    CmSubject* subject = (CmSubject*) gp->u.arwing.xC8;
+    CmSubject* subject = (CmSubject*) CASTLE_LIFT_PTR(gp, xC8);
     PAD_STACK(8);
     if (subject != NULL) {
         lb_8000B1CC(Ground_801C3FA4(gobj, 0), NULL, &pos);
@@ -1050,17 +1057,17 @@ void grCastle_801CE9E8(Ground_GObj* gobj)
         subject->bone_pos = pos;
     }
     if (grAnime_801C83D0(gobj, 0, 1)) {
-        HSD_GObj* mat = (HSD_GObj*) (tmp = gp)->u.arwing.xC4;
+        HSD_GObj* mat = (HSD_GObj*) CASTLE_LIFT_PTR(tmp = gp, xC4);
         if (mat != NULL) {
             grMaterial_801C8CDC(mat);
         }
-        gp->u.arwing.xC4 = 0;
+        CASTLE_LIFT_PTR(gp, xC4) = 0;
         {
             Ground* gp2 = gobj->user_data;
-            CmSubject* subj2 = (CmSubject*) (tmp = gp2)->u.arwing.xC8;
+            CmSubject* subj2 = (CmSubject*) CASTLE_LIFT_PTR(tmp = gp2, xC8);
             if (subj2 != NULL) {
                 Camera_800290D4(subj2);
-                gp2->u.arwing.xC8 = 0;
+                CASTLE_LIFT_PTR(gp2, xC8) = 0;
             }
         }
         Ground_801C4A08(gobj);

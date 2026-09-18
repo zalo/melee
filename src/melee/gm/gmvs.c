@@ -921,7 +921,11 @@ MatchOutcome gm_GetMatchOutcome(void)
     return OUTCOME_NONE;
 }
 
+#ifdef MELEE_NATIVE
+void fn_8016C46C(intptr_t arg0)
+#else
 void fn_8016C46C(int arg0)
+#endif
 {
     if (gmVs_GetSceneController()->state.unk_9 != 0) {
         switch (gm_GetCurrentGameMode()) {
@@ -938,7 +942,11 @@ void fn_8016C46C(int arg0)
     }
 }
 
+#ifdef MELEE_NATIVE
+static inline void fn_8016C46C_dontinline(intptr_t arg0)
+#else
 static inline void fn_8016C46C_dontinline(int arg0)
+#endif
 {
     fn_8016C46C(arg0);
 }
@@ -1525,7 +1533,11 @@ void fn_8016D634(void)
             copied_dst->is_teams = controller.start.is_teams;
             copied_dst->outcome = tmp->state.match_result;
             gm_80166378(copied_dst);
+#ifdef MELEE_NATIVE
+            fn_8016C46C_dontinline((intptr_t) copied_dst);
+#else
             fn_8016C46C_dontinline((int) copied_dst);
+#endif
             if (tmp->state.match_result != OUTCOME_NO_CONTEST &&
                 tmp->state.match_result != OUTCOME_RETRY)
             {
@@ -2100,7 +2112,11 @@ void gm_Scene_Vs_OnExit(void* user_data)
         data->xC.is_teams = controller.start.is_teams;
         data->xC.outcome = controller.state.match_result;
         gm_80166378(&data->xC);
+#ifdef MELEE_NATIVE
+        fn_8016C46C_dontinline((intptr_t) &data->xC);
+#else
         fn_8016C46C_dontinline((int) &data->xC);
+#endif
         if (tmp->state.match_result != OUTCOME_NO_CONTEST &&
             tmp->state.match_result != OUTCOME_RETRY)
         {

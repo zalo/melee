@@ -1262,7 +1262,11 @@ void _tyFigupon_8031753C(void)
     if (panel.joint != NULL) {
         TyFiguponDigitInit digits_s;
         s32 total;
+#ifdef MELEE_NATIVE
+        ef4->x00 = (uintptr_t) GObj_Create(9, 9, 0);
+#else
         ef4->x00 = (u32) GObj_Create(9, 9, 0);
+#endif
         jobj = HSD_JObjLoadJoint(panel.joint);
         HSD_GObjObject_80390A70((HSD_GObj*) ef4->x00, temp = HSD_GObj_JObjKind,
                                 jobj);
@@ -1333,7 +1337,11 @@ void _tyFigupon_8031753C(void)
 
         joint = HSD_ArchiveGetPublicAddress(ef4->archive,
                                             "ToyFigurePonLever_Top_joint");
+#ifdef MELEE_NATIVE
+        ef4->x08 = (uintptr_t) GObj_Create(9, 9, 0);
+#else
         ef4->x08 = (u32) GObj_Create(9, 9, 0);
+#endif
         jobj = HSD_JObjLoadJoint(joint);
         HSD_GObjObject_80390A70((HSD_GObj*) ef4->x08, temp = HSD_GObj_JObjKind,
                                 jobj);
@@ -1352,7 +1360,11 @@ void _tyFigupon_8031753C(void)
         }
         HSD_JObjAnimAll(ef4->jobjs[0xE]);
 
+#ifdef MELEE_NATIVE
+        ef4->x0C = (uintptr_t) GObj_Create(9, 9, 0);
+#else
         ef4->x0C = (u32) GObj_Create(9, 9, 0);
+#endif
         par_joint = HSD_ArchiveGetPublicAddress(ef4->archive,
                                                 "ToyFigurePonPar_Top_joint");
         for (count = 0; count < 3; count++) {
@@ -1544,14 +1556,28 @@ void tyFigupon_Scene_OnEnter(void* arg0)
     u8 kind;
     PAD_STACK(16);
 
+#ifdef MELEE_NATIVE
+    _tyFigupon_804D6EF0 = HSD_MemAlloc(sizeof(*_tyFigupon_804D6EF0));
+#else
     _tyFigupon_804D6EF0 = HSD_MemAlloc(0x34);
+#endif
     _tyFigupon_804D6EF4 = HSD_MemAlloc(sizeof(*_tyFigupon_804D6EF4));
+#ifdef MELEE_NATIVE
+    // One ToyListEntry; [5] is its archive on both layouts.
+    STATIC_ASSERT(offsetof(ToyListEntry, archive) == 5 * sizeof(void*));
+    _tyFigupon_804D6EF8 = HSD_MemAlloc(sizeof(ToyListEntry));
+#else
     _tyFigupon_804D6EF8 = HSD_MemAlloc(0x18);
-    Toy_sbss_804D6ED4 = HSD_MemAlloc(0xE4);
+#endif
+    Toy_sbss_804D6ED4 = HSD_MemAlloc(TY_ED4_SIZE);
     memzero(_tyFigupon_804D6EF0, 0x34);
     memzero(_tyFigupon_804D6EF4, sizeof(*_tyFigupon_804D6EF4));
+#ifdef MELEE_NATIVE
+    memzero(_tyFigupon_804D6EF8, sizeof(ToyListEntry));
+#else
     memzero(_tyFigupon_804D6EF8, 0x18);
-    memzero(Toy_sbss_804D6ED4, 0xE4);
+#endif
+    memzero(Toy_sbss_804D6ED4, TY_ED4_SIZE);
     data = _tyFigupon_804D6EF0;
     Toy_sbss_804D6EC8 = NULL;
     ef4 = _tyFigupon_804D6EF4;
@@ -1572,7 +1598,7 @@ void tyFigupon_Scene_OnEnter(void* arg0)
             ef4_2->archive, "ScMenFigure_scene_lights");
         if (temp != NULL) {
             HSD_LObj* lobj;
-            ed4->x0 = (u32) GObj_Create(2, 3, 0);
+            ed4->x0 = (uintptr_t) GObj_Create(2, 3, 0);
             lobj = Toy_LoadLObjList(temp, 0);
             HSD_GObjObject_80390A70((HSD_GObj*) ed4->x0,
                                     kind = HSD_GObj_LightKind, lobj);
@@ -1582,7 +1608,7 @@ void tyFigupon_Scene_OnEnter(void* arg0)
             }
         }
     }
-    memzero(Toy_sbss_804D6ED4, 0xE4);
+    memzero(Toy_sbss_804D6ED4, TY_ED4_SIZE);
     Toy_80306D70(0);
     _tyFigupon_8031753C();
     joint = HSD_ArchiveGetPublicAddress(ef4->archive,

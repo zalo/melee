@@ -74,10 +74,20 @@ typedef struct lbl_80472ED8_t {
 } lbl_80472ED8_t;
 ASSERT_SIZE(lbl_80472ED8_t, 0x6BC);
 
+#ifdef MELEE_NATIVE
+// The original reaches lbl_80473594 as lbl_80472ED8+0x6BC; natively the two
+// globals are not contiguous, so the overlay starts at lbl_80473594 itself.
+typedef struct RegClearRecordOverlay {
+    RegClearRecordState record[1];
+} RegClearRecordOverlay;
+#define REGCLEAR_RECORD_OVERLAY ((RegClearRecordOverlay*) &lbl_80473594)
+#else
 typedef struct RegClearRecordOverlay {
     u8 pad[0x6BC];
     RegClearRecordState record[1];
 } RegClearRecordOverlay;
+#define REGCLEAR_RECORD_OVERLAY ((RegClearRecordOverlay*) &lbl_80472ED8)
+#endif
 
 typedef struct {
     /* 0x00 */ u32 scores[27];
@@ -602,6 +612,14 @@ void gm_80182554(int arg0, int arg1)
         int x6C4;
         int x6C8;
     } regclear_record_state;
+#ifdef MELEE_NATIVE
+    (void) sizeof(regclear_record_state);
+    lbl_80473594.xC = arg0;
+    lbl_80473594.x8 = arg1;
+    lbl_80473594.x0 = 0;
+    lbl_80473594.x4 = 0;
+    lbl_80473594.x2 = 0;
+#else
     regclear_record_state* s = (regclear_record_state*) &lbl_80472ED8;
 
     s->x6C8 = arg0;
@@ -609,6 +627,7 @@ void gm_80182554(int arg0, int arg1)
     s->x6BC = 0;
     s->x6C0 = 0;
     s->x6BE = 0;
+#endif
 }
 
 static inline u16 gm_80182578_GetTimeFromData(RegClearRecordOverlay* data)
@@ -690,7 +709,7 @@ static inline void gm_80182578_SetTime(RecordBlock* blocks, int idx, int mode,
 
 void gm_80182578(void)
 {
-    RegClearRecordOverlay* data = (RegClearRecordOverlay*) &lbl_80472ED8;
+    RegClearRecordOverlay* data = REGCLEAR_RECORD_OVERLAY;
     int* idx_ptr;
     int* mode_ptr;
     RecordBlock* blocks;
@@ -921,7 +940,7 @@ static inline int fn_80182B5C_GetTime(RecordBlock* blocks,
 
 void fn_80182B5C(void)
 {
-    RegClearRecordOverlay* data = (RegClearRecordOverlay*) &lbl_80472ED8;
+    RegClearRecordOverlay* data = REGCLEAR_RECORD_OVERLAY;
     RecordBlock* blocks = fn_80182B5C_GetRecordBlocks();
     int time;
     int idx = data->record[0].xC;

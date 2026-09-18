@@ -33,6 +33,78 @@
 #include <sysdolphin/baselib/sislib.h>
 #include <sysdolphin/baselib/tobj.h>
 
+#ifdef MELEE_NATIVE
+/// #lbl_80472D28 is also read as fn_8017FA1C_arg. Natively both views are this
+/// one struct so their pointer fields land at the same host offsets.
+struct lbl_80472D28_t {
+    HSD_GObj* x0;
+    HSD_JObj* x4;
+    HSD_JObj* x8;
+    HSD_JObj* xC;
+    HSD_JObj* x10;
+    HSD_JObj* x14;
+    HSD_JObj* x18;
+    HSD_JObj* x1C;
+    HSD_JObj* x20;
+    HSD_JObj* x24;
+    char pad_28[4];
+    HSD_GObj* x2C;
+    HSD_ImageDesc x30;
+    HSD_Archive* x48;
+    /// Filled by fn_80168A6C: model, lights, camera desc and anims, fog.
+    DynamicModelDesc x4C;
+    void* x5C;
+    void* x60;
+    void* x64;
+    void* x68;
+    HSD_Text* x6C;
+    HSD_Text* x70;
+    HSD_Text* x74;
+    HSD_Text* x78;
+    HSD_Text* x7C;
+    HSD_Text* x80;
+    /// fn_8017F2A4 and fn_8017F47C: one text, seven row texts, seven values.
+    HSD_Text* x84;
+    HSD_Text* x88[7];
+    s32 xA4[7];
+    u16 xC0;
+    u16 pad_C2;
+    u32 xC4;
+    u8 xC8;
+    u8 pad_C9[3];
+    s32 xCC;
+    s32 xD0;
+    s32 xD4;
+    s32 xD8;
+    s32 xDC;
+    s32 xE0;
+    s32 xE4;
+    s32 xE8;
+    s32 xEC;
+    s32 xF0;
+    s32 xF4;
+    s32 xF8;
+    s32 xFC;
+    s32 x100;
+    int x104;
+    s16 x108;
+    s16 x10A;
+    f32 x10C;
+    u32 x110;
+    u8 x114;
+    u8 x115;
+    u8 x116;
+    u8 x117;
+    u8 x118;
+    u8 x119;
+    u8 x11A;
+    u8 x11B;
+    u8 x11C;
+    u8 x11D;
+    u8 x11E;
+    u8 x11F;
+};
+#else
 struct lbl_80472D28_t {
     /*   +0 */ char pad_0[0x20];
     /* +20 */ HSD_JObj* x20;
@@ -84,6 +156,7 @@ struct lbl_80472D28_t {
     /* +11E */ u8 x11E;
     /* +11F */ u8 x11F;
 };
+#endif
 
 typedef struct RegClearEv {
     /* 0x00 */ char pad_0[0x1C];
@@ -265,6 +338,14 @@ s32 fn_8017F2A4(HSD_Text** arg0, f32 farg0, f32 farg1)
     PAD_STACK(8);
 }
 
+#ifdef MELEE_NATIVE
+// The seven cached values follow eight text pointers: p[8] is xA4[i].
+#define REGCLEAR_VALUE_CURSOR(texts)                                          \
+    ((s32*) ((char*) (texts) + 8 * sizeof(void*) - 8 * sizeof(s32)))
+#else
+#define REGCLEAR_VALUE_CURSOR(texts) ((s32*) (texts))
+#endif
+
 s32 fn_8017F47C(HSD_Text** arg0, int arg1)
 {
     u8 mask;
@@ -280,7 +361,7 @@ s32 fn_8017F47C(HSD_Text** arg0, int arg1)
     mask = fn_8017F008();
     fn_8016F39C(arg0 + 1, gm_8016B774(), 7, arg1, mask, 0);
 
-    for (i = 0, p = (s32*) arg0; i < 7; p++, i++) {
+    for (i = 0, p = REGCLEAR_VALUE_CURSOR(arg0); i < 7; p++, i++) {
         mask = fn_8017F008();
         idx = fn_8016F548(gm_8016B774(), entry, mask, 0);
         mask = fn_8017F008();
@@ -317,6 +398,9 @@ s32 fn_8017F47C(HSD_Text** arg0, int arg1)
     PAD_STACK(0x18);
 }
 
+#ifdef MELEE_NATIVE
+typedef struct lbl_80472D28_t fn_8017FA1C_arg;
+#else
 typedef struct fn_8017FA1C_arg {
     /* 0x000 */ HSD_GObj* x0;
     /* 0x004 */ HSD_JObj* x4;
@@ -363,6 +447,7 @@ typedef struct fn_8017FA1C_arg {
     /* 0x11A */ u8 x11A;
     /* 0x11B */ u8 x11B;
 } fn_8017FA1C_arg;
+#endif
 
 static const Vec3 lbl_803B7C18 = { -41.0f, -0.25f, 0.0f };
 

@@ -24,7 +24,8 @@
 #include <sysdolphin/baselib/memory.h>
 #include <sysdolphin/baselib/sislib.h>
 
-void* mnEvent_804A08F8[4];
+/// lbArchive_LoadSections in mnEvent_8024E838 fills five slots.
+void* mnEvent_804A08F8[5];
 void* mnEvent_804A0908[4];
 static HSD_GObj* mnEvent_804D6C60;
 static u8 mnEvent_804D6C64;
@@ -65,6 +66,15 @@ static char mnEvent_803EF7A0[0xD0] = {
     0x61, 0x72, 0x6B, 0x45, 0x76, 0x5F, 0x54, 0x6F, 0x70, 0x5F, 0x6A, 0x6F,
     0x69, 0x6E, 0x74, 0x00,
 };
+
+#ifdef MELEE_NATIVE
+// The offsets below come from the GameCube .data layout, where this string
+// table starts 0x60 bytes after mnEvent_803EF740; natively the objects are
+// not contiguous, so index the table directly.
+#define MNEVENT_STR(offset) (mnEvent_803EF7A0 + (offset) - 0x60)
+#else
+#define MNEVENT_STR(offset) ((char*) &mnEvent_803EF740 + (offset))
+#endif
 static s32 mnEvent_804D5028 = 0xCABC9FFF;
 
 static s32 mnEvent_804D502C = 0xFF;
@@ -706,11 +716,9 @@ void mnEvent_8024E524(s32 event_idx)
     HSD_JObj* tree;
     MnEventData* user_data;
     void** assets;
-    char* strs;
     f32 y_a;
     f32 y_b;
 
-    strs = (char*) &mnEvent_803EF740;
     assets = mnEvent_804A08F8;
 
     gobj = GObj_Create(6, 7, 0x80);
@@ -724,8 +732,8 @@ void mnEvent_8024E524(s32 event_idx)
 
     user_data = HSD_MemAlloc(sizeof(MnEventData));
     if (user_data == NULL) {
-        OSReport(strs + 0x70);
-        __assert(strs + 0x88, 0x39B, strs + 0x94);
+        OSReport(MNEVENT_STR(0x70));
+        __assert(MNEVENT_STR(0x88), 0x39B, MNEVENT_STR(0x94));
     }
     mnEvent_8024E420(user_data, event_idx);
     GObj_InitUserData(gobj, 0, HSD_Free, user_data);
@@ -750,7 +758,6 @@ void mnEvent_8024E838(int event_idx, int first_time)
 {
     HSD_GObjProc* proc;
     void** arr = mnEvent_804A08F8;
-    char* base = (char*) &mnEvent_803EF740;
 
     mn_804D6BC8.cooldown = 5;
     mn_804A04F0.prev_menu = mn_804A04F0.cur_menu;
@@ -767,9 +774,9 @@ void mnEvent_8024E838(int event_idx, int first_time)
     mnEvent_804D6C60 = NULL;
     {
         HSD_Archive* archive = mn_804D6BB8;
-        lbArchive_LoadSections(archive, arr, base + 0xA0, arr + 1, base + 0xB8,
-                               arr + 2, base + 0xD4, arr + 3, base + 0xF4,
-                               arr + 4, base + 0x118, NULL);
+        lbArchive_LoadSections(archive, arr, MNEVENT_STR(0xA0), arr + 1, MNEVENT_STR(0xB8),
+                               arr + 2, MNEVENT_STR(0xD4), arr + 3, MNEVENT_STR(0xF4),
+                               arr + 4, MNEVENT_STR(0x118), NULL);
     }
 
     if (first_time == 0) {

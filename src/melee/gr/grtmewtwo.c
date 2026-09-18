@@ -15,6 +15,16 @@
 #include <sysdolphin/baselib/gobjproc.h>
 
 typedef struct grTMewtwo_UnkStruct {
+#ifdef MELEE_NATIVE
+    s32 x0;
+    s32 x4;
+    s32 xC;
+    s32 x8;
+    s32 x10;
+    s32 x14;
+    s32 x1C;
+    s32 x18;
+#else
     DynamicsDesc* x0;
     DynamicsDesc* x4;
     DynamicsDesc* xC;
@@ -23,6 +33,7 @@ typedef struct grTMewtwo_UnkStruct {
     DynamicsDesc* x14;
     DynamicsDesc* x1C;
     DynamicsDesc* x18;
+#endif
 } grTMewtwo_UnkStruct;
 
 /* 2221D8 */ static void grTMewtwo_802221D8(bool arg0);
@@ -46,6 +57,15 @@ typedef struct grTMewtwo_UnkStruct {
 /* 2224B4 */ static DynamicsDesc* grTMewtwo_802224B4(enum_t arg0);
 /* 2225C8 */ static bool grTMewtwo_802225C8(Vec3* arg0, int arg1,
                                             HSD_JObj* arg2);
+#ifdef MELEE_NATIVE
+// Serialized DynamicsDesc slots stay 32-bit; the archive resolves them.
+void* MeleeNativeScriptPointer(const void*);
+#define YAKUMONO_DYNAMICS(field) \
+    ((DynamicsDesc*) MeleeNativeScriptPointer(&yakumono_param->field))
+#else
+#define YAKUMONO_DYNAMICS(field) (yakumono_param->field)
+#endif
+
 /* 4D6B08 */ static grTMewtwo_UnkStruct* yakumono_param;
 
 static StageCallbacks grTMewtwo_StageCallbacks[4] = {
@@ -182,13 +202,13 @@ static inline DynamicsDesc* inlineA0(int arg0)
 {
     int temp = mpLineGetKind(arg0);
     if (temp == CollLine_Floor) {
-        return yakumono_param->x0;
+        return YAKUMONO_DYNAMICS(x0);
     } else if (temp == CollLine_Ceiling) {
-        return yakumono_param->x4;
+        return YAKUMONO_DYNAMICS(x4);
     } else if (temp == CollLine_RightWall) {
-        return yakumono_param->x8;
+        return YAKUMONO_DYNAMICS(x8);
     } else if (temp == CollLine_LeftWall) {
-        return yakumono_param->xC;
+        return YAKUMONO_DYNAMICS(xC);
     } else {
         return NULL;
     }
@@ -198,13 +218,13 @@ static inline DynamicsDesc* inlineA1(int arg0)
 {
     int temp = mpLineGetKind(arg0);
     if (temp == CollLine_Floor) {
-        return yakumono_param->x10;
+        return YAKUMONO_DYNAMICS(x10);
     } else if (temp == CollLine_Ceiling) {
-        return yakumono_param->x14;
+        return YAKUMONO_DYNAMICS(x14);
     } else if (temp == CollLine_RightWall) {
-        return yakumono_param->x18;
+        return YAKUMONO_DYNAMICS(x18);
     } else if (temp == CollLine_LeftWall) {
-        return yakumono_param->x1C;
+        return YAKUMONO_DYNAMICS(x1C);
     } else {
         return NULL;
     }

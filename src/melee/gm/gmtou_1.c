@@ -1219,7 +1219,11 @@ void fn_80198D18(void)
     gm_GetTournamentData();
     gobj = fn_80190174(lbl_804D666C->cameras->desc);
     fn_801901F8(lbl_804D666C->cameras->desc);
+#ifdef MELEE_NATIVE
+    fn_801902F0((intptr_t) gobj);
+#else
     fn_801902F0((int) gobj);
+#endif
     fn_8019027C(lbl_804D666C->lights);
     fn_8019035C(0, lbl_804D666C->models[5], 0, 0x1A, 2, 1, fn_80196DBC, 0.0f);
     fn_8019035C(0, lbl_804D666C->models[4], 0, 0x1A, 2, 1, fn_80196E30, 80.0f);
@@ -1262,7 +1266,11 @@ void fn_80198EBC(void)
 
     gobj = fn_80190174(lbl_804D666C->cameras->desc);
     fn_801901F8(lbl_804D666C->cameras->desc);
+#ifdef MELEE_NATIVE
+    fn_801902F0((intptr_t) gobj);
+#else
     fn_801902F0((int) gobj);
+#endif
     fn_8019027C(lbl_804D666C->lights);
 
     fn_8019035C(0, lbl_804D666C->models[5], 0, 0x1A, 2, 1, fn_80196DBC, 0.0f);
@@ -1480,7 +1488,11 @@ void fn_80199AF0(void)
 
     gobj = fn_80190174(lbl_804D666C->cameras->desc);
     fn_801901F8(lbl_804D666C->cameras->desc);
+#ifdef MELEE_NATIVE
+    fn_801902F0((intptr_t) gobj);
+#else
     fn_801902F0((int) gobj);
+#endif
     fn_8019027C(lbl_804D666C->lights);
     fn_8019035C(0, lbl_804D666C->models[5], 0, 0x1A, 2, 1, fn_80196DBC, 0.0f);
     fn_8019035C(0, lbl_804D666C->models[4], 0, 0x1A, 2, 1, fn_80196E30, 80.0f);

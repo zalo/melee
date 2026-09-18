@@ -9,10 +9,17 @@
 #include <sysdolphin/baselib/gobjproc.h>
 
 struct grTFox_YakumonoParam {
+#ifdef MELEE_NATIVE
+    s32 unk0;
+    s32 unk4;
+    s32 unk8;
+    s32 unkC;
+#else
     UNK_T unk0;
     UNK_T unk4;
     UNK_T unk8;
     UNK_T unkC;
+#endif
 };
 
 static void grTFox_80220B80(bool);
@@ -35,6 +42,15 @@ static void stageGObj1_GObjProc(Ground_GObj*);
 static void grTFox_80220E58(Ground_GObj*);
 static DynamicsDesc* grTFox_80220E5C(enum_t);
 static bool grTFox_80220F08(Vec3*, int, HSD_JObj*);
+
+#ifdef MELEE_NATIVE
+// Serialized DynamicsDesc slots stay 32-bit; the archive resolves them.
+void* MeleeNativeScriptPointer(const void*);
+#define YAKUMONO_DYNAMICS(field) \
+    ((DynamicsDesc*) MeleeNativeScriptPointer(&yakumono_param->field))
+#else
+#define YAKUMONO_DYNAMICS(field) (yakumono_param->field)
+#endif
 
 static struct grTFox_YakumonoParam* yakumono_param;
 
@@ -153,16 +169,16 @@ DynamicsDesc* grTFox_80220E5C(enum_t arg0)
         if (i != -1 && i == 1) {
             i = mpLineGetKind(arg0);
             if (i == CollLine_Floor) {
-                return yakumono_param->unk0;
+                return YAKUMONO_DYNAMICS(unk0);
             }
             if (i == CollLine_Ceiling) {
-                return yakumono_param->unk4;
+                return YAKUMONO_DYNAMICS(unk4);
             }
             if (i == CollLine_RightWall) {
-                return yakumono_param->unk8;
+                return YAKUMONO_DYNAMICS(unk8);
             }
             if (i == CollLine_LeftWall) {
-                return yakumono_param->unkC;
+                return YAKUMONO_DYNAMICS(unkC);
             }
             return NULL;
         }

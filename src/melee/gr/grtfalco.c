@@ -76,11 +76,27 @@ StageData grTFc_StageData = {
 };
 
 struct grTFalco_YakumonoParam {
+#ifdef MELEE_NATIVE
+    s32 unk_0;
+    s32 unk_4;
+    s32 unk_8;
+    s32 unk_C;
+#else
     UNK_T unk_0;
     UNK_T unk_4;
     UNK_T unk_8;
     UNK_T unk_C;
+#endif
 };
+
+#ifdef MELEE_NATIVE
+// Serialized DynamicsDesc slots stay 32-bit; the archive resolves them.
+void* MeleeNativeScriptPointer(const void*);
+#define YAKUMONO_DYNAMICS(field) \
+    ((DynamicsDesc*) MeleeNativeScriptPointer(&yakumono_param->field))
+#else
+#define YAKUMONO_DYNAMICS(field) (yakumono_param->field)
+#endif
 
 static struct grTFalco_YakumonoParam* yakumono_param;
 
@@ -178,19 +194,19 @@ DynamicsDesc* grTFalco_80220ACC(enum_t arg0)
             i = mpLineGetKind(arg0);
 
             if (i == CollLine_Floor) {
-                return yakumono_param->unk_0;
+                return YAKUMONO_DYNAMICS(unk_0);
             }
 
             if (i == CollLine_Ceiling) {
-                return yakumono_param->unk_4;
+                return YAKUMONO_DYNAMICS(unk_4);
             }
 
             if (i == CollLine_RightWall) {
-                return yakumono_param->unk_8;
+                return YAKUMONO_DYNAMICS(unk_8);
             }
 
             if (i == CollLine_LeftWall) {
-                return yakumono_param->unk_C;
+                return YAKUMONO_DYNAMICS(unk_C);
             }
 
             return NULL;

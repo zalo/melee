@@ -29,10 +29,17 @@
 #include <sysdolphin/baselib/random.h>
 
 struct grShrineRoute_YakumonoParam {
+#ifdef MELEE_NATIVE
+    s32 x0;
+    s32 x4;
+    s32 x8;
+    s32 xC;
+#else
     void* x0;
     void* x4;
     void* x8;
     void* xC;
+#endif
     int x10;
     f32 x14;
     f32 x18;
@@ -463,7 +470,11 @@ void grShrineRoute_80208F70(Ground_GObj* gobj)
                         mpLib_80057BC0(6);
                         mpLib_80057BC0(7);
                         temp = grShrineRoute_802088C0(5);
+#ifdef MELEE_NATIVE
+                        gp->u.shrineroute.xD4 = (uintptr_t) temp;
+#else
                         gp->u.shrineroute.xD4 = (u32) temp;
+#endif
                         if (temp != NULL) {
                             ejobj =
                                 ((HSD_GObj*) gp->u.shrineroute.xD4)->hsd_obj;
@@ -629,8 +640,13 @@ void grShrineRoute_80208F70(Ground_GObj* gobj)
             (gp->u.shrineroute.xD4 == 0))
         {
             gp->u.shrineroute.xC4 = 5;
+#ifdef MELEE_NATIVE
+            if (gp->u.shrineroute.xD4 != 0) {
+                grLib_801C9908(((HSD_GObj*) gp->u.shrineroute.xD4)->hsd_obj);
+#else
             grLib_801C9908(((HSD_GObj*) gp->u.shrineroute.xD4)->hsd_obj);
             if (gp->u.shrineroute.xD4 != 0) {
+#endif
                 Ground_801C4A08((HSD_GObj*) gp->u.shrineroute.xD4);
                 gp->u.shrineroute.xD4 = 0;
             }
@@ -1482,7 +1498,12 @@ s32 grShrineRoute_8020AE08(HSD_GObj* gobj, HSD_GObj* player_gobj, s32* out)
 
     if (pos.y < lo.y) {
         if (lo.x < pos.x && pos.x < hi.x) {
+#ifdef MELEE_NATIVE
+            // The caller passes a DynamicsDesc* slot; x10 is an archive pointer.
+            *(void**) out = MeleeNativeScriptPointer(&yakumono_param->x10);
+#else
             *out = yakumono_param->x10;
+#endif
             return 1;
         }
     }
