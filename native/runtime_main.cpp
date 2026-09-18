@@ -8,6 +8,8 @@
 #include "platform_launcher.h"
 #include <dolphin/dvd.h>
 #include <cstring>
+#include <filesystem>
+#include <sys/stat.h>
 #include <SDL3/SDL.h>
 #include "disc_fonts.h"
 #ifdef MELEE_MIYOO_FLIP
@@ -24,6 +26,24 @@ static void reset_game(int type) {
 }
 
 extern "C" int melee_game_main(void);
+
+#ifdef __linux__
+// Cached pipeline configs only decode to the shaders of the build that wrote them, so every binary
+// gets its own subdirectory (named after its size and mtime) and older ones are removed.
+static std::string pipelineCachePath(const std::string& root) {
+    struct stat exe{};
+    if (stat("/proc/self/exe", &exe) != 0) return root;
+    char name[48];
+    std::snprintf(name, sizeof(name), "pipeline-%llx-%llx", static_cast<unsigned long long>(exe.st_size),
+                  static_cast<unsigned long long>(exe.st_mtime));
+    std::error_code ec;
+    for (const auto& entry : std::filesystem::directory_iterator(root, ec))
+        if (entry.path().filename().string().rfind("pipeline-", 0) == 0 && entry.path().filename() != name)
+            std::filesystem::remove_all(entry.path(), ec);
+    std::filesystem::create_directories(root + name, ec);
+    return root + name + "/";
+}
+#endif
 
 static void log_message(AuroraLogLevel level, const char* module, const char* text, unsigned int length) {
     std::fprintf(stderr, "[%s] %.*s\n", module, static_cast<int>(length), text);
@@ -91,7 +111,7 @@ int main(int argc, char** argv) {
     config.desiredBackend = BACKEND_VULKAN;
 #endif
 #ifdef __linux__
-    const auto user_path = MeleeConfigPath(), cache_path = MeleeCachePath();
+    const auto user_path = MeleeConfigPath(), cache_path = pipelineCachePath(MeleeCachePath());
     config.userPath = user_path.c_str();
     config.cachePath = cache_path.c_str();
 #endif

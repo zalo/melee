@@ -17,6 +17,7 @@ extern "C" uint64_t aurora_render_stats_fifo_process_ns(void);
 extern "C" uint64_t aurora_render_stats_render_worker_busy_ns(void);
 extern "C" uint64_t aurora_render_stats_pipeline_wait_ns(void);
 extern "C" uint64_t aurora_render_stats_pipeline_wait_count(void);
+extern "C" unsigned melee_native_logic_frames;
 namespace {
 using Clock = std::chrono::steady_clock;
 VIRetraceCallback before_retrace, after_retrace;
@@ -35,8 +36,13 @@ auto previous_present = Clock::now();
 std::vector<double> present_intervals;
 auto next_retrace = Clock::now();
 constexpr auto frame_period = std::chrono::nanoseconds(16666667);
-// Critical-path breakdown for the [perf] line (MELEE_FLIP_PROFILE only).
-const bool breakdown = [] { const char* v = std::getenv("MELEE_FLIP_PROFILE"); return v && v[0] != '0'; }();
+// Critical-path breakdown for the [perf] line: MELEE_FLIP_PROFILE (with Aurora's render statistics) or
+// MELEE_VI_TIMING (game-thread timers only, cheap enough for the RG351P).
+const bool breakdown = [] {
+    const char* v = std::getenv("MELEE_FLIP_PROFILE");
+    const char* t = std::getenv("MELEE_VI_TIMING");
+    return (v && v[0] != '0') || (t && t[0] != '0');
+}();
 double sum_game_ms, sum_end_ms, sum_sleep_ms, sum_begin_ms;
 auto segment_start = Clock::now(); // time VIWaitForRetrace last returned to the game
 double ms(Clock::duration d) { return std::chrono::duration<double, std::milli>(d).count(); }
@@ -48,6 +54,7 @@ void MeleeNativeFrameReady(void) { frame_ready = true; }
 void MeleeNativePumpCards(void);
 void MeleeNativeSampleKeyboard(void);
 void MeleeNativeKeyboardEvent(const SDL_Event*);
+void GXWaitDrawDone(void);
 u32 VIGetRetraceCount(void) { return retraces; }
 u32 VIGetNextField(void) { return 0; } // Native presentation is progressive.
 u32 VIGetDTVStatus(void) { return 1; }
@@ -93,10 +100,11 @@ void VIWaitForRetrace(void) {
                 const uint64_t drain = aurora_render_stats_fifo_wait_ns(), fifo = aurora_render_stats_fifo_process_ns(),
                                render = aurora_render_stats_render_worker_busy_ns();
                 const uint64_t pipeWait = aurora_render_stats_pipeline_wait_ns(), pipeCount = aurora_render_stats_pipeline_wait_count();
-                std::fprintf(stderr, "[perf-breakdown] game_ms=%.3f end_ms=%.3f drain_wait_ms=%.3f sleep_ms=%.3f begin_ms=%.3f fifo_busy_ms=%.3f render_busy_ms=%.3f pipeline_wait_ms=%.3f pipeline_waits=%u\n",
+                std::fprintf(stderr, "[perf-breakdown] game_ms=%.3f end_ms=%.3f drain_wait_ms=%.3f sleep_ms=%.3f begin_ms=%.3f fifo_busy_ms=%.3f render_busy_ms=%.3f pipeline_wait_ms=%.3f pipeline_waits=%u updates_per_frame=%.2f\n",
                              sum_game_ms / n, sum_end_ms / n, (drain - last_drain_ns) / 1e6 / n, sum_sleep_ms / n, sum_begin_ms / n,
                              (fifo - last_fifo_ns) / 1e6 / n, (render - last_render_ns) / 1e6 / n, (pipeWait - last_pipe_ns) / 1e6 / n,
-                             unsigned(pipeCount - last_pipe_count));
+                             unsigned(pipeCount - last_pipe_count), melee_native_logic_frames / n);
+                melee_native_logic_frames = 0;
                 last_drain_ns = drain; last_fifo_ns = fifo; last_render_ns = render; last_pipe_ns = pipeWait; last_pipe_count = pipeCount;
                 sum_game_ms = sum_end_ms = sum_sleep_ms = sum_begin_ms = 0;
             }
@@ -129,6 +137,12 @@ void VIWaitForRetrace(void) {
     }
     if (breakdown) sum_begin_ms += ms(Clock::now() - woke);
     MeleeNativeSampleKeyboard();
+    // Melee has two XFBs, and an XFB only becomes NEXT when Aurora's FIFO thread reaches the frame's
+    // draw-done token. If that lands after this retrace, the game waits a whole tick for a free XFB, runs
+    // two logic frames before the next render and misses the following retrace too: a latched 30 Hz.
+    // Letting the translator finish the last frame before the retrace keeps the phase at 60 Hz.
+    static const bool wait_draw_done = [] { const char* v = std::getenv("MELEE_VI_DRAWDONE_WAIT"); return !v || v[0] != '0'; }();
+    if (wait_draw_done) GXWaitDrawDone();
     ++retraces;
     const auto enabled = OSDisableInterrupts();
     if (before_retrace) before_retrace(retraces);

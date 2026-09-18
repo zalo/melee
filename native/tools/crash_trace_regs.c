@@ -36,4 +36,6 @@ __attribute__((constructor)) static void install_crash_stack(void)
     sigaction(SIGBUS, &action, 0);
     sigaction(SIGSEGV, &action, 0);
     sigaction(SIGILL, &action, 0);
+    // abort() (stack protector, assert) so the smashed function's caller chain prints too.
+    sigaction(SIGABRT, &action, 0);
 }

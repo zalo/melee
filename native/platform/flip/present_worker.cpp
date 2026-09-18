@@ -21,12 +21,13 @@ extern "C" void MeleeFlipPresent();
 extern "C" int MeleeFlipRotation();
 extern "C" int MeleeFlipUsesSdlDisplay();   // 1 = SDL owns the display; present via MeleeFlipPresent().
 extern "C" void* MeleeFlipPresentSurface(); // SDL's window EGL surface (SDL path); the worker swaps it.
+extern "C" int MeleeFlipMakeCurrentSdl(void* context); // SDL_GL_MakeCurrent(SDL window, EGL context).
 
 namespace {
 using Clock = std::chrono::steady_clock;
 const bool enabled = [] {
     const char* value = std::getenv("MELEE_FLIP_PRESENT_THREAD");
-    return value && !std::strcmp(value, "1");
+    return !value || std::strcmp(value, "0");
 }();
 const bool profiling = std::getenv("MELEE_FLIP_PROFILE") != nullptr;
 std::atomic_bool disabled = false;
@@ -86,6 +87,8 @@ void init_rotated_blit() {
     glAttachShader(g_blitProg, v); glAttachShader(g_blitProg, f);
     glBindAttribLocation(g_blitProg, 0, "aPos");
     glLinkProgram(g_blitProg);
+    GLint linked = 0; glGetProgramiv(g_blitProg, GL_LINK_STATUS, &linked);
+    if (!linked) { char log[512]; glGetProgramInfoLog(g_blitProg, sizeof log, nullptr, log); std::fprintf(stderr, "[flip-rotate] link: %s\n", log); }
     glDeleteShader(v); glDeleteShader(f);
     g_locHalf = glGetUniformLocation(g_blitProg, "uHalf");
     g_locUV = glGetUniformLocation(g_blitProg, "uUV");
@@ -99,6 +102,8 @@ void init_rotated_blit() {
 }
 void draw_rotated(GLuint tex, uint32_t fw, uint32_t fh, int sw, int sh, int rot) {
     if (!g_blitProg) init_rotated_blit();
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    while (glGetError() != GL_NO_ERROR) {} // clear any prior error so our own check is meaningful
     const double pi = 3.14159265358979323846;
     const double a = -rot * pi / 180.0;           // rotate the sampled image by +rot
     const float c = (float)std::cos(a), s = (float)std::sin(a);
@@ -109,7 +114,13 @@ void draw_rotated(GLuint tex, uint32_t fw, uint32_t fh, int sw, int sh, int rot)
     if (da >= sa) halfH = (float)(sa / da); else halfW = (float)(da / sa);
     glViewport(0, 0, sw, sh);
     glDisable(GL_BLEND); glDisable(GL_DEPTH_TEST);
-    glClearColor(0, 0, 0, 1); glClear(GL_COLOR_BUFFER_BIT);
+    glDisable(GL_CULL_FACE); glDisable(GL_STENCIL_TEST); glDisable(GL_SCISSOR_TEST);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    // MELEE_FLIP_PRESENT_CLEAR=1 paints the letterbox magenta, so a colored panel proves the worker's
+    // frames reach scanout even when the scene texture samples black.
+    static const bool debugClear = std::getenv("MELEE_FLIP_PRESENT_CLEAR") != nullptr;
+    if (debugClear) glClearColor(1, 0, 1, 1); else glClearColor(0, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
     glUseProgram(g_blitProg);
     glBindVertexArray(g_blitVao);
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, tex);
@@ -121,13 +132,22 @@ void draw_rotated(GLuint tex, uint32_t fw, uint32_t fh, int sw, int sh, int rot)
     glUniformMatrix2fv(g_locUV, 1, GL_FALSE, uv);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
+    static bool reported = false;
+    GLenum e = glGetError();
+    if (e != GL_NO_ERROR && !reported) { reported = true; std::fprintf(stderr, "[flip-rotate] draw GL error 0x%x (prog=%u half=%.3f,%.3f)\n", e, g_blitProg, halfW, halfH); }
+    while (glGetError() != GL_NO_ERROR) {} // drain so the caller's fence check is not tripped by us
 }
 
 void run() {
     inWorker = true;
     eglBindAPI(EGL_OPENGL_ES_API);
-    if (!eglMakeCurrent(workerDisplay, workerSurface, workerSurface, workerContext))
+    // SDL path: bind through SDL so its per-thread current window is set; SDL3's SDL_GL_SwapWindow
+    // refuses to swap ("has not been made current") after a raw eglMakeCurrent, leaving the panel black.
+    if (MeleeFlipUsesSdlDisplay()) {
+        if (!MeleeFlipMakeCurrentSdl(workerContext)) fail("Cannot make presentation context current (SDL)");
+    } else if (!eglMakeCurrent(workerDisplay, workerSurface, workerSurface, workerContext)) {
         fail("Cannot make presentation context current");
+    }
     eglSwapInterval(workerDisplay, 0); // DRM page flips pace the actual panel.
     EGLint width = 0, height = 0;
     if (!eglQuerySurface(workerDisplay, workerSurface, EGL_WIDTH, &width) ||
@@ -161,7 +181,17 @@ void run() {
             if (glCheckFramebufferStatus(GL_READ_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
                 fail("Incomplete presentation framebuffer");
             glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-            glBlitFramebuffer(0, 0, frame.width, frame.height, 0, height, width, 0,
+            // Letterbox to the frame's aspect on panels whose shape differs (16:9, 1:1, 3:2).
+            const double frameAspect = double(frame.width) / frame.height;
+            GLint dw = width, dh = height;
+            if (frameAspect * height > width) dh = GLint(width / frameAspect + 0.5);
+            else dw = GLint(height * frameAspect + 0.5);
+            const GLint x0 = (width - dw) / 2, y0 = (height - dh) / 2;
+            if (dw != width || dh != height) {
+                glClearColor(0, 0, 0, 1);
+                glClear(GL_COLOR_BUFFER_BIT);
+            }
+            glBlitFramebuffer(0, 0, frame.width, frame.height, x0, y0 + dh, x0 + dw, y0,
                               GL_COLOR_BUFFER_BIT, GL_LINEAR);
         }
         GLsync consumed = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
@@ -183,6 +213,11 @@ void run() {
         if (result == GL_WAIT_FAILED) fail("Presentation completion fence failed");
         glDeleteSync(consumed);
         glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        // Submit the unbind before the texture returns to the pool: an unflushed reference here makes the
+        // render thread's next write into it wait in the driver while this thread sleeps for that frame
+        // (RG351P froze on the Nintendo logo).
+        glFlush();
         recycle_texture(frame);
         const auto now = Clock::now();
         if (profiling) std::fprintf(stderr, "[flip-thread-present] frame_ms=%.3f present_ms=%.3f\n",

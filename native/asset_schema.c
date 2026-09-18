@@ -17,6 +17,7 @@
 #include <melee/it/kinds/itkinoko.h>
 #include <melee/gm/gmeventdata.h>
 #include <melee/ty/types.h>
+#include <melee/if/types.h>
 #include <sysdolphin/baselib/fog.h>
 #include <sysdolphin/baselib/sobjlib.h>
 #include <sysdolphin/baselib/jobj.h>
@@ -38,6 +39,7 @@
 #define H(T,m,o,n) F(T,m,o,AF_HALF,n,0)
 #define B(T,m,o,n) F(T,m,o,AF_BYTE,n,0)
 #define S(name, T, disk, ...) static const MeleeAssetField name##_fields[]={__VA_ARGS__}; static const MeleeAssetSchema name={disk,sizeof(T),name##_fields,sizeof(name##_fields)/sizeof(*name##_fields)}
+S(soundtestdata,struct SmSoundTestLoadData,32,U(struct SmSoundTestLoadData,mode_count,0,1),P(struct SmSoundTestLoadData,mode_names,4,AT_STRING_TABLE),P(struct SmSoundTestLoadData,fgm_group_names,8,AT_STRING_TABLE),P(struct SmSoundTestLoadData,fgm_names,12,AT_STRING_TABLE),U(struct SmSoundTestLoadData,fgm_count,16,1),P(struct SmSoundTestLoadData,fgm_ids,20,AT_WORDS),P(struct SmSoundTestLoadData,fgm_group_sizes,24,AT_WORDS),P(struct SmSoundTestLoadData,bgm_names,28,AT_STRING_TABLE));
 S(scene,SceneDesc,16,P(SceneDesc,models,0,AT_MODELS),P(SceneDesc,cameras,4,AT_CAMERAS),P(SceneDesc,lights,8,AT_LIGHT_LISTS),P(SceneDesc,fogs,12,AT_SCENE_FOG));
 S(model,DynamicModelDesc,16,P(DynamicModelDesc,joint,0,AT_JOINT),P(DynamicModelDesc,anims,4,AT_ANIMS),P(DynamicModelDesc,matanims,8,AT_MATANIMS),P(DynamicModelDesc,shapeanims,12,AT_SHAPEANIMS));
 S(scene_fog,struct SceneFogDesc,8,P(struct SceneFogDesc,desc,0,AT_FOG),P(struct SceneFogDesc,anims,4,AT_CAMERA_ANIMS));
@@ -70,6 +72,10 @@ S(wobjanim,HSD_WObjAnim,8,P(HSD_WObjAnim,aobjdesc,0,AT_AOBJ),P(HSD_WObjAnim,robj
 S(lightanim,HSD_LightAnim,16,P(HSD_LightAnim,next,0,AT_LIGHT_ANIM),P(HSD_LightAnim,aobjdesc,4,AT_AOBJ),P(HSD_LightAnim,position_anim,8,AT_WOBJ_ANIM),P(HSD_LightAnim,interest_anim,12,AT_WOBJ_ANIM));
 S(trophies,struct TrophyData,36,U(struct TrophyData,id,0,8),B(struct TrophyData,x20,32,4));
 S(trophy_display,struct TyDspEntry,16,U(struct TyDspEntry,x00,0,1),B(struct TyDspEntry,x04,4,4),U(struct TyDspEntry,x08,8,2));
+// tyModelFileTbl/tyModelFileUsTbl records (toy.c Toy_8030813C/Toy_80308250): trophy id, then the model's archive file
+// name and public symbol name stored inline.
+struct TyModelFileEntry { s32 id; char file[32]; char symbol[48]; };
+S(trophy_files,struct TyModelFileEntry,84,U(struct TyModelFileEntry,id,0,1),B(struct TyModelFileEntry,file,4,80));
 S(shapejoint,HSD_ShapeAnimJoint,12,P(HSD_ShapeAnimJoint,child,0,AT_SHAPEJOINT),P(HSD_ShapeAnimJoint,next,4,AT_SHAPEJOINT),P(HSD_ShapeAnimJoint,shapeanimdobj,8,AT_SHAPEDOBJ));
 S(shapedobj,HSD_ShapeAnimDObj,8,P(HSD_ShapeAnimDObj,next,0,AT_SHAPEDOBJ),P(HSD_ShapeAnimDObj,shapeanim,4,AT_SHAPEANIM));
 S(shapeanim,HSD_ShapeAnim,8,P(HSD_ShapeAnim,next,0,AT_SHAPEANIM),P(HSD_ShapeAnim,aobjdesc,4,AT_AOBJ));
@@ -117,6 +123,24 @@ S(itemgrapple,itSamusGrappleAttributes,176,U(itSamusGrappleAttributes,x0,0,25),P
 S(itempublic,it_804D6D20_t,24,P(it_804D6D20_t,x0,0,AT_ITEM_COMMON),P(it_804D6D20_t,x4,4,AT_ARTICLES),P(it_804D6D20_t,x8,8,AT_ARTICLES),P(it_804D6D20_t,xC,12,AT_ARTICLES),P(it_804D6D20_t,x10,16,AT_WORDS),P(it_804D6D20_t,x14,20,AT_COLOR_DESC));
 S(kirbycopyfox,KirbyHatStruct,20,P(KirbyHatStruct,hat_joint,0,AT_JOINT),U(KirbyHatStruct,desc.model_num,4,1),P(KirbyHatStruct,desc.vis_table,8,AT_FIGHTER_VIS_TABLE),P(KirbyHatStruct,hat_dynamics[0],12,AT_ARTICLE),P(KirbyHatStruct,hat_dynamics[1],16,AT_ARTICLE));
 S(kirbycopyyoshi,KirbyHatStruct,36,P(KirbyHatStruct,hat_joint,0,AT_JOINT),U(KirbyHatStruct,desc.model_num,4,1),P(KirbyHatStruct,desc.vis_table,8,AT_FIGHTER_VIS_TABLE),P(KirbyHatStruct,hat_dynamics[0],12,AT_JOINT),P(KirbyHatStruct,hat_dynamics[1],16,AT_ANIM),P(KirbyHatStruct,hat_dynamics[2],20,AT_ANIM),P(KirbyHatStruct,hat_dynamics[3],24,AT_ANIM),P(KirbyHatStruct,hat_dynamics[4],28,AT_ANIM),P(KirbyHatStruct,hat_dynamics[5],32,AT_ARTICLE));
+// Hat copies: hat joint and parts, then hat_dynamics slots holding (A)rticles, (J)oints or (D)ynamics.
+#define KIRBY_COPY_HAT P(KirbyHatStruct,hat_joint,0,AT_JOINT),U(KirbyHatStruct,desc.model_num,4,1),P(KirbyHatStruct,desc.vis_table,8,AT_FIGHTER_VIS_TABLE)
+S(kirbycopyhat,KirbyHatStruct,12,KIRBY_COPY_HAT);
+S(kirbycopyhataad,KirbyHatStruct,24,KIRBY_COPY_HAT,P(KirbyHatStruct,hat_dynamics[0],12,AT_ARTICLE),P(KirbyHatStruct,hat_dynamics[1],16,AT_ARTICLE),P(KirbyHatStruct,hat_dynamics[2],20,AT_FIGHTER_DYNAMICS));
+S(kirbycopyhatad,KirbyHatStruct,20,KIRBY_COPY_HAT,P(KirbyHatStruct,hat_dynamics[0],12,AT_ARTICLE),P(KirbyHatStruct,hat_dynamics[1],16,AT_FIGHTER_DYNAMICS));
+S(kirbycopyhatjd,KirbyHatStruct,20,KIRBY_COPY_HAT,P(KirbyHatStruct,hat_dynamics[0],12,AT_JOINT),P(KirbyHatStruct,hat_dynamics[1],16,AT_FIGHTER_DYNAMICS));
+S(kirbycopyhataj,KirbyHatStruct,20,KIRBY_COPY_HAT,P(KirbyHatStruct,hat_dynamics[0],12,AT_ARTICLE),P(KirbyHatStruct,hat_dynamics[1],16,AT_JOINT));
+S(kirbycopyhatd,KirbyHatStruct,16,KIRBY_COPY_HAT,P(KirbyHatStruct,hat_dynamics[0],12,AT_FIGHTER_DYNAMICS));
+// Parts copies (LOAD_HAT): the record is cast to FtPartsDesc at +0 and ftData_x8_x8 at desc.vis_table,
+// then hat_dynamics[1] is a visibility mask and hat_dynamics[2] the root joint. On the host those casts
+// land on hat_joint/desc.model_num and desc.vis_table/hat_dynamics[0], so the words go there.
+#define KIRBY_COPY_PARTS U(KirbyHatStruct,hat_joint,0,1),P(KirbyHatStruct,desc.model_num,4,AT_FIGHTER_VIS_TABLE),U(KirbyHatStruct,desc.vis_table,8,1),P(KirbyHatStruct,hat_dynamics[0],12,AT_HALF_TABLE),U(KirbyHatStruct,hat_dynamics[1],16,1),P(KirbyHatStruct,hat_dynamics[2],20,AT_JOINT)
+S(kirbycopyparts,KirbyHatStruct,24,KIRBY_COPY_PARTS);
+S(kirbycopypartsaa,KirbyHatStruct,32,KIRBY_COPY_PARTS,P(KirbyHatStruct,hat_dynamics[3],24,AT_ARTICLE),P(KirbyHatStruct,hat_dynamics[4],28,AT_ARTICLE));
+S(kirbycopypartsad,KirbyHatStruct,32,KIRBY_COPY_PARTS,P(KirbyHatStruct,hat_dynamics[3],24,AT_ARTICLE),P(KirbyHatStruct,hat_dynamics[4],28,AT_FIGHTER_DYNAMICS));
+S(kirbycopypartsd,KirbyHatStruct,28,KIRBY_COPY_PARTS,P(KirbyHatStruct,hat_dynamics[3],24,AT_FIGHTER_DYNAMICS));
+// Game & Watch: vis lookup and colour words read by ftKb_SpecialN_800F14B4, then chef and pan articles.
+S(kirbycopypartsgw,KirbyHatStruct,40,KIRBY_COPY_PARTS,P(KirbyHatStruct,hat_dynamics[3],24,AT_FIGHTER_VIS),P(KirbyHatStruct,hat_dynamics[4],28,AT_WORDS),P(KirbyHatStruct,hat_dynamics[5],32,AT_ARTICLE),P(KirbyHatStruct,hat_dynamics[6],36,AT_ARTICLE));
 S(gamewatchattr,ftGameWatchAttributes,148,U(ftGameWatchAttributes,x0_GAMEWATCH_WIDTH,0,1),B(ftGameWatchAttributes,x4_GAMEWATCH_COLOR,4,20),U(ftGameWatchAttributes,x18_GAMEWATCH_CHEF_LOOPFRAME,24,31));
 S(fighter,ftData,96,P(ftData,x0,0,AT_FIGHTER_ATTR),P(ftData,ext_attr,4,AT_ITEM_NUMBERS),P(ftData,x8,8,AT_FIGHTER_PARTS),P(ftData,xC,12,AT_FIGHTER_ANIMS),P(ftData,x10,16,AT_RAW),P(ftData,x14,20,AT_FIGHTER_ANIMS),P(ftData,x18,24,AT_RAW),P(ftData,x1C,28,AT_FIGHTER_PART_ANIM_TABLE),P(ftData,x20,32,AT_FIGHTER_GUARD),P(ftData,x24,36,AT_WORDS),P(ftData,x28,40,AT_WORDS),P(ftData,x2C,44,AT_FIGHTER_DYNAMICS),P(ftData,x30,48,AT_FIGHTER_HURT),P(ftData,x34,52,AT_WORDS),P(ftData,x38,56,AT_WORDS),P(ftData,x3C,60,AT_WORDS),P(ftData,x40,64,AT_WORDS),P(ftData,x44,68,AT_FIGHTER_LEDGE),P(ftData,x48_items,72,AT_FIGHTER_ITEMS),P(ftData,x4C_sfx,76,AT_FIGHTER_SFX),P(ftData,x50,80,AT_WORDS),P(ftData,x54,84,AT_WORDS),P(ftData,x58,88,AT_FIGHTER_IK),P(ftData,x5C,92,AT_JOINT));
 S(fighterattr,ftCo_DatAttrs,388,U(ftCo_DatAttrs,walk_accel_mul,0,96),B(ftCo_DatAttrs,weight_independent_throws_mask,384,1));
@@ -163,11 +187,14 @@ S(itemunknown,itUnknownAttributes,140,U(itUnknownAttributes,x0,0,9),P(itUnknownA
 S(itemwhitebea,itWhiteBeaAttributes,24,P(itWhiteBeaAttributes,x0,0,AT_WORDS),U(itWhiteBeaAttributes,x4,4,1),H(itWhiteBeaAttributes,x8,8,4),U(itWhiteBeaAttributes,x10,16,1),H(itWhiteBeaAttributes,x14,20,1));
 S(itemtincle,itTincleAttributes,88,P(itTincleAttributes,x0,0,AT_WORDS),U(itTincleAttributes,x4,4,20),B(itTincleAttributes,x54,84,2));
 S(itemapple,itWhispyAppleAttributes,28,P(itWhispyAppleAttributes,x0,0,AT_WORDS),U(itWhispyAppleAttributes,x4,4,2),B(itWhispyAppleAttributes,xC,12,8),U(itWhispyAppleAttributes,x14,20,2));
+S(itemlikelike,itLikelikeAttributes,136,P(itLikelikeAttributes,x0,0,AT_WORDS),U(itLikelikeAttributes,x4,4,3),U(itLikelikeAttributes,pad_10,16,2),U(itLikelikeAttributes,x18,24,9),B(itLikelikeAttributes,x3C,60,3),U(itLikelikeAttributes,x40,64,18));
 unsigned MeleeNativeItemSpecialType(unsigned kind) {
     switch(kind) {
         case It_Kind_Mato:case It_Kind_Heiho:case It_Kind_Klap:
     case It_Kind_Arwing_Laser:case It_Kind_Kyasarin:case It_Kind_Kyasarin_Egg:
+    case It_Kind_Nokonoko:case It_Kind_Patapata:case It_Kind_ZGShell:case It_Kind_ZRShell:
         return AT_ITEM_POINTER_WORDS;
+    case It_Kind_Likelike:return AT_ITEM_LIKELIKE;
     case It_Kind_Whitebea:return AT_ITEM_WHITEBEA;
     case It_Kind_Tincle:return AT_ITEM_TINCLE;
     case It_Kind_WhispyApple:case It_Kind_WhispyHealApple:return AT_ITEM_APPLE;
@@ -222,7 +249,11 @@ const MeleeAssetSchema* MeleeNativeAssetSchema(unsigned type) {
     CASE(AT_ITEM_YOYO,itemyoyo);
     CASE(AT_ITEM_GW,itemgw); CASE(AT_ITEM_DRAW_PARTS,itemdrawparts);
     CASE(AT_ITEM_CHEF,itemchef); CASE(AT_ITEM_SWORD,itemsword);
-    CASE(AT_KIRBY_COPY_FOX,kirbycopyfox); CASE(AT_KIRBY_COPY_YOSHI,kirbycopyyoshi); CASE(AT_GAMEWATCH_ATTR,gamewatchattr);
+    CASE(AT_KIRBY_COPY_FOX,kirbycopyfox); CASE(AT_KIRBY_COPY_YOSHI,kirbycopyyoshi);
+    CASE(AT_KIRBY_COPY_HAT,kirbycopyhat); CASE(AT_KIRBY_COPY_HAT_AAD,kirbycopyhataad); CASE(AT_KIRBY_COPY_HAT_AD,kirbycopyhatad);
+    CASE(AT_KIRBY_COPY_HAT_JD,kirbycopyhatjd); CASE(AT_KIRBY_COPY_HAT_AJ,kirbycopyhataj); CASE(AT_KIRBY_COPY_HAT_D,kirbycopyhatd);
+    CASE(AT_KIRBY_COPY_PARTS,kirbycopyparts); CASE(AT_KIRBY_COPY_PARTS_AA,kirbycopypartsaa); CASE(AT_KIRBY_COPY_PARTS_AD,kirbycopypartsad);
+    CASE(AT_KIRBY_COPY_PARTS_D,kirbycopypartsd); CASE(AT_KIRBY_COPY_PARTS_GW,kirbycopypartsgw); CASE(AT_GAMEWATCH_ATTR,gamewatchattr);
     CASE(AT_PURIN_PARTS,purinparts);
     CASE(AT_SAMUS_BEAM,samusbeam);
     CASE(AT_FIGHTER_VIS,fightervis); CASE(AT_PART_VIS,partvis); CASE(AT_FIGHTER_ANIMS,fighteranims);
@@ -234,9 +265,9 @@ const MeleeAssetSchema* MeleeNativeAssetSchema(unsigned type) {
     CASE(AT_ITEM_ATTR,itemattr); CASE(AT_ITEM_HURT,itemhurt); CASE(AT_ITEM_STATES,itemstates);
     CASE(AT_ITEM_MODEL,itemmodel); CASE(AT_ITEM_DYNAMICS,itemdynamics); CASE(AT_BONE_DYNAMICS,bonedynamics);
     CASE(AT_ITEM_FOODS,itemfoods); CASE(AT_ITEM_KINOKO,itemkinoko); CASE(AT_ITEM_WSTAR,itemwstar);
-    CASE(AT_ITEM_KURI,itemkuri); CASE(AT_ITEM_LEADEAD,itemleadead); CASE(AT_ITEM_OCTA,itemocta);
+    CASE(AT_ITEM_KURI,itemkuri); CASE(AT_ITEM_LIKELIKE,itemlikelike); CASE(AT_SOUNDTEST_DATA,soundtestdata); CASE(AT_ITEM_LEADEAD,itemleadead); CASE(AT_ITEM_OCTA,itemocta);
     CASE(AT_ITEM_OTTO,itemotto); CASE(AT_ITEM_TIERS,itemtiers); CASE(AT_ITEM_UNKNOWN,itemunknown);
-    CASE(AT_EVENT,event); CASE(AT_EVENT_INIT,eventinit); CASE(AT_EVENT_PLAYER,eventplayer); CASE(AT_EVENT_BONUS,eventbonus); CASE(AT_EVENT_STAGE,eventstage); CASE(AT_EVENT_EXTRA,eventextra); CASE(AT_EVENT_TIMING,eventtiming); CASE(AT_REFRACT,refract); CASE(AT_TROPHIES,trophies); CASE(AT_TROPHY_DISPLAY,trophy_display);
+    CASE(AT_EVENT,event); CASE(AT_EVENT_INIT,eventinit); CASE(AT_EVENT_PLAYER,eventplayer); CASE(AT_EVENT_BONUS,eventbonus); CASE(AT_EVENT_STAGE,eventstage); CASE(AT_EVENT_EXTRA,eventextra); CASE(AT_EVENT_TIMING,eventtiming); CASE(AT_REFRACT,refract); CASE(AT_TROPHIES,trophies); CASE(AT_TROPHY_DISPLAY,trophy_display); CASE(AT_TROPHY_FILES,trophy_files);
     CASE(AT_SHAPEJOINT,shapejoint); CASE(AT_SHAPEDOBJ,shapedobj); CASE(AT_SHAPEANIM,shapeanim);
     CASE(AT_SHAPESET,shapeset); CASE(AT_CPU_VERTICES,vertex);
     CASE(AT_EFFECTDESC,effectdesc);

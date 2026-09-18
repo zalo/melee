@@ -218,6 +218,7 @@ struct Archive {
         case AT_FT_PARTS_TABLE:return AT_FT_PARTS;
         case AT_BYTEPAIR_TABLE:return AT_BYTEPAIR;
         case AT_RAW_TABLE:return AT_RAW;
+        case AT_STRING_TABLE:return AT_STRING;
         case AT_WORD_TABLE:return AT_WORDS; case AT_EVENTS:return AT_EVENT; case AT_MODELS:return AT_MODEL; case AT_ANIMS:return AT_ANIM;
         case AT_MATANIMS:return AT_MATANIMJOINT; case AT_ENVELOPES:return AT_ENVELOPE;
         case AT_LIGHT_LISTS:return AT_LIGHT_LIST; case AT_CAMERA_ANIMS:return AT_CAMERA_ANIM;
@@ -285,7 +286,7 @@ struct Archive {
         }
         if(auto target=array_target(type);target!=AT_NONE) {
             size_t count=explicit_count;
-            if(type==AT_FT_PARTS_TABLE||type==AT_BYTEPAIR_TABLE) count=extent(offset)/4;
+            if(type==AT_FT_PARTS_TABLE||type==AT_BYTEPAIR_TABLE||type==AT_STRING_TABLE) count=extent(offset)/4;
             if(type==AT_FIGHTER_VIS_TABLE||type==AT_HALF_TABLE||type==AT_FIGHTER_PART_ANIM_TABLE) count=extent(offset)/4;
             if(type==AT_FIGATREES||type==AT_FIGATREE_TABLES) count=extent(offset)/4;
             if(type==AT_FIGHTER_ITEMS) {
@@ -350,16 +351,29 @@ struct Archive {
             count=source.u32(offset)+1;
             if((count-1)*16+4!=extent(offset)) throw std::runtime_error("Invalid food-attribute array size");
         }
-        if(type==AT_TROPHIES||type==AT_TROPHY_DISPLAY||type==AT_COLOR_DESC) {
+        if(type==AT_TROPHIES||type==AT_TROPHY_DISPLAY||type==AT_TROPHY_FILES||type==AT_COLOR_DESC) {
             if(extent(offset)%schema->file_size) throw std::runtime_error("Invalid trophy table size");
             count=extent(offset)/schema->file_size;
         }
+        size_t terminator=0;
         if(type==AT_VERTICES) {
             count=0; while(source.u32(offset+count*schema->file_size)!=255) ++count; ++count;
         } else if(type==AT_CAMERAS||type==AT_ENVELOPE) {
-            count=0; while(source.pointer(offset+count*schema->file_size)) ++count; ++count;
+            count=0;
+            bool unterminated=false;
+            // GmRegEnd's cut1CanimScene follows its only camera with animation words instead of a null
+            // record; the game reads cameras[0] only, so stop there and supply a zeroed terminator.
+            try {while(source.pointer(offset+count*schema->file_size)) ++count;}
+            catch(const std::exception&) {if(type!=AT_CAMERAS||!count) throw; unterminated=true;}
+            if(!unterminated) ++count;
+            else terminator=1;
         }
-        auto result=static_cast<std::byte*>(allocate(schema->host_size*count)); objects[key]=result;
+        // Vis lookups are walked for model_num (up to 11) entries even when the file holds fewer: Kirby's
+        // Game & Watch copy has one entry but Kirby's model_num is 2, and on the console the next word is a
+        // negative RAM pointer, so the extra entry is empty. Zeroed padding keeps that behaviour.
+        const size_t allocated_count=(type==AT_FIGHTER_VIS?std::max<size_t>(count,11):count)+terminator;
+        auto result=static_cast<std::byte*>(allocate(schema->host_size*allocated_count)); objects[key]=result;
+        if(terminator) std::memset(result+count*schema->host_size,0,schema->host_size);
         if(type==AT_ANIM||type==AT_MATANIMJOINT||type==AT_SHAPEJOINT)
             animation_objects[result]={type,offset};
         for(size_t record=0;record<count;++record) {
@@ -495,13 +509,41 @@ struct Archive {
         if (root->first=="lbRumbleData") result=rumble(root->second);
         else if(root->first=="lbBgFlashColAnimData") result=materialize(AT_COLOR_DESC,root->second);
         else if(root->first=="itPublicData") result=materialize(AT_ITEM_PUBLIC,root->second);
-        else if(root->first=="ftDataKirbyCopyYoshi") {
-            if(auto article=source.pointer(root->second+32)) item_special_types[*article]=AT_ITEM_NUMBERS;
-            result=materialize(AT_KIRBY_COPY_YOSHI,root->second);
+        else if(root->first.starts_with("ftDataKirbyCopy")) {
+            // Kirby copy records differ per fighter (layouts read from the ISO and matched against their
+            // users in ftkirby.c, ftdynamics.c and the ftKirby special files). Read as a fighter, any of
+            // them aborted with "Unresolved or non-pointer HSD field" once Kirby inhaled that fighter.
+            struct Copy {const char* name; unsigned type; unsigned article_field[2]; unsigned article_type[2];};
+            static const Copy copies[]={
+                {"Captain",AT_KIRBY_COPY_HAT},{"Ganon",AT_KIRBY_COPY_HAT},
+                {"Fox",AT_KIRBY_COPY_FOX,{12,16}},{"Mario",AT_KIRBY_COPY_FOX,{12,16}},{"Drmario",AT_KIRBY_COPY_FOX,{12,16}},
+                {"Luigi",AT_KIRBY_COPY_FOX,{12,16}},{"Samus",AT_KIRBY_COPY_FOX,{12,16}},{"Ness",AT_KIRBY_COPY_FOX,{12,16}},
+                {"Peach",AT_KIRBY_COPY_FOX,{12,16}},
+                {"Link",AT_KIRBY_COPY_HAT_AAD,{12,16},{AT_ITEM_ARROW}},{"Clink",AT_KIRBY_COPY_HAT_AAD,{12,16},{AT_ITEM_ARROW}},
+                {"Seak",AT_KIRBY_COPY_HAT_AAD,{12,16}},{"Pichu",AT_KIRBY_COPY_HAT_AAD,{12,16}},{"Pikachu",AT_KIRBY_COPY_HAT_AAD,{12,16}},
+                {"Koopa",AT_KIRBY_COPY_HAT_AD,{12}},{"Popo",AT_KIRBY_COPY_HAT_AJ,{12}},
+                {"Emblem",AT_KIRBY_COPY_HAT_JD},{"Mars",AT_KIRBY_COPY_HAT_JD},{"Zelda",AT_KIRBY_COPY_HAT_D},
+                {"Yoshi",AT_KIRBY_COPY_YOSHI,{32}},
+                {"Donkey",AT_KIRBY_COPY_PARTS},{"Purin",AT_KIRBY_COPY_PARTS_D},{"Mewtwo",AT_KIRBY_COPY_PARTS_AD,{24}},
+                {"Falco",AT_KIRBY_COPY_PARTS_AA,{24,28}},{"Gamewatch",AT_KIRBY_COPY_PARTS_GW,{32,36},{AT_ITEM_CHEF,AT_ITEM_GW}},
+            };
+            const Copy* copy=nullptr;
+            for(const auto& candidate:copies) if(root->first.substr(15)==candidate.name) copy=&candidate;
+            if(!copy) throw std::runtime_error("Unknown Kirby copy record "+root->first);
+            for(unsigned i=0;i<2;++i) if(copy->article_field[i]) if(auto article=source.pointer(root->second+copy->article_field[i]))
+                item_special_types[*article]=copy->article_type[i]?copy->article_type[i]:AT_ITEM_NUMBERS;
+            result=materialize(copy->type,root->second);
         }
-        else if(root->first=="ftDataKirbyCopyFox" || root->first=="ftDataKirbyCopyMario" || root->first=="ftDataKirbyCopyDrmario" || root->first=="ftDataKirbyCopyLuigi") {
-            for(unsigned field:{12U,16U}) if(auto article=source.pointer(root->second+field)) item_special_types[*article]=AT_ITEM_NUMBERS;
-            result=materialize(AT_KIRBY_COPY_FOX,root->second);
+        // Classic mode intro layout (gm_1832.c lbl_804D6604): 0x9B8 bytes of f32 slots and padding, no pointers.
+        else if(root->first=="gmIntroEasyTable") result=materialize(AT_WORDS,root->second);
+        // Multi-Man Melee spawn tables (gm_181A.c RegClearSpawnEntry): {s32, u8 x4, f32, f32} records.
+        else if(root->first.starts_with("gmKumiteSystemTable")) {
+            const size_t size=extent(root->second);
+            if(size%16) throw std::runtime_error("Invalid Multi-Man spawn table size");
+            auto table=static_cast<std::byte*>(allocate(size));
+            for(unsigned i=0;i<size;i+=4) {auto value=source.u32(root->second+i);std::memcpy(table+i,&value,4);}
+            for(unsigned i=4;i<size;i+=16) std::memcpy(table+i,source.bytes(root->second+i,4).data(),4);
+            result=table;
         }
         else if(root->first.starts_with("ftData")) {fighter_name=root->first;result=materialize(AT_FIGHTER,root->second);}
         else if(root->first.ends_with("_figatree")) result=materialize(AT_FIGATREE,root->second);
@@ -535,6 +577,31 @@ struct Archive {
         else if(root->first=="map_plit") result=materialize(AT_LIGHT_LISTS,root->second);
         else if(root->first=="quake_model_set") result=materialize(AT_MODEL,root->second);
         else if(root->first=="itemdata") result=materialize(AT_GROUND_ITEMS,root->second);
+        // Stage intro cameras (IrNml.dat mc01..mc12, gm_1879.c): {CameraDesc*, CameraAnim**}.
+        else if(root->first.size()==4&&root->first.starts_with("mc")&&root->first[2]>='0'&&root->first[2]<='9'&&root->first[3]>='0'&&root->first[3]<='9')
+            result=materialize(AT_CAMERAS,root->second);
+        // IfVsCam.dat IfCamera(Info)_Top_model_set (gmcamera.c) read the joint through DynamicModelDesc.
+        else if(root->first.ends_with("_Top_model_set")) result=materialize(AT_MODEL,root->second);
+        // GmStRoll.dat: ten DynamicModelDesc pointers with no terminator (gmstaffroll.c).
+        else if(root->first=="ScGamRegStaffrollNames_scene_modelset") result=materialize(AT_MODELS,root->second,extent(root->second)/4);
+        // GmRegEnd/GmRgEBG*.dat ending cut scenes (gmregtyfall.c): SceneDesc.
+        else if(root->first.starts_with("cut")&&root->first.ends_with("Scene")) result=materialize(AT_SCENE,root->second);
+        // MnNamedef/MnExtAll/MnMaAll.dat name lists (mnnamenew.c): Shift-JIS string pointer tables.
+        else if(root->first.starts_with("mnName")&&(root->first.ends_with("Name")||root->first.ends_with("NameUs"))) result=materialize(AT_STRING_TABLE,root->second);
+        else if(root->first=="smSoundTestLoadData") result=materialize(AT_SOUNDTEST_DATA,root->second);
+        // TmBox.dat BracketSrcEntry arrays (gmtoulib.static.h): 0x28-byte entries, s32 fields at 0x8..0x14.
+        else if(root->first.starts_with("tournament_box")&&root->first.ends_with("_array")) {
+            auto size=extent(root->second);
+            if(size%0x28) throw std::runtime_error("Invalid tournament box array size");
+            for(auto field:pointer_fields) if(field>=root->second&&field<root->second+size)
+                throw std::runtime_error("Unexpected pointer inside tournament box array");
+            auto entries=static_cast<std::byte*>(allocate(size));
+            std::memcpy(entries,source.bytes(root->second,size).data(),size);
+            for(size_t at=0;at<size;at+=0x28) for(unsigned j=8;j<0x18;j+=4) {
+                auto value=source.u32(root->second+at+j);std::memcpy(entries+at+j,&value,4);
+            }
+            result=entries;
+        }
         else if(root->first=="yakumono_param") result=stageParameters(root->second);
         else if(root->first=="plLoadCommonData"||root->first=="ftLoadCommonData") {
             const unsigned kinds[]={AT_FT_COMMON,AT_WORDS,AT_WORDS,AT_WORDS,AT_FT_PARTS_TABLE,AT_BYTEPAIR_TABLE,AT_COLOR_DESC,AT_COLOR_DESC,AT_JOINT_ANIM_PAIR,AT_SHAKE,AT_SHAKE,AT_SHAKE,AT_WORDS,AT_WORDS,AT_WORDS,AT_WORDS,AT_JOINT,AT_RAW,AT_RAW,AT_RAW,AT_JOINT,AT_WORDS,AT_CPU_CONFIG};
@@ -590,9 +657,10 @@ struct Archive {
         }
         else if(root->first=="tyInitModelTbl"||root->first=="tyInitModelDTbl") result=materialize(AT_TROPHIES,root->second);
         else if(root->first=="tyDisplayModelTbl"||root->first=="tyDisplayModelUsTbl") result=materialize(AT_TROPHY_DISPLAY,root->second);
+        else if(root->first=="tyModelFileTbl"||root->first=="tyModelFileUsTbl") result=materialize(AT_TROPHY_FILES,root->second);
         else if(root->first=="tyModelSortTbl"||root->first=="tyExpDifferentTbl"||root->first=="tyNoGetUsTbl") result=materialize(AT_HALVES,root->second);
         else if(root->first.ends_with("_scene_models")||root->first=="Stc_rarwmdls"||root->first=="Stc_scemdls"||root->first=="lupe"||root->first=="tdsce") result=materialize(AT_MODELS,root->second);
-        else if(root->first.ends_with("_scene_data")||root->first=="pnlsce"||root->first=="flmsce") result=materialize(AT_SCENE,root->second);
+        else if(root->first.ends_with("_scene_data")||root->first=="pnlsce"||root->first=="flmsce"||root->first=="standScene"||(root->first.starts_with("visual")&&root->first.ends_with("Scene"))) result=materialize(AT_SCENE,root->second);
         else if(root->first.starts_with("ftDemo")&&root->first.find("MotionFile")!=std::string::npos) result=materialize(AT_RAW,root->second);
         else if(root->first.ends_with("_animjoint")) result=materialize(AT_ANIM,root->second);
         else if(root->first.ends_with("_matanim_joint")) result=materialize(AT_MATANIMJOINT,root->second);

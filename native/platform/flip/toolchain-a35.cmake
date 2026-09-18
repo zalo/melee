@@ -16,6 +16,12 @@ set(CMAKE_SYSROOT "${FLIP_TOOLCHAIN}/aarch64-buildroot-linux-gnu/sysroot")
 set(CMAKE_C_FLAGS_INIT "-mcpu=cortex-a35")
 set(CMAKE_CXX_FLAGS_INIT "-mcpu=cortex-a35")
 set(CMAKE_FIND_ROOT_PATH "${CMAKE_SYSROOT}")
+# Extra AArch64 root with the Wayland/xkbcommon client libraries SDL resolves sonames from
+# (prepare_wayland.py); SDL only dlopens them at run time.
+set(FLIP_WAYLAND_ROOT "$ENV{FLIP_WAYLAND_ROOT}" CACHE PATH "AArch64 Wayland client library root")
+if(FLIP_WAYLAND_ROOT)
+  list(APPEND CMAKE_FIND_ROOT_PATH "${FLIP_WAYLAND_ROOT}")
+endif()
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)

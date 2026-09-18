@@ -46,5 +46,40 @@ inline const StageNumericLayout stage_numeric_layouts[] = {
     {"GrdStoryBFarTreeA_CMPR_image",36,{},{}},
     {"GrdVenomBase1_CMPR_image",60,{},{},{56}},
     {"GrdYorsterAppleA_CMPR_image",32,{},{}},
-    {"GrdSamus1Bio00_CMPR_image",400,{{0xa0,240}},{},{}, {44}}
+    {"GrdSamus1Bio00_CMPR_image",400,{{0xa0,240}},{},{}, {44}},
+    // Home-Run Contest, trophy stages and Adventure routes.
+    {"GrdHomerunBillTen_CMPR_image",0,{},{}},
+    {"GrdFigure1Eye_I8_image",0,{},{}},
+    {"GrdFigure2Ashike_C8_image",0,{},{}},
+    {"GrdFigure3MaskA_CMPR_image",0,{},{}},
+    {"GrdHealFigureCa_C8_image",0,{},{}},
+    {"GrdFiguregetBG3_C8_image",0,{},{}},
+    {"GrdBigblueArch2_CMPR_image",0,{},{}},
+    {"GrdZebesRPipe1far_CMPR_image",0,{},{}},
+    // grkinokoroute.c: int, grZakoGenerator_SpawnDesc at +4.
+    {"GrdDonkeyFloor1_C8_image",0,{{4,2}},{{6,2}}},
+    // grshrineroute.c: four material scripts, a DynamicsDesc at +0x10, spawn_desc at +0x28.
+    {"GrdKinokoRWood3_CMPR_image",0,{{0x28,2}},{{0x2a,2}},{0,4,8,12},{16}},
+    // grpushon.c: DynamicsDesc slots, then 30 {s32,s16,s16} entries and lookup pairs.
+    {"GrdPushonBlue_RGB565_image",532,{{0x20,4},{0x28,4},{0x30,4},{0x38,4},{0x40,4},{0x48,4},{0x50,4},{0x58,4},{0x60,4},{0x68,4},
+        {0x70,4},{0x78,4},{0x80,4},{0x88,4},{0x90,4},{0x98,4},{0xa0,4},{0xa8,4},{0xb0,4},{0xb8,4},
+        {0xc0,4},{0xc8,4},{0xd0,4},{0xd8,4},{0xe0,4},{0xe8,4},{0xf0,4},{0xf8,4},{0x100,4},{0x108,4}},{},{},{0,4,8,12,16,20}},
+    // Target Test: DynamicsDesc slots for the moving/damaging surfaces.
+    {"GrdTFalcoFioor00_C8_image",16,{},{},{},{0,4,8,12}},
+    {"GrdTFoxFioor01_RGBA8_image",16,{},{},{},{0,4,8,12}},
+    {"GrdTGanonAsiba0_C8_image",12,{},{},{},{0,4,8}},
+    {"GrdTMewtwoFloor01_CMPR_image",32,{},{},{},{0,4,8,12,16,20,24,28}},
+    {"GrdTargetPurinFloorC_I8_image",4,{},{},{},{0}},
+    // The remaining Target Test stages keep one unused word; several share this image.
+    {"GrdTCaptainAdver1n_CMPR_image",0,{},{}},
+    {"GrdTGamewatchAclmark_IA4_image",0,{},{}},
+    {"GrdTPopoCondor0_C4_image",0,{},{}},
+    {"GrdTKirbyFioor00_RGBA8_image",0,{},{}},
+    {"GrdTKoopaFloor00_RGB565_image",0,{},{}},
+    {"GrdTLinkRelief01_RGBA8_image",0,{},{}},
+    {"GrdTNessFloor01_RGBA8_image",0,{},{}},
+    {"GrdTPeachFloor00_RGBA8_image",0,{},{}},
+    {"GrdTPikachuFloor01_C4_image",0,{},{}},
+    {"GrdTSamusFioor02_C8_image",0,{},{}},
+    {"GrdTargetBack00_CMPR_image",0,{},{}}
 };

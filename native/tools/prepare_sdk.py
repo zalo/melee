@@ -20,8 +20,21 @@ for source in (root / 'libs/dolphin/include').rglob('*.h'):
         text = text.replace('u32 dummy[3];', 'u32 dummy[10];')
     if source.name == 'GXGeometry.h':
         text = re.sub(r'static inline void GXEnd\(void\)\n\{.*?\n\}', 'void GXEnd(void);', text, flags=re.S)
-        text = text.replace('void GXSetArray(GXAttr attr, const void *base_ptr, u8 stride);',
-            'void MeleeGXSetArray(GXAttr attr, const void *base_ptr, u8 stride);\n#define GXSetArray MeleeGXSetArray')
+        # Aurora's GXSetArray takes (attr, data, size, stride, le); a three-argument call that
+        # reaches it unredirected reads the stride as the array size and garbage as the stride.
+        text, redirected = re.subn(r'void GXSetArray\(GXAttr attr, const void\s*\*\s*base_ptr, u8 stride\);',
+            'void MeleeGXSetArray(GXAttr attr, const void *base_ptr, u8 stride);\n#define GXSetArray MeleeGXSetArray', text)
+        if redirected != 1:
+            sys.exit('prepare_sdk.py: GXSetArray declaration not found in GXGeometry.h')
+        # GXSETARRAY carries the real size and endianness (static arrays such as psdisp's texture
+        # coordinates are not registered assets); keep it token-identical to Runtime/gx_port.h.
+        text, redirected = re.subn(r'#define GXSETARRAY\(attr, data, size, stride, le\)\s*\\\n\s*GXSetArray\(\(attr\), \(data\), \(stride\)\)',
+            'void MeleeNativeSetArrayData(int attribute, const void* data, unsigned int size,\n'
+            '                            unsigned char stride, int little_endian);\n'
+            '#define GXSETARRAY(attr, data, size, stride, le) \\\n'
+            '    MeleeNativeSetArrayData((attr), (data), (size), (stride), (le))', text)
+        if redirected != 1:
+            sys.exit('prepare_sdk.py: GXSETARRAY macro not found in GXGeometry.h')
     if source.name == 'dvd.h':
         text = text.replace('DVDReadAsyncPrio(', 'MeleeNativeDVDReadAsyncPrio(')
         text += '\n#define DVDReadAsyncPrio MeleeNativeDVDReadAsyncPrio\n'

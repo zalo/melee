@@ -17,6 +17,8 @@ static void fired(OSAlarm* alarm, OSContext* context) {
     if (alarm == &once) OSCancelAlarm(&cancel_me);
     if (count == 3) OSCancelAlarm(&periodic);
 }
+static int ticks;
+static void tick(OSAlarm* alarm, OSContext* context) { (void)alarm; (void)context; ticks++; }
 extern int OSJoinThread(OSThread*, void**);
 static void* worker(void* argument) {
     CHECK(OSGetCurrentThread() != NULL);
@@ -40,6 +42,12 @@ int main(void) {
     now=5; MeleeNativePumpAlarms(); CHECK(count==1 && order[0]==2);
     now=20; MeleeNativePumpAlarms(); CHECK(count==3 && order[1]==1 && order[2]==2);
     now=100; MeleeNativePumpAlarms(); CHECK(count==3);
+    // A late pump delivers every elapsed period; a long stall replays at most four.
+    static OSAlarm ticker; OSCreateAlarm(&ticker); OSSetPeriodicAlarm(&ticker, 100, 10, tick);
+    MeleeNativePumpAlarms(); CHECK(ticks==1);
+    now=130; MeleeNativePumpAlarms(); CHECK(ticks==4);
+    now=1000; MeleeNativePumpAlarms(); CHECK(ticks==8);
+    OSCancelAlarm(&ticker);
     OSThread thread;
     int marker = 42;
     CHECK(OSCreateThread(&thread, worker, &marker, NULL, 0, 16, 0));

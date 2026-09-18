@@ -143,7 +143,13 @@ void MeleeNativePumpAlarms(void) {
             if (p->fire <= now && (!due || p->fire < due->fire)) due = p;
         if (!due) break;
         OSAlarmHandler callback = due->handler;
-        if (due->period) due->fire += ((now - due->fire) / due->period + 1) * due->period;
+        // A late pump still delivers each elapsed period, as the decrementer interrupt would (the movie
+        // player counts periods to pick frames); a long stall replays at most four.
+        if (due->period) {
+            OSTime behind = (now - due->fire) / due->period;
+            if (behind > 3) due->fire += (behind - 3) * due->period;
+            due->fire += due->period;
+        }
         else { unlink_alarm(due); due->handler = NULL; }
         if (callback) callback(due, OSGetCurrentContext());
     }

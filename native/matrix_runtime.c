@@ -98,7 +98,10 @@ void MeleeNativeMatrixScene(int scene)
         int expected_opponent = setting("MELEE_TEST_OPPONENT", 32, CKind_Mario);
         int actual_opponent = Player_GetPlayerCharacter(1);
         fprintf(stderr, "[matrix-ready] opponent=%d expected-opponent=%d\n", actual_opponent, expected_opponent);
-        if (actual != expected || actual_opponent != expected_opponent || Stage_80225194() != stage)
+        // Modes that pick their own fighters and stage (Event, Multi-Man, Target Test,
+        // Home-Run) run without MELEE_TEST_FORCE_STAGE; only forced selections are checked.
+        if (getenv("MELEE_TEST_FORCE_STAGE") &&
+            (actual != expected || actual_opponent != expected_opponent || Stage_80225194() != stage))
             OSPanic(__FILE__, __LINE__, "Matrix selection mismatch");
     }
 }
@@ -114,8 +117,11 @@ int MeleeNativeTestFreeze(void)
     return 1;
 }
 
+unsigned melee_native_logic_frames; // game updates, read by the VI timing line
+
 void MeleeNativeMatrixTick(void)
 {
+    ++melee_native_logic_frames;
     if (!getenv("MELEE_MATRIX_TEST") || matrix_scene != 2 ||
         !getenv("MELEE_TEST_ITEM")) return;
     ++matrix_frames;

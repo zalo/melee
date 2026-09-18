@@ -17,6 +17,55 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <unistd.h>
+#include <dlfcn.h>
+
+// GBM is resolved at run time from the device's driver stack (Mesa's libgbm, or the libmali hook
+// on Rockchip BSP firmware). Linking the build SDK's libgbm would pin the binary to libmali.
+namespace gbm_runtime {
+struct Api {
+    gbm_device* (*create_device)(int);
+    void (*device_destroy)(gbm_device*);
+    gbm_surface* (*surface_create)(gbm_device*, uint32_t, uint32_t, uint32_t, uint32_t);
+    void (*surface_destroy)(gbm_surface*);
+    gbm_bo* (*surface_lock_front_buffer)(gbm_surface*);
+    void (*surface_release_buffer)(gbm_surface*, gbm_bo*);
+    uint32_t (*bo_get_stride)(gbm_bo*);
+    gbm_bo_handle (*bo_get_handle)(gbm_bo*);
+};
+const Api& api() {
+    static const Api table = [] {
+        Api t{};
+        void* lib = dlopen("libgbm.so.1", RTLD_NOW | RTLD_GLOBAL);
+        if (!lib) {
+            std::fprintf(stderr, "[flip-display] libgbm.so.1 unavailable: %s\n", dlerror());
+            return t;
+        }
+        const auto bind = [lib](auto& fn, const char* name) { fn = reinterpret_cast<std::remove_reference_t<decltype(fn)>>(dlsym(lib, name)); };
+        bind(t.create_device, "gbm_create_device");
+        bind(t.device_destroy, "gbm_device_destroy");
+        bind(t.surface_create, "gbm_surface_create");
+        bind(t.surface_destroy, "gbm_surface_destroy");
+        bind(t.surface_lock_front_buffer, "gbm_surface_lock_front_buffer");
+        bind(t.surface_release_buffer, "gbm_surface_release_buffer");
+        bind(t.bo_get_stride, "gbm_bo_get_stride");
+        bind(t.bo_get_handle, "gbm_bo_get_handle");
+        // Every object comes from the two constructors, so leaving them null disables the rest.
+        if (!t.device_destroy || !t.surface_destroy || !t.surface_lock_front_buffer || !t.surface_release_buffer ||
+            !t.bo_get_stride || !t.bo_get_handle)
+            t.create_device = nullptr, t.surface_create = nullptr;
+        return t;
+    }();
+    return table;
+}
+} // namespace gbm_runtime
+#define gbm_create_device(fd) (gbm_runtime::api().create_device ? gbm_runtime::api().create_device(fd) : nullptr)
+#define gbm_surface_create(...) (gbm_runtime::api().surface_create ? gbm_runtime::api().surface_create(__VA_ARGS__) : nullptr)
+#define gbm_device_destroy(...) gbm_runtime::api().device_destroy(__VA_ARGS__)
+#define gbm_surface_destroy(...) gbm_runtime::api().surface_destroy(__VA_ARGS__)
+#define gbm_surface_lock_front_buffer(...) gbm_runtime::api().surface_lock_front_buffer(__VA_ARGS__)
+#define gbm_surface_release_buffer(...) gbm_runtime::api().surface_release_buffer(__VA_ARGS__)
+#define gbm_bo_get_stride(...) gbm_runtime::api().bo_get_stride(__VA_ARGS__)
+#define gbm_bo_get_handle(...) gbm_runtime::api().bo_get_handle(__VA_ARGS__)
 
 bool MeleeFlipThreadedPresentEnabled();
 bool MeleeFlipInPresentWorker();
@@ -39,6 +88,10 @@ SDL_Window* sdlWindow = nullptr;
 SDL_GLContext sdlContext = nullptr;
 EGLSurface sdlSurface = EGL_NO_SURFACE; // SDL's window EGL surface; the present worker swaps it.
 gbm_device* sdlGbm = nullptr;           // borrowed from SDL (SDL owns/destroys it), not ours.
+// Wayland: Dawn's scratch native window is a wl_egl_window on a hidden SDL window's wl_surface.
+SDL_Window* dawnHiddenWindow = nullptr;
+void* dawnWlWindow = nullptr;
+void (*wlEglWindowDestroy)(void*) = nullptr;
 gbm_surface* dawnWindow = nullptr;      // scratch native window Dawn's swapchain wraps (never presented).
 
 int fd = -1;
@@ -59,7 +112,7 @@ bool modeSet;
 bool pendingFlip;
 uint32_t retiredFB;
 gbm_bo* retiredBO;
-const bool asyncPresent = [] { const auto* s=std::getenv("MELEE_FLIP_ASYNC_PRESENT"); return s && !std::strcmp(s,"1"); }();
+const bool asyncPresent = [] { const auto* s=std::getenv("MELEE_FLIP_ASYNC_PRESENT"); return !s || std::strcmp(s,"0"); }();
 void wait_pending_flip();
 PFNGLDRAWARRAYSINSTANCEDPROC drawArrays;
 PFNGLDRAWELEMENTSINSTANCEDPROC drawElements;
@@ -381,6 +434,8 @@ void wait_pending_flip() {
 void cleanupSdl() {
     MeleeFlipShutdownPresenter();
     if (dawnWindow) gbm_surface_destroy(dawnWindow);
+    if (dawnWlWindow) wlEglWindowDestroy(dawnWlWindow);
+    if (dawnHiddenWindow) SDL_DestroyWindow(dawnHiddenWindow);
     if (sdlContext) SDL_GL_DestroyContext(sdlContext);
     if (sdlWindow) SDL_DestroyWindow(sdlWindow);   // releases DRM master and restores the console
     SDL_QuitSubSystem(SDL_INIT_VIDEO);
@@ -389,6 +444,9 @@ void cleanupSdl() {
 // handoff, console (fbcon/VT) release and the page flips; we render with Dawn's GLES backend on
 // SDL's EGL display and blit+swap SDL's surface from the present worker.
 void initSdl() {
+    // SDL3's atomic KMSDRM path fails every flip on the RG351P and the Flip ("Failed to issue atomic
+    // commit on pageflip"); the legacy drmModePageFlip path works on both. Set it unless the user did.
+    setenv("SDL_KMSDRM_ATOMIC", "0", 0);
     if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) failSdl("Cannot initialize SDL video");
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -399,8 +457,21 @@ void initSdl() {
     SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    // Fullscreen at the panel's native mode; KMSDRM ignores the requested size and uses the mode.
-    sdlWindow = SDL_CreateWindow("Melee Native", renderWidth, renderHeight,
+    // Create the window at the panel's native mode. KMSDRM only has the panel's mode(s); requesting a
+    // size with no matching mode (e.g. 640x480 on a 320x480 panel) leaves the window with no EGL
+    // surface. Aurora still renders at renderWidth x renderHeight; the present worker scales to the panel.
+    int winW = static_cast<int>(renderWidth), winH = static_cast<int>(renderHeight);
+    int numDisplays = 0;
+    if (SDL_DisplayID* displays = SDL_GetDisplays(&numDisplays); displays) {
+        if (numDisplays > 0) {
+            if (const SDL_DisplayMode* dm = SDL_GetCurrentDisplayMode(displays[0]); dm && dm->w > 0) {
+                winW = dm->w; winH = dm->h;
+                std::fprintf(stderr, "[flip-display] SDL current display mode %dx%d@%.0f\n", dm->w, dm->h, dm->refresh_rate);
+            }
+        }
+        SDL_free(displays);
+    }
+    sdlWindow = SDL_CreateWindow("Melee Native", winW, winH,
                                  SDL_WINDOW_OPENGL | SDL_WINDOW_FULLSCREEN);
     if (!sdlWindow) failSdl("Cannot create SDL window");
     sdlContext = SDL_GL_CreateContext(sdlWindow);
@@ -409,26 +480,61 @@ void initSdl() {
     display = eglGetCurrentDisplay();
     if (display == EGL_NO_DISPLAY) display = static_cast<EGLDisplay>(SDL_EGL_GetCurrentDisplay());
     if (display == EGL_NO_DISPLAY) failSdl("SDL did not create an EGL display");
-    sdlSurface = static_cast<EGLSurface>(SDL_EGL_GetWindowSurface(sdlWindow));
+    // The context's bound draw surface is SDL's window surface; use it directly (SDL_EGL_GetWindowSurface
+    // is not always populated on KMSDRM).
+    sdlSurface = eglGetCurrentSurface(EGL_DRAW);
+    if (sdlSurface == EGL_NO_SURFACE) sdlSurface = static_cast<EGLSurface>(SDL_EGL_GetWindowSurface(sdlWindow));
     if (sdlSurface == EGL_NO_SURFACE) failSdl("SDL did not create a window EGL surface");
     int pw = 0, ph = 0;
     SDL_GetWindowSizeInPixels(sdlWindow, &pw, &ph);
     displayWidth = pw > 0 ? static_cast<uint32_t>(pw) : renderWidth;
     displayHeight = ph > 0 ? static_cast<uint32_t>(ph) : renderHeight;
-    // Aurora's swapchain (Dawn) still needs an EGL native window to wrap; borrow SDL's GBM device
-    // and hand Dawn a scratch GBM surface. In threaded-present mode Dawn never presents through it
-    // (the worker presents SDL's surface instead), so it is only ever allocated, never scanned out.
-    sdlGbm = static_cast<gbm_device*>(SDL_GetPointerProperty(
-        SDL_GetWindowProperties(sdlWindow), SDL_PROP_WINDOW_KMSDRM_GBM_DEVICE_POINTER, nullptr));
-    if (!sdlGbm) failSdl("MELEE_FLIP_DISPLAY=sdl needs the KMSDRM video driver (no GBM device on the SDL window)");
-    dawnWindow = gbm_surface_create(sdlGbm, displayWidth, displayHeight, GBM_FORMAT_ARGB8888,
-                                    GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
-    if (!dawnWindow) failSdl("Cannot create the Dawn scratch GBM surface");
+    // Handhelds with a portrait-mounted panel (RG351P/M/V: 320x480) report a portrait mode and no
+    // orientation property; the game is 4:3 landscape, so rotate unless MELEE_FLIP_ROTATE is set.
+    if (!std::getenv("MELEE_FLIP_ROTATE") && displayHeight > displayWidth) displayRotation = 270;
+    // Aurora's swapchain (Dawn) still needs an EGL native window to wrap. In threaded-present mode
+    // Dawn never presents through it (the worker presents SDL's surface instead), so it is only ever
+    // allocated, never shown.
+    const char* videoDriver = SDL_GetCurrentVideoDriver();
+    if (videoDriver && !std::strcmp(videoDriver, "wayland")) {
+        // Wayland compositor (ROCKNIX's Sway/Weston). EGL allows one surface per wl_egl_window and
+        // SDL's window already has one, so wrap a hidden window's wl_surface: it has no shell role,
+        // so the compositor never maps it. libwayland-egl is loaded like SDL loads it, at run time.
+        dawnHiddenWindow = SDL_CreateWindow("Melee Native (Dawn)", static_cast<int>(displayWidth),
+                                            static_cast<int>(displayHeight), SDL_WINDOW_HIDDEN);
+        void* surface = dawnHiddenWindow ? SDL_GetPointerProperty(SDL_GetWindowProperties(dawnHiddenWindow),
+                                                                  SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, nullptr)
+                                         : nullptr;
+        if (!surface) failSdl("Cannot create the Dawn scratch Wayland surface");
+        void* lib = dlopen("libwayland-egl.so.1", RTLD_NOW | RTLD_GLOBAL);
+        const auto create = lib ? reinterpret_cast<void* (*)(void*, int, int)>(dlsym(lib, "wl_egl_window_create")) : nullptr;
+        wlEglWindowDestroy = lib ? reinterpret_cast<void (*)(void*)>(dlsym(lib, "wl_egl_window_destroy")) : nullptr;
+        if (!create || !wlEglWindowDestroy) failSdl("libwayland-egl.so.1 unavailable");
+        dawnWlWindow = create(surface, static_cast<int>(displayWidth), static_cast<int>(displayHeight));
+        if (!dawnWlWindow) failSdl("Cannot create the Dawn scratch Wayland EGL window");
+    } else {
+        // KMSDRM: borrow SDL's GBM device and hand Dawn a scratch GBM surface.
+        sdlGbm = static_cast<gbm_device*>(SDL_GetPointerProperty(
+            SDL_GetWindowProperties(sdlWindow), SDL_PROP_WINDOW_KMSDRM_GBM_DEVICE_POINTER, nullptr));
+        if (!sdlGbm) failSdl("MELEE_FLIP_DISPLAY=sdl needs the KMSDRM or Wayland video driver (no GBM device on the SDL window)");
+        dawnWindow = gbm_surface_create(sdlGbm, displayWidth, displayHeight, GBM_FORMAT_ARGB8888,
+                                        GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
+        if (!dawnWindow) failSdl("Cannot create the Dawn scratch GBM surface");
+    }
+    // SDL3's KMSDRM swap adds DRM_MODE_PAGE_FLIP_ASYNC whenever SDL's swap interval is 0 and the
+    // kernel advertises DRM_CAP_ASYNC_PAGE_FLIP; the RG351P's Rockchip 4.4 kernel advertises it but
+    // rejects the flip ("Could not queue pageflip: -22"). SDL records the interval here, not from the
+    // worker's raw eglSwapInterval. MELEE_FLIP_SWAP_INTERVAL overrides.
+    {
+        const char* interval = std::getenv("MELEE_FLIP_SWAP_INTERVAL");
+        if (!SDL_GL_SetSwapInterval(interval ? std::atoi(interval) : 1))
+            std::fprintf(stderr, "[flip-display] SDL_GL_SetSwapInterval failed: %s\n", SDL_GetError());
+    }
     // Release the surface from this context so the present worker can bind it on its own thread.
     SDL_GL_MakeCurrent(sdlWindow, nullptr);
     std::atexit(cleanupSdl);
-    std::fprintf(stderr, "[flip-display] SDL/KMSDRM (%s), panel %ux%u, render %ux%u, rotate %d\n",
-                 SDL_GetCurrentVideoDriver() ? SDL_GetCurrentVideoDriver() : "?",
+    std::fprintf(stderr, "[flip-display] SDL display (%s), panel %ux%u, render %ux%u, rotate %d\n",
+                 videoDriver ? videoDriver : "?",
                  displayWidth, displayHeight, renderWidth, renderHeight, displayRotation);
     MeleeFlipInitPresenter();
 }
@@ -512,12 +618,23 @@ extern "C" void MeleeFlipDisplaySize(unsigned* width, unsigned* height) { *width
 extern "C" void MeleeFlipPanelSize(unsigned* width, unsigned* height) { *width = displayWidth; *height = displayHeight; }
 extern "C" int MeleeFlipRotation() { return displayRotation; }
 // Dawn's swapchain wraps this native window: the DRM path's scanout GBM surface, or (SDL path) the
-// scratch GBM surface. The present worker presents SDL's own surface via MeleeFlipPresentSurface().
-extern "C" void* MeleeFlipNativeWindow() { return backend == DisplayBackend::Sdl ? static_cast<void*>(dawnWindow) : static_cast<void*>(window); }
+// scratch GBM surface or Wayland EGL window. The present worker presents SDL's own surface via
+// MeleeFlipPresentSurface().
+extern "C" void* MeleeFlipNativeWindow() {
+    if (backend == DisplayBackend::Drm) return window;
+    return dawnWlWindow ? dawnWlWindow : static_cast<void*>(dawnWindow);
+}
 extern "C" void* MeleeFlipEGLDisplay() { return display; }
 // The present worker swaps this surface. SDL owns it (its window surface) on the SDL path.
 extern "C" void* MeleeFlipPresentSurface() { return sdlSurface; }
 extern "C" int MeleeFlipUsesSdlDisplay() { return backend == DisplayBackend::Sdl ? 1 : 0; }
+// SDL_GLContext is the EGLContext on SDL's EGL backends, so the worker's shared context can be bound
+// through SDL, which records the thread's current window for SDL_GL_SwapWindow.
+extern "C" int MeleeFlipMakeCurrentSdl(void* context) {
+    if (SDL_GL_MakeCurrent(sdlWindow, static_cast<SDL_GLContext>(context))) return 1;
+    std::fprintf(stderr, "[flip-display] SDL_GL_MakeCurrent on the present worker failed: %s\n", SDL_GetError());
+    return 0;
+}
 extern "C" __eglMustCastToProperFunctionPointerType MeleeFlipEGLProc(const char* name) {
     const auto proc = eglGetProcAddress(name);
     if (!std::strcmp(name,"eglSwapBuffers") && std::getenv("MELEE_FLIP_EGL_INTERVAL_ZERO")) {
@@ -599,7 +716,10 @@ extern "C" void MeleeFlipPresent() {
     if (backend == DisplayBackend::Sdl) {
         // SDL's KMSDRM SwapWindow does the eglSwapBuffers of our worker's rendered frame AND the
         // DRM page flip. The worker rendered into SDL's surface (its default framebuffer) already.
-        SDL_GL_SwapWindow(sdlWindow);
+        if (!SDL_GL_SwapWindow(sdlWindow)) {
+            static bool reported = false;
+            if (!reported) { reported = true; std::fprintf(stderr, "[flip-display] SDL_GL_SwapWindow failed: %s\n", SDL_GetError()); }
+        }
         return;
     }
     const bool profileHere = profiling && !MeleeFlipThreadedPresentEnabled();
