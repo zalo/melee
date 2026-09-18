@@ -43,8 +43,12 @@ class PortJsonTests(unittest.TestCase):
         for extension in ['.iso', '.gcm', '.ciso', '.rvz']:
             self.assertIn(extension, attr['inst'])
         self.assertEqual(attr['genres'], ['action'])
-        self.assertIsNone(attr['desc_md'])
-        self.assertIsNone(attr['inst_md'])
+        # The Markdown variants carry the source links and formatting the plain fields must not.
+        self.assertIn('https://github.com/doldecomp/melee', attr['desc_md'])
+        self.assertIn('https://github.com/zalo/melee', attr['desc_md'])
+        self.assertIn('`ports/melee/assets/`', attr['inst_md'])
+        self.assertNotIn('http', attr['desc'])
+        self.assertNotIn('`', attr['inst'])
         self.assertEqual(attr['arch'], ['aarch64'])
         self.assertEqual(attr['availability'], 'paid')
         # Built against a glibc 2.30 sysroot (gettid, pthread_cond_clockwait); the static libstdc++ carries arc4random.

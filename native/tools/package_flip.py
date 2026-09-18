@@ -60,8 +60,13 @@ def main():
     shutil.copy2(ROOT / 'native/platform/flip/launch.sh', args.output / 'launch.sh')
     shutil.copy2(ROOT / 'native/platform/flip/PACKAGE_README.txt', args.output / 'README.txt')
     notices = {
+        'melee': ROOT / 'native/licenses/melee.txt',
         'Aurora': ROOT / 'build/native-deps/aurora/LICENSE',
         'Dawn': ROOT / 'native/licenses/Dawn.txt',
+        # Dawn's shader pipeline (Tint is covered by Dawn's own license, SPIRV-Tools is not).
+        'SPIRV-Tools': ROOT / 'native/licenses/SPIRV-Tools.txt',
+        'magic_enum': ROOT / 'native/licenses/magic_enum.txt',
+        'SQLite': ROOT / 'native/licenses/SQLite.txt',
         'nod': ROOT / 'native/licenses/nod.txt',
         'FreeType': ROOT / 'native/licenses/FreeType.txt',
         'libpng': args.build / '_deps/png-src/LICENSE',

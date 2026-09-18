@@ -74,6 +74,9 @@ def assemble(bundle, output, port_dir=PORT_DIR):
     for name in OPTIONAL_METADATA:
         if (port_dir / name).exists():
             shutil.copy2(port_dir / name, tree / name)
+    # gameinfo.xml points EmulationStation at ./melee/screenshot.jpg, so the image also ships inside the
+    # data folder (the zip carries only Melee.sh, port.json and melee/), as recent ports do.
+    shutil.copy2(port_dir / 'screenshot.jpg', data / 'screenshot.jpg')
 
     zip_path = output / f'{PORT_NAME}.zip'
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as archive:

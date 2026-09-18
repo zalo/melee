@@ -9,7 +9,8 @@ follows.
 
 This is a native AArch64 build of *Super Smash Bros. Melee* (US 1.02) that runs on the device's
 own OpenGL ES driver. It includes no game data. You need your own dump of a Super Smash Bros.
-Melee disc (US, version 1.02, `GALE01`).
+Melee disc (US, version 1.02, `GALE01`). Port source:
+[zalo/melee, branch `portmaster`](https://github.com/zalo/melee/tree/portmaster).
 
 Mali-G52 devices (RK3566) need libmali g2p0 (stock Miyoo Flip firmware, spruceOS) or g29p1
 (ROCKNIX, dArkOS). g13p0 (Knulli) and g24p0 draw stale tiles. During the first menus the port
