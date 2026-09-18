@@ -12,7 +12,12 @@ cpu="${FLIP_CPU:-cortex-a55}"
 wayland="${FLIP_WAYLAND_DIR:-$root/build/flip-tools/wayland-arm64}"
 [ -d "$wayland/pkgconfig" ] || python3 "$root/native/tools/prepare_wayland.py" --output "$wayland"
 export FLIP_WAYLAND_ROOT="$wayland/root"
-export PKG_CONFIG_PATH="$wayland/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+# pkg-config may only see target packages: Aurora asks it for sqlite3 (and zstd) before fetching its
+# pinned copies, and the host's x86_64 sqlite3 answered in the cross build (headers from /usr/include,
+# library not found). PKG_CONFIG_LIBDIR replaces the default search path; PKG_CONFIG_PATH would add to it.
+sysroot="$FLIP_TOOLCHAIN/aarch64-buildroot-linux-gnu/sysroot"
+export PKG_CONFIG_LIBDIR="$wayland/pkgconfig:$sysroot/usr/lib/pkgconfig:$sysroot/usr/share/pkgconfig"
+unset PKG_CONFIG_PATH
 cmake -S "$root/native" -B "$build" \
     -DCMAKE_TOOLCHAIN_FILE="$root/native/platform/flip/toolchain.cmake" \
     -DCMAKE_C_FLAGS="-mcpu=$cpu" -DCMAKE_CXX_FLAGS="-mcpu=$cpu" \

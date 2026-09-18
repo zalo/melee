@@ -112,11 +112,12 @@ authors.
   `seed_ptr` -> `HSD_RandSeedPtr`, event data field names in `asset_schema.c`.
 - **Aurora pinned to the fork**: `native/tools/bootstrap.py` clones
   `https://github.com/zalo/aurora-arm.git` branch `gles-direct-submission` at
-  `b1f46212a36cc37d73fb3a4369a84106ca8f7ea5` (upstream Aurora + the nine perf PRs + Flip
+  `2d943c982f5d7b4582d7a66ccd1961e87e160288` (upstream Aurora + the nine perf PRs + Flip
   platform hunks + GLES fast path + the frame-stream overflow fix; since 2026-09-18 also the
-  configurable uniform window, the GL driver probe with its per-draw barrier fallback, and the
+  configurable uniform window, the GL driver probe with its per-draw barrier fallback, the
   staging buffers sized without the stream regions when mapped GL streams are active, which is
-  what makes Mesa/Panfrost fit in 1 GiB). `aurora-flip.patch` is
+  what makes Mesa/Panfrost fit in 1 GiB, and the merge of `encounter/aurora` main with the
+  aurora/card.h API and CARD rewrite). `aurora-flip.patch` is
   gone (it reverse-applied cleanly on the fork). `MELEE_AURORA_EXPECTED_REV` in
   `native/CMakeLists.txt` is the matching cache variable (`-DMELEE_AURORA_DIR=<checkout>
   -DMELEE_AURORA_EXPECTED_REV=<sha>` for review builds). `AURORA_VERTEX_BUFFER_MIB` is not
@@ -172,14 +173,14 @@ authors.
 ```sh
 # worktrees
 git -C ~/Desktop/melee-native-miyoo-flip worktree add ~/Desktop/melee-wt/portmaster -b portmaster miyoo-flip-aurora-prs-fast
-git -C ~/Desktop/aurora worktree add --detach ~/Desktop/melee-wt/portmaster-aurora b1f46212a36cc37d73fb3a4369a84106ca8f7ea5
+git -C ~/Desktop/aurora worktree add --detach ~/Desktop/melee-wt/portmaster-aurora 2d943c982f5d7b4582d7a66ccd1961e87e160288
 cd ~/Desktop/melee-wt/portmaster
 git merge doldecomp/master        # then resolve, see the merge commit message
 
 # host compile check + tests
 CC=clang CXX=clang++ cmake -S native -B build/native-linux -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo \
   -DMELEE_AURORA_DIR=$HOME/Desktop/melee-wt/portmaster-aurora \
-  -DMELEE_AURORA_EXPECTED_REV=b1f46212a36cc37d73fb3a4369a84106ca8f7ea5
+  -DMELEE_AURORA_EXPECTED_REV=2d943c982f5d7b4582d7a66ccd1961e87e160288
 cmake --build build/native-linux --target all melee_native --parallel 12
 ctest --test-dir build/native-linux -L melee --output-on-failure
 

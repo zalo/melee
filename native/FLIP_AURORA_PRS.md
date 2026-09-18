@@ -10,7 +10,7 @@ streams, scene-on-surface, or half-resolution sprites. Measured on the device on
 > **`portmaster` branch (2026-09-15):** the Aurora and Dawn patches described below are no
 > longer applied at build time. `native/tools/bootstrap.py` clones
 > `https://github.com/zalo/aurora-arm.git` branch `gles-direct-submission` at
-> `04448f6916626595f00f0c65353ec67cbafc0320` (now `b1f46212a36cc37d73fb3a4369a84106ca8f7ea5`,
+> `04448f6916626595f00f0c65353ec67cbafc0320` (now `2d943c982f5d7b4582d7a66ccd1961e87e160288`,
 > which adds the configurable uniform window, the GL driver probe and the Panfrost staging
 > layout), which already contains the nine perf PRs, the
 > Flip platform hunks and the GLES fast path (`aurora-flip.patch` reverse-applies cleanly on

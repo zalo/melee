@@ -12,7 +12,7 @@ root = Path(__file__).resolve().parents[2]
 checkout = root / 'build/native-deps/aurora'
 repository = 'https://github.com/zalo/aurora-arm.git'
 branch = 'gles-direct-submission'
-revision = 'b1f46212a36cc37d73fb3a4369a84106ca8f7ea5'
+revision = '2d943c982f5d7b4582d7a66ccd1961e87e160288'
 if not checkout.exists():
     checkout.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(['git', 'clone', '--branch', branch, repository, str(checkout)], check=True)
