@@ -54,6 +54,7 @@ build() {
         cp -a "$NS/usr/include/$h" "$S/usr/include/"
     done
     # SDL's KMSDRM configure check (prepare_flip.py writes these, relative to their own location).
+    mkdir -p "$S/usr/lib/pkgconfig"
     for p in libdrm.pc gbm.pc; do
         [ -e "$NS/usr/lib/pkgconfig/$p" ] && cp -a "$NS/usr/lib/pkgconfig/$p" "$S/usr/lib/pkgconfig/"
     done
