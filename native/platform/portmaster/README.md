@@ -58,6 +58,17 @@ pipeline cache in `melee/runtime/cache`.
 | Start | Start |
 | Start + Select | Exit |
 
+## Online play (two devices on the same Wi-Fi)
+
+Both devices must run the same release of this port. In VS Mode > Melee, on the character select
+screen, press **Z** (R1): an overlay offers **Host a match**, a **Join** row for every other device
+hosting on the network, and the input delay (**Auto** measures the connection). One player hosts,
+the other joins; both games restart together (about ten seconds, with the host's save so unlocks
+agree) and return to the character select screen, where the host is player 1 and the guest player 2.
+Pick fighters and a stage as usual. A status line along the top shows the connection; a desync or a
+lost connection turns it red, and the game continues offline from there. The match runs at the pace
+of the slower device. The same options are in Options > Port Settings > Online Play.
+
 ## Port Settings
 
 Main menu > **Options** > the fourth, unlabelled-on-disc row (it reads **Port Settings** here)

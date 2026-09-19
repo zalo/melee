@@ -129,7 +129,7 @@ static const struct PortRow rows[] = {
 /// most recent), the input delay this device proposes when hosting, back.
 /// Text lives in these buffers because the SIS text keeps the pointer.
 static char online_join_labels[3][40];
-static char online_delay_value[4];
+static char online_delay_value[8];
 static char online_host_value[20];
 static struct PortRow online_rows[MAX_ROWS];
 static int online_row_count;
@@ -167,11 +167,16 @@ static void build_online_rows(void)
                                              NULL, (enum PortAction) (Act_Join0 + i), NULL,
                                              0, 0 };
     }
-    snprintf(online_delay_value, sizeof(online_delay_value), "%d",
-             MeleeNativeSettingsData.online_input_delay);
+    if (MeleeNativeSettingsData.online_input_delay == 0) {
+        strcpy(online_delay_value, "Auto");
+    } else {
+        snprintf(online_delay_value, sizeof(online_delay_value), "%d",
+                 MeleeNativeSettingsData.online_input_delay);
+    }
+    // 0 = Auto: the host picks the delay from the round trip measured in the handshake.
     online_rows[n++] = (struct PortRow){ "Input delay, frames", PortRow_Number,
                                          &MeleeNativeSettingsData.online_input_delay, NULL,
-                                         Act_None, online_delay_value, 1, 15 };
+                                         Act_None, online_delay_value, 0, 15 };
     online_rows[n++] = (struct PortRow){ "Back", PortRow_Action, NULL, NULL, Act_OnlineBack,
                                          NULL, 0, 0 };
     online_row_count = n;

@@ -21,6 +21,7 @@ extern "C" int MeleeNativeNetplayActive(void) __attribute__((weak));
 extern "C" int MeleeNativeNetplayPads(void* pads) __attribute__((weak));
 extern "C" int MeleeNativeScriptActive(void) __attribute__((weak));
 extern "C" void MeleeNativeScriptPoll(void) __attribute__((weak));
+extern "C" void MeleeNativeNetplayLobbyInput(void* pads) __attribute__((weak));
 std::mutex pad_mutex;
 std::chrono::milliseconds sample_period(0);
 std::chrono::steady_clock::time_point last_sample;
@@ -99,6 +100,8 @@ extern "C" u32 MeleeNativePADRead(MeleePadStatus* output) {
     if(keyboard.substickY) player.substickY=keyboard.substickY;
     if(keyboard.button&PAD_TRIGGER_L) player.triggerLeft=255;
     if(keyboard.button&PAD_TRIGGER_R) player.triggerRight=255;
+    // Online lobby (Z on the character select screen): reads and, while open, swallows port 0.
+    if (MeleeNativeNetplayLobbyInput) MeleeNativeNetplayLobbyInput(output);
     // Online play: port 0 now holds this player's input; the session moves it to its GameCube
     // port, fills the other player's port from the network and waits for it (fixed-delay lockstep).
     if (MeleeNativeNetplayActive && MeleeNativeNetplayActive()) MeleeNativeNetplayPads(output);

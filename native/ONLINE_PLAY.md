@@ -43,6 +43,14 @@ local network in fixed-delay lockstep. Nothing here talks to Slippi or to Dolphi
   A reset requested by the game itself clears the variables, so the next boot is offline.
 - **On screen**: one line along the top (player, delay, ping, stalls), red for a lost connection or a
   desync. **In log.txt**: `[netplay] ...` events and a `[netplay-stats]` line every 5 s.
+- **The character select screen is the lobby.** Press **Z** on the VS-mode character select screen:
+  an overlay lists *Host a match*, one *Join name address* row per host heard on the LAN, the input
+  delay (left/right; *Auto* picks it from the handshake's round trip: one-way latency in frames plus
+  one, 1..8) and *Close*; A selects, B closes. After the handshake both games relaunch and an
+  **autopilot** (the host's pad, scripted by scene: Start on the title, VS Mode, Melee) brings both to
+  the character select screen within a few seconds, where each player picks a fighter with their own
+  pad and Start leads to stage select and the match, exactly as with two local pads. The Options >
+  Port Settings > Online Play page remains as the alternative entry and for the delay setting.
 
 ## Environment (also usable without the menu, e.g. from the matrix)
 
@@ -169,3 +177,8 @@ local network in fixed-delay lockstep. Nothing here talks to Slippi or to Dolphi
   no desync over 175 sampled frames, connection never lost, both scripts to their last line; the
   redundancy (last eight inputs in every datagram, resend every 30 ms while waiting) absorbed the loss
   with the RG's worst stall at 572 ms and 453 stalls over 5,252 polls, no worse than the lossless run.
+- **disc5 (the character select screen as lobby, `CSS=1 discovery-test.sh`):** both scripts pressed Z
+  on the CSS; the Flip hosted, the RG listed "Join flip-rocknix 10.0.0.179" and joined; the handshake
+  measured a 7 ms round trip and chose delay 2 (Auto); both relaunched, the autopilot reached the CSS
+  on both within about 260 polls, the session script pressed Start, and the match ran with all 166
+  sampled hashes identical and no desync.

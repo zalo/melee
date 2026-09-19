@@ -21,6 +21,13 @@ int MeleeNativeNetplayOverlayIsWarning(void);
 /* One "[netplay-stats] ..." line for the periodic performance block; NULL when not online. */
 const char* MeleeNativeNetplayStatsLine(void);
 
+/* In-game lobby (native/netplay.cpp): Z on the character select screen opens an overlay that hosts
+ * or joins a LAN game without leaving the screen; after the relaunch an autopilot brings both games
+ * back to the character select screen, which is the online lobby from then on. */
+void MeleeNativeNetplayScene(int scene);     /* scene changes (keyboard_input.cpp) */
+void MeleeNativeNetplayLobbyInput(void* pads); /* from MeleeNativePADRead, before the session poll */
+void MeleeNativeNetplayDrawLobby(void);       /* ImGui, from the VI loop */
+
 /* Online Play screen (mnportsettings.c). Discovery runs on a background thread while the
  * screen is open; a completed handshake relaunches the game into the session. */
 void MeleeNativeNetplayMenuEnter(void); /* start listening for hosts on the LAN */

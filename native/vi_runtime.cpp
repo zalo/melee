@@ -82,6 +82,8 @@ void VIWaitForRetrace(void) {
         // Composite blanking after GX drawing without mutating game GX state.
         if (black) ImGui::GetForegroundDrawList()->AddRectFilled(
             ImVec2(0,0), ImGui::GetIO().DisplaySize, IM_COL32(0,0,0,255));
+        // Online lobby (host / join list), opened with Z on the character select screen.
+        MeleeNativeNetplayDrawLobby();
         // Online play status (connection, delay, ping, stalls; desync and loss in red) along the top.
         if (const char* status = MeleeNativeNetplayOverlayText()) {
             auto* list = ImGui::GetForegroundDrawList();

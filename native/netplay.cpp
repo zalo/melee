@@ -10,6 +10,7 @@
 #include "netplay_session.h"
 
 #include <dolphin/os.h>
+#include <imgui.h>
 
 #include <algorithm>
 #include <arpa/inet.h>
@@ -45,6 +46,8 @@ constexpr uint16_t kInputPortHost = 26263; // UDP lockstep
 constexpr uint16_t kInputPortGuest = 26264;
 constexpr uint32_t kHelloMagic = 0x484E4C4Du; // "MLNH"
 constexpr uint32_t kAckMagic = 0x5941444Fu;   // "OKAY"
+constexpr uint32_t kPingMagic = 0x474E4950u;  // "PING"
+constexpr uint32_t kPongMagic = 0x474E4F50u;  // "PONG"
 constexpr uint8_t kHandshakeVersion = 1;
 
 void logf(const char* format, ...) __attribute__((format(printf, 1, 2)));
@@ -126,6 +129,13 @@ struct Runtime {
     std::string overlay;
     bool overlay_warning = false;
     Clock::time_point started = Clock::now();
+    // Scene tracking (MeleeNativeNetplayScene) for the lobby hotkey and the autopilot.
+    int scene = -1;
+    unsigned polls_in_scene = 0;
+    // Autopilot: after the relaunch the host's pad walks both games from the title screen to the
+    // VS-mode character select screen (the online lobby); the guest's pad stays neutral meanwhile.
+    bool autopilot = false;
+    bool autopilot_done = false;
 } rt;
 
 void configure_from_env() {
@@ -138,6 +148,24 @@ void configure_from_env() {
     if (rt.delay < 1) rt.delay = 1;
     if (rt.delay > 15) rt.delay = 15;
     rt.peer = env_or("MELEE_ONLINE_PEER", "");
+    rt.autopilot = std::strcmp(env_or("MELEE_ONLINE_AUTOPILOT", "0"), "0") != 0;
+}
+
+// Scenes as MeleeNativeInputScene reports them.
+constexpr int kSceneTitle = 0, kSceneMenu = 1, kSceneCss = 8;
+constexpr uint16_t kPadStart = 1u << 12, kPadA = 1u << 8, kPadB = 1u << 9, kPadZ = 1u << 4, kPadUp = 1u << 3, kPadDown = 1u << 2;
+
+// The host's autopilot input for this poll; neutral when nothing is due. Title: Start after a short
+// settle. Main menu: one row down (VS Mode), A, then A again (Melee) with the menu's slide-in waits.
+netplay::Pad autopilot_pad() {
+    netplay::Pad pad;
+    const unsigned p = rt.polls_in_scene;
+    if (rt.scene == kSceneTitle && p >= 30 && p < 36) pad.button = kPadStart;
+    if (rt.scene == kSceneMenu) {
+        if (p >= 90 && p < 92) pad.stick_y = -80;
+        if ((p >= 112 && p < 118) || (p >= 210 && p < 216)) pad.button = kPadA;
+    }
+    return pad;
 }
 
 bool open_session() {
@@ -425,12 +453,23 @@ bool Lobby::handshake_host(int fd, const std::string& guest_ip) {
     if (!recv_all(fd, &theirs, sizeof theirs) || theirs.magic != kHelloMagic) { set_status("Handshake failed: bad hello."); return false; }
     if (!send_all(fd, &hello, sizeof hello)) { set_status("Handshake failed: connection dropped."); return false; }
     if (theirs.version != kHandshakeVersion || theirs.build != build_digest()) { set_status("That player runs a different release; update both devices."); return false; }
+    // Round trip, for the automatic input delay: one 4-byte ping the guest echoes.
+    const auto ping_sent = Clock::now();
+    uint32_t ping = kPingMagic, pong = 0;
+    if (!send_all(fd, &ping, sizeof ping) || !recv_all(fd, &pong, sizeof pong) || pong != kPongMagic) { set_status("Handshake failed: no echo."); return false; }
+    const unsigned rtt_ms = static_cast<unsigned>(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - ping_sent).count());
     // The session: a fresh seed, this device's input-delay setting, and its save so both menus agree.
     uint32_t seed = 0;
     if (std::ifstream random("/dev/urandom", std::ios::binary); random) random.read(reinterpret_cast<char*>(&seed), sizeof seed);
     if (!seed) seed = static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now().time_since_epoch()).count()) | 1u;
     unsigned delay = static_cast<unsigned>(MeleeNativeSettingsData.online_input_delay);
-    if (delay < 1) delay = 1;
+    if (delay == 0) {
+        // Auto: one-way latency in frames, plus one frame of slack; 1..8.
+        delay = (rtt_ms / 2 + 16) / 17 + 1;
+        if (delay < 1) delay = 1;
+        if (delay > 8) delay = 8;
+    }
+    logf("round trip %u ms, input delay %u frames", rtt_ms, delay);
     std::vector<fs::path> files;
     std::error_code ec;
     for (const auto& entry : fs::directory_iterator(host_card_dir(rt.user_path), ec))
@@ -463,6 +502,8 @@ bool Lobby::handshake_guest(int fd, const HostEntry& target) {
     Hello theirs{};
     if (!recv_all(fd, &theirs, sizeof theirs) || theirs.magic != kHelloMagic) { set_status("Handshake failed: bad hello."); return false; }
     if (theirs.version != kHandshakeVersion || theirs.build != build_digest()) { set_status("That host runs a different release; update both devices."); return false; }
+    uint32_t ping = 0, pong = kPongMagic;
+    if (!recv_all(fd, &ping, sizeof ping) || ping != kPingMagic || !send_all(fd, &pong, sizeof pong)) { set_status("Handshake failed: no ping."); return false; }
     SessionHeader header{};
     if (!recv_all(fd, &header, sizeof header)) { set_status("Handshake failed: no session."); return false; }
     // The host's save replaces ours for this session only, in a directory of its own.
@@ -518,6 +559,15 @@ int MeleeNativeNetplayPads(void* output) {
     netplay::Pad local = pads[0];
     local.err = 0;
     local.reserved = 0;
+    if (rt.autopilot && !rt.autopilot_done) {
+        ++rt.polls_in_scene;
+        if (rt.scene == kSceneCss) {
+            rt.autopilot_done = true;
+            logf("autopilot: character select reached, players have control");
+        } else {
+            local = rt.local_port == 0 ? autopilot_pad() : netplay::Pad{};
+        }
+    }
     netplay::Pad out[4];
     rt.session.poll(local, out);
     std::memcpy(output, out, sizeof out);
@@ -615,6 +665,8 @@ void MeleeNativeNetplayMenuTick(void) {
     // Test harness: a scripted run that navigated the menu to start the session continues with the
     // session's own script after the relaunch.
     if (const char* next = std::getenv("MELEE_INPUT_SCRIPT_ONLINE"); next && *next) setenv("MELEE_INPUT_SCRIPT", next, 1);
+    // The relaunched games walk themselves to the character select screen.
+    setenv("MELEE_ONLINE_AUTOPILOT", "1", 1);
     logf("relaunching into the session as %s with %s", plan.host ? "host" : "guest", plan.peer.c_str());
     relaunch_pending = true;
     OSResetSystem(0, 0, 0);
@@ -624,9 +676,125 @@ void MeleeNativeNetplayMenuTick(void) {
 void MeleeNativeNetplayClearEnvironment(void) {
     if (relaunch_pending) return;
     if (rt.active && rt.opened) rt.session.send_bye();
-    for (const char* name : {"MELEE_ONLINE_ROLE", "MELEE_ONLINE_PEER", "MELEE_ONLINE_PORT", "MELEE_ONLINE_DELAY", "AURORA_CARD_PATH_A"})
+    for (const char* name : {"MELEE_ONLINE_ROLE", "MELEE_ONLINE_PEER", "MELEE_ONLINE_PORT", "MELEE_ONLINE_DELAY", "MELEE_ONLINE_AUTOPILOT", "AURORA_CARD_PATH_A"})
         unsetenv(name);
     if (rt.active) for (const char* name : {"MELEE_TEST_SEED", "MELEE_DEBUG_OVERLAYS", "MELEE_DEBUG_LEVEL", "MELEE_DEBUG_MENU"}) unsetenv(name);
+}
+
+// ---- in-game lobby: Z on the character select screen ---------------------------------------------
+// An ImGui overlay over the CSS with Host / Join <host> / Input delay / Close, driven by port 0 (whose
+// input the CSS does not see while the overlay is open). A completed handshake relaunches both games,
+// the autopilot brings them back here, and from then on the CSS is the online lobby.
+namespace {
+struct LobbyUi {
+    bool open = false;
+    int cursor = 0;
+    uint16_t prev_buttons = 0;
+    int8_t prev_stick_y = 0;
+    std::vector<std::string> rows;
+    std::vector<int> row_action; // 0 host, 1.. join index+1, -1 delay, -2 close
+    std::string status;
+} ui;
+
+void rebuild_lobby_rows() {
+    ui.rows.clear();
+    ui.row_action.clear();
+    ui.rows.push_back(lobby.hosting() ? "Hosting: waiting for a player at " + local_address() : "Host a match");
+    ui.row_action.push_back(0);
+    const auto hosts = lobby.hosts();
+    for (size_t i = 0; i < hosts.size() && i < 4; ++i) {
+        ui.rows.push_back("Join " + hosts[i].name + "  " + hosts[i].ip + (hosts[i].build == build_digest() ? "" : "  (other release)"));
+        ui.row_action.push_back(static_cast<int>(i) + 1);
+    }
+    const int delay = MeleeNativeSettingsData.online_input_delay;
+    ui.rows.push_back(delay == 0 ? "Input delay: Auto" : "Input delay: " + std::to_string(delay) + " frames");
+    ui.row_action.push_back(-1);
+    ui.rows.push_back("Close");
+    ui.row_action.push_back(-2);
+    if (ui.cursor >= static_cast<int>(ui.rows.size())) ui.cursor = static_cast<int>(ui.rows.size()) - 1;
+    ui.status = lobby.status();
+}
+
+void close_lobby() {
+    ui.open = false;
+    lobby.leave();
+    MeleeNativeSettingsSave();
+}
+} // namespace
+
+void MeleeNativeNetplayScene(int scene) {
+    if (scene != rt.scene) rt.polls_in_scene = 0;
+    rt.scene = scene;
+    if (ui.open && scene != kSceneCss && scene != -1) close_lobby(); // the screen went away
+}
+
+void MeleeNativeNetplayLobbyInput(void* pads) {
+    if (rt.active) return; // in a session the CSS is the lobby already
+    netplay::Pad* p = static_cast<netplay::Pad*>(pads);
+    const uint16_t buttons = p[0].button;
+    const uint16_t pressed = buttons & static_cast<uint16_t>(~ui.prev_buttons);
+    const int8_t y = p[0].stick_y;
+    const bool up = (pressed & kPadUp) || (y > 60 && ui.prev_stick_y <= 60);
+    const bool down = (pressed & kPadDown) || (y < -60 && ui.prev_stick_y >= -60);
+    ui.prev_buttons = buttons;
+    ui.prev_stick_y = y;
+    if (!ui.open) {
+        if (rt.scene == kSceneCss && (pressed & kPadZ)) {
+            ui.open = true;
+            ui.cursor = 0;
+            lobby.enter();
+            rebuild_lobby_rows();
+            logf("lobby opened from the character select screen");
+        }
+        return;
+    }
+    // Open: the overlay owns port 0.
+    rebuild_lobby_rows();
+    if (down) ui.cursor = (ui.cursor + 1) % static_cast<int>(ui.rows.size());
+    if (up) ui.cursor = (ui.cursor + static_cast<int>(ui.rows.size()) - 1) % static_cast<int>(ui.rows.size());
+    const int action = ui.row_action[ui.cursor];
+    if (pressed & kPadB) { close_lobby(); }
+    else if (pressed & kPadA) {
+        if (action == 0) lobby.host();
+        else if (action > 0) lobby.join(action - 1);
+        else if (action == -2) close_lobby();
+    } else if (action == -1) {
+        int& delay = MeleeNativeSettingsData.online_input_delay;
+        const int8_t x = p[0].stick_x;
+        static int8_t prev_x = 0;
+        if (x > 60 && prev_x <= 60 && delay < 15) ++delay;
+        if (x < -60 && prev_x >= -60 && delay > 0) --delay;
+        prev_x = x;
+    }
+    MeleeNativeNetplayMenuTick(); // relaunches when the handshake completed
+    p[0] = netplay::Pad{};
+    p[0].err = 0;
+}
+
+void MeleeNativeNetplayDrawLobby(void) {
+    if (!ui.open) return;
+    auto* list = ImGui::GetForegroundDrawList();
+    const ImVec2 display = ImGui::GetIO().DisplaySize;
+    const float scale = display.y / 480.0f;
+    const float line = 22.0f * scale, pad = 12.0f * scale, font = 18.0f * scale;
+    const float height = pad * 2 + line * (static_cast<float>(ui.rows.size()) + 2.5f);
+    const float width = display.x * 0.82f;
+    const ImVec2 origin((display.x - width) * 0.5f, (display.y - height) * 0.5f);
+    list->AddRectFilled(origin, ImVec2(origin.x + width, origin.y + height), IM_COL32(8, 12, 32, 235), 6.0f * scale);
+    list->AddRect(origin, ImVec2(origin.x + width, origin.y + height), IM_COL32(255, 208, 64, 255), 6.0f * scale, 0, 2.0f);
+    ImFont* f = ImGui::GetFont();
+    float yy = origin.y + pad;
+    list->AddText(f, font, ImVec2(origin.x + pad, yy), IM_COL32(255, 224, 96, 255), "ONLINE PLAY   (same Wi-Fi; A select, B close)");
+    yy += line * 1.3f;
+    for (size_t i = 0; i < ui.rows.size(); ++i) {
+        const bool selected = static_cast<int>(i) == ui.cursor;
+        if (selected) list->AddRectFilled(ImVec2(origin.x + pad * 0.5f, yy - 2.0f), ImVec2(origin.x + width - pad * 0.5f, yy + line - 4.0f), IM_COL32(255, 208, 32, 60));
+        list->AddText(f, font, ImVec2(origin.x + pad, yy), selected ? IM_COL32(255, 232, 128, 255) : IM_COL32(230, 230, 230, 255),
+                      ((selected ? "> " : "  ") + ui.rows[i]).c_str());
+        yy += line;
+    }
+    yy += line * 0.2f;
+    list->AddText(f, font * 0.85f, ImVec2(origin.x + pad, yy), IM_COL32(170, 200, 255, 255), ui.status.c_str());
 }
 
 } // extern "C"

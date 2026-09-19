@@ -11,8 +11,10 @@ static std::array<bool, SDL_SCANCODE_COUNT> pressed;
 static int ready_scene=-1;
 extern "C" void MeleeNativeRenderCheckScene(int);
 extern "C" void MeleeNativeMatrixScene(int);
+extern "C" void MeleeNativeNetplayScene(int) __attribute__((weak));
 extern "C" void MeleeNativeInputScene(int scene) {
     ready_scene=scene;
+    if(MeleeNativeNetplayScene) MeleeNativeNetplayScene(scene);
     if(std::getenv("MELEE_TRACE_INPUT")) std::fprintf(stderr,"[input] ready scene %d\n",scene);
     MeleeNativeRenderCheckScene(scene);
     MeleeNativeMatrixScene(scene);
