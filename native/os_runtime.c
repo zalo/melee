@@ -43,10 +43,38 @@ static void initialize_lock(void) {
     pthread_mutex_init(&interrupt_lock, &attr);
     pthread_mutexattr_destroy(&attr);
 }
+static void deliver_deferred_io(void);
 int OSDisableInterrupts(void) {
     pthread_once(&lock_once, initialize_lock);
+    // Entering a critical section with interrupts enabled: a pending completion fires first.
+    deliver_deferred_io();
     pthread_mutex_lock(&interrupt_lock);
     return interrupt_depth++ == 0;
+}
+/* Deterministic I/O (dvd_bridge.cpp, arq_runtime.c): completions of reads and ARAM copies that
+ * already finished wait for the game thread to re-enable interrupts, exactly when a pending
+ * hardware interrupt would fire. Melee's loaders spin on state those callbacks update, taking and
+ * releasing the interrupt lock every iteration, so this is where they must be delivered; the VI
+ * loop pumps them too. Weak: the OS runtime also links into tools without the bridges. */
+int MeleeNativeDeferredIOPending(void) __attribute__((weak));
+void MeleeNativePumpDvd(void) __attribute__((weak));
+void MeleeNativePumpArq(void) __attribute__((weak));
+static pthread_t game_thread;
+static int game_thread_known;
+static _Thread_local int delivering_io;
+/* Interrupts are enabled on the game thread and completions are pending: fire them all, including
+ * the ones the callbacks themselves produce (a DVD completion that posts an ARAM copy whose
+ * completion issues the next read, as HSD_DevCom does), the way a run of interrupts would. */
+static void deliver_deferred_io(void) {
+    if (interrupt_depth != 0 || delivering_io || !game_thread_known || !pthread_equal(pthread_self(), game_thread) ||
+        !MeleeNativeDeferredIOPending || !MeleeNativeDeferredIOPending())
+        return;
+    delivering_io = 1;
+    for (int round = 0; round < 256 && MeleeNativeDeferredIOPending(); ++round) {
+        if (MeleeNativePumpDvd) MeleeNativePumpDvd();
+        if (MeleeNativePumpArq) MeleeNativePumpArq();
+    }
+    delivering_io = 0;
 }
 int OSRestoreInterrupts(int enabled) {
     const int was_enabled = interrupt_depth == 0;
@@ -55,6 +83,7 @@ int OSRestoreInterrupts(int enabled) {
     if (!!enabled != (interrupt_depth == 0))
         OSPanic(__FILE__, __LINE__, "Interrupt restore order mismatch");
     pthread_mutex_unlock(&interrupt_lock);
+    deliver_deferred_io();
     return was_enabled;
 }
 void DCFlushRange(void* addr, u32 size) { (void)addr; (void)size; atomic_thread_fence(memory_order_seq_cst); }
@@ -168,8 +197,15 @@ static void save_settings(void) {
     if (result < 0 || closed || rename(temp, settings_path))
         OSPanic(__FILE__, __LINE__, "Cannot commit native settings");
 }
+/* True on the game thread (and before it is known, at start-up). random.c gives other threads
+ * their own random sequence. */
+int MeleeNativeOnGameThread(void) {
+    return !game_thread_known || pthread_equal(pthread_self(), game_thread);
+}
 void MeleeNativeConfigureOS(const char* path, void (*reset)(int)) {
     reset_callback = reset;
+    game_thread = pthread_self();
+    game_thread_known = 1;
     if (snprintf(settings_path, sizeof(settings_path), "%s/console-settings.txt", path) >= sizeof(settings_path))
         OSPanic(__FILE__, __LINE__, "Settings path too long");
     FILE* file = fopen(settings_path, "r");

@@ -196,6 +196,24 @@ void gm_Scene_Opening_OnFrame(void)
 
     lbMthp_8001F578();
     temp_r3 = lbMthp_8001F5C4();
+#ifdef MELEE_NATIVE
+    {
+        // Online play (and the deterministic-I/O test mode): the movie streams on wall-clock
+        // time, which two devices would not share (the two-device test diverged at the frame the
+        // movie ended), so leave it on the first frame exactly as a player pressing Start would.
+        extern int MeleeNativeNetplayActive(void);
+        extern int MeleeNativeDeterministicIO(void);
+        if ((MeleeNativeNetplayActive() || MeleeNativeDeterministicIO()) && gm_804D67EC <= 0x157C) {
+            gmMainLib_8015F500();
+            lbAudioAx_800236DC();
+            lbAudioAx_80023694();
+            gm_801A4B60();
+            gm_SetPendingGameMode(GM_TITLE);
+            gm_SetNewGameModePending();
+            return;
+        }
+    }
+#endif
     if (gm_804D67EC > 5400) {
         gm_804D67EC += 1;
     } else {

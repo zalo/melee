@@ -397,6 +397,14 @@ class BuiltZipTests(unittest.TestCase):
                 self.assertIn('libEGL.so.1', needed)
                 self.assertFalse(needed & {'libdrm.so.2', 'libgbm.so.1', 'libwayland-client.so.0', 'libwayland-egl.so.1',
                                            'libSDL2-2.0.so.0', 'libstdc++.so.6', 'libmali.so.1'}, needed)
+                # Math is linked statically: the CFWs' libm versions differ in the last bit of
+                # sinf/atan2f, which desyncs online play between devices.
+                self.assertNotIn('libm.so.6', needed)
+                with tempfile.NamedTemporaryFile(suffix='.aarch64') as elf:
+                    elf.write(binary)
+                    elf.flush()
+                    dynsyms = subprocess.run(['readelf', '--dyn-syms', '-W', elf.name], capture_output=True, text=True, check=True).stdout
+                self.assertFalse(re.findall(r' UND (sinf|cosf|atan2f|sqrtf)@', dynsyms))
             shim = archive.read('melee/libs.aarch64/libSDL3.so.0')
             self.assertTrue(is_aarch64_elf(shim[:20]))
             for needle in [b'SDL3SHIM_SDL2_LIB', b'SDL3SHIM_SDL2_VIDEODRIVER', b'libSDL2-2.0.so.0']:

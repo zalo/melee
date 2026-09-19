@@ -12,8 +12,10 @@ own OpenGL ES driver. It includes no game data. You need your own dump of a Supe
 Melee disc (US, version 1.02, `GALE01`). Port source:
 [zalo/melee, branch `portmaster`](https://github.com/zalo/melee/tree/portmaster).
 
-Mali-G52 devices (RK3566) need libmali g2p0 (stock Miyoo Flip firmware, spruceOS) or g29p1
-(ROCKNIX, dArkOS). g13p0 (Knulli) and g24p0 draw stale tiles. During the first menus the port
+Mali-G52 devices (RK3566: Miyoo Flip, RGB30, RG353) need libmali g2p0 (stock Miyoo Flip firmware,
+spruceOS) or g29p1 (ROCKNIX 20260901 and newer, dArkOS). g13p0 (Knulli) and g24p0 (ROCKNIX
+nightlies before about August 2026) draw stale tiles; on ROCKNIX, update, or switch the GPU driver
+setting to Panfrost, which renders correctly at 40-50 FPS. During the first menus the port
 renders a few frames offscreen, with and without a per-draw texture-fetch barrier, and compares
 them. If they differ, the barrier stays on, and a "GPU driver update needed" notice shows the
 driver version for 20 seconds. Rendering is then correct but runs at about 9-12 FPS.

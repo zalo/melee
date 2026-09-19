@@ -10,6 +10,7 @@
 #include "mnmain.h"
 #include "types.h"
 #include <dolphin/os.h>
+#include <stdio.h>
 #include <string.h>
 #include <melee/gm/gm_1601.h>
 #include <melee/gm/gm_16F1.h>
@@ -63,6 +64,20 @@ enum PortRowKind {
     PortRow_Toggle,   ///< left/right/A flip an int between two choices
     PortRow_Action,   ///< A runs a function
     PortRow_Disabled, ///< shown greyed with a fixed value, no input
+    PortRow_Number,   ///< left/right step an int within [min, max]
+};
+
+/// Actions are an enum rather than function pointers so the online page can
+/// build its rows at run time (one per host found on the network).
+enum PortAction {
+    Act_None,
+    Act_UnlockAll,
+    Act_OpenOnline,
+    Act_Host,
+    Act_Join0,
+    Act_Join1,
+    Act_Join2,
+    Act_OnlineBack,
 };
 
 struct PortRow {
@@ -70,8 +85,9 @@ struct PortRow {
     enum PortRowKind kind;
     int* value;
     const char* const* choices; ///< two entries for toggles
-    void (*action)(void);
-    const char* fixed_value; ///< PortRow_Disabled
+    enum PortAction action;
+    const char* fixed_value; ///< PortRow_Disabled, or a live value for actions
+    int min, max;            ///< PortRow_Number
 };
 
 static const char* const onoff[2] = { "Off", "On" };
@@ -99,25 +115,88 @@ static void unlock_all(void)
 /// colon and quotes; keep labels inside that set.
 static const struct PortRow rows[] = {
     { "Debug Menu, Y on title", PortRow_Toggle,
-      &MeleeNativeSettingsData.debug_menu, onoff, NULL, NULL },
+      &MeleeNativeSettingsData.debug_menu, onoff, Act_None, NULL, 0, 0 },
     { "Debug Overlays", PortRow_Toggle, &MeleeNativeSettingsData.debug_overlays,
-      onoff, NULL, NULL },
+      onoff, Act_None, NULL, 0, 0 },
     { "Unlock All Characters and Stages", PortRow_Action, NULL, NULL,
-      unlock_all, NULL },
-    // Reserved for the online-play configuration screen.
-    { "Online Play", PortRow_Disabled, NULL, NULL, NULL, "Coming soon" },
+      Act_UnlockAll, NULL, 0, 0 },
+    { "Online Play", PortRow_Action, NULL, NULL, Act_OpenOnline, NULL, 0, 0 },
 };
 #define ROW_COUNT ((int) ARRAY_SIZE(rows))
+#define MAX_ROWS 5 ///< bars 1..5 below the title
+
+/// Online Play page: host, one row per host announced on the LAN (the two
+/// most recent), the input delay this device proposes when hosting, back.
+/// Text lives in these buffers because the SIS text keeps the pointer.
+static char online_join_labels[3][40];
+static char online_delay_value[4];
+static char online_host_value[20];
+static struct PortRow online_rows[MAX_ROWS];
+static int online_row_count;
+
+int MeleeNativeNetplayHosting(void);
+int MeleeNativeNetplayHostCount(void);
+const char* MeleeNativeNetplayHostLabel(int index);
+const char* MeleeNativeNetplayMenuStatus(void);
+const char* MeleeNativeNetplayLocalAddress(void);
+void MeleeNativeNetplayMenuEnter(void);
+void MeleeNativeNetplayMenuLeave(void);
+void MeleeNativeNetplayHost(void);
+void MeleeNativeNetplayJoin(int index);
+void MeleeNativeNetplayMenuTick(void);
+
+static void build_online_rows(void)
+{
+    int hosts = MeleeNativeNetplayHostCount();
+    int i, n = 0;
+    if (hosts > 2) {
+        hosts = 2;
+    }
+    if (MeleeNativeNetplayHosting()) {
+        strncpy(online_host_value, MeleeNativeNetplayLocalAddress(),
+                sizeof(online_host_value) - 1);
+    } else {
+        online_host_value[0] = '\0';
+    }
+    online_rows[n++] = (struct PortRow){ "Host a match", PortRow_Action, NULL, NULL,
+                                         Act_Host, online_host_value, 0, 0 };
+    for (i = 0; i < hosts; i++) {
+        snprintf(online_join_labels[i], sizeof(online_join_labels[i]), "Join %s",
+                 MeleeNativeNetplayHostLabel(i));
+        online_rows[n++] = (struct PortRow){ online_join_labels[i], PortRow_Action, NULL,
+                                             NULL, (enum PortAction) (Act_Join0 + i), NULL,
+                                             0, 0 };
+    }
+    snprintf(online_delay_value, sizeof(online_delay_value), "%d",
+             MeleeNativeSettingsData.online_input_delay);
+    online_rows[n++] = (struct PortRow){ "Input delay, frames", PortRow_Number,
+                                         &MeleeNativeSettingsData.online_input_delay, NULL,
+                                         Act_None, online_delay_value, 1, 15 };
+    online_rows[n++] = (struct PortRow){ "Back", PortRow_Action, NULL, NULL, Act_OnlineBack,
+                                         NULL, 0, 0 };
+    online_row_count = n;
+}
 
 typedef struct PortMenuData {
     u8 cursor;
     u8 flash; ///< frames left of the "done" colour on an action row
-    u8 pad[2];
+    u8 page;  ///< 0 = settings, 1 = Online Play
+    u8 refresh; ///< frames until the online page redraws its live text
     HSD_Text* title;
-    HSD_Text* labels[ROW_COUNT];
-    HSD_Text* values[ROW_COUNT];
+    HSD_Text* labels[MAX_ROWS];
+    HSD_Text* values[MAX_ROWS];
     HSD_Text* hint;
 } PortMenuData;
+
+static const struct PortRow* current_rows(const PortMenuData* data, int* count)
+{
+    if (data->page == 1) {
+        *count = online_row_count;
+        return online_rows;
+    }
+    *count = ROW_COUNT;
+    return rows;
+}
 
 static HSD_GObj* port_gobj;
 static u8 port_ready;
@@ -170,7 +249,7 @@ static void free_all(PortMenuData* data)
     int i;
     free_text(&data->title);
     free_text(&data->hint);
-    for (i = 0; i < ROW_COUNT; i++) {
+    for (i = 0; i < MAX_ROWS; i++) {
         free_text(&data->labels[i]);
         free_text(&data->values[i]);
     }
@@ -201,20 +280,28 @@ static Vec3 bar_position(int index)
 
 static void rebuild(PortMenuData* data)
 {
-    int i;
+    int i, count;
+    const struct PortRow* table;
     Vec3 pos;
     free_all(data);
+    if (data->page == 1) {
+        build_online_rows();
+    }
+    table = current_rows(data, &count);
+    if (data->cursor >= count) {
+        data->cursor = (u8) (count - 1);
+    }
     pos = bar_position(0);
     {
         // Title centred on the Options panel (its centre is about 5 px right
         // of the screen centre); ~360 * font px per kerned glyph.
-        static const char title[] = "Port Settings";
-        f32 width_units = (f32) (sizeof(title) - 1) * kTitleFont * 360.0f / 20.0f;
+        const char* title = data->page == 1 ? "Online Play" : "Port Settings";
+        f32 width_units = (f32) strlen(title) * kTitleFont * 360.0f / 20.0f;
         data->title = make_text(0.25f - width_units * 0.5f, pos.y, pos.z,
                                 kTitleFont, kTitleColor, title);
     }
-    for (i = 0; i < ROW_COUNT; i++) {
-        const struct PortRow* row = &rows[i];
+    for (i = 0; i < count; i++) {
+        const struct PortRow* row = &table[i];
         GXColor color = kRowColor;
         const char* value = "";
         if (row->kind == PortRow_Disabled) {
@@ -222,6 +309,8 @@ static void rebuild(PortMenuData* data)
             value = row->fixed_value;
         } else if (row->kind == PortRow_Toggle) {
             value = row->choices[*row->value != 0];
+        } else if (row->kind == PortRow_Number || row->fixed_value != NULL) {
+            value = row->fixed_value;
         }
         if (i == data->cursor) {
             color = data->flash ? kDoneColor : kCursorColor;
@@ -236,8 +325,10 @@ static void rebuild(PortMenuData* data)
     }
     // Same box as the Options description bar (mn_80229A7C).
     {
-        // Same box and style as the Options description bar.
-        static const char hint_text[] = "Left, right change. B saves.";
+        // Same box and style as the Options description bar. The online page
+        // shows the lobby status there instead.
+        const char* hint_text = data->page == 1 ? MeleeNativeNetplayMenuStatus()
+                                                : "Left, right change. B saves.";
         HSD_Text* hint = HSD_SisLib_803A6754(0, 1);
         hint->pos_y = 9.1f;
         hint->pos_z = 17.0f;
@@ -253,10 +344,53 @@ static void rebuild(PortMenuData* data)
 
 static void move_cursor(PortMenuData* data, int delta)
 {
-    data->cursor = (u8) ((data->cursor + ROW_COUNT + delta) % ROW_COUNT);
+    int count;
+    current_rows(data, &count);
+    data->cursor = (u8) ((data->cursor + count + delta) % count);
     data->flash = 0;
     sfxMove();
     rebuild(data);
+}
+
+static void open_online(PortMenuData* data)
+{
+    data->page = 1;
+    data->cursor = 0;
+    data->refresh = 0;
+    MeleeNativeNetplayMenuEnter();
+}
+
+static void close_online(PortMenuData* data)
+{
+    MeleeNativeNetplayMenuLeave();
+    MeleeNativeSettingsSave();
+    data->page = 0;
+    data->cursor = ROW_COUNT - 1;
+}
+
+static void run_action(PortMenuData* data, enum PortAction action)
+{
+    switch (action) {
+    case Act_UnlockAll:
+        unlock_all();
+        break;
+    case Act_OpenOnline:
+        open_online(data);
+        break;
+    case Act_Host:
+        MeleeNativeNetplayHost();
+        break;
+    case Act_Join0:
+    case Act_Join1:
+    case Act_Join2:
+        MeleeNativeNetplayJoin(action - Act_Join0);
+        break;
+    case Act_OnlineBack:
+        close_online(data);
+        break;
+    case Act_None:
+        break;
+    }
 }
 
 /// Input handling on its own GObj, as the other settings screens do.
@@ -265,6 +399,7 @@ static void think(HSD_GObj* gobj)
     u64 events;
     PortMenuData* data;
     const struct PortRow* row;
+    int count;
     if (mn_804D6BC8.cooldown != 0) {
         Menu_DecrementAnimTimer();
         return;
@@ -273,10 +408,23 @@ static void think(HSD_GObj* gobj)
         return;
     }
     data = port_gobj->user_data;
-    row = &rows[data->cursor];
+    if (data->page == 1) {
+        // A finished handshake relaunches the game from inside this call.
+        MeleeNativeNetplayMenuTick();
+        if (++data->refresh >= 20) {
+            data->refresh = 0;
+            rebuild(data);
+        }
+    }
+    row = &current_rows(data, &count)[data->cursor];
     events = Menu_GetAllInputs();
     if (events & MenuInput_Back) {
         sfxBack();
+        if (data->page == 1) {
+            close_online(data);
+            rebuild(data);
+            return;
+        }
         MeleeNativeSettingsSave();
         mn_804A04F0.entering_menu = 0;
         mn_80229894(MENU_KIND_SETTINGS, SEL_SETTINGS_3, 3);
@@ -296,10 +444,22 @@ static void think(HSD_GObj* gobj)
             sfxMove();
             rebuild(data);
             break;
+        case PortRow_Number:
+            if (events & MenuInput_Left && *row->value > row->min) {
+                (*row->value)--;
+            } else if (events & (MenuInput_Right | MenuInput_Confirm | MenuInput_AButton) &&
+                       *row->value < row->max)
+            {
+                (*row->value)++;
+            }
+            MeleeNativeSettingsSave();
+            sfxMove();
+            rebuild(data);
+            break;
         case PortRow_Action:
             if (events & (MenuInput_Confirm | MenuInput_AButton)) {
                 sfxForward();
-                row->action();
+                run_action(data, row->action);
                 data->flash = 45;
                 rebuild(data);
             }
@@ -317,6 +477,9 @@ static void display_proc(HSD_GObj* gobj)
 {
     PortMenuData* data = gobj->user_data;
     if (mn_804A04F0.cur_menu != PORT_MENU_KIND) {
+        if (data->page == 1) {
+            MeleeNativeNetplayMenuLeave();
+        }
         free_all(data);
         port_gobj = NULL;
         port_ready = 0;

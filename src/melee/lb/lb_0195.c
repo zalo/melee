@@ -51,6 +51,20 @@ void lb_800195D0(void)
 
 void fn_800195FC(void)
 {
+#ifdef MELEE_NATIVE
+    // Reproducible simulation (online play, MELEE_DETERMINISTIC_IO): every pad poll must become
+    // exactly one logic frame. Retraces during a scene transition poll the pads while nobody consumes
+    // the queue, and once its five entries are full HSD merges the extra polls into the last one, a
+    // number that depends on how long the device's GPU takes. Skipping the poll instead keeps poll
+    // index and logic frame in lockstep on every device (the two-device test drifted three polls at
+    // the menu-to-CSS transition without this).
+    extern int MeleeNativeDeterministicIO(void);
+    if (MeleeNativeDeterministicIO() && HSD_PadGetRawQueueCount() >= HSD_PadLibData.qnum) {
+        lb_8001C600();
+        lbSnap_8001D2BC();
+        return;
+    }
+#endif
     HSD_PadRenewRawStatus(0);
     lb_8001C600();
     lbSnap_8001D2BC();

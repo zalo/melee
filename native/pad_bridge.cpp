@@ -16,6 +16,11 @@ struct MeleePadStatus {
 static_assert(sizeof(MeleePadStatus) == 12);
 static_assert(sizeof(PADStatus) == 16);
 static_assert(offsetof(MeleePadStatus, err) == offsetof(PADStatus, err));
+// netplay.cpp and keyboard_input.cpp, absent from the pad unit tests.
+extern "C" int MeleeNativeNetplayActive(void) __attribute__((weak));
+extern "C" int MeleeNativeNetplayPads(void* pads) __attribute__((weak));
+extern "C" int MeleeNativeScriptActive(void) __attribute__((weak));
+extern "C" void MeleeNativeScriptPoll(void) __attribute__((weak));
 std::mutex pad_mutex;
 std::chrono::milliseconds sample_period(0);
 std::chrono::steady_clock::time_point last_sample;
@@ -66,10 +71,19 @@ void swap_flip_controls(MeleePadStatus& pad) {
 #endif
 }
 extern "C" u32 MeleeNativePADRead(MeleePadStatus* output) {
+    // One poll = one logic frame: the scripted input (if any) steps here.
+    if (MeleeNativeScriptActive && MeleeNativeScriptActive() && MeleeNativeScriptPoll) MeleeNativeScriptPoll();
     std::lock_guard lock(pad_mutex);
     auto now = std::chrono::steady_clock::now();
     if (last_sample.time_since_epoch().count() == 0 || now-last_sample >= sample_period) {
         motor_mask = PADRead(latest.data()); last_sample = now;
+    }
+    // MELEE_SCRIPT_PADS_ONLY=1: the physical controllers are ignored (port 0 reads as a connected,
+    // centred pad; 1-3 as absent) so a scripted run gives identical input on any device.
+    static const bool script_only = [] { const char* v = std::getenv("MELEE_SCRIPT_PADS_ONLY"); return v && *v && *v != '0'; }();
+    if (script_only) {
+        for (unsigned i = 0; i < 4; ++i) { latest[i] = {}; latest[i].err = i == 0 ? PAD_ERR_NONE : PAD_ERR_NO_CONTROLLER; }
+        motor_mask = 0;
     }
     copy_to_game(output, latest.data());
 #ifdef MELEE_MIYOO_FLIP
@@ -85,6 +99,9 @@ extern "C" u32 MeleeNativePADRead(MeleePadStatus* output) {
     if(keyboard.substickY) player.substickY=keyboard.substickY;
     if(keyboard.button&PAD_TRIGGER_L) player.triggerLeft=255;
     if(keyboard.button&PAD_TRIGGER_R) player.triggerRight=255;
+    // Online play: port 0 now holds this player's input; the session moves it to its GameCube
+    // port, fills the other player's port from the network and waits for it (fixed-delay lockstep).
+    if (MeleeNativeNetplayActive && MeleeNativeNetplayActive()) MeleeNativeNetplayPads(output);
     return motor_mask;
 }
 extern "C" void MeleeNativePADClamp(MeleePadStatus* data) {

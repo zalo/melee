@@ -12,13 +12,18 @@
 #include <sys/stat.h>
 #include <SDL3/SDL.h>
 #include "disc_fonts.h"
+#include "include/melee_netplay.h"
 #ifdef MELEE_MIYOO_FLIP
 #include "platform/flip/display.h"
 #endif
 
 static std::string executable_path, disc_path;
 static bool graphical_launch;
+extern "C" void MeleeNativeNetplayClearEnvironment(void);
 static void reset_game(int type) {
+    // A reset the game asked for leaves an online session; the Online Play screen's own relaunch
+    // keeps the MELEE_ONLINE_* variables it just set.
+    MeleeNativeNetplayClearEnvironment();
     if (type == 2) std::exit(0);
     char* arguments[] = {executable_path.data(), graphical_launch ? nullptr : disc_path.data(), nullptr};
     execv(arguments[0], arguments);
@@ -188,6 +193,7 @@ int main(int argc, char** argv) {
     }
     MeleeNativeConfigureOS(info.userPath, reset_game);
     MeleeNativeSettingsLoad(info.userPath);
+    MeleeNativeNetplayInit(info.userPath);
 #ifdef __APPLE__
     MeleeNativeSkipSavePrompt = graphical_launch;
     if (graphical_launch) {

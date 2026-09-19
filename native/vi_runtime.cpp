@@ -1,4 +1,5 @@
 #include "os_runtime.h"
+#include "include/melee_netplay.h"
 #include <aurora/aurora.h>
 #include <aurora/event.h>
 #include <dolphin/vi.h>
@@ -53,6 +54,8 @@ void MeleeNativeGameFrame(void) { ++measured_game_frames; }
 void MeleeNativeCheckFrame(void);
 void MeleeNativeFrameReady(void) { frame_ready = true; }
 void MeleeNativePumpCards(void);
+void MeleeNativePumpDvd(void);
+void MeleeNativePumpArq(void);
 void MeleeNativeSampleKeyboard(void);
 void MeleeNativeKeyboardEvent(const SDL_Event*);
 void GXWaitDrawDone(void);
@@ -79,6 +82,15 @@ void VIWaitForRetrace(void) {
         // Composite blanking after GX drawing without mutating game GX state.
         if (black) ImGui::GetForegroundDrawList()->AddRectFilled(
             ImVec2(0,0), ImGui::GetIO().DisplaySize, IM_COL32(0,0,0,255));
+        // Online play status (connection, delay, ping, stalls; desync and loss in red) along the top.
+        if (const char* status = MeleeNativeNetplayOverlayText()) {
+            auto* list = ImGui::GetForegroundDrawList();
+            const ImVec2 origin(6.0f, 4.0f);
+            const ImVec2 size = ImGui::CalcTextSize(status);
+            list->AddRectFilled(ImVec2(origin.x - 3.0f, origin.y - 2.0f), ImVec2(origin.x + size.x + 3.0f, origin.y + size.y + 2.0f),
+                                IM_COL32(0, 0, 0, 170));
+            list->AddText(origin, MeleeNativeNetplayOverlayIsWarning() ? IM_COL32(255, 96, 96, 255) : IM_COL32(230, 230, 230, 255), status);
+        }
         aurora_end_frame(); frame_active = false;
         if (breakdown) sum_end_ms += ms(Clock::now() - entered);
         MeleeNativeCheckFrame();
@@ -103,6 +115,7 @@ void VIWaitForRetrace(void) {
             std::fprintf(stderr, "[perf] presented_fps=%.2f game_render_fps=%.2f frames=%u seconds=%.3f held_retraces=%u target_hz=60%s\n",
                          measured_frames / seconds, measured_game_frames / seconds, measured_frames, seconds, held_retraces,
                          driver_workaround ? " driver_workaround=per-draw-barrier" : "");
+            if (const char* netplay = MeleeNativeNetplayStatsLine()) std::fprintf(stderr, "%s\n", netplay);
             if (breakdown) {
                 // Per presented frame, game-thread wall time: outside VI (simulation + GX recording),
                 // aurora_end_frame (the FIFO join unless asyncFrames is on), the 60 Hz sleep, and
@@ -144,6 +157,8 @@ void VIWaitForRetrace(void) {
         }
         MeleeNativePumpAlarms();
         MeleeNativePumpCards();
+        MeleeNativePumpDvd();
+        MeleeNativePumpArq();
         if (frame_active || aurora_begin_frame()) { frame_active = true; break; }
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }

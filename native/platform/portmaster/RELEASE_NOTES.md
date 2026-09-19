@@ -39,9 +39,10 @@ Display, sound and pads go through the CFW's own SDL 2 (the bundled `libSDL3.so.
 [SDL3-over-SDL2 shim](https://github.com/bmdhacks/SDL/tree/sdl2-backend) Dusklight also ships), so
 KMSDRM, fbdev and Wayland CFWs are all fine and nothing on the device is replaced. Rendering needs the
 CFW's OpenGL ES 3.1 driver (Mali-G31/G52 and newer, or Panfrost). On a Mali driver that drops draws
-(Knulli's g13p0 on the Miyoo Flip, for one) the game shows a "GPU driver update needed" notice and a
-banner along the bottom edge and runs correctly but slowly; please include the driver line from that
-notice in a report.
+(libmali g13p0 on Knulli, g24p0 on ROCKNIX nightlies before about August 2026) the game shows a
+"GPU driver update needed" notice and a banner along the bottom edge and runs correctly but slowly.
+On ROCKNIX, update to 20260901 or newer (libmali g29p1) or switch the GPU driver setting to Panfrost;
+please include the driver line from that notice in a report.
 
 ## Reporting problems
 

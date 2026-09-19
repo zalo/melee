@@ -12,7 +12,16 @@ if(APPLE)
 endif()
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   add_compile_definitions(_GNU_SOURCE)
-  link_libraries(m pthread)
+  if(MELEE_MIYOO_FLIP)
+    # No shared libm on the device build: the game's fighter physics call sinf/cosf/atan2f/sqrtf
+    # hundreds of times per frame, and the CFWs ship different glibc versions whose libm differ in
+    # the last bit (glibc 2.41 moved several binary32 functions to correctly rounded ones), which
+    # desynced two devices in online play while their random sequences stayed identical. The
+    # device targets link the build sysroot's libm.a instead (see the MELEE_MIYOO_FLIP target block).
+    link_libraries(pthread)
+  else()
+    link_libraries(m pthread)
+  endif()
   # Use Aurora's pinned static SQLite on every Linux host, as validated on the
   # ThinkPad. A runner's preinstalled SQLite must not change the bundle's ABI.
   set(CMAKE_DISABLE_FIND_PACKAGE_SQLite3 TRUE CACHE BOOL "Use pinned SQLite" FORCE)
@@ -34,7 +43,7 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 # path), checked out by tools/bootstrap.py. A review build may point MELEE_AURORA_DIR at another
 # checkout and pass its revision as MELEE_AURORA_EXPECTED_REV.
 set(MELEE_AURORA_DIR "${MELEE_ROOT}/build/native-deps/aurora" CACHE PATH "Aurora source checkout")
-set(MELEE_AURORA_EXPECTED_REV "8ee1078fdc4584e80f9d3ae50b458b548f53df73" CACHE STRING "Expected Aurora revision")
+set(MELEE_AURORA_EXPECTED_REV "f6275d6995cd4966cc993cc45a1530bafc2f297e" CACHE STRING "Expected Aurora revision")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/tools/prepare_sdk.py")
 execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/prepare_sdk.py"
   "${CMAKE_CURRENT_BINARY_DIR}/sdk" "${MELEE_AURORA_DIR}" COMMAND_ERROR_IS_FATAL ANY)
@@ -64,7 +73,7 @@ if(MELEE_MIYOO_FLIP)
   add_executable(melee_flip_gpu_probe EXCLUDE_FROM_ALL
     platform/flip/gpu_probe.cpp platform/flip/display.cpp platform/flip/present_worker.cpp)
   target_include_directories(melee_flip_gpu_probe PRIVATE "${MELEE_DRM_INCLUDE_DIR}" "${MELEE_AURORA_DIR}/lib")
-  target_link_libraries(melee_flip_gpu_probe PRIVATE aurora::core aurora::gx aurora::mtx aurora::vi EGL gbm drm mali)
+  target_link_libraries(melee_flip_gpu_probe PRIVATE aurora::core aurora::gx aurora::mtx aurora::vi EGL gbm drm mali m)
 endif()
 # Record the actual dependency sources, including FetchContent source overrides.
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/package-licenses.txt" "")
@@ -243,7 +252,7 @@ if(MELEE_MIYOO_FLIP)
   find_path(MELEE_DRM_INCLUDE_DIR drm.h PATH_SUFFIXES libdrm REQUIRED)
   add_executable(melee_flip_scanout tools/flip_scanout.c)
   target_include_directories(melee_flip_scanout PRIVATE "${MELEE_DRM_INCLUDE_DIR}")
-  target_link_libraries(melee_flip_scanout PRIVATE drm)
+  target_link_libraries(melee_flip_scanout PRIVATE drm m)
 endif()
 
 if(MELEE_MIYOO_FLIP)
@@ -289,6 +298,9 @@ foreach(target melee_native melee_boot_probe)
     # libdrm and libgbm are dlopen'd by the opt-in direct display path (display.cpp), never linked: the
     # PortMaster binary must load on CFWs whose SDL2 runs on fbdev without a DRM/GBM stack.
     target_link_libraries(${target} PRIVATE ${MELEE_GL_LINK} dl)
+    # Dependencies (Aurora, SDL3's config) still name -lm; with every math symbol resolved from the
+    # static archive added last below, --as-needed drops the now-unused libm.so.6 from NEEDED.
+    target_link_options(${target} PRIVATE -Wl,--as-needed)
     # No build-tree RPATH to the stub directory: the device's own libEGL/libGLESv2 must load.
     set_target_properties(${target} PROPERTIES SKIP_BUILD_RPATH ON)
     # Static C++ runtime: CFWs ship libstdc++ as old as GLIBCXX_3.4.28 and PortMaster forbids bundling it.
@@ -303,8 +315,26 @@ foreach(target melee_native melee_boot_probe)
   target_sources(${target} PRIVATE render_check.cpp)
   target_include_directories(${target} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${MELEE_AURORA_DIR}/lib")
   target_sources(${target} PRIVATE audio_host.cpp movie_host.cpp dvd_bridge.cpp card_bridge.cpp keyboard_input.cpp archive_runtime.cpp asset_archive.cpp $<TARGET_OBJECTS:melee_audio_runtime>)
+  # Native-to-native online play (lockstep session, LAN discovery, handshake).
+  target_sources(${target} PRIVATE netplay.cpp netplay_session.cpp)
   target_link_libraries(${target} PRIVATE SDL3::SDL3)
+  if(MELEE_MIYOO_FLIP)
+    # libm comes from the sysroot as a static archive so every device computes identical math. The
+    # whole archive, because CMake orders the transitive -lm of the disc reader and ImGui after any
+    # direct item; with every libm object present nothing binds to libm.so.6 and --as-needed drops it.
+    find_library(MELEE_STATIC_LIBM NAMES libm.a REQUIRED)
+    target_link_libraries(${target} PRIVATE "-Wl,--whole-archive,${MELEE_STATIC_LIBM},--no-whole-archive")
+  endif()
 endforeach()
+
+# Lockstep session on the loopback interface: delivery, redundancy, desync detection, lost peer.
+add_executable(native_netplay_test tests/netplay_test.cpp netplay_session.cpp)
+target_compile_options(native_netplay_test PRIVATE -fsanitize=address,undefined)
+target_link_options(native_netplay_test PRIVATE -fsanitize=address,undefined)
+find_package(Threads REQUIRED)
+target_link_libraries(native_netplay_test PRIVATE Threads::Threads)
+add_test(NAME native_netplay COMMAND native_netplay_test)
+set_tests_properties(native_netplay PROPERTIES LABELS melee TIMEOUT 120)
 if(APPLE)
   set_source_files_properties(platform/macos/launcher.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
   set(MELEE_APP_ARTWORK platform/macos/resources/MeleeNative.icns platform/macos/resources/SSBM.png)

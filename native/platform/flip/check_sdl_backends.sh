@@ -42,6 +42,16 @@ if [ "$1" = --shim ]; then
             echo "check_sdl_backends: $binary requires $name (readelf -d NEEDED); the display stack must come through SDL2 only" >&2; status=1
         fi
     done
+    # Math must not come from the CFW: two devices with different glibc versions computed different
+    # fighter physics and desynced online play. The sysroot's libm.a is linked in instead.
+    if readelf -d "$binary" | grep -q 'Shared library: \[libm.so.6\]'; then
+        echo "check_sdl_backends: $binary requires libm.so.6; link the sysroot's libm.a (online play needs identical math on every device)" >&2; status=1
+    fi
+    for name in sinf cosf atan2f sqrtf; do
+        if readelf --dyn-syms -W "$binary" | grep -q " UND ${name}@"; then
+            echo "check_sdl_backends: $binary imports $name from the device's libm" >&2; status=1
+        fi
+    done
     [ $status -eq 0 ] && echo "SDL: shared libSDL3.so.0 (SDL2-backend shim), display and audio through the CFW's SDL2"
     exit $status
 fi

@@ -53,9 +53,49 @@ static void start_worker(void) {
     pthread_detach(thread);
 }
 void ARQInit(void) { pthread_once(&once, start_worker); }
+/* Deterministic mode (MeleeNativeDeterministicIO): the copy happens now on the game thread and the
+ * callback fires at the next VI pump, so ARAM loads finish on the same frame on every device. */
+int MeleeNativeDeterministicIO(void);
+static Transfer* deferred_head;
+static Transfer* deferred_tail;
+static void copy_now(Transfer* transfer) {
+    unsigned size;
+    u8* aram = MeleeNativeARAM(&size);
+    uintptr_t offset = transfer->type == 0 ? transfer->dest : transfer->source;
+    void* memory = (void*)(transfer->type == 0 ? transfer->source : transfer->dest);
+    if (!aram || !memory || offset > size || transfer->length > size - offset)
+        OSPanic(__FILE__, __LINE__, "ARQ transfer outside ARAM or null host buffer");
+    if (transfer->type == 0) memcpy(aram + offset, memory, transfer->length);
+    else memcpy(memory, aram + offset, transfer->length);
+}
+int MeleeNativeArqDeferredPending(void) { return deferred_head != NULL; }
+void MeleeNativePumpArq(void) {
+    if (!deferred_head) return;
+    int enabled = OSDisableInterrupts();
+    Transfer* ready = deferred_head;
+    deferred_head = deferred_tail = NULL;
+    while (ready) {
+        Transfer* next = ready->next;
+        if (ready->callback) ready->callback(ready->request);
+        free(ready);
+        ready = next;
+    }
+    OSRestoreInterrupts(enabled);
+}
 void ARQPostRequest(ARQRequest* request, u32 owner, u32 type, u32 priority,
                     uintptr_t source, uintptr_t dest, u32 length, ARQCallback callback) {
     if (!request || type > 1 || priority > 1) OSPanic(__FILE__, __LINE__, "Invalid ARQ request");
+    if (MeleeNativeDeterministicIO()) {
+        Transfer* transfer = malloc(sizeof(*transfer));
+        if (!transfer) OSPanic(__FILE__, __LINE__, "Cannot allocate ARQ request");
+        *transfer = (Transfer){NULL, request, owner, type, priority, length, source, dest, callback};
+        copy_now(transfer);
+        int enabled = OSDisableInterrupts();
+        if (deferred_tail) deferred_tail->next = transfer; else deferred_head = transfer;
+        deferred_tail = transfer;
+        OSRestoreInterrupts(enabled);
+        return;
+    }
     ARQInit();
     Transfer* transfer = malloc(sizeof(*transfer));
     if (!transfer) OSPanic(__FILE__, __LINE__, "Cannot allocate ARQ request");
@@ -81,7 +121,15 @@ static void remove_matching(ARQRequest* request, u32 owner, int mode) {
         if (mode == 2 || (mode == 0 ? t->request == request : t->owner == owner)) { *link = t->next; free(t); }
         else { tail = t; link = &t->next; }
     }
-    pthread_mutex_unlock(&mutex); OSRestoreInterrupts(enabled);
+    pthread_mutex_unlock(&mutex);
+    // Deferred completions of a removed request must not fire either.
+    link = &deferred_head; deferred_tail = NULL;
+    while (*link) {
+        Transfer* t = *link;
+        if (mode == 2 || (mode == 0 ? t->request == request : t->owner == owner)) { *link = t->next; free(t); }
+        else { deferred_tail = t; link = &t->next; }
+    }
+    OSRestoreInterrupts(enabled);
 }
 void ARQRemoveRequest(ARQRequest* request) { remove_matching(request, 0, 0); }
 void ARQRemoveOwnerRequest(u32 owner) { remove_matching(NULL, owner, 1); }

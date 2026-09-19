@@ -286,7 +286,18 @@ void gm_801A4D34(void (*on_frame)(void), UNUSED GameSceneInfo* info)
     gm_80479D58.unk_4 = 0;
     gm_80479D58.unk_8 = 0;
     gm_80479D58.unk_C = 0;
+#ifdef MELEE_NATIVE
+    {
+        // Reproducible simulation: never discard polls. The flush drops all but the newest queued
+        // poll at scene entry, a device-dependent count; the stale polls are harmless frames instead.
+        extern int MeleeNativeDeterministicIO(void);
+        if (!MeleeNativeDeterministicIO()) {
+            HSD_PadFlushQueue(HSD_PAD_FLUSH_QUEUE_LEAVE1);
+        }
+    }
+#else
     HSD_PadFlushQueue(HSD_PAD_FLUSH_QUEUE_LEAVE1);
+#endif
     lbCardGame_InitScene();
 
     while (temp_r25->unk_C == 0) {
@@ -300,6 +311,18 @@ void gm_801A4D34(void (*on_frame)(void), UNUSED GameSceneInfo* info)
             lb_800195D0();
         }
         lb_800195D0();
+#ifdef MELEE_NATIVE
+        {
+            // Reproducible simulation: one logic frame per loop iteration. The scene-change check
+            // below runs once per iteration, so draining several queued polls at once would run a
+            // device-dependent number of extra frames in the departing scene (the two-device test
+            // entered the CSS one frame apart). The remaining polls are consumed by later iterations.
+            extern int MeleeNativeDeterministicIO(void);
+            if (MeleeNativeDeterministicIO() && pad_queue_count > 1) {
+                pad_queue_count = 1;
+            }
+        }
+#endif
 
         if (HSD_PadGetResetSwitch()) {
             gmMainLib_8046B0F0.resetting = true;

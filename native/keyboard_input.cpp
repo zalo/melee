@@ -129,8 +129,14 @@ extern "C" void MeleeNativeKeyboardEvent(const SDL_Event* event) {
         pressed[event->key.scancode]=true;
     if(event->type==SDL_EVENT_WINDOW_FOCUS_LOST) pressed.fill(false);
 }
+// The input script advances once per pad poll (MeleeNativePADRead), i.e. once per logic frame, not
+// once per retrace: a slow device runs several polls per presented frame, and a retrace-timed script
+// would press its buttons on different logic frames on different devices. Online play applies inputs
+// per poll as well, so scripted runs on two devices exercise the same path.
+extern "C" int MeleeNativeScriptActive(void) { return std::getenv("MELEE_INPUT_SCRIPT") != nullptr; }
+extern "C" void MeleeNativeScriptPoll(void) { replayInput(); }
 extern "C" void MeleeNativeSampleKeyboard(void) {
-    if(replayInput()) {pressed.fill(false);return;}
+    if(MeleeNativeScriptActive()) {pressed.fill(false);return;}
     const bool* keys=SDL_GetKeyboardState(nullptr);
     const bool focused=SDL_GetKeyboardFocus()!=nullptr;
     const auto down=[&](SDL_Scancode code) {return focused&&(keys[code]||pressed[code]);};

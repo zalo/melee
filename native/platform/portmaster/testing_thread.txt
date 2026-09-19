@@ -63,6 +63,11 @@ Second testing zip (2026-09-19), what changed after the first reports:
   and log.txt carries "[perf] GPU driver workaround active" plus driver_workaround=per-draw-barrier
   on every frame-rate line. If you see the banner, please report the CFW and the Driver line from
   the box; a low frame rate without the banner is a different problem.
+  Known drivers: Mali-G52 (RK3566: Miyoo Flip, RGB30, RG353) renders correctly and fast on libmali
+  g2p0 and g29p1; g13p0 and g24p0 drop draws and get the workaround. ROCKNIX nightlies before
+  about August 2026 ship g24p0 (the RGB30 report above, 20260710), ROCKNIX 20260901 and newer ship
+  g29p1: updating ROCKNIX fixes it, and so does switching ROCKNIX's GPU driver setting to Panfrost
+  (correct, 40-50 FPS in matches on the Flip; slower than g29p1, far faster than the workaround).
 - Verified on our hardware with this zip before posting: Miyoo Flip on ROCKNIX (inner SDL 2 on
   Wayland, sound through PulseAudio) and Knulli (KMSDRM), Anbernic RG351P on AmberELEC (KMSDRM,
   480x320), all through the CFW's own SDL 2.
@@ -83,7 +88,7 @@ ROCKNIX
 Resolutions:
 [x] 480x320 (RG351P)
 [x] 640x480 (Miyoo Flip)
-[ ] 720x720 (RGB30) (Optional)
+[x] 720x720 (RGB30, ROCKNIX 20260710, tester report: works; that build's libmali g24p0 trips the slow-driver workaround, see below)
 [x] Higher resolutions: 1920x1152 (RG552, ROCKNIX, tester report; renders 640x480 pillarboxed to 4:3 by design)
 
 Porter results (13 scripted modes: VS match, Classic, Adventure, Event, Multi-Man, Target Test, Home-Run, Training, Tournament, Data, Options, Sound Test, name entry)
@@ -104,5 +109,7 @@ Tester results (first zip):
 | --- | --- | --- |
 | Anbernic RG552 (RK3399, 1920x1152) | AmberELEC | did not start: "No available video device" (KMSDRM driver missing from that build; fixed in the second zip) |
 | Anbernic RG552 (RK3399, 1920x1152) | ROCKNIX (Panfrost, Mali-T860, Mesa 26.1) | runs, pillarboxed 4:3, rumble works; no sound (PulseAudio backend missing from that build; fixed in the second zip); first match started slowly and parts of the stage appeared late while shaders compiled, then 57-60 FPS |
+| Powkiddy RGB30 (RK3566, 720x720) | ROCKNIX 20260710 (libmali g24p0) | works (release zip); the slow-driver workaround engaged because that nightly's g24p0 blob drops draws: update ROCKNIX (20260901+ has g29p1) or switch its GPU driver to Panfrost |
+| muOS device (tester report, details pending) | muOS | works (release zip; fbdev SDL2 path through the shim) |
 
 Untested so far: muOS, ArkOS, H700 / A133P / Snapdragon devices, RG552 on AmberELEC with the second zip. Reports from those are the most useful.

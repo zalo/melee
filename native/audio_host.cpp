@@ -1,17 +1,59 @@
 #include "audio_host.h"
 #include <SDL3/SDL.h>
 #include <dolphin/ar.h>
+#include <atomic>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
 static SDL_AudioStream* output;
 static void (*renderer)(int16_t*, unsigned);
+
+// Deterministic mode (online play, MELEE_DETERMINISTIC_IO): the AX frame callback and the mixer run on
+// the game thread, ten 5 ms frames per three logic frames (MeleeNativeAudioTick), so voice
+// allocation, voice-end callbacks and everything else the game reads back from the audio engine
+// advance as a function of simulated frames instead of the audio clock. The audio thread only drains
+// the mixed blocks; when the game runs below 60 Hz the ring runs dry and the output has gaps.
+extern "C" int MeleeNativeDeterministicIO(void) __attribute__((weak));
+static bool deterministic_audio() {
+    static const bool value = MeleeNativeDeterministicIO && MeleeNativeDeterministicIO();
+    return value;
+}
+namespace {
+constexpr unsigned kRingBlocks = 64; // 320 ms
+int16_t ring[kRingBlocks][320];
+std::atomic<unsigned> ring_head{0}, ring_tail{0}; // producer: game thread, consumer: audio thread
+}
+extern "C" void MeleeNativeAudioTick(void) {
+    if (!renderer || !deterministic_audio()) return;
+    static unsigned phase = 0;
+    const unsigned frames = (phase++ % 3 == 2) ? 4 : 3;
+    for (unsigned i = 0; i < frames; ++i) {
+        const unsigned head = ring_head.load(std::memory_order_relaxed);
+        if (head - ring_tail.load(std::memory_order_acquire) < kRingBlocks) {
+            renderer(ring[head % kRingBlocks], 160);
+            ring_head.store(head + 1, std::memory_order_release);
+        } else {
+            int16_t dropped[320]; // the engine must still advance
+            renderer(dropped, 160);
+        }
+    }
+}
 static void fill(void*, SDL_AudioStream* stream, int additional, int) {
     // AX callbacks operate on 160 samples at 32 kHz, independent of the device.
     while (additional > 0) {
         int16_t block[320];
-        renderer(block, 160);
+        if (deterministic_audio()) {
+            const unsigned tail = ring_tail.load(std::memory_order_relaxed);
+            if (ring_head.load(std::memory_order_acquire) != tail) {
+                std::memcpy(block, ring[tail % kRingBlocks], sizeof block);
+                ring_tail.store(tail + 1, std::memory_order_release);
+            } else {
+                std::memset(block, 0, sizeof block);
+            }
+        } else {
+            renderer(block, 160);
+        }
         static const bool check = std::getenv("MELEE_AUDIO_CHECK") != nullptr;
         if (check) {
             static unsigned frames = 0, nonzero = 0, peak = 0;

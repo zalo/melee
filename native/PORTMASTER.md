@@ -221,7 +221,7 @@ authors.
   `seed_ptr` -> `HSD_RandSeedPtr`, event data field names in `asset_schema.c`.
 - **Aurora pinned to the fork**: `native/tools/bootstrap.py` clones
   `https://github.com/zalo/aurora-arm.git` branch `gles-direct-submission` at
-  `8ee1078fdc4584e80f9d3ae50b458b548f53df73` (upstream Aurora + the nine perf PRs + Flip
+  `f6275d6995cd4966cc993cc45a1530bafc2f297e` (upstream Aurora + the nine perf PRs + Flip
   platform hunks + GLES fast path; 0fab9c6 on 2026-09-19 makes Aurora reuse the application's SDL
   window on MELEE_MIYOO_FLIP for the SDL2 shim; previous pin 2d943c98: upstream + the nine perf PRs + Flip
   platform hunks + GLES fast path + the frame-stream overflow fix; since 2026-09-18 also the

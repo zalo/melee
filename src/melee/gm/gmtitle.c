@@ -158,6 +158,15 @@ HSD_GObj* gmTitle_801A165C(void)
         lb_80011E24(jobj, &result, 7, -1);
         HSD_JObjSetFlagsAll(result, JOBJ_HIDDEN);
     }
+#ifdef MELEE_NATIVE
+    // The retail game stirs the random sequence by the wall clock here (one draw per second of the
+    // current minute). Two devices in an online session, or the two-device determinism test, would
+    // draw different counts, so the stir is skipped when the simulation must be reproducible; the
+    // session seed is random already.
+    {
+        extern int MeleeNativeDeterministicIO(void);
+        if (!MeleeNativeDeterministicIO())
+#endif
     {
         datetime time;
         int second;
@@ -168,6 +177,9 @@ HSD_GObj* gmTitle_801A165C(void)
             second--;
         }
     }
+#ifdef MELEE_NATIVE
+    }
+#endif
     gm_SetupTitleDemo();
     return gobj;
 }
