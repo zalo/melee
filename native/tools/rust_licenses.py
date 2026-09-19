@@ -25,6 +25,7 @@ VENDORED = {
     'bzip2-sys': ('bzip2', ['bzip2-1.0.8/LICENSE']),
     'zstd-sys': ('zstd', ['zstd/LICENSE']),
     'liblzma-sys': ('liblzma', ['xz/COPYING', 'xz/COPYING.0BSD']),
+    'libz-sys': ('zlib', ['src/zlib/LICENSE']),
 }
 
 

@@ -71,6 +71,13 @@ def main():
         'FreeType': ROOT / 'native/licenses/FreeType.txt',
         'libpng': args.build / '_deps/png-src/LICENSE',
         'fmt': args.build / '_deps/fmt-src/LICENSE',
+        # Compiled into SDL3 under their own licences (hidapi: the BSD-3 option is elected).
+        'hidapi': ROOT / 'native/licenses/hidapi.txt',
+        'yuv2rgb': ROOT / 'native/licenses/yuv2rgb.txt',
+        # Aurora's card SRAM code is modified libogc (zlib-style licence).
+        'libogc': ROOT / 'native/licenses/libogc.txt',
+        # Start-up objects only; the C library itself is the device's.
+        'glibc': ROOT / 'native/licenses/glibc.txt',
         'GCC-runtime': ROOT / 'native/platform/flip/GCC-RUNTIME-NOTICE.txt',
         'GCC-exception': ROOT / 'native/platform/flip/GCC-RUNTIME-EXCEPTION.txt',
         'GCC-GPL3': ROOT / 'native/platform/flip/GCC-GPL3.txt',
