@@ -789,8 +789,7 @@ static void mn_80229A7C(MainMenuData* data, MenuKind menu_kind, int selection)
         text->box_size_y = 38.38772f;
         text->font_size.x = 0.0521f;
         text->font_size.y = 0.0521f;
-        text->default_kerning = 1;
-        text->kerning = 1;
+        mnPort_StyleBarText(text, mn_NativePortDescription);
         HSD_SisLib_803A6B98(text, 0.0f, 0.0f, "%s", mn_NativePortDescription);
         return;
     }

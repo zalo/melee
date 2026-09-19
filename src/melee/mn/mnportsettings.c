@@ -29,10 +29,35 @@
 
 Vec3 mn_NativeSettingsBars[6];
 u8 mn_NativeSettingsBarsValid;
-// The description bar holds about 28 characters at the retail font size;
-// SIS centring and fitting measure printf'd text in other units and push it
-// off the left edge, so these stay left-aligned and short.
 const char mn_NativePortDescription[] = "Settings for this port.";
+
+/// Give printf'd text the look of the retail description strings, whose SIS
+/// control codes select kerning, a light grey colour and a 0.70 glyph scale
+/// (dumped from SdMenu.usd string 0x9A). The glyph scale is re-derived from
+/// font_size when the text is laid out, so the 0.70 goes into font_size
+/// (0.0521 * 0.7). They also centre and fit, but the SIS measurement of
+/// printf'd text comes out far too wide and pushes it off the left edge, so
+/// the text is centred here from its length instead: about 12.2 px per
+/// kerned glyph at that size, 20 px per world unit.
+void mnPort_StyleBarText(HSD_Text* text, const char* string)
+{
+    static const GXColor grey = { 0xAA, 0xAA, 0xAA, 0xFF };
+    f32 width_px = 12.2f * (f32) strlen(string);
+    f32 margin_px = (364.68332f - width_px) * 0.5f;
+    text->font_size.x = 0.0521f * 0.7f;
+    text->font_size.y = 0.0521f * 0.7f;
+    text->x78.x = 0.0f;
+    text->x78.y = 0.0f;
+    text->default_alignment = 0;
+    text->alignment = 0;
+    text->default_fitting = 0;
+    text->fitting = 0;
+    text->default_kerning = 1;
+    text->kerning = 1;
+    text->text_color = grey;
+    text->active_color = grey;
+    text->pos_x = -9.5f + (margin_px > 0.0f ? margin_px / 20.0f : 0.0f);
+}
 
 enum PortRowKind {
     PortRow_Toggle,   ///< left/right/A flip an int between two choices
@@ -155,8 +180,12 @@ static Vec3 bar_position(int index)
 {
     Vec3 pos;
     if (mn_NativeSettingsBarsValid) {
-        pos = mn_NativeSettingsBars[index];
-        pos.x = mn_NativeSettingsBars[REFERENCE_BAR].x;
+        // Even spacing from the first to the last bar; the bars themselves
+        // are unevenly spaced and staggered.
+        const Vec3* bars = mn_NativeSettingsBars;
+        pos.x = bars[REFERENCE_BAR].x;
+        pos.y = bars[0].y + (bars[5].y - bars[0].y) * (f32) index / 5.0f;
+        pos.z = bars[REFERENCE_BAR].z;
     } else {
         // Fallback when the list was never idle (should not happen): stack
         // rows below the description text.
@@ -200,12 +229,20 @@ static void rebuild(PortMenuData* data)
         }
     }
     // Same box as the Options description bar (mn_80229A7C).
-    // Slightly smaller than the retail description font so the sentence ends
-    // inside the bar (28 characters at 0.0521 run past its right edge).
-    data->hint = make_text(-9.5f, 9.1f, 17.0f, 0.044f, kRowColor,
-                           "Left, right change. B saves.");
-    data->hint->box_size_x = 364.68332f;
-    data->hint->box_size_y = 38.38772f;
+    {
+        // Same box and style as the Options description bar.
+        static const char hint_text[] = "Left, right change. B saves.";
+        HSD_Text* hint = HSD_SisLib_803A6754(0, 1);
+        hint->pos_y = 9.1f;
+        hint->pos_z = 17.0f;
+        hint->box_size_x = 364.68332f;
+        hint->box_size_y = 38.38772f;
+        hint->font_size.x = 0.0521f;
+        hint->font_size.y = 0.0521f;
+        mnPort_StyleBarText(hint, hint_text);
+        HSD_SisLib_803A6B98(hint, 0.0f, 0.0f, "%s", hint_text);
+        data->hint = hint;
+    }
 }
 
 static void move_cursor(PortMenuData* data, int delta)

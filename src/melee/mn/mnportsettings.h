@@ -17,6 +17,9 @@ extern Vec3 mn_NativeSettingsBars[6];
 extern u8 mn_NativeSettingsBarsValid;
 /// Description-bar sentence for the Port Settings slot.
 extern const char mn_NativePortDescription[];
+/// Style printf'd text like the retail description strings (centred, fitted,
+/// grey, 0.70 glyph scale).
+void mnPort_StyleBarText(HSD_Text* text, const char* string);
 #endif
 
 #endif
