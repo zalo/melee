@@ -34,6 +34,14 @@ if [ "$1" = --shim ]; then
     if has_string "$binary" SDL_KMSDRM_DEVICE_INDEX; then
         echo "check_sdl_backends: $binary has SDL3's KMSDRM driver built in; the shim build must link SDL3 dynamically" >&2; status=1
     fi
+    # The display stack is the CFW's SDL2's business: the binary may require only the GL driver
+    # (libEGL/libGLESv2), libSDL3.so.0 and libc-level libraries, never libdrm/libgbm/libwayland, or it
+    # would not even load on a CFW whose SDL2 runs on fbdev.
+    for name in libdrm.so.2 libgbm.so.1 libwayland-client.so.0 libwayland-egl.so.1 libSDL2-2.0.so.0; do
+        if readelf -d "$binary" | grep -q "Shared library: \[$name\]"; then
+            echo "check_sdl_backends: $binary requires $name (readelf -d NEEDED); the display stack must come through SDL2 only" >&2; status=1
+        fi
+    done
     [ $status -eq 0 ] && echo "SDL: shared libSDL3.so.0 (SDL2-backend shim), display and audio through the CFW's SDL2"
     exit $status
 fi

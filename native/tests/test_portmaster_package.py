@@ -4,6 +4,8 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
+import shutil
 import struct
 import subprocess
 import tempfile
@@ -353,6 +355,18 @@ class BuiltZipTests(unittest.TestCase):
             self.assertIn(b'libSDL3.so.0', binary)
             # SDL3's KMSDRM driver reads this hint; the string exists only when that driver is compiled in.
             self.assertNotIn(b'SDL_KMSDRM_DEVICE_INDEX', binary)
+            # The display stack is the CFW's SDL2's business: the binary may require the GL driver and
+            # libSDL3.so.0, never libdrm/libgbm/libwayland (it would not load where SDL2 runs on fbdev).
+            if shutil.which('readelf'):
+                with tempfile.NamedTemporaryFile(suffix='.aarch64') as elf:
+                    elf.write(binary)
+                    elf.flush()
+                    dynamic = subprocess.run(['readelf', '-d', elf.name], capture_output=True, text=True, check=True).stdout
+                needed = set(re.findall(r'Shared library: \[([^\]]+)\]', dynamic))
+                self.assertIn('libSDL3.so.0', needed)
+                self.assertIn('libEGL.so.1', needed)
+                self.assertFalse(needed & {'libdrm.so.2', 'libgbm.so.1', 'libwayland-client.so.0', 'libwayland-egl.so.1',
+                                           'libSDL2-2.0.so.0', 'libstdc++.so.6', 'libmali.so.1'}, needed)
             shim = archive.read('melee/libs.aarch64/libSDL3.so.0')
             self.assertTrue(is_aarch64_elf(shim[:20]))
             for needle in [b'SDL3SHIM_SDL2_LIB', b'SDL3SHIM_SDL2_VIDEODRIVER', b'libSDL2-2.0.so.0']:

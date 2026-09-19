@@ -286,7 +286,9 @@ foreach(target melee_native melee_boot_probe)
     find_path(MELEE_DRM_INCLUDE_DIR drm.h PATH_SUFFIXES libdrm REQUIRED)
     target_sources(${target} PRIVATE platform/flip/display.cpp platform/flip/present_worker.cpp)
     target_include_directories(${target} PRIVATE "${MELEE_DRM_INCLUDE_DIR}")
-    target_link_libraries(${target} PRIVATE ${MELEE_GL_LINK} drm dl)
+    # libdrm and libgbm are dlopen'd by the opt-in direct display path (display.cpp), never linked: the
+    # PortMaster binary must load on CFWs whose SDL2 runs on fbdev without a DRM/GBM stack.
+    target_link_libraries(${target} PRIVATE ${MELEE_GL_LINK} dl)
     # No build-tree RPATH to the stub directory: the device's own libEGL/libGLESv2 must load.
     set_target_properties(${target} PROPERTIES SKIP_BUILD_RPATH ON)
     # Static C++ runtime: CFWs ship libstdc++ as old as GLIBCXX_3.4.28 and PortMaster forbids bundling it.

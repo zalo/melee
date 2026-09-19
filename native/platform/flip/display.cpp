@@ -68,6 +68,70 @@ const Api& api() {
 #define gbm_bo_get_stride(...) gbm_runtime::api().bo_get_stride(__VA_ARGS__)
 #define gbm_bo_get_handle(...) gbm_runtime::api().bo_get_handle(__VA_ARGS__)
 
+// libdrm likewise: only the opt-in direct display path (MELEE_FLIP_DISPLAY=drm) needs it, and the
+// PortMaster binary must load on CFWs whose SDL2 runs on fbdev with no DRM stack at all.
+namespace drm_runtime {
+struct Api {
+    drmModeResPtr (*get_resources)(int);
+    void (*free_resources)(drmModeResPtr);
+    drmModeConnectorPtr (*get_connector)(int, uint32_t);
+    void (*free_connector)(drmModeConnectorPtr);
+    drmModeEncoderPtr (*get_encoder)(int, uint32_t);
+    void (*free_encoder)(drmModeEncoderPtr);
+    drmModeCrtcPtr (*get_crtc)(int, uint32_t);
+    void (*free_crtc)(drmModeCrtcPtr);
+    int (*set_crtc)(int, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t*, int, drmModeModeInfoPtr);
+    int (*add_fb)(int, uint32_t, uint32_t, uint8_t, uint8_t, uint32_t, uint32_t, uint32_t*);
+    int (*rm_fb)(int, uint32_t);
+    int (*page_flip)(int, uint32_t, uint32_t, uint32_t, void*);
+    int (*handle_event)(int, drmEventContextPtr);
+};
+const Api& api() {
+    static const Api table = [] {
+        Api t{};
+        void* lib = dlopen("libdrm.so.2", RTLD_NOW | RTLD_GLOBAL);
+        if (!lib) {
+            std::fprintf(stderr, "[flip-display] libdrm.so.2 unavailable: %s\n", dlerror());
+            return t;
+        }
+        const auto bind = [lib](auto& fn, const char* name) { fn = reinterpret_cast<std::remove_reference_t<decltype(fn)>>(dlsym(lib, name)); };
+        bind(t.get_resources, "drmModeGetResources");
+        bind(t.free_resources, "drmModeFreeResources");
+        bind(t.get_connector, "drmModeGetConnector");
+        bind(t.free_connector, "drmModeFreeConnector");
+        bind(t.get_encoder, "drmModeGetEncoder");
+        bind(t.free_encoder, "drmModeFreeEncoder");
+        bind(t.get_crtc, "drmModeGetCrtc");
+        bind(t.free_crtc, "drmModeFreeCrtc");
+        bind(t.set_crtc, "drmModeSetCrtc");
+        bind(t.add_fb, "drmModeAddFB");
+        bind(t.rm_fb, "drmModeRmFB");
+        bind(t.page_flip, "drmModePageFlip");
+        bind(t.handle_event, "drmHandleEvent");
+        // All or nothing: a null get_resources makes the direct path fail before it touches the rest.
+        if (!t.free_resources || !t.get_connector || !t.free_connector || !t.get_encoder || !t.free_encoder ||
+            !t.get_crtc || !t.free_crtc || !t.set_crtc || !t.add_fb || !t.rm_fb || !t.page_flip || !t.handle_event)
+            t.get_resources = nullptr;
+        return t;
+    }();
+    return table;
+}
+bool available() { return api().get_resources != nullptr; }
+} // namespace drm_runtime
+#define drmModeGetResources(...) drm_runtime::api().get_resources(__VA_ARGS__)
+#define drmModeFreeResources(...) drm_runtime::api().free_resources(__VA_ARGS__)
+#define drmModeGetConnector(...) drm_runtime::api().get_connector(__VA_ARGS__)
+#define drmModeFreeConnector(...) drm_runtime::api().free_connector(__VA_ARGS__)
+#define drmModeGetEncoder(...) drm_runtime::api().get_encoder(__VA_ARGS__)
+#define drmModeFreeEncoder(...) drm_runtime::api().free_encoder(__VA_ARGS__)
+#define drmModeGetCrtc(...) drm_runtime::api().get_crtc(__VA_ARGS__)
+#define drmModeFreeCrtc(...) drm_runtime::api().free_crtc(__VA_ARGS__)
+#define drmModeSetCrtc(...) drm_runtime::api().set_crtc(__VA_ARGS__)
+#define drmModeAddFB(...) drm_runtime::api().add_fb(__VA_ARGS__)
+#define drmModeRmFB(...) drm_runtime::api().rm_fb(__VA_ARGS__)
+#define drmModePageFlip(...) drm_runtime::api().page_flip(__VA_ARGS__)
+#define drmHandleEvent(...) drm_runtime::api().handle_event(__VA_ARGS__)
+
 bool MeleeFlipThreadedPresentEnabled();
 bool MeleeFlipInPresentWorker();
 void MeleeFlipInitPresenter();
@@ -606,6 +670,7 @@ void MeleeFlipInitDisplay() {
     // MELEE_DRM_DEVICE picks the DRM node (the Flip's stock firmware scans out on card0),
     // MELEE_DRM_CONNECTOR the index into the device's connector list when the first
     // connected one is not the panel.
+    if (!drm_runtime::available()) fail("MELEE_FLIP_DISPLAY=drm needs libdrm.so.2 (the direct display path is for the Flip's stock firmware)");
     const char* node = std::getenv("MELEE_DRM_DEVICE");
     fd = open(node ? node : "/dev/dri/card0", O_RDWR | O_CLOEXEC);
     if (fd < 0) fail("Cannot open DRM device");

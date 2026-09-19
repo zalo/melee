@@ -136,6 +136,16 @@ authors.
   variables before `SDL_InitSubSystem`, so the inner SDL2 picks its own default (KMSDRM, fbdev, ...)
   and the shim's explicit `SDL3SHIM_SDL2_*` override still applies where the CFW names a driver.
 
+- No display-stack libraries in the binary's NEEDED list (2026-09-19, after the user's "we cannot fall
+  back to the direct display"): the direct DRM/GBM path (`MELEE_FLIP_DISPLAY=drm`, Flip stock firmware
+  only; never selected by `Melee.sh`, and a failed SDL init exits with "Cannot initialize SDL video"
+  rather than falling back to it) used to link libdrm.so.2, so the port would not even load on a CFW
+  whose SDL2 runs on fbdev without libdrm. `display.cpp` now dlopens libdrm like it already did libgbm
+  (`drm_runtime`, all-or-nothing; the drm path fails with a clear message when the library is missing),
+  `CMakeLists.txt` drops `drm` from the link, and `check_sdl_backends.sh --shim` plus
+  `test_portmaster_package.py` fail when NEEDED contains libdrm/libgbm/libwayland/libSDL2/libstdc++.
+  NEEDED is now libEGL/libGLESv2 (the CFW's GL driver), libSDL3.so.0 and libc-level libraries only.
+
 ### Testing round 2 (2026-09-19, shim build on hardware)
 - Matrix `match` case (`build/matrix/matrix.py`, results under `build/matrix/results/<device>/sh1-*`
   for the first shim build 9eba154d and `sh2-*` for the fixed build 9aef2cff):
@@ -148,8 +158,9 @@ authors.
     the driver fallback; the fixed one opens the display directly. Audio failed in both SSH-launched runs
     (`SDL2_OpenAudioDevice failed`; the static build's k1 run failed the same way with ALSA "Host is
     down"): Knulli's EmulationStation gives ports `XDG_RUNTIME_DIR=/var/run` and `SDL_NOMOUSE=1` and no
-    `SDL_*DRIVER`; `knulli-roundtrip.sh` now passes `XDG_RUNTIME_DIR` so the next run tells whether the
-    PipeWire/PulseAudio socket lookup was the missing piece.
+    `SDL_*DRIVER`; with `--env XDG_RUNTIME_DIR=/var/run` (`knulli-roundtrip.sh sh3`, banner build f91fcfd1)
+    the run PASSed with `[audio] driver=sdl2 device=System audio playback device`, so Knulli audio works
+    from the CFW's launcher and the earlier silence was the SSH environment.
 - Slow-driver reporting (user request, 2026-09-19): Aurora's driver probe only drew its "GPU driver update
   needed" notice for 20 s starting a few seconds after launch, during the intro movie, so a Knulli run
   looked like an unexplained 9 FPS port afterwards. Aurora 8ee1078 keeps a one-line banner at the bottom
