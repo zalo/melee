@@ -63,9 +63,13 @@ The launch script, packaging scripts and the native platform code were written w
   CFWs still ship 3.4.28, and PortMaster forbids bundling libstdc++ in `libs.aarch64`. Static
   linking is the remaining option and is what makes one binary run on AmberELEC, Batocera, dArkOS,
   Knulli and ROCKNIX.
-- SDL3 is linked statically. The renderer (Aurora) is written against SDL3; the CFWs ship SDL2. The
-  static SDL3 uses its own KMSDRM and Wayland video drivers and loads libdrm, libgbm and libwayland
-  from the CFW at run time; it does not shadow the CFW's SDL2.
+- `libs.aarch64/libSDL3.so.0` is the SDL3-over-SDL2 shim (bmdhacks/SDL, branch `sdl2-backend`),
+  the same library Dusklight ships. The renderer (Aurora) is written against SDL3; the CFWs ship
+  SDL2. The shim's video, audio and joystick drivers dlopen the CFW's own `libSDL2-2.0.so.0`, so the
+  device's display path (KMSDRM, fbdev, Wayland), audio server and pad quirks all come from the CFW,
+  and no SDL2 is bundled or shadowed. `Melee.sh` hands the CFW's `SDL_VIDEODRIVER` /
+  `SDL_AUDIODRIVER` to the inner SDL2 through `SDL3SHIM_SDL2_VIDEODRIVER` / `_AUDIODRIVER` and sets
+  SDL3's own drivers to `sdl2`, as Dusklight's launcher does.
 - No GPU driver is bundled. libEGL and libGLESv2 are linked through generated stubs with the standard
   sonames and resolved from the device at run time; the port therefore works on libmali and on Mesa
   (Panfrost).

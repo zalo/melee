@@ -101,6 +101,52 @@ authors.
 
 ## Status (branch `portmaster`, 2026-09-15)
 
+### SDL: shared SDL3 over the CFW's SDL2 (2026-09-19, after tester feedback)
+- Testers and PortMaster maintainers objected to the built-in SDL3 ("dynamically link it so it uses
+  the system's SDL build", "what about fbdev CFWs like H700 Knulli and muOS?"). They are right: SDL3
+  has no fbdev driver, so the RG35XX/RG40XX/TrimUI class could never run the static build, and every
+  CFW's SDL2 carries device patches (RG351P/RG552 RGA rotation, connector quirks, audio server).
+  The port now links SDL3 as a shared library and ships bmdhacks' SDL3-over-SDL2 shim
+  (`bmdhacks/SDL` branch `sdl2-backend`, commit 6057d79, SDL 3.5.0; the library Dusklight ships) as
+  `melee/libs.aarch64/libSDL3.so.0`: `native/tools/build_sdl3_shim.sh` builds it with the glibc 2.30
+  toolchain (`SDL_SDL2_BACKEND=ON`, native X11/Wayland/KMSDRM/audio drivers off, `SDL_GPU=OFF` so no
+  SPIRV-Cross). `build.sh` takes `MELEE_SDL=shim|static` (`build_portmaster.sh` defaults to shim:
+  `AURORA_SDL3_PROVIDER=system`, `AURORA_SDL3_LINKAGE=shared`, `SDL3_DIR` from `FLIP_SDL3_ROOT`, which
+  the toolchain files add to `CMAKE_FIND_ROOT_PATH`). Runtime pieces: Dawn's swapchain wraps no native
+  window on the shim (`MeleeFlipNativeWindow()` null) and the Dawn patch now backs a null
+  `SurfaceSourceEGLNativeWindow` with a pbuffer, or with no EGLSurface at all when the display has no
+  pbuffer configs (Mesa's Wayland and GBM platforms; needs EGL_KHR_surfaceless_context and the GL
+  interop presenter, which takes the texture) (`SwapChainEGL::CreateEGLSurface`,
+  `PhysicalDevice::GetSurfaceCapabilities` accepts window or pbuffer configs for that surface;
+  `dawn-gl-interop.patch` regenerated from the pristine 1155e0ed tree, 14 files); the present
+  worker keeps blitting into SDL's window surface and swapping through SDL3 → SDL2; Aurora reuses the
+  port's window instead of creating a hidden second one (`MeleeFlipSdlWindow()`, Aurora 0fab9c6).
+  `Melee.sh` adds `libs.aarch64` to `LD_LIBRARY_PATH`, hands the CFW's `SDL_VIDEODRIVER` /
+  `SDL_AUDIODRIVER` (SDL2 driver names, e.g. ROCKNIX wayland/pulseaudio) to the inner SDL2 through
+  `SDL3SHIM_SDL2_VIDEODRIVER` / `_AUDIODRIVER`, and sets SDL3's own drivers to `sdl2`.
+  `check_sdl_backends.sh --shim` verifies the packaged pair; `package_portmaster.py --sdl3` ships the
+  library and its notice (`LICENSE.SDL3-sdl2-backend.txt`); CI caches the shim with the SDK.
+
+### Testing round 1 (2026-09-19)
+- Two tester reports on an RG552 (RK3399, 1920x1152). AmberELEC: "No available video device";
+  ROCKNIX (Panfrost): runs at 57-60 FPS after a slow first match, pillarboxed 4:3, rumble works,
+  **no sound**. Root causes: the shipped build had been configured before its sysroot got the
+  libdrm/gbm `.pc` files, so SDL silently dropped the KMSDRM driver (only Wayland was compiled in),
+  and ROCKNIX exports `SDL_AUDIODRIVER=pulseaudio` to ports while SDL had no PulseAudio backend.
+  Fixes: `prepare_flip.py` fetches the PulseAudio/PipeWire client headers, libraries and `.pc`
+  data (Debian bookworm arm64) into the sysroot for every build mode; `build.sh` writes the sysroot
+  `.pc` files before configuring, turns `SDL_PULSEAUDIO`/`SDL_PIPEWIRE` on (dlopen) and runs
+  `native/platform/flip/check_sdl_backends.sh`, which fails unless SDL's generated config and the
+  binary carry KMSDRM + Wayland and ALSA + PulseAudio + PipeWire; CI runs the same check on the
+  packaged binary and `test_portmaster_package.py` checks the zip. `audio_host.cpp` and
+  `display.cpp` honour the CFW's `SDL_AUDIODRIVER`/`SDL_VIDEODRIVER` but fall back to SDL's own
+  probe order when that backend is unavailable, and a display failure now logs the built-in
+  drivers, `/dev/dri` and SDL's per-driver debug reasons. The hybrid glibc 2.30 toolchain carries a
+  layout stamp so a cached copy without the new headers is rebuilt. The tester's "you statically
+  linked SDL" point is answered in `testing_thread.txt`: SDL 3 is compiled in (Aurora needs it),
+  loads the CFW's libdrm/libgbm/libwayland/libasound/libpulse/libpipewire by soname, and does not
+  shadow the CFW's SDL 2; rotation is handled by the port.
+
 ### What was built
 - **Upstream decompilation merged**: `doldecomp/master` `3880e77a8` (81 commits since the
   previous base `05a1394fa`) merged into the native port. 51 conflicting files were resolved
@@ -112,7 +158,9 @@ authors.
   `seed_ptr` -> `HSD_RandSeedPtr`, event data field names in `asset_schema.c`.
 - **Aurora pinned to the fork**: `native/tools/bootstrap.py` clones
   `https://github.com/zalo/aurora-arm.git` branch `gles-direct-submission` at
-  `2d943c982f5d7b4582d7a66ccd1961e87e160288` (upstream Aurora + the nine perf PRs + Flip
+  `0fab9c6cfc6d3f2465a8c03d759ecc40047e8e60` (upstream Aurora + the nine perf PRs + Flip
+  platform hunks + GLES fast path; 0fab9c6 on 2026-09-19 makes Aurora reuse the application's SDL
+  window on MELEE_MIYOO_FLIP for the SDL2 shim; previous pin 2d943c98: upstream + the nine perf PRs + Flip
   platform hunks + GLES fast path + the frame-stream overflow fix; since 2026-09-18 also the
   configurable uniform window, the GL driver probe with its per-draw barrier fallback, the
   staging buffers sized without the stream regions when mapped GL streams are active, which is

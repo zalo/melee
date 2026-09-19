@@ -44,6 +44,19 @@ if [ ${#sdl_controllerconfig} -lt 100000 ]; then
 fi
 chmod +x "$GAMEDIR/melee.aarch64"
 
+# The game links SDL 3 as a shared library; libs.aarch64 holds only the SDL3-over-SDL2 shim (the library
+# Dusklight ships), whose "sdl2" driver runs display, audio and pads through this CFW's own SDL 2.
+export LD_LIBRARY_PATH="$GAMEDIR/libs.${DEVICE_ARCH}:$LD_LIBRARY_PATH"
+# SDL_VIDEODRIVER / SDL_AUDIODRIVER from the CFW name SDL 2 drivers (ROCKNIX: wayland, pulseaudio). Hand
+# them to the inner SDL 2 unchanged and point SDL 3 itself at the shim's driver.
+if [ -n "${SDL_VIDEODRIVER:-}" ] && [ -z "${SDL3SHIM_SDL2_VIDEODRIVER:-}" ]; then
+  export SDL3SHIM_SDL2_VIDEODRIVER="$SDL_VIDEODRIVER"
+fi
+if [ -n "${SDL_AUDIODRIVER:-}" ] && [ -z "${SDL3SHIM_SDL2_AUDIODRIVER:-}" ]; then
+  export SDL3SHIM_SDL2_AUDIODRIVER="$SDL_AUDIODRIVER"
+fi
+export SDL_VIDEODRIVER=sdl2 SDL_AUDIODRIVER=sdl2
+
 # The game reads the pad through SDL; gptokeyb2 only provides the exit hotkey (melee.ini maps no keys).
 $GPTOKEYB2 "melee.aarch64" -c "$GAMEDIR/melee.ini" &
 
@@ -51,9 +64,12 @@ pm_platform_helper "$GAMEDIR/melee.aarch64"
 ./melee.aarch64 "${discs[0]}"
 status=$?
 
-# Display or GPU setup failed (no OpenGL ES 3.1 driver, or no usable display): say so instead of
-# returning to the menu silently.
-if [ $status -ne 0 ] && grep -q "^\[flip-display\] Cannot\|^\[flip-display\] .*needs the KMSDRM" "$GAMEDIR/log.txt"; then
+# Display or GPU setup failed: say which instead of returning to the menu silently. The game reaches
+# the screen through SDL's KMSDRM or Wayland driver; a CFW offering neither (fbdev-only) cannot run it.
+if [ $status -ne 0 ] && grep -q "^\[flip-display\] Cannot initialize SDL video" "$GAMEDIR/log.txt"; then
+  pm_message "Melee could not open the display: no KMSDRM or Wayland video driver worked here. Details are in melee/log.txt."
+  sleep 15
+elif [ $status -ne 0 ] && grep -q "^\[flip-display\] Cannot\|^\[flip-display\] .*needs the KMSDRM" "$GAMEDIR/log.txt"; then
   pm_message "Melee could not start the GPU. It needs an OpenGL ES 3.1 driver (Mali-G31/G52 or newer). Details are in melee/log.txt."
   sleep 15
 fi

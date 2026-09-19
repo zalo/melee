@@ -72,10 +72,23 @@ DEVICE_PACKAGES = {
 }
 DEVICE_SONAMES = {'EGL': 'libEGL.so.1', 'GLESv2': 'libGLESv2.so.2', 'gbm': 'libgbm.so.1', 'drm': 'libdrm.so.2',
                   'asound': 'libasound.so.2', 'udev': 'libudev.so.1'}
+# Audio client libraries SDL dlopens on PipeWire/PulseAudio CFWs (ROCKNIX exports
+# SDL_AUDIODRIVER=pulseaudio system-wide). Fetched in both modes: SDL needs the headers, .pc data and
+# the library's SONAME at configure time, and no device has the headers. Nothing is linked.
+AUDIO_PACKAGES = {
+    'p/pulseaudio/libpulse0_16.1+dfsg1-2+b1_arm64.deb': '26f17e3457c5fce0104a6b2f0efb75a3256b24b32ca7cfda6266373758a930cb',
+    'p/pulseaudio/libpulse-dev_16.1+dfsg1-2+b1_arm64.deb': 'dac8f94dc214a77654cc62d0f1611cd4dee9cdefdc816e3056dd9fae5aa5d4a8',
+    'p/pipewire/libpipewire-0.3-0_0.3.65-3+deb12u1_arm64.deb': 'f1e20d052a9f5faa04e80907202762d47cbb280cff23715fe7ca40429549a533',
+    'p/pipewire/libpipewire-0.3-dev_0.3.65-3+deb12u1_arm64.deb': 'f8addee828a3f5955c2bd3a09c4aaa2fcc86ec6f89d00308c1a035f0b1a8da18',
+    'p/pipewire/libspa-0.2-dev_0.3.65-3+deb12u1_arm64.deb': '2e1c68e265c308c41c89818ac08931de6d8be759eafcfb87a559bd8643ff9a23',
+}
+AUDIO_SONAMES = {'pulse': 'libpulse.so.0', 'pipewire-0.3': 'libpipewire-0.3.so.0'}
+AUDIO_HEADERS = ['pulse', 'pipewire-0.3', 'spa-0.2']
 
 
-def fetch_device_libraries(usr):
-    """Populate <sysroot>/usr/lib with the Debian arm64 libraries listed in DEVICE_PACKAGES."""
+def fetch_debian_packages(packages, usr, sonames, headers=()):
+    """Extract Debian arm64 packages into <sysroot>/usr: lib*.so* into lib/, the named include
+    directories into include/. Existing files are kept (device-pulled libraries win)."""
     import io
     import sys
     import tarfile
@@ -83,9 +96,10 @@ def fetch_device_libraries(usr):
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import prepare_wayland
     lib = usr / 'lib'
+    lib.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as scratch:
         root = Path(scratch)
-        for path, expected in DEVICE_PACKAGES.items():
+        for path, expected in packages.items():
             with urllib.request.urlopen(prepare_wayland.MIRROR + path, timeout=120) as response:
                 deb = response.read()
             digest = hashlib.sha256(deb).hexdigest()
@@ -102,7 +116,12 @@ def fetch_device_libraries(usr):
                     target.symlink_to(os.readlink(entry))
                 else:
                     shutil.copy2(entry, target)
-    for stem, soname in DEVICE_SONAMES.items():
+        for name in headers:
+            source = root / 'usr/include' / name
+            if not source.is_dir():
+                raise RuntimeError(f'{name}: header directory missing from the Debian packages')
+            shutil.copytree(source, usr / 'include' / name, dirs_exist_ok=True)
+    for stem, soname in sonames.items():
         if not (lib / soname).exists():
             raise RuntimeError(f'{soname} missing after extracting the Debian packages')
         link = lib / ('lib' + stem + '.so')
@@ -110,17 +129,38 @@ def fetch_device_libraries(usr):
             link.symlink_to(soname)
 
 
-# pkg-config data SDL's KMSDRM driver needs at configure time (it dlopens the libraries at run
-# time). The device libraries come without .pc files; these point at the sysroot they sit in.
+def fetch_device_libraries(usr):
+    """Populate <sysroot>/usr/lib with the Debian arm64 libraries listed in DEVICE_PACKAGES."""
+    fetch_debian_packages(DEVICE_PACKAGES, usr, DEVICE_SONAMES)
+
+
+def fetch_audio_libraries(usr):
+    """PulseAudio and PipeWire client headers, .pc data and libraries for SDL's dlopen audio backends."""
+    fetch_debian_packages(AUDIO_PACKAGES, usr, AUDIO_SONAMES, AUDIO_HEADERS)
+
+
+# pkg-config data SDL's KMSDRM, PulseAudio and PipeWire backends need at configure time (it dlopens
+# the libraries at run time). The device libraries come without .pc files, and Debian's carry host
+# paths; these point at the sysroot they sit in. build.sh gives pkg-config only these directories.
+def _pc(name, version, cflags, libs, requires=''):
+    text = f'prefix=${{pcfiledir}}/../..\nName: {name}\nDescription: sysroot {name} (dlopened by SDL)\nVersion: {version}\n'
+    if requires:
+        text += f'Requires: {requires}\n'
+    return text + f'Libs: -L${{prefix}}/lib {libs}\nCflags: {cflags}\n'
+
+
 SYSROOT_PC = {
-    'libdrm': 'prefix=${pcfiledir}/../..\nName: libdrm\nDescription: device libdrm (dlopened by SDL)\n'
-              'Version: 2.4.114\nLibs: -L${prefix}/lib -ldrm\nCflags: -I${prefix}/include -I${prefix}/include/libdrm\n',
-    'gbm': 'prefix=${pcfiledir}/../..\nName: gbm\nDescription: device libgbm (dlopened by SDL)\n'
-           'Version: 22.3.6\nLibs: -L${prefix}/lib -lgbm\nCflags: -I${prefix}/include\n',
+    'libdrm': _pc('libdrm', '2.4.114', '-I${prefix}/include -I${prefix}/include/libdrm', '-ldrm'),
+    'gbm': _pc('gbm', '22.3.6', '-I${prefix}/include', '-lgbm'),
+    'libpulse': _pc('libpulse', '16.1', '-I${prefix}/include -D_REENTRANT', '-lpulse'),
+    'libspa-0.2': _pc('libspa-0.2', '0.3.65', '-I${prefix}/include/spa-0.2 -D_REENTRANT', ''),
+    'libpipewire-0.3': _pc('libpipewire-0.3', '0.3.65', '-I${prefix}/include/pipewire-0.3 -D_REENTRANT',
+                           '-lpipewire-0.3', 'libspa-0.2'),
 }
 
 
 def write_sysroot_pkgconfig(usr):
+    """Write every SYSROOT_PC file that is missing under <sysroot>/usr/lib/pkgconfig."""
     pkgconfig = usr / 'lib/pkgconfig'
     pkgconfig.mkdir(parents=True, exist_ok=True)
     for name, text in SYSROOT_PC.items():
@@ -178,6 +218,7 @@ def main():
         else:
             shutil.copy2(src, usr / 'include' / name)
     write_sysroot_pkgconfig(usr)
+    fetch_audio_libraries(usr)
     if args.no_device:
         fetch_device_libraries(usr)
     else:

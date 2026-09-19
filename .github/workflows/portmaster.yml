@@ -22,6 +22,7 @@ jobs:
     env:
       FLIP_TOOLS: ${{ github.workspace }}/build/flip-tools
       BUILD_JOBS: 4
+      DAWN_CACHE_VERSION: 1
     steps:
       - uses: actions/checkout@v6
 
@@ -32,17 +33,30 @@ jobs:
           sudo apt-get install -y clang ninja-build cmake python3 pkg-config git curl bzip2 xz-utils libwayland-bin \
             libegl-dev libgles-dev libglvnd-dev libdrm-dev libgbm-dev libasound2-dev libudev-dev
 
-      - name: Cache the toolchains, Dawn and Rust
+      # Two caches: the SDK/sysroot side changes with the prepare scripts (minutes to rebuild), the
+      # Dawn side only with the Dawn patch or toolchain (over an hour), so one must not evict the other.
+      - name: Cache the SDK, the glibc 2.30 toolchain and the Wayland client files
         uses: actions/cache@v4
         with:
           path: |
             build/flip-tools/aarch64--glibc--stable-2023.08-1
             build/flip-tools/aarch64--glibc-2.30-hybrid
-            build/flip-tools/dawn-install-a35
             build/flip-tools/wayland-arm64
+            build/flip-tools/sdl3-shim-install
+          key: portmaster-sdk-${{ hashFiles('native/tools/prepare_flip.py', 'native/tools/prepare_wayland.py', 'native/tools/glibc230_toolchain.sh', 'native/tools/glibc_compat.c', 'native/tools/build_sdl3_shim.sh') }}
+
+      - name: Cache Dawn and Rust
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/flip-tools/dawn-install-a35
             build/flip-tools/rustup
             build/flip-tools/cargo
-          key: portmaster-tools-${{ hashFiles('native/tools/prepare_flip.py', 'native/tools/prepare_wayland.py', 'native/tools/glibc230_toolchain.sh', 'native/tools/glibc_compat.c', 'native/platform/flip/dawn-gl-interop.patch', 'native/platform/flip/toolchain-a35.cmake', 'native/platform/flip/cc', 'native/platform/flip/cxx') }}
+          # DAWN_CACHE_VERSION: bump when DAWN_REV in prepare_flip.py changes.
+          key: portmaster-dawn-${{ env.DAWN_CACHE_VERSION }}-${{ hashFiles('native/platform/flip/dawn-gl-interop.patch', 'native/platform/flip/toolchain-a35.cmake', 'native/platform/flip/cc', 'native/platform/flip/cxx') }}
+          restore-keys: |
+            portmaster-dawn-${{ env.DAWN_CACHE_VERSION }}-
+            portmaster-tools-
 
       - name: Install Rust for the disc reader
         run: |
@@ -66,14 +80,9 @@ jobs:
           export FLIP_TOOLCHAIN="$FLIP_TOOLS/aarch64--glibc--stable-2023.08-1" FLIP_DAWN_PREFIX="$FLIP_TOOLS/dawn-install-a35"
           sh native/platform/portmaster/build_portmaster.sh
 
-      - name: SDL video drivers must be compiled in
-        # A binary without them starts with "No available video device" on every CFW.
-        run: |
-          for driver in wayland kmsdrm; do
-            grep -q "SDL_$(echo $driver | tr a-z A-Z):BOOL=ON" build/portmaster-a35/CMakeCache.txt \
-              || { echo "SDL built without the $driver driver"; grep -i "SDL_$(echo $driver | tr a-z A-Z)" build/portmaster-a35/CMakeCache.txt; exit 1; }
-          done
-          strings -n 6 dist/portmaster/melee/melee/melee.aarch64 | grep -qx libwayland-client.so.0 || { echo "no Wayland client soname in the binary"; exit 1; }
+      - name: SDL must be the shared SDL3-over-SDL2 shim
+        # The game links libSDL3.so.0 dynamically and ships the shim; the CFW's SDL2 owns the display.
+        run: sh native/platform/flip/check_sdl_backends.sh --shim dist/portmaster/melee/melee/libs.aarch64/libSDL3.so.0 dist/portmaster/melee/melee/melee.aarch64
 
       - name: Package tests
         run: MELEE_PORTMASTER_ZIP=dist/portmaster/melee.zip python3 native/tests/test_portmaster_package.py

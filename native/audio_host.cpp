@@ -32,6 +32,21 @@ static void fill(void*, SDL_AudioStream* stream, int additional, int) {
         additional -= sizeof(block);
     }
 }
+// Bring up SDL audio. The CFW's environment may name a backend (ROCKNIX exports
+// SDL_AUDIODRIVER=pulseaudio system-wide, SDL3 also reads it through SDL_AUDIO_DRIVER); honour it,
+// and when that backend is not available in this build or on this device, fall back to SDL's own
+// order (pipewire, pulseaudio, alsa) instead of running silent.
+static bool initAudioSubsystem() {
+    if (SDL_InitSubSystem(SDL_INIT_AUDIO)) return true;
+    const char* wanted = SDL_GetHint(SDL_HINT_AUDIO_DRIVER);
+    if (!wanted || !*wanted) return false;
+    std::fprintf(stderr, "[audio] driver '%s' from the environment is unavailable (%s); trying the others\n",
+                 wanted, SDL_GetError());
+    unsetenv("SDL_AUDIODRIVER");
+    unsetenv(SDL_HINT_AUDIO_DRIVER);
+    SDL_SetHintWithPriority(SDL_HINT_AUDIO_DRIVER, "", SDL_HINT_OVERRIDE);
+    return SDL_InitSubSystem(SDL_INIT_AUDIO);
+}
 extern "C" void MeleeNativeAudioOpen(void (*render)(int16_t*, unsigned)) {
     if (output) return;
     renderer = render;
@@ -39,7 +54,7 @@ extern "C" void MeleeNativeAudioOpen(void (*render)(int16_t*, unsigned)) {
     // can be briefly held by the launcher/menu when a port starts. Retry a few
     // times, then run without audio rather than aborting the whole game. The game
     // loop is driven by video, not by the audio pull, so silent operation is safe.
-    if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
+    if (!initAudioSubsystem()) {
         std::fprintf(stderr, "Audio initialization failed, continuing without sound: %s\n", SDL_GetError());
         return;
     }

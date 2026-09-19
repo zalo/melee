@@ -35,13 +35,36 @@ Stages" saves at once; the game then shows its trophy pop-ups once on the next m
 | Start | Start / pause |
 | Start + Select | Exit to the CFW menu |
 
+Second testing zip (2026-09-19), what changed after the first reports:
+- The first zip had SDL's KMSDRM video driver missing (a configure-time slip; only the Wayland
+  driver was compiled in), so every KMSDRM CFW failed with "No available video device", which
+  the launcher misreported as an OpenGL driver problem (RG552 on AmberELEC). Fixed; the build and
+  CI now refuse to package a binary without KMSDRM + Wayland video and ALSA + PulseAudio +
+  PipeWire audio. Please retest AmberELEC / ArkOS / Knulli with this zip.
+- No sound on ROCKNIX: ROCKNIX exports SDL_AUDIODRIVER=pulseaudio to ports and the first build had
+  no PulseAudio backend. Both PulseAudio and PipeWire backends are in now, and if the backend the
+  CFW names is unavailable the next one is tried instead of playing nothing.
+- When the display cannot be opened, log.txt now lists the video drivers in the build, the
+  /dev/dri nodes and SDL's reason for rejecting each driver.
+- SDL, as requested: SDL is no longer built in. The game links SDL 3 (Aurora renders through it)
+  as a shared library, and libs.aarch64 carries the SDL3-over-SDL2 shim that Dusklight ships
+  (bmdhacks/SDL, branch sdl2-backend). Display, audio and pads now go through this CFW's own
+  libSDL2-2.0.so.0 with all of its device patches (KMSDRM, fbdev, Wayland, rotation, audio
+  server), so fbdev CFWs such as muOS and H700 Knulli should work too. Reports from those are
+  the most useful now. The CFW's SDL_VIDEODRIVER / SDL_AUDIODRIVER are handed to that inner SDL 2
+  unchanged.
+- Reported RG552/ROCKNIX behaviour: the 4:3 pillarbox is intentional (the game is 4:3), the slow
+  first half-minute of the first match is Mesa compiling shaders and should be gone from the
+  second launch on; please say whether it is.
+
 CFW Tests:
 [x] AmberELEC (RG351P)
+[ ] AmberELEC (RG552): first zip failed to open the display (KMSDRM driver missing from that build, see above); please retest
 [x] dArkOS (RG351P, RG351MP image)
-[ ] MuOS (not supported yet: fbdev libmali has no KMSDRM or Wayland)
+[ ] MuOS (untested; should work now that the CFW's SDL 2 drives the display)
 ROCKNIX
 -> [x] Libmali (RG351P, Miyoo Flip)
--> [x] Panfrost (RG351P, Miyoo Flip; slower than libmali)
+-> [x] Panfrost (RG351P, Miyoo Flip; slower than libmali; RG552 by a tester: runs, rumble works)
 -> [ ] Adreno (Optional)
 [x] Knulli (Miyoo Flip, libmali g13p0: correct but 9-20 FPS, see README)
 [x] Batocera 42 (RG351P)
@@ -51,7 +74,7 @@ Resolutions:
 [x] 480x320 (RG351P)
 [x] 640x480 (Miyoo Flip)
 [ ] 720x720 (RGB30) (Optional)
-[ ] Higher resolutions (e.g., 1280)
+[x] Higher resolutions: 1920x1152 (RG552, ROCKNIX, tester report; renders 640x480 pillarboxed to 4:3 by design)
 
 Porter results (13 scripted modes: VS match, Classic, Adventure, Event, Multi-Man, Target Test, Home-Run, Training, Tournament, Data, Options, Sound Test, name entry)
 | Device | CFW | Result |
@@ -66,4 +89,10 @@ Porter results (13 scripted modes: VS match, Classic, Adventure, Event, Multi-Ma
 | Miyoo Flip (RK3566, 640x480) | ROCKNIX 20260901 (libmali g29p1) | all modes pass; medians 46-58 FPS (final build: VS match 50, Event 52, Tournament 56) |
 | Miyoo Flip (RK3566, 640x480) | ROCKNIX 20260901 (Panfrost, Mesa 26.1) | all modes pass; medians 41-56 FPS in game modes (41-50 in the VS match), 29-30 in the menus, about 110-140 MB of RAM free |
 
-Untested so far: muOS, ArkOS, resolutions above 640x480, H700 / A133P / Snapdragon devices. Reports from those are the most useful.
+Tester results (first zip):
+| Device | CFW | Result |
+| --- | --- | --- |
+| Anbernic RG552 (RK3399, 1920x1152) | AmberELEC | did not start: "No available video device" (KMSDRM driver missing from that build; fixed in the second zip) |
+| Anbernic RG552 (RK3399, 1920x1152) | ROCKNIX (Panfrost, Mali-T860, Mesa 26.1) | runs, pillarboxed 4:3, rumble works; no sound (PulseAudio backend missing from that build; fixed in the second zip); first match started slowly and parts of the stage appeared late while shaders compiled, then 57-60 FPS |
+
+Untested so far: muOS, ArkOS, H700 / A133P / Snapdragon devices, RG552 on AmberELEC with the second zip. Reports from those are the most useful.

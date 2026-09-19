@@ -108,7 +108,10 @@ class LauncherTextTests(unittest.TestCase):
                        'GAMEDIR="/$directory/ports/melee"', 'tee "$GAMEDIR/log.txt"', '$GPTOKEYB2 "melee.aarch64" -c "$GAMEDIR/melee.ini"',
                        'pm_platform_helper "$GAMEDIR/melee.aarch64"', 'pm_finish',
                        'chmod +x "$GAMEDIR/melee.aarch64"',
-                       'XDG_CONFIG_HOME="$GAMEDIR/runtime/config"', 'XDG_CACHE_HOME', 'SDL_GAMECONTROLLERCONFIG']:
+                       'XDG_CONFIG_HOME="$GAMEDIR/runtime/config"', 'XDG_CACHE_HOME', 'SDL_GAMECONTROLLERCONFIG',
+                       'export LD_LIBRARY_PATH="$GAMEDIR/libs.${DEVICE_ARCH}:$LD_LIBRARY_PATH"',
+                       'export SDL3SHIM_SDL2_VIDEODRIVER="$SDL_VIDEODRIVER"', 'export SDL3SHIM_SDL2_AUDIODRIVER="$SDL_AUDIODRIVER"',
+                       'export SDL_VIDEODRIVER=sdl2 SDL_AUDIODRIVER=sdl2']:
             self.assertIn(needle, self.text, needle)
         for extension in ['*.iso', '*.gcm', '*.ciso', '*.rvz']:
             self.assertIn(extension, self.text)
@@ -123,7 +126,8 @@ class LauncherTextTests(unittest.TestCase):
 class LauncherBehaviourTests(unittest.TestCase):
     """Run Melee.sh against a fake PortMaster control folder and sysfs."""
 
-    def run_launcher(self, mode='normal', disc=True):
+    def run_launcher(self, mode='normal', disc=True, cfw_env=()):
+        cfw_env = dict(cfw_env)
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         root = Path(temporary.name)
@@ -157,12 +161,15 @@ pm_finish() {{ printf finished > "{root}/finished"; }}
         # Zip extraction drops the exec bit; the launcher must restore it.
         game.write_text(f'''#!/bin/sh
 printf '%s\\n' "$1" > "{root}/disc"
-printf '%s\\n' "$LD_LIBRARY_PATH" "$XDG_CONFIG_HOME" "$XDG_STATE_HOME" "$XDG_CACHE_HOME" "$SDL_GAMECONTROLLERCONFIG" > "{root}/env"
+printf '%s\\n' "$LD_LIBRARY_PATH" "$XDG_CONFIG_HOME" "$XDG_STATE_HOME" "$XDG_CACHE_HOME" "$SDL_GAMECONTROLLERCONFIG" "$SDL_VIDEODRIVER" "$SDL_AUDIODRIVER" "${{SDL3SHIM_SDL2_VIDEODRIVER:-unset}}" "${{SDL3SHIM_SDL2_AUDIODRIVER:-unset}}" > "{root}/env"
 [ "$GAME_MODE" = fail ] && exit 7
 exit 0
 ''')
         game.chmod(0o644)
         env = dict(os.environ, GAME_MODE=mode, GPTOKEYB_LOG=str(root / 'gptokeyb.log'), HOME=str(root))
+        for name in ['SDL_VIDEODRIVER', 'SDL_AUDIODRIVER', 'SDL3SHIM_SDL2_VIDEODRIVER', 'SDL3SHIM_SDL2_AUDIODRIVER']:
+            env.pop(name, None)
+        env.update(cfw_env)
         result = subprocess.run(['bash', str(launcher)], env=env, stdout=subprocess.DEVNULL,
                                 stderr=subprocess.DEVNULL, timeout=30).returncode
         return root, gamedir, result
@@ -173,8 +180,10 @@ exit 0
         self.assertTrue((root / 'mod').exists())
         self.assertEqual((root / 'disc').read_text().strip(), str(gamedir / 'assets/Melee (USA) (v1.02).RVZ'))
         env = (root / 'env').read_text().splitlines()
-        # Nothing is bundled (static C++ runtime), so the launcher leaves the library path alone.
-        self.assertNotIn('libs.aarch64', env[0])
+        # Only the SDL3-over-SDL2 shim is bundled; the launcher puts its folder first on the library path.
+        self.assertTrue(env[0].startswith(f'{gamedir}/libs.aarch64:'), env[0])
+        # SDL3 is pointed at the shim's driver; with no CFW driver names the inner SDL2 auto-picks.
+        self.assertEqual(env[5:9], ['sdl2', 'sdl2', 'unset', 'unset'])
         self.assertEqual(env[1:4], [str(gamedir / 'runtime/config'), str(gamedir / 'runtime/state'),
                                     str(gamedir / 'runtime/cache')])
         self.assertEqual(env[4], 'fake-map')
@@ -183,6 +192,14 @@ exit 0
         self.assertEqual((root / 'helper').read_text().strip(), str(gamedir / 'melee.aarch64'))
         self.assertTrue((root / 'finished').exists())
         self.assertTrue((gamedir / 'log.txt').exists())
+
+    def test_cfw_sdl_driver_names_go_to_the_inner_sdl2(self):
+        # ROCKNIX exports SDL_VIDEODRIVER=wayland and SDL_AUDIODRIVER=pulseaudio to ports: SDL2 driver
+        # names, which the shim must receive while SDL3 itself uses the shim driver.
+        root, gamedir, result = self.run_launcher(cfw_env={'SDL_VIDEODRIVER': 'wayland', 'SDL_AUDIODRIVER': 'pulseaudio'})
+        self.assertEqual(result, 0)
+        env = (root / 'env').read_text().splitlines()
+        self.assertEqual(env[5:9], ['sdl2', 'sdl2', 'wayland', 'pulseaudio'])
 
     def test_missing_disc_reports_and_exits(self):
         root, gamedir, result = self.run_launcher(disc=False)
@@ -208,14 +225,25 @@ class AssembleTests(unittest.TestCase):
             (bundle / 'licenses/Aurora.txt').write_text('license')
             (bundle / 'licenses/Mali.txt').write_text('driver eula')
             (bundle / 'launch.sh').write_text('flip only')
-            tree, zip_path = package.assemble(bundle, root / 'out')
+            shim = root / 'shim'
+            (shim / 'lib').mkdir(parents=True)
+            (shim / 'lib/libSDL3.so.0.5.0').write_bytes(b'\x7fELF shim')
+            (shim / 'lib/libSDL3.so.0').symlink_to('libSDL3.so.0.5.0')
+            (shim / 'LICENSE.txt').write_text('zlib license text')
+            tree, zip_path = package.assemble(bundle, root / 'out', sdl3=shim)
             self.assertEqual(tree, root / 'out/melee')
             for name in ['port.json', 'Melee.sh', 'README.md', 'gameinfo.xml', 'screenshot.jpg',
                          'melee/melee.aarch64', 'melee/melee.ini',
                          'melee/licenses/LICENSE.Aurora.txt', 'melee/assets/README.txt']:
                 self.assertTrue((tree / name).exists(), name)
-            self.assertFalse((tree / 'melee/libs.aarch64').exists())
-            self.assertEqual([p.name for p in (tree / 'melee/licenses').iterdir()], ['LICENSE.Aurora.txt'])
+            self.assertEqual((tree / 'melee/libs.aarch64/libSDL3.so.0').read_bytes(), b'\x7fELF shim')
+            self.assertFalse((tree / 'melee/libs.aarch64/libSDL3.so.0').is_symlink())
+            self.assertTrue(os.access(tree / 'melee/libs.aarch64/libSDL3.so.0', os.X_OK))
+            self.assertEqual(sorted(p.name for p in (tree / 'melee/licenses').iterdir()),
+                             ['LICENSE.Aurora.txt', 'LICENSE.SDL3-sdl2-backend.txt'])
+            notice = (tree / 'melee/licenses/LICENSE.SDL3-sdl2-backend.txt').read_text()
+            self.assertIn('bmdhacks/SDL', notice)
+            self.assertTrue(notice.endswith('zlib license text'))
             self.assertTrue((tree / 'melee/runtime').is_dir())
             self.assertFalse((tree / 'melee/launch.sh').exists())
             self.assertFalse((tree / 'melee/lib').exists())
@@ -223,15 +251,22 @@ class AssembleTests(unittest.TestCase):
             self.assertTrue(os.access(tree / 'melee/melee.aarch64', os.X_OK))
             with zipfile.ZipFile(zip_path) as archive:
                 names = set(archive.namelist())
-                for name in ['Melee.sh', 'port.json', 'melee/melee.aarch64', 'melee/melee.ini',
-                             'melee/licenses/LICENSE.Aurora.txt', 'melee/assets/README.txt', 'melee/runtime/']:
+                for name in ['Melee.sh', 'port.json', 'melee/melee.aarch64', 'melee/melee.ini', 'melee/libs.aarch64/libSDL3.so.0',
+                             'melee/licenses/LICENSE.Aurora.txt', 'melee/licenses/LICENSE.SDL3-sdl2-backend.txt',
+                             'melee/assets/README.txt', 'melee/runtime/']:
                     self.assertIn(name, names, name)
-                self.assertFalse([n for n in names if 'libstdc++' in n or 'libs.aarch64' in n])
+                self.assertFalse([n for n in names if 'libstdc++' in n])
+                self.assertEqual([n for n in names if n.startswith('melee/libs.aarch64/') and not n.endswith('/')],
+                                 ['melee/libs.aarch64/libSDL3.so.0'])
+                self.assertEqual((archive.getinfo('melee/libs.aarch64/libSDL3.so.0').external_attr >> 16) & 0o777, 0o755)
                 self.assertFalse([n for n in names if not (n.startswith('melee/') or n in ('Melee.sh', 'port.json'))])
                 self.assertEqual((archive.getinfo('melee/melee.aarch64').external_attr >> 16) & 0o777, 0o755)
                 self.assertTrue(is_aarch64_elf(archive.read('melee/melee.aarch64')[:20]))
             with self.assertRaises(FileExistsError):
                 package.assemble(bundle, root / 'out')
+            # Without a shim prefix (static-SDL builds) nothing is bundled.
+            tree, _ = package.assemble(bundle, root / 'out-static')
+            self.assertFalse((tree / 'melee/libs.aarch64').exists())
 
 
 class RustLicenseTests(unittest.TestCase):
@@ -301,8 +336,8 @@ class BuiltZipTests(unittest.TestCase):
     def test_zip_layout_and_binary(self):
         with zipfile.ZipFile(ZIP) as archive:
             names = set(archive.namelist())
-            for name in ['Melee.sh', 'port.json', 'melee/melee.aarch64',
-                         'melee/assets/README.txt', 'melee/runtime/']:
+            for name in ['Melee.sh', 'port.json', 'melee/melee.aarch64', 'melee/libs.aarch64/libSDL3.so.0',
+                         'melee/licenses/LICENSE.SDL3-sdl2-backend.txt', 'melee/assets/README.txt', 'melee/runtime/']:
                 self.assertIn(name, names, name)
             licenses = [n for n in names if n.startswith('melee/licenses/') and not n.endswith('/')]
             self.assertTrue(licenses)
@@ -311,8 +346,20 @@ class BuiltZipTests(unittest.TestCase):
             self.assertFalse([n for n in names if n.lower().endswith(('.iso', '.gcm', '.ciso', '.rvz', '.img'))])
             self.assertFalse([n for n in names if 'mali' in n.lower() or 'libegl' in n.lower() or 'libgles' in n.lower()])
             self.assertFalse([n for n in names if not (n.startswith('melee/') or n in ('Melee.sh', 'port.json'))])
-            self.assertTrue(is_aarch64_elf(archive.read('melee/melee.aarch64')[:20]))
-            self.assertFalse([n for n in names if 'libstdc++' in n or 'libs.aarch64' in n])
+            binary = archive.read('melee/melee.aarch64')
+            self.assertTrue(is_aarch64_elf(binary[:20]))
+            # SDL3 is linked dynamically and the shipped libSDL3.so.0 is the SDL2-backend shim, so every
+            # CFW's own SDL2 (KMSDRM, fbdev, Wayland; ALSA, PulseAudio, PipeWire) drives the device.
+            self.assertIn(b'libSDL3.so.0', binary)
+            # SDL3's KMSDRM driver reads this hint; the string exists only when that driver is compiled in.
+            self.assertNotIn(b'SDL_KMSDRM_DEVICE_INDEX', binary)
+            shim = archive.read('melee/libs.aarch64/libSDL3.so.0')
+            self.assertTrue(is_aarch64_elf(shim[:20]))
+            for needle in [b'SDL3SHIM_SDL2_LIB', b'SDL3SHIM_SDL2_VIDEODRIVER', b'libSDL2-2.0.so.0']:
+                self.assertIn(needle, shim, needle)
+            self.assertFalse([n for n in names if 'libstdc++' in n])
+            self.assertEqual([n for n in names if n.startswith('melee/libs.aarch64/') and not n.endswith('/')],
+                             ['melee/libs.aarch64/libSDL3.so.0'])
             self.assertEqual(json.loads(archive.read('port.json')), json.loads((PORT_DIR / 'port.json').read_text()))
             self.assertEqual(archive.read('Melee.sh'), (PORT_DIR / 'Melee.sh').read_bytes())
         tree = ZIP.parent / 'melee'

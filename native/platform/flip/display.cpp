@@ -14,6 +14,7 @@
 #include <array>
 #include <atomic>
 #include <limits>
+#include <dirent.h>
 #include <fcntl.h>
 #include <poll.h>
 #include <unistd.h>
@@ -443,11 +444,50 @@ void cleanupSdl() {
 // Let SDL/KMSDRM own the display and present into its window surface. SDL performs the DRM master
 // handoff, console (fbcon/VT) release and the page flips; we render with Dawn's GLES backend on
 // SDL's EGL display and blit+swap SDL's surface from the present worker.
+// Bring up SDL video. The CFW's environment may name a driver (ROCKNIX exports SDL_VIDEODRIVER=wayland
+// system-wide); honour it, and when it is unavailable fall back to SDL's own probe order. When nothing
+// works, log what this build offers and why SDL rejected each driver, so a tester's log.txt explains
+// the failure (drivers built in, /dev/dri nodes, SDL's own video-category debug output).
+bool initSdlVideo() {
+    if (SDL_InitSubSystem(SDL_INIT_VIDEO)) return true;
+    if (const char* wanted = SDL_GetHint(SDL_HINT_VIDEO_DRIVER); wanted && *wanted) {
+        std::fprintf(stderr, "[flip-display] video driver '%s' from the environment is unavailable (%s); trying the others\n",
+                     wanted, SDL_GetError());
+        unsetenv("SDL_VIDEODRIVER");
+        unsetenv(SDL_HINT_VIDEO_DRIVER);
+        SDL_SetHintWithPriority(SDL_HINT_VIDEO_DRIVER, "", SDL_HINT_OVERRIDE);
+        if (SDL_InitSubSystem(SDL_INIT_VIDEO)) return true;
+    }
+    std::fprintf(stderr, "[flip-display] SDL video failed: %s\n", SDL_GetError());
+    std::fprintf(stderr, "[flip-display] video drivers in this build:");
+    for (int i = 0; i < SDL_GetNumVideoDrivers(); ++i) std::fprintf(stderr, " %s", SDL_GetVideoDriver(i));
+    std::fprintf(stderr, "\n[flip-display] WAYLAND_DISPLAY=%s XDG_RUNTIME_DIR=%s\n",
+                 std::getenv("WAYLAND_DISPLAY") ? std::getenv("WAYLAND_DISPLAY") : "(unset)",
+                 std::getenv("XDG_RUNTIME_DIR") ? std::getenv("XDG_RUNTIME_DIR") : "(unset)");
+    if (DIR* dri = opendir("/dev/dri")) {
+        std::fprintf(stderr, "[flip-display] /dev/dri:");
+        while (const dirent* entry = readdir(dri)) {
+            if (entry->d_name[0] != '.') std::fprintf(stderr, " %s", entry->d_name);
+        }
+        std::fprintf(stderr, "\n");
+        closedir(dri);
+    } else {
+        std::fprintf(stderr, "[flip-display] /dev/dri: cannot open (errno=%d)\n", errno);
+    }
+    for (const char* name : {"libdrm.so.2", "libgbm.so.1", "libwayland-client.so.0"}) {
+        if (void* lib = dlopen(name, RTLD_NOW | RTLD_LOCAL)) dlclose(lib);
+        else std::fprintf(stderr, "[flip-display] dlopen %s: %s\n", name, dlerror());
+    }
+    // One more attempt with SDL's video-category debug logging on: KMSDRM reports every DRM node it
+    // rejected (no connector, no mode, DRM master held elsewhere) and Wayland the missing socket.
+    SDL_SetLogPriority(SDL_LOG_CATEGORY_VIDEO, SDL_LOG_PRIORITY_DEBUG);
+    return SDL_InitSubSystem(SDL_INIT_VIDEO);
+}
 void initSdl() {
     // SDL3's atomic KMSDRM path fails every flip on the RG351P and the Flip ("Failed to issue atomic
     // commit on pageflip"); the legacy drmModePageFlip path works on both. Set it unless the user did.
     setenv("SDL_KMSDRM_ATOMIC", "0", 0);
-    if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) failSdl("Cannot initialize SDL video");
+    if (!initSdlVideo()) failSdl("Cannot initialize SDL video");
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1); // GLES 3.1: Dawn's GL interop needs glMemoryBarrier.
@@ -512,11 +552,17 @@ void initSdl() {
         if (!create || !wlEglWindowDestroy) failSdl("libwayland-egl.so.1 unavailable");
         dawnWlWindow = create(surface, static_cast<int>(displayWidth), static_cast<int>(displayHeight));
         if (!dawnWlWindow) failSdl("Cannot create the Dawn scratch Wayland EGL window");
+    } else if (videoDriver && !std::strcmp(videoDriver, "sdl2")) {
+        // SDL3-over-SDL2 shim (PortMaster): the CFW's own SDL2 owns the display, whichever stack it
+        // uses (KMSDRM, fbdev, Wayland), and exposes no platform handles. Dawn's swapchain therefore
+        // wraps no native window at all: MeleeFlipNativeWindow() stays null and the Dawn patch backs
+        // the surface with a pbuffer. The worker presents into SDL's window surface as on the other paths.
+        std::fprintf(stderr, "[flip-display] SDL2 shim: Dawn's swapchain uses a pbuffer\n");
     } else {
         // KMSDRM: borrow SDL's GBM device and hand Dawn a scratch GBM surface.
         sdlGbm = static_cast<gbm_device*>(SDL_GetPointerProperty(
             SDL_GetWindowProperties(sdlWindow), SDL_PROP_WINDOW_KMSDRM_GBM_DEVICE_POINTER, nullptr));
-        if (!sdlGbm) failSdl("MELEE_FLIP_DISPLAY=sdl needs the KMSDRM or Wayland video driver (no GBM device on the SDL window)");
+        if (!sdlGbm) failSdl("MELEE_FLIP_DISPLAY=sdl needs the KMSDRM, Wayland or sdl2 video driver (no GBM device on the SDL window)");
         dawnWindow = gbm_surface_create(sdlGbm, displayWidth, displayHeight, GBM_FORMAT_ARGB8888,
                                         GBM_BO_USE_SCANOUT | GBM_BO_USE_RENDERING);
         if (!dawnWindow) failSdl("Cannot create the Dawn scratch GBM surface");
@@ -622,8 +668,10 @@ extern "C" int MeleeFlipRotation() { return displayRotation; }
 // MeleeFlipPresentSurface().
 extern "C" void* MeleeFlipNativeWindow() {
     if (backend == DisplayBackend::Drm) return window;
-    return dawnWlWindow ? dawnWlWindow : static_cast<void*>(dawnWindow);
+    return dawnWlWindow ? dawnWlWindow : static_cast<void*>(dawnWindow); // null on the SDL2 shim: pbuffer
 }
+// Aurora reuses this window instead of creating its own (see aurora window.cpp create_window).
+extern "C" SDL_Window* MeleeFlipSdlWindow() { return backend == DisplayBackend::Sdl ? sdlWindow : nullptr; }
 extern "C" void* MeleeFlipEGLDisplay() { return display; }
 // The present worker swaps this surface. SDL owns it (its window surface) on the SDL path.
 extern "C" void* MeleeFlipPresentSurface() { return sdlSurface; }

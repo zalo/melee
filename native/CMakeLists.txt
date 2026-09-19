@@ -34,7 +34,7 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 # path), checked out by tools/bootstrap.py. A review build may point MELEE_AURORA_DIR at another
 # checkout and pass its revision as MELEE_AURORA_EXPECTED_REV.
 set(MELEE_AURORA_DIR "${MELEE_ROOT}/build/native-deps/aurora" CACHE PATH "Aurora source checkout")
-set(MELEE_AURORA_EXPECTED_REV "2d943c982f5d7b4582d7a66ccd1961e87e160288" CACHE STRING "Expected Aurora revision")
+set(MELEE_AURORA_EXPECTED_REV "0fab9c6cfc6d3f2465a8c03d759ecc40047e8e60" CACHE STRING "Expected Aurora revision")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/tools/prepare_sdk.py")
 execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/prepare_sdk.py"
   "${CMAKE_CURRENT_BINARY_DIR}/sdk" "${MELEE_AURORA_DIR}" COMMAND_ERROR_IS_FATAL ANY)
@@ -75,7 +75,16 @@ foreach(entry "SDL|SDL|LICENSE.txt" "ImGui|imgui|LICENSE.txt" "Abseil|abseil-cpp
   list(GET fields 1 dependency)
   list(GET fields 2 filename)
   FetchContent_GetProperties(${dependency} SOURCE_DIR dependency_source)
-  file(APPEND "${CMAKE_CURRENT_BINARY_DIR}/package-licenses.txt" "${notice}.txt\t${dependency_source}/${filename}\n")
+  if(dependency STREQUAL "SDL" AND NOT dependency_source)
+    # SDL3 comes from an install (the SDL3-over-SDL2 shim, FLIP_SDL3_ROOT), not a vendored source
+    # tree; build_sdl3_shim.sh puts the fork's LICENSE.txt next to it.
+    set(dependency_source "${FLIP_SDL3_ROOT}")
+  endif()
+  if(dependency_source)
+    file(APPEND "${CMAKE_CURRENT_BINARY_DIR}/package-licenses.txt" "${notice}.txt\t${dependency_source}/${filename}\n")
+  else()
+    message(FATAL_ERROR "No source directory for the ${notice} licence notice (dependency ${dependency})")
+  endif()
 endforeach()
 # Keep the game debuggable while avoiding unoptimized texture-cache iteration
 # and GX translation in the renderer. Debug assertions remain enabled.

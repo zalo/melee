@@ -1,8 +1,7 @@
-diff --git a/include/dawn/native/OpenGLBackend.h b/include/dawn/native/OpenGLBackend.h
-index 33a4a78da0..fc49a8fdb8 100644
---- a/include/dawn/native/OpenGLBackend.h
-+++ b/include/dawn/native/OpenGLBackend.h
-@@ -37,6 +37,7 @@ using EGLDisplay = void*;
+diff -ruN a/include/dawn/native/OpenGLBackend.h b/include/dawn/native/OpenGLBackend.h
+--- a/include/dawn/native/OpenGLBackend.h	2026-08-07 15:55:40.000000000 -0700
++++ b/include/dawn/native/OpenGLBackend.h	2026-09-19 01:04:30.085446290 -0700
+@@ -37,6 +37,7 @@
  using EGLImage = void*;
  using GLuint = unsigned int;
  using EGLint = int32_t;
@@ -10,7 +9,7 @@ index 33a4a78da0..fc49a8fdb8 100644
  
  // Define a GetProc function pointer that mirrors the one in egl.h
  #if defined(_WIN32)
-@@ -84,6 +85,79 @@ struct DAWN_NATIVE_EXPORT ExternalImageDescriptorGLTexture : ExternalImageDescri
+@@ -84,6 +85,79 @@
  DAWN_NATIVE_EXPORT WGPUTexture
  WrapExternalGLTexture(WGPUDevice device, const ExternalImageDescriptorGLTexture* descriptor);
  
@@ -90,10 +89,9 @@ index 33a4a78da0..fc49a8fdb8 100644
  }  // namespace dawn::native::opengl
  
  #endif  // INCLUDE_DAWN_NATIVE_OPENGLBACKEND_H_
-diff --git a/src/dawn/dawn.json b/src/dawn/dawn.json
-index 65fe897947..1412f2d806 100644
---- a/src/dawn/dawn.json
-+++ b/src/dawn/dawn.json
+diff -ruN a/src/dawn/dawn.json b/src/dawn/dawn.json
+--- a/src/dawn/dawn.json	2026-08-07 15:55:40.000000000 -0700
++++ b/src/dawn/dawn.json	2026-09-19 01:04:30.085446290 -0700
 @@ -3962,6 +3962,15 @@
              {"name": "window", "type": "void *"}
          ]
@@ -120,161 +118,9 @@ index 65fe897947..1412f2d806 100644
          ]
      },
      "texture": {
-diff --git a/src/dawn/native/Surface.cpp b/src/dawn/native/Surface.cpp
-index 8ebe3104cd..9058eec79c 100644
---- a/src/dawn/native/Surface.cpp
-+++ b/src/dawn/native/Surface.cpp
-@@ -64,6 +64,9 @@ absl::FormatConvertResult<absl::FormatConversionCharSet::kString> AbslFormatConv
-         case Surface::Type::AndroidWindow:
-             s->Append("AndroidWindow");
-             break;
-+        case Surface::Type::EGLNativeWindow:
-+            s->Append("EGLNativeWindow");
-+            break;
-         case Surface::Type::MetalLayer:
-             s->Append("MetalLayer");
-             break;
-@@ -115,13 +118,20 @@ ResultOrError<UnpackedPtr<SurfaceDescriptor>> ValidateSurfaceDescriptor(
-     wgpu::SType type;
-     DAWN_TRY_ASSIGN(
-         type, (descriptor.ValidateBranches<
--                  Branch<SurfaceSourceAndroidNativeWindow>, Branch<SurfaceSourceMetalLayer>,
--                  Branch<SurfaceSourceWindowsHWND>, Branch<SurfaceDescriptorFromWindowsCoreWindow>,
-+                  Branch<SurfaceSourceAndroidNativeWindow>, Branch<SurfaceSourceEGLNativeWindow>,
-+                  Branch<SurfaceSourceMetalLayer>, Branch<SurfaceSourceWindowsHWND>,
-+                  Branch<SurfaceDescriptorFromWindowsCoreWindow>,
-                   Branch<SurfaceDescriptorFromWindowsUWPSwapChainPanel>,
-                   Branch<SurfaceDescriptorFromWindowsWinUISwapChainPanel>,
-                   Branch<SurfaceSourceSwitchNWindow>,
-                   Branch<SurfaceSourceXlibWindow>, Branch<SurfaceSourceWaylandSurface>>()));
-     switch (type) {
-+        case wgpu::SType::SurfaceSourceEGLNativeWindow: {
-+            auto* subDesc = descriptor.Get<SurfaceSourceEGLNativeWindow>();
-+            DAWN_ASSERT(subDesc != nullptr);
-+            DAWN_INVALID_IF(subDesc->window == nullptr, "EGL native window is nullptr.");
-+            return descriptor;
-+        }
- #if DAWN_PLATFORM_IS(ANDROID)
-         case wgpu::SType::SurfaceSourceAndroidNativeWindow: {
-             auto* subDesc = descriptor.Get<SurfaceSourceAndroidNativeWindow>();
-@@ -312,8 +322,9 @@ Surface::Surface(InstanceBase* instance, const UnpackedPtr<SurfaceDescriptor>& d
-     wgpu::SType type =
-         descriptor
-             .ValidateBranches<
--                Branch<SurfaceSourceAndroidNativeWindow>, Branch<SurfaceSourceMetalLayer>,
--                Branch<SurfaceSourceWindowsHWND>, Branch<SurfaceDescriptorFromWindowsCoreWindow>,
-+                Branch<SurfaceSourceAndroidNativeWindow>, Branch<SurfaceSourceEGLNativeWindow>,
-+                Branch<SurfaceSourceMetalLayer>, Branch<SurfaceSourceWindowsHWND>,
-+                Branch<SurfaceDescriptorFromWindowsCoreWindow>,
-                 Branch<SurfaceDescriptorFromWindowsUWPSwapChainPanel>,
-                 Branch<SurfaceDescriptorFromWindowsWinUISwapChainPanel>,
-                 Branch<SurfaceSourceSwitchNWindow>,
-@@ -326,6 +337,12 @@ Surface::Surface(InstanceBase* instance, const UnpackedPtr<SurfaceDescriptor>& d
-             mAndroidNativeWindow = subDesc->window;
-             break;
-         }
-+        case wgpu::SType::SurfaceSourceEGLNativeWindow: {
-+            auto* subDesc = descriptor.Get<SurfaceSourceEGLNativeWindow>();
-+            mType = Type::EGLNativeWindow;
-+            mEGLNativeWindow = subDesc->window;
-+            break;
-+        }
-         case wgpu::SType::SurfaceSourceMetalLayer: {
-             auto* subDesc = descriptor.Get<SurfaceSourceMetalLayer>();
-             mType = Type::MetalLayer;
-@@ -414,6 +431,12 @@ void* Surface::GetAndroidNativeWindow() const {
-     return mAndroidNativeWindow;
- }
- 
-+void* Surface::GetEGLNativeWindow() const {
-+    DAWN_CHECK(!IsError());
-+    DAWN_CHECK(mType == Type::EGLNativeWindow);
-+    return mEGLNativeWindow;
-+}
-+
- void* Surface::GetMetalLayer() const {
-     DAWN_CHECK(!IsError());
-     DAWN_CHECK(mType == Type::MetalLayer);
-diff --git a/src/dawn/native/Surface.h b/src/dawn/native/Surface.h
-index 450411b4c9..8a23247b42 100644
---- a/src/dawn/native/Surface.h
-+++ b/src/dawn/native/Surface.h
-@@ -78,6 +78,7 @@ class Surface final : public ErrorMonad {
-     enum class Type {
-         Undefined,
-         AndroidWindow,
-+        EGLNativeWindow,
-         MetalLayer,
-         WaylandSurface,
-         WindowsHWND,
-@@ -97,6 +98,9 @@ class Surface final : public ErrorMonad {
-     // Valid to call if the type is Android
-     void* GetAndroidNativeWindow() const;
- 
-+    // Valid to call if the type is EGLNativeWindow
-+    void* GetEGLNativeWindow() const;
-+
-     // Valid to call if the type is WaylandSurface
-     void* GetWaylandDisplay() const;
-     void* GetWaylandSurface() const;
-@@ -164,6 +168,9 @@ class Surface final : public ErrorMonad {
-     // ANativeWindow
-     raw_ptr<void> mAndroidNativeWindow = nullptr;
- 
-+    // EGLNativeWindowType
-+    raw_ptr<void> mEGLNativeWindow = nullptr;
-+
-     // NWindow
-     raw_ptr<void> mSwitchNWindow = nullptr;
- 
-diff --git a/src/dawn/native/Toggles.cpp b/src/dawn/native/Toggles.cpp
-index 9dc22188bb..b057ca3e1f 100644
---- a/src/dawn/native/Toggles.cpp
-+++ b/src/dawn/native/Toggles.cpp
-@@ -690,6 +690,25 @@ static constexpr ToggleEnumAndInfoList kToggleNameAndInfoList = {{
-       "Compat spec, which for OpenGLES is version 3.1 with no extensions. This toggle is used by "
-       "end2end testing.",
-       "crbug.com/382084196", ToggleStage::Adapter}},
-+    {Toggle::GLCacheFramebuffers,
-+     {"gl_cache_framebuffers",
-+      "Cache the framebuffer objects of render passes in the OpenGL backend by attachment "
-+      "identity instead of creating and deleting one per render pass. Entries are dropped when "
-+      "an attached texture is destroyed. Intended for use together with the native GL interop "
-+      "render pass callback on tile-based mobile drivers, where framebuffer completeness "
-+      "validation is expensive; it can regress drivers that block on framebuffer reuse.",
-+      "https://github.com/encounter/dawn", ToggleStage::Device}},
-+    {Toggle::GLInteropTiming,
-+     {"gl_interop_timing",
-+      "Print per-command-type and per-render-pass wall time of command buffer execution and "
-+      "queue submission to stderr every 120 submits. Diagnostic for the native GL interop path.",
-+      "https://github.com/encounter/dawn", ToggleStage::Device}},
-+    {Toggle::GLMapFullBufferWrites,
-+     {"gl_map_full_buffer_writes",
-+      "Perform queue writes that replace a whole buffer through a write-only, invalidating "
-+      "glMapBufferRange instead of glBufferSubData, letting the driver discard the previous "
-+      "storage instead of waiting for in-flight reads of it.",
-+      "https://github.com/encounter/dawn", ToggleStage::Device}},
-     {Toggle::VulkanMonolithicPipelineCache,
-      {"vulkan_monolithic_pipeline_cache",
-       "Use a monolithic VkPipelineCache per device. The embedder is responsible for calling "
-diff --git a/src/dawn/native/Toggles.h b/src/dawn/native/Toggles.h
-index dea360c23b..5c649b09fc 100644
---- a/src/dawn/native/Toggles.h
-+++ b/src/dawn/native/Toggles.h
-@@ -165,6 +165,9 @@ enum class Toggle {
-     D3D12ExpandShaderResourceStateTransitionsToCopySource,
-     GLDepthBiasModifier,
-     GLForceES31AndNoExtensions,
-+    GLCacheFramebuffers,
-+    GLInteropTiming,
-+    GLMapFullBufferWrites,
-     VulkanMonolithicPipelineCache,
-     VulkanIncompletePipelineCacheWorkaround,
-     MetalSerializeTimestampGenerationAndResolution,
-diff --git a/src/dawn/native/opengl/CommandBufferGL.cpp b/src/dawn/native/opengl/CommandBufferGL.cpp
-index 6fb9bcd289..6ab640c24a 100644
---- a/src/dawn/native/opengl/CommandBufferGL.cpp
-+++ b/src/dawn/native/opengl/CommandBufferGL.cpp
+diff -ruN a/src/dawn/native/opengl/CommandBufferGL.cpp b/src/dawn/native/opengl/CommandBufferGL.cpp
+--- a/src/dawn/native/opengl/CommandBufferGL.cpp	2026-08-07 15:55:40.000000000 -0700
++++ b/src/dawn/native/opengl/CommandBufferGL.cpp	2026-09-19 01:04:30.085533213 -0700
 @@ -28,10 +28,18 @@
  #include "src/dawn/native/opengl/CommandBufferGL.h"
  
@@ -294,7 +140,7 @@ index 6fb9bcd289..6ab640c24a 100644
  #include "partition_alloc/pointers/raw_ptr.h"
  #include "src/dawn/common/MatchVariant.h"
  #include "src/dawn/common/Range.h"
-@@ -836,8 +844,55 @@ MaybeError CommandBuffer::Execute(const OpenGLFunctions& gl) {
+@@ -836,8 +844,55 @@
      PassIndex nextComputePassNumber{0u};
      PassIndex nextRenderPassNumber{0u};
  
@@ -350,7 +196,7 @@ index 6fb9bcd289..6ab640c24a 100644
          switch (type) {
              case Command::BeginComputePass: {
                  mCommands.NextCommand<BeginComputePassCmd>();
-@@ -857,6 +912,32 @@ MaybeError CommandBuffer::Execute(const OpenGLFunctions& gl) {
+@@ -857,6 +912,32 @@
  
              case Command::BeginRenderPass: {
                  auto* cmd = mCommands.NextCommand<BeginRenderPassCmd>();
@@ -383,7 +229,7 @@ index 6fb9bcd289..6ab640c24a 100644
                  for (TextureBase* texture :
                       this->GetResourceUsages().renderPasses[nextRenderPassNumber].textures) {
                      DAWN_TRY(ToBackend(texture)->SynchronizeTextureBeforeUse());
-@@ -1312,6 +1393,88 @@ MaybeError CommandBuffer::ExecuteComputePass(const OpenGLFunctions& gl) {
+@@ -1312,6 +1393,88 @@
      DAWN_UNREACHABLE();
  }
  
@@ -472,7 +318,7 @@ index 6fb9bcd289..6ab640c24a 100644
  MaybeError CommandBuffer::ExecuteRenderPass(BeginRenderPassCmd* renderPass,
                                              const OpenGLFunctions& gl,
                                              PassIndex renderPassIndex) {
-@@ -1320,8 +1483,58 @@ MaybeError CommandBuffer::ExecuteRenderPass(BeginRenderPassCmd* renderPass,
+@@ -1320,8 +1483,58 @@
      const IndirectDrawMetadata& metadata = GetIndirectDrawMetadata()[renderPassIndex];
      IndirectDrawIndex indirectDrawIndex{0u};
  
@@ -532,7 +378,7 @@ index 6fb9bcd289..6ab640c24a 100644
          // TODO(kainino@chromium.org): This is added to possibly work around an issue seen on
          // Windows/Intel. It should break any feedback loop before the clears, even if there
          // shouldn't be any negative effects from this. Investigate whether it's actually
-@@ -1365,7 +1578,12 @@ MaybeError CommandBuffer::ExecuteRenderPass(BeginRenderPassCmd* renderPass,
+@@ -1365,7 +1578,12 @@
          }
      }
  
@@ -546,7 +392,7 @@ index 6fb9bcd289..6ab640c24a 100644
  
      // Set defaults for dynamic state before executing clears and commands.
      PersistentPipelineState persistentPipelineState;
-@@ -1611,8 +1829,16 @@ MaybeError CommandBuffer::ExecuteRenderPass(BeginRenderPassCmd* renderPass,
+@@ -1611,8 +1829,16 @@
          return {};
      };
  
@@ -563,7 +409,7 @@ index 6fb9bcd289..6ab640c24a 100644
          switch (type) {
              case Command::EndRenderPass: {
                  mCommands.NextCommand<EndRenderPassCmd>();
-@@ -1653,7 +1879,9 @@ MaybeError CommandBuffer::ExecuteRenderPass(BeginRenderPassCmd* renderPass,
+@@ -1653,7 +1879,9 @@
                                          checked_cast<GLsizei>(attachmentsToDiscard.size()),
                                          attachmentsToDiscard.data()));
                  }
@@ -574,10 +420,9 @@ index 6fb9bcd289..6ab640c24a 100644
                  return {};
              }
  
-diff --git a/src/dawn/native/opengl/OpenGLBackend.cpp b/src/dawn/native/opengl/OpenGLBackend.cpp
-index 93ecedb826..c5add8d735 100644
---- a/src/dawn/native/opengl/OpenGLBackend.cpp
-+++ b/src/dawn/native/opengl/OpenGLBackend.cpp
+diff -ruN a/src/dawn/native/opengl/OpenGLBackend.cpp b/src/dawn/native/opengl/OpenGLBackend.cpp
+--- a/src/dawn/native/opengl/OpenGLBackend.cpp	2026-08-07 15:55:40.000000000 -0700
++++ b/src/dawn/native/opengl/OpenGLBackend.cpp	2026-09-19 01:04:30.085562208 -0700
 @@ -30,12 +30,75 @@
  
  #include "dawn/native/OpenGLBackend.h"
@@ -654,7 +499,7 @@ index 93ecedb826..c5add8d735 100644
  RequestAdapterOptionsGetGLProc::RequestAdapterOptionsGetGLProc() {
      sType = wgpu::SType::RequestAdapterOptionsGetGLProc;
  }
-@@ -66,4 +129,137 @@ WGPUTexture WrapExternalGLTexture(WGPUDevice device,
+@@ -66,4 +129,137 @@
      return ToAPI(ReturnToAPI(std::move(texture)));
  }
  
@@ -792,10 +637,45 @@ index 93ecedb826..c5add8d735 100644
 +}
 +
  }  // namespace dawn::native::opengl
-diff --git a/src/dawn/native/opengl/QueueGL.cpp b/src/dawn/native/opengl/QueueGL.cpp
-index b082e5afe0..e0622940f9 100644
---- a/src/dawn/native/opengl/QueueGL.cpp
-+++ b/src/dawn/native/opengl/QueueGL.cpp
+diff -ruN a/src/dawn/native/opengl/PhysicalDeviceGL.cpp b/src/dawn/native/opengl/PhysicalDeviceGL.cpp
+--- a/src/dawn/native/opengl/PhysicalDeviceGL.cpp	2026-08-07 15:55:40.000000000 -0700
++++ b/src/dawn/native/opengl/PhysicalDeviceGL.cpp	2026-09-19 01:50:50.371363787 -0700
+@@ -37,6 +37,7 @@
+ #include "src/dawn/common/GPUInfo.h"
+ #include "src/dawn/native/ChainUtils.h"
+ #include "src/dawn/native/Instance.h"
++#include "src/dawn/native/Surface.h"
+ #include "src/dawn/native/opengl/ContextEGL.h"
+ #include "src/dawn/native/opengl/DeviceGL.h"
+ #include "src/dawn/native/opengl/DisplayEGL.h"
+@@ -572,15 +573,22 @@
+ 
+ ResultOrError<PhysicalDeviceSurfaceCapabilities> PhysicalDevice::GetSurfaceCapabilities(
+     InstanceBase*,
+-    const Surface*) const {
++    const Surface* surface) const {
+     PhysicalDeviceSurfaceCapabilities capabilities;
+ 
+     capabilities.usages = wgpu::TextureUsage::RenderAttachment |
+                           wgpu::TextureUsage::StorageBinding | wgpu::TextureUsage::TextureBinding |
+                           wgpu::TextureUsage::CopySrc | wgpu::TextureUsage::CopyDst;
+ 
++    // An EGLNativeWindow surface without a window gets a pbuffer, or no EGLSurface at all when the
++    // display has no pbuffer configs (SwapChainEGL), so any config for the format will do: a
++    // surfaceless EGL display offers pbuffer configs only, Mesa's Wayland platform window ones only.
++    const bool pbuffer = surface != nullptr &&
++                         surface->GetType() == Surface::Type::EGLNativeWindow &&
++                         surface->GetEGLNativeWindow() == nullptr;
+     for (wgpu::TextureFormat format : mDisplay->GetPotentialSurfaceFormats()) {
+-        if (mDisplay->ChooseConfig(EGL_WINDOW_BIT, format) != kNoConfig) {
++        if (mDisplay->ChooseConfig(EGL_WINDOW_BIT, format) != kNoConfig ||
++            (pbuffer && mDisplay->ChooseConfig(EGL_PBUFFER_BIT, format) != kNoConfig)) {
+             capabilities.formats.push_back(format);
+         }
+     }
+diff -ruN a/src/dawn/native/opengl/QueueGL.cpp b/src/dawn/native/opengl/QueueGL.cpp
+--- a/src/dawn/native/opengl/QueueGL.cpp	2026-08-07 15:55:40.000000000 -0700
++++ b/src/dawn/native/opengl/QueueGL.cpp	2026-09-19 01:04:30.085572477 -0700
 @@ -27,6 +27,9 @@
  
  #include "src/dawn/native/opengl/QueueGL.h"
@@ -806,7 +686,7 @@ index b082e5afe0..e0622940f9 100644
  #include <vector>
  
  #include "dawn/platform/DawnPlatform.h"
-@@ -80,14 +83,38 @@ Queue::Queue(Device* device, const QueueDescriptor* descriptor) : QueueBase(devi
+@@ -80,14 +83,38 @@
  
  MaybeError Queue::SubmitImpl(Span<CommandBufferBase* const> commands) {
      Device* device = ToBackend(GetDevice());
@@ -852,7 +732,7 @@ index b082e5afe0..e0622940f9 100644
  }
  
  MaybeError Queue::WriteBufferImpl(BufferBase* buffer,
-@@ -95,11 +122,30 @@ MaybeError Queue::WriteBufferImpl(BufferBase* buffer,
+@@ -95,11 +122,30 @@
                                    Span<const std::byte> data) {
      DAWN_TRY(ToBackend(buffer)->EnsureDataInitializedAsDestination(bufferOffset, data.size()));
      buffer->MarkUsedInPendingCommands();
@@ -884,10 +764,9 @@ index b082e5afe0..e0622940f9 100644
                          DAWN_GL_TRY(
                              gl, BufferSubData(GL_ARRAY_BUFFER, checked_cast<GLintptr>(bufferOffset),
                                                checked_cast<GLsizeiptr>(data.size()), data.data()));
-diff --git a/src/dawn/native/opengl/SwapChainEGL.cpp b/src/dawn/native/opengl/SwapChainEGL.cpp
-index 767a91db54..aa80486eed 100644
---- a/src/dawn/native/opengl/SwapChainEGL.cpp
-+++ b/src/dawn/native/opengl/SwapChainEGL.cpp
+diff -ruN a/src/dawn/native/opengl/SwapChainEGL.cpp b/src/dawn/native/opengl/SwapChainEGL.cpp
+--- a/src/dawn/native/opengl/SwapChainEGL.cpp	2026-08-07 15:55:40.000000000 -0700
++++ b/src/dawn/native/opengl/SwapChainEGL.cpp	2026-09-19 01:50:44.319320836 -0700
 @@ -29,6 +29,8 @@
  
  #include <utility>
@@ -897,7 +776,7 @@ index 767a91db54..aa80486eed 100644
  #include "src/dawn/native/Surface.h"
  #include "src/dawn/native/opengl/ContextEGL.h"
  #include "src/dawn/native/opengl/DeviceGL.h"
-@@ -79,6 +81,19 @@ MaybeError SwapChainEGL::Initialize(SwapChainBase* previousSwapChain) {
+@@ -79,6 +81,19 @@
              SwapChainEGL* previousEGLSwapChain =
                  reinterpret_cast<SwapChainEGL*>(ToBackend(previousSwapChain));
              std::swap(previousEGLSwapChain->mEGLSurface, mEGLSurface);
@@ -917,7 +796,7 @@ index 767a91db54..aa80486eed 100644
          }
  
          previousSwapChain->DetachFromSurface();
-@@ -102,6 +117,25 @@ MaybeError SwapChainEGL::PresentImpl() {
+@@ -102,6 +117,30 @@
      EGLDisplay display = device->GetEGLDisplay();
      const EGLFunctions& egl = device->GetEGL(false);
  
@@ -940,10 +819,15 @@ index 767a91db54..aa80486eed 100644
 +        }
 +    }
 +
++    if (mSurfaceless) {
++        return DAWN_INTERNAL_ERROR(
++            "Surfaceless swapchain: the GL interop presenter did not take the frame.");
++    }
++
      // Do the reverse-Y blit from the fake surface texture to the default framebuffer.
      {
          auto surfaceCurrent = device->GetContext()->SetCurrentSurfaceScope(mEGLSurface);
-@@ -134,18 +168,47 @@ MaybeError SwapChainEGL::PresentImpl() {
+@@ -134,18 +173,47 @@
          DAWN_TRY(scopedCurrentContext.End());
      }
  
@@ -993,7 +877,7 @@ index 767a91db54..aa80486eed 100644
      DAWN_TRY_ASSIGN(view, GetDevice()->CreateTextureView(texture.Get()));
  
      mTexture = std::move(ToBackend(texture));
-@@ -159,6 +222,10 @@ ResultOrError<SwapChainTextureInfo> SwapChainEGL::GetCurrentTextureImpl() {
+@@ -159,6 +227,10 @@
  }
  
  void SwapChainEGL::DetachFromSurfaceImpl() {
@@ -1004,7 +888,7 @@ index 767a91db54..aa80486eed 100644
      if (mEGLSurface != EGL_NO_SURFACE) {
          Device* device = ToBackend(GetDevice());
          device->GetEGL(false).DestroySurface(device->GetEGLDisplay(), mEGLSurface);
-@@ -166,10 +233,25 @@ void SwapChainEGL::DetachFromSurfaceImpl() {
+@@ -166,25 +238,53 @@
      }
  
      if (mTexture != nullptr) {
@@ -1030,11 +914,54 @@ index 767a91db54..aa80486eed 100644
  }
  
  MaybeError SwapChainEGL::CreateEGLSurface(const DisplayEGL* display) {
-@@ -203,6 +285,14 @@ MaybeError SwapChainEGL::CreateEGLSurface(const DisplayEGL* display) {
+     DAWN_ASSERT(mEGLSurface == EGL_NO_SURFACE);
+ 
+-    EGLConfig config = display->ChooseConfig(EGL_WINDOW_BIT, GetFormat());
+-    if (config == kNoConfig) {
+-        return DAWN_FORMAT_INTERNAL_ERROR("Couldn't find an EGLConfig for %s on %s.", GetFormat(),
+-                                          GetSurface());
+-    }
++    Surface* surface = GetSurface();
++    // An EGLNativeWindow surface without a window is backed by a pbuffer of the swapchain's size:
++    // the application presents through its own window system and only uses the swapchain textures.
++    const bool pbuffer =
++        surface->GetType() == Surface::Type::EGLNativeWindow && surface->GetEGLNativeWindow() == nullptr;
+ 
+     // [[maybe_unused]] to prevent unused variable warnings when platform code is disabled.
+     [[maybe_unused]] const EGLFunctions& egl = display->egl.get();
+     [[maybe_unused]] EGLDisplay eglDisplay = display->GetDisplay();
+-    Surface* surface = GetSurface();
++
++    EGLConfig config = display->ChooseConfig(pbuffer ? EGL_PBUFFER_BIT : EGL_WINDOW_BIT, GetFormat());
++    if (config == kNoConfig && pbuffer && egl.HasExt(EGLExt::SurfacelessContext) &&
++        GetGLInteropPresentCallbacks() != nullptr) {
++        // No pbuffer configs (Mesa's Wayland/GBM platforms offer window configs only). The device
++        // context is surfaceless, and the interop presenter takes the swapchain texture itself, so
++        // the swapchain needs no EGLSurface.
++        mSurfaceless = true;
++        return {};
++    }
++    if (config == kNoConfig) {
++        return DAWN_FORMAT_INTERNAL_ERROR("Couldn't find an EGLConfig for %s on %s.", GetFormat(),
++                                          GetSurface());
++    }
+ 
+     absl::InlinedVector<EGLint, 3> attribs;
+     auto AddAttrib = [&](EGLint attrib, EGLint value) {
+@@ -203,6 +303,23 @@
      // constraints.
      auto TryCreateSurface = [&]() -> MaybeError {
          switch (surface->GetType()) {
 +            case Surface::Type::EGLNativeWindow:
++                if (pbuffer) {
++                    const EGLint pbufferAttribs[] = {
++                        EGL_WIDTH,  static_cast<EGLint>(GetWidth()),
++                        EGL_HEIGHT, static_cast<EGLint>(GetHeight()),
++                        EGL_NONE,
++                    };
++                    mEGLSurface = egl.CreatePbufferSurface(eglDisplay, config, pbufferAttribs);
++                    return {};
++                }
 +                // The application hands over an EGLNativeWindowType for the display's platform
 +                // (a gbm_surface on DRM/GBM, for instance) with no window system in between.
 +                mEGLSurface = egl.CreateWindowSurface(
@@ -1045,10 +972,18 @@ index 767a91db54..aa80486eed 100644
  #if DAWN_PLATFORM_IS(ANDROID)
              case Surface::Type::AndroidWindow:
                  mEGLSurface = egl.CreateWindowSurface(
-diff --git a/src/dawn/native/opengl/SwapChainEGL.h b/src/dawn/native/opengl/SwapChainEGL.h
-index a3b236ab49..1ec3d7068f 100644
---- a/src/dawn/native/opengl/SwapChainEGL.h
-+++ b/src/dawn/native/opengl/SwapChainEGL.h
+@@ -239,7 +356,7 @@
+     };
+ 
+     DAWN_TRY(TryCreateSurface());
+-    if (mEGLSurface == EGL_NO_SURFACE) {
++    if (mEGLSurface == EGL_NO_SURFACE && !mSurfaceless) {
+         return DAWN_FORMAT_INTERNAL_ERROR("Couldn't create an EGLSurface for %s.", surface);
+     }
+     return {};
+diff -ruN a/src/dawn/native/opengl/SwapChainEGL.h b/src/dawn/native/opengl/SwapChainEGL.h
+--- a/src/dawn/native/opengl/SwapChainEGL.h	2026-08-07 15:55:40.000000000 -0700
++++ b/src/dawn/native/opengl/SwapChainEGL.h	2026-09-19 01:50:31.625230745 -0700
 @@ -28,8 +28,12 @@
  #ifndef SRC_DAWN_NATIVE_OPENGL_SWAPCHAINEGL_H_
  #define SRC_DAWN_NATIVE_OPENGL_SWAPCHAINEGL_H_
@@ -1062,10 +997,14 @@ index a3b236ab49..1ec3d7068f 100644
  
  namespace dawn::native::opengl {
  
-@@ -55,6 +59,21 @@ class SwapChainEGL final : public SwapChainBase {
+@@ -55,6 +59,25 @@
      MaybeError CreateEGLSurface(const DisplayEGL* display);
  
      EGLSurface mEGLSurface = EGL_NO_SURFACE;
++    // An EGLNativeWindow surface without a window on a display that offers no pbuffer configs
++    // (Mesa's Wayland and GBM platforms): the swapchain has no EGLSurface at all and can only be
++    // presented through the GL interop presenter, which takes the texture, not the surface.
++    bool mSurfaceless = false;
 +
 +    // WebGPU requires a new texture from every GetCurrentTexture, and Present destroys it, but the
 +    // GL texture behind it is detached first and kept here to be wrapped by a later frame's
@@ -1084,11 +1023,10 @@ index a3b236ab49..1ec3d7068f 100644
      Ref<Texture> mTexture;
      Ref<TextureView> mTextureView;
  
-diff --git a/src/dawn/native/opengl/TextureGL.cpp b/src/dawn/native/opengl/TextureGL.cpp
-index 98d0584f31..b936fa8fde 100644
---- a/src/dawn/native/opengl/TextureGL.cpp
-+++ b/src/dawn/native/opengl/TextureGL.cpp
-@@ -354,8 +354,31 @@ bool Texture::IsRenderbuffer() const {
+diff -ruN a/src/dawn/native/opengl/TextureGL.cpp b/src/dawn/native/opengl/TextureGL.cpp
+--- a/src/dawn/native/opengl/TextureGL.cpp	2026-08-07 15:55:40.000000000 -0700
++++ b/src/dawn/native/opengl/TextureGL.cpp	2026-09-19 01:04:30.085601291 -0700
+@@ -354,8 +354,31 @@
             GetFormat().HasDepthOrStencil();
  }
  
@@ -1120,11 +1058,10 @@ index 98d0584f31..b936fa8fde 100644
      if (mOwnsHandle == OwnsHandle::Yes) {
          if (IsRenderbuffer()) {
              IgnoreErrors(ToBackend(GetDevice())
-diff --git a/src/dawn/native/opengl/TextureGL.h b/src/dawn/native/opengl/TextureGL.h
-index 663ed262e1..79ab11812a 100644
---- a/src/dawn/native/opengl/TextureGL.h
-+++ b/src/dawn/native/opengl/TextureGL.h
-@@ -61,6 +61,13 @@ class Texture final : public TextureBase {
+diff -ruN a/src/dawn/native/opengl/TextureGL.h b/src/dawn/native/opengl/TextureGL.h
+--- a/src/dawn/native/opengl/TextureGL.h	2026-08-07 15:55:40.000000000 -0700
++++ b/src/dawn/native/opengl/TextureGL.h	2026-09-19 01:04:30.085614325 -0700
+@@ -61,6 +61,13 @@
      GLenum GetGLTarget() const;
      const GLFormat& GetGLFormat() const;
  
@@ -1138,7 +1075,7 @@ index 663ed262e1..79ab11812a 100644
      MaybeError EnsureSubresourceContentInitialized(const OpenGLFunctions& gl,
                                                     const SubresourceRange& range);
  
-@@ -78,6 +85,7 @@ class Texture final : public TextureBase {
+@@ -78,6 +85,7 @@
      GLuint mTextureHandle;
      GLuint mRenderbufferHandle;
      OwnsHandle mOwnsHandle = OwnsHandle::No;
@@ -1146,3 +1083,152 @@ index 663ed262e1..79ab11812a 100644
      GLenum mTarget;
  };
  
+diff -ruN a/src/dawn/native/Surface.cpp b/src/dawn/native/Surface.cpp
+--- a/src/dawn/native/Surface.cpp	2026-08-07 15:55:40.000000000 -0700
++++ b/src/dawn/native/Surface.cpp	2026-09-19 01:06:03.382031673 -0700
+@@ -64,6 +64,9 @@
+         case Surface::Type::AndroidWindow:
+             s->Append("AndroidWindow");
+             break;
++        case Surface::Type::EGLNativeWindow:
++            s->Append("EGLNativeWindow");
++            break;
+         case Surface::Type::MetalLayer:
+             s->Append("MetalLayer");
+             break;
+@@ -115,13 +118,22 @@
+     wgpu::SType type;
+     DAWN_TRY_ASSIGN(
+         type, (descriptor.ValidateBranches<
+-                  Branch<SurfaceSourceAndroidNativeWindow>, Branch<SurfaceSourceMetalLayer>,
+-                  Branch<SurfaceSourceWindowsHWND>, Branch<SurfaceDescriptorFromWindowsCoreWindow>,
++                  Branch<SurfaceSourceAndroidNativeWindow>, Branch<SurfaceSourceEGLNativeWindow>,
++                  Branch<SurfaceSourceMetalLayer>, Branch<SurfaceSourceWindowsHWND>,
++                  Branch<SurfaceDescriptorFromWindowsCoreWindow>,
+                   Branch<SurfaceDescriptorFromWindowsUWPSwapChainPanel>,
+                   Branch<SurfaceDescriptorFromWindowsWinUISwapChainPanel>,
+                   Branch<SurfaceSourceSwitchNWindow>,
+                   Branch<SurfaceSourceXlibWindow>, Branch<SurfaceSourceWaylandSurface>>()));
+     switch (type) {
++        case wgpu::SType::SurfaceSourceEGLNativeWindow: {
++            auto* subDesc = descriptor.Get<SurfaceSourceEGLNativeWindow>();
++            DAWN_ASSERT(subDesc != nullptr);
++            // A null window is allowed: the EGL swapchain then backs the surface with a pbuffer
++            // (for applications that present through their own window system and only need the
++            // swapchain's textures).
++            return descriptor;
++        }
+ #if DAWN_PLATFORM_IS(ANDROID)
+         case wgpu::SType::SurfaceSourceAndroidNativeWindow: {
+             auto* subDesc = descriptor.Get<SurfaceSourceAndroidNativeWindow>();
+@@ -312,8 +324,9 @@
+     wgpu::SType type =
+         descriptor
+             .ValidateBranches<
+-                Branch<SurfaceSourceAndroidNativeWindow>, Branch<SurfaceSourceMetalLayer>,
+-                Branch<SurfaceSourceWindowsHWND>, Branch<SurfaceDescriptorFromWindowsCoreWindow>,
++                Branch<SurfaceSourceAndroidNativeWindow>, Branch<SurfaceSourceEGLNativeWindow>,
++                Branch<SurfaceSourceMetalLayer>, Branch<SurfaceSourceWindowsHWND>,
++                Branch<SurfaceDescriptorFromWindowsCoreWindow>,
+                 Branch<SurfaceDescriptorFromWindowsUWPSwapChainPanel>,
+                 Branch<SurfaceDescriptorFromWindowsWinUISwapChainPanel>,
+                 Branch<SurfaceSourceSwitchNWindow>,
+@@ -326,6 +339,12 @@
+             mAndroidNativeWindow = subDesc->window;
+             break;
+         }
++        case wgpu::SType::SurfaceSourceEGLNativeWindow: {
++            auto* subDesc = descriptor.Get<SurfaceSourceEGLNativeWindow>();
++            mType = Type::EGLNativeWindow;
++            mEGLNativeWindow = subDesc->window;
++            break;
++        }
+         case wgpu::SType::SurfaceSourceMetalLayer: {
+             auto* subDesc = descriptor.Get<SurfaceSourceMetalLayer>();
+             mType = Type::MetalLayer;
+@@ -414,6 +433,12 @@
+     return mAndroidNativeWindow;
+ }
+ 
++void* Surface::GetEGLNativeWindow() const {
++    DAWN_CHECK(!IsError());
++    DAWN_CHECK(mType == Type::EGLNativeWindow);
++    return mEGLNativeWindow;
++}
++
+ void* Surface::GetMetalLayer() const {
+     DAWN_CHECK(!IsError());
+     DAWN_CHECK(mType == Type::MetalLayer);
+diff -ruN a/src/dawn/native/Surface.h b/src/dawn/native/Surface.h
+--- a/src/dawn/native/Surface.h	2026-08-07 15:55:40.000000000 -0700
++++ b/src/dawn/native/Surface.h	2026-09-19 01:04:30.085507615 -0700
+@@ -78,6 +78,7 @@
+     enum class Type {
+         Undefined,
+         AndroidWindow,
++        EGLNativeWindow,
+         MetalLayer,
+         WaylandSurface,
+         WindowsHWND,
+@@ -97,6 +98,9 @@
+     // Valid to call if the type is Android
+     void* GetAndroidNativeWindow() const;
+ 
++    // Valid to call if the type is EGLNativeWindow
++    void* GetEGLNativeWindow() const;
++
+     // Valid to call if the type is WaylandSurface
+     void* GetWaylandDisplay() const;
+     void* GetWaylandSurface() const;
+@@ -164,6 +168,9 @@
+     // ANativeWindow
+     raw_ptr<void> mAndroidNativeWindow = nullptr;
+ 
++    // EGLNativeWindowType
++    raw_ptr<void> mEGLNativeWindow = nullptr;
++
+     // NWindow
+     raw_ptr<void> mSwitchNWindow = nullptr;
+ 
+diff -ruN a/src/dawn/native/Toggles.cpp b/src/dawn/native/Toggles.cpp
+--- a/src/dawn/native/Toggles.cpp	2026-08-07 15:55:40.000000000 -0700
++++ b/src/dawn/native/Toggles.cpp	2026-09-19 01:04:30.085516872 -0700
+@@ -690,6 +690,25 @@
+       "Compat spec, which for OpenGLES is version 3.1 with no extensions. This toggle is used by "
+       "end2end testing.",
+       "crbug.com/382084196", ToggleStage::Adapter}},
++    {Toggle::GLCacheFramebuffers,
++     {"gl_cache_framebuffers",
++      "Cache the framebuffer objects of render passes in the OpenGL backend by attachment "
++      "identity instead of creating and deleting one per render pass. Entries are dropped when "
++      "an attached texture is destroyed. Intended for use together with the native GL interop "
++      "render pass callback on tile-based mobile drivers, where framebuffer completeness "
++      "validation is expensive; it can regress drivers that block on framebuffer reuse.",
++      "https://github.com/encounter/dawn", ToggleStage::Device}},
++    {Toggle::GLInteropTiming,
++     {"gl_interop_timing",
++      "Print per-command-type and per-render-pass wall time of command buffer execution and "
++      "queue submission to stderr every 120 submits. Diagnostic for the native GL interop path.",
++      "https://github.com/encounter/dawn", ToggleStage::Device}},
++    {Toggle::GLMapFullBufferWrites,
++     {"gl_map_full_buffer_writes",
++      "Perform queue writes that replace a whole buffer through a write-only, invalidating "
++      "glMapBufferRange instead of glBufferSubData, letting the driver discard the previous "
++      "storage instead of waiting for in-flight reads of it.",
++      "https://github.com/encounter/dawn", ToggleStage::Device}},
+     {Toggle::VulkanMonolithicPipelineCache,
+      {"vulkan_monolithic_pipeline_cache",
+       "Use a monolithic VkPipelineCache per device. The embedder is responsible for calling "
+diff -ruN a/src/dawn/native/Toggles.h b/src/dawn/native/Toggles.h
+--- a/src/dawn/native/Toggles.h	2026-08-07 15:55:40.000000000 -0700
++++ b/src/dawn/native/Toggles.h	2026-09-19 01:04:30.085533213 -0700
+@@ -165,6 +165,9 @@
+     D3D12ExpandShaderResourceStateTransitionsToCopySource,
+     GLDepthBiasModifier,
+     GLForceES31AndNoExtensions,
++    GLCacheFramebuffers,
++    GLInteropTiming,
++    GLMapFullBufferWrites,
+     VulkanMonolithicPipelineCache,
+     VulkanIncompletePipelineCacheWorkaround,
+     MetalSerializeTimestampGenerationAndResolution,

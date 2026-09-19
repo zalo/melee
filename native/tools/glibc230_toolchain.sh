@@ -25,10 +25,20 @@ triple=aarch64-buildroot-linux-gnu
 old_name=aarch64--glibc--stable-2020.02-2
 old_url="https://toolchains.bootlin.com/downloads/releases/toolchains/aarch64/tarballs/$old_name.tar.bz2"
 download="${GLIBC230_DOWNLOADS:-$(dirname -- "$sdk")}"
+# Bump when the hybrid's contents change (headers, libraries, .pc files): an existing toolchain with
+# an older stamp is rebuilt instead of being trusted (CI restores it from a cache).
+layout_version=2
 
 build() {
     out=$target
-    [ -e "$out" ] && { echo "$out exists; remove it to rebuild the hybrid toolchain"; exit 0; }
+    if [ -e "$out" ]; then
+        if [ "$(cat "$out/.melee-layout" 2>/dev/null)" = "$layout_version" ]; then
+            echo "$out exists (layout $layout_version); remove it to rebuild the hybrid toolchain"
+            exit 0
+        fi
+        echo "== $out has an older layout; rebuilding"
+        rm -rf "$out"
+    fi
     old=$download/$old_name
     if [ ! -d "$old" ]; then
         echo "== fetching $old_name"
@@ -49,18 +59,23 @@ build() {
         rm -rf "$S/usr/include/$d"
         cp -a "$NS/usr/include/$d" "$S/usr/include/$d"
     done
-    # Device and library headers/libs that are not part of glibc.
-    for h in alsa EGL GLES3 KHR gbm.h libdrm libudev.h xf86drm.h xf86drmMode.h zconf.h zlib.h; do
+    # Device and library headers/libs that are not part of glibc (pulse, pipewire-0.3 and spa-0.2 are
+    # the PulseAudio/PipeWire client headers prepare_flip.py fetches for SDL's dlopen audio backends).
+    for h in alsa EGL GLES3 KHR gbm.h libdrm libudev.h xf86drm.h xf86drmMode.h zconf.h zlib.h \
+             pulse pipewire-0.3 spa-0.2; do
         cp -a "$NS/usr/include/$h" "$S/usr/include/"
     done
-    # SDL's KMSDRM configure check (prepare_flip.py writes these, relative to their own location).
+    # SDL's KMSDRM/PulseAudio/PipeWire configure checks (prepare_flip.py writes these, relative to
+    # their own location). Missing ones are written again below, after the copy.
     mkdir -p "$S/usr/lib/pkgconfig"
-    for p in libdrm.pc gbm.pc; do
+    for p in libdrm.pc gbm.pc libpulse.pc libpipewire-0.3.pc libspa-0.2.pc; do
         [ -e "$NS/usr/lib/pkgconfig/$p" ] && cp -a "$NS/usr/lib/pkgconfig/$p" "$S/usr/lib/pkgconfig/"
     done
+    python3 -c "import sys, pathlib; sys.path.insert(0, '$here'); import prepare_flip; prepare_flip.write_sysroot_pkgconfig(pathlib.Path('$S/usr'))"
     rm -f "$S"/usr/lib/libstdc++.so.6.0.25 "$S"/usr/lib/libstdc++.so.6.0.25-gdb.py
     for l in "$NS"/usr/lib/libasound.* "$NS"/usr/lib/libdrm.* "$NS"/usr/lib/libEGL.* "$NS"/usr/lib/libgbm.* \
              "$NS"/usr/lib/libGLESv2.* "$NS"/usr/lib/libmali.* "$NS"/usr/lib/libmali_hook.* "$NS"/usr/lib/libudev.* \
+             "$NS"/usr/lib/libpulse.* "$NS"/usr/lib/libpipewire-0.3.* \
              "$NS"/usr/lib/libz.* "$NS"/usr/lib/libstdc++.* "$NS"/usr/lib/libgfortran.* "$NS"/usr/lib/libgomp.*; do
         [ -e "$l" ] && cp -a "$l" "$S/usr/lib/"
     done
@@ -84,6 +99,7 @@ build() {
     for a in "$work/$triple/lib64/libstdc++.a" "$S/usr/lib/libstdc++.a"; do
         "$sdk/bin/aarch64-linux-ar" rs "$a" "$work/glibc_compat.o"
     done
+    echo "$layout_version" > "$work/.melee-layout"
     mv "$work" "$out"
     echo "glibc 2.30 toolchain: $out"
 }

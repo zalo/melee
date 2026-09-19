@@ -47,13 +47,26 @@ fi
 link_flags=
 if [ "${MELEE_MIN_GLIBC:-2.30}" != "sdk" ]; then
     hybrid="${FLIP_TOOLCHAIN_GLIBC230:-$tools/aarch64--glibc-2.30-hybrid}"
-    [ -d "$hybrid" ] || sh "$root/native/tools/glibc230_toolchain.sh" build "$sdk" "$hybrid"
+    # Returns at once when the hybrid exists with the current layout, rebuilds an outdated one.
+    sh "$root/native/tools/glibc230_toolchain.sh" build "$sdk" "$hybrid"
     export FLIP_TOOLCHAIN="$hybrid"
     # The SDK's libdrm/libz link stubs reference glibc 2.33/2.34 symbols; the device's own copies are loaded at run time.
     link_flags="-DCMAKE_EXE_LINKER_FLAGS=-Wl,--allow-shlib-undefined"
 fi
 
-echo "== Cross build (melee_native for AArch64, -mcpu=$FLIP_CPU, toolchain $FLIP_TOOLCHAIN)"
+# SDL: the package links SDL3 as a shared library and ships bmdhacks' SDL3-over-SDL2 shim as
+# libs.aarch64/libSDL3.so.0 (MELEE_SDL=shim, the default; see native/tools/build_sdl3_shim.sh), so the
+# CFW's own SDL2 owns the display. MELEE_SDL=static builds SDL3 in (KMSDRM/Wayland only; no fbdev CFWs).
+export MELEE_SDL="${MELEE_SDL:-shim}"
+package_sdl3=
+if [ "$MELEE_SDL" = shim ]; then
+    export FLIP_SDL3_ROOT="${FLIP_SDL3_ROOT:-$tools/sdl3-shim-install}"
+    echo "== SDL3-over-SDL2 shim ($FLIP_SDL3_ROOT)"
+    sh "$root/native/tools/build_sdl3_shim.sh" "$FLIP_SDL3_ROOT"
+    package_sdl3="--sdl3 $FLIP_SDL3_ROOT"
+fi
+
+echo "== Cross build (melee_native for AArch64, -mcpu=$FLIP_CPU, toolchain $FLIP_TOOLCHAIN, SDL $MELEE_SDL)"
 # Mali-G31 (RK3326) reports the GLES minimum GL_MAX_UNIFORM_BLOCK_SIZE of 16 KiB, so the uniform
 # window must be 16 KiB (Aurora's default is 64); the vertex stream is Aurora's default 5 MiB.
 # The expected Aurora revision is a CMake cache variable, so a build tree configured before a pin
@@ -67,13 +80,21 @@ sh "$root/native/platform/flip/build.sh" \
 if [ -n "$link_flags" ]; then
     echo "== glibc check"
     sh "$root/native/tools/glibc230_toolchain.sh" verify "$sdk" "$MELEE_BUILD_DIR/melee_native"
+    if [ "$MELEE_SDL" = shim ]; then
+        sh "$root/native/tools/glibc230_toolchain.sh" verify "$sdk" "$FLIP_SDL3_ROOT/lib/libSDL3.so.0"
+    fi
 fi
 
 echo "== Packaging"
 rm -rf "$output/melee" "$output/melee.zip"
 # The plain SDK: package_flip.py strips with it and reads its libstdc++.so.6 for the Flip bundle
 # (dropped again for PortMaster); the glibc 2.30 toolchain has no shared libstdc++.
-python3 "$root/native/tools/package_portmaster.py" --build "$MELEE_BUILD_DIR" --sdk "$sdk" --output "$output"
+python3 "$root/native/tools/package_portmaster.py" --build "$MELEE_BUILD_DIR" --sdk "$sdk" --output "$output" $package_sdl3
+if [ "$MELEE_SDL" = shim ]; then
+    sh "$root/native/platform/flip/check_sdl_backends.sh" --shim "$output/melee/melee/libs.aarch64/libSDL3.so.0" "$output/melee/melee/melee.aarch64"
+else
+    sh "$root/native/platform/flip/check_sdl_backends.sh" "$MELEE_BUILD_DIR" "$output/melee/melee/melee.aarch64"
+fi
 stamp=$(git -C "$root" rev-parse --short HEAD 2>/dev/null || echo local)
 mkdir -p "$tools"
 cp "$MELEE_BUILD_DIR/melee_native" "$tools/melee_native-portmaster-$stamp-symbols"

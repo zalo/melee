@@ -19,6 +19,18 @@ them. If they differ, the barrier stays on, and a "GPU driver update needed" not
 driver version for 20 seconds. Rendering is then correct but runs at about 9-12 FPS.
 `AURORA_GLES_DRIVER_PROBE=0` disables the check.
 
+Display, sound and pads go through the CFW's own SDL 2. The game links SDL 3 (Aurora renders
+through it) as a shared library, and `melee/libs.aarch64/libSDL3.so.0` is the
+[SDL3-over-SDL2 shim](https://github.com/bmdhacks/SDL/tree/sdl2-backend) that Dusklight also ships:
+an SDL 3 whose video, audio and joystick drivers hand everything to the `libSDL2-2.0.so.0` already
+on the device. So whatever the CFW's SDL 2 was patched for (KMSDRM with the RG351P/RG552 rotation,
+fbdev on muOS and H700 Knulli, Wayland on ROCKNIX, the CFW's audio server) applies to Melee as well,
+and nothing on the device is replaced. The launcher hands the CFW's `SDL_VIDEODRIVER` and
+`SDL_AUDIODRIVER` to that inner SDL 2 unchanged. Dawn renders into a pbuffer-backed swapchain and
+the port's present thread copies each frame into SDL's window surface. When the display cannot be
+opened, `melee/log.txt` lists the video drivers in the build, the `/dev/dri` nodes and SDL's reason
+for rejecting each driver.
+
 ## Installation
 
 1. Dump your disc following the
@@ -86,9 +98,15 @@ The launcher environment can force any of these for one run: `MELEE_DEBUG_MENU=1
 
 The port is cross-compiled on an x86_64 Linux host with the Bootlin
 `aarch64--glibc--stable-2023.08-1` toolchain for `-mcpu=cortex-a35`, so one binary runs on every
-supported SoC. The C++ runtime is linked statically, so the port bundles no libraries. SDL is built
-in with its KMSDRM and Wayland video drivers and loads libdrm/libgbm or libwayland from the CFW at
-run time.
+supported SoC. The C++ runtime is linked statically. SDL 3 is linked as a shared library and the
+only bundled library is the SDL3-over-SDL2 shim (`native/tools/build_sdl3_shim.sh` builds it from
+bmdhacks' SDL fork with the same toolchain; `MELEE_SDL=shim`, the default of
+`build_portmaster.sh`). `MELEE_SDL=static` instead builds SDL 3 in with its own KMSDRM and Wayland
+drivers and ALSA/PulseAudio/PipeWire backends (the Flip development flow; it cannot run on fbdev
+CFWs). Either way `native/platform/flip/check_sdl_backends.sh` verifies the result: the shim mode
+needs a dynamically linked `libSDL3.so.0` and a shim that carries the `sdl2` driver, the static mode
+every backend in SDL's generated configuration and in the binary (SDL drops a backend silently when
+its pkg-config module is missing at configure time, which once shipped a build without KMSDRM).
 
 The release binary needs at most `GLIBC_2.30` (`min_glibc` in `port.json`), so that it also starts on
 ArkOS (glibc 2.30) and CrossMix (2.33). The SDK's own glibc is 2.37, so `build_portmaster.sh` links

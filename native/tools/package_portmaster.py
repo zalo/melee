@@ -11,7 +11,9 @@ PortMaster-New expects:
     <output>/melee.zip         Melee.sh + melee/ (+ port.json) at the zip root
 
 No disc image, GPU driver or other system library is ever included; the C++ runtime is linked
-statically into melee.aarch64.
+statically into melee.aarch64. With --sdl3 the SDL3-over-SDL2 shim (native/tools/build_sdl3_shim.sh)
+ships as melee/libs.aarch64/libSDL3.so.0, the one library the launcher adds to LD_LIBRARY_PATH; it
+dlopens the CFW's own SDL2 and replaces nothing on the device.
 """
 import argparse
 import hashlib
@@ -41,11 +43,18 @@ Nothing in this port includes or downloads game data.
 '''
 
 
-def assemble(bundle, output, port_dir=PORT_DIR):
+SDL3_SHIM_LIB = 'libSDL3.so.0'
+SDL3_SHIM_NOTICE = ('SDL 3 built from https://github.com/bmdhacks/SDL branch sdl2-backend (the "SDL3 with SDL2\n'
+                    'backend" fork): an SDL 3 whose video, audio and joystick drivers delegate to the device\'s own\n'
+                    'SDL 2 library at run time. Shipped as libs.aarch64/libSDL3.so.0. Its license (zlib) follows.\n\n')
+
+
+def assemble(bundle, output, port_dir=PORT_DIR, sdl3=None):
     """Turn a package_flip.py bundle directory into the PortMaster tree and zip.
 
     Returns (tree, zip_path). `bundle` must contain melee_native and licenses/<component>.txt;
-    anything else in it (lib/, launch.sh) is Flip-only and ignored.
+    anything else in it (lib/, launch.sh) is Flip-only and ignored. `sdl3` is the shim install prefix
+    (lib/libSDL3.so.0 + LICENSE.txt) to ship in melee/libs.aarch64/.
     """
     bundle = Path(bundle)
     output = Path(output)
@@ -65,6 +74,16 @@ def assemble(bundle, output, port_dir=PORT_DIR):
         shutil.copy2(license_file, data / 'licenses' / f'LICENSE.{license_file.stem}.txt')
     (data / 'assets/README.txt').write_text(ASSETS_README)
     shutil.copy2(port_dir / GPTK_CONFIG, data / GPTK_CONFIG)
+    if sdl3 is not None:
+        sdl3 = Path(sdl3)
+        libs = data / 'libs.aarch64'
+        libs.mkdir()
+        # The soname file itself (a symlink in the install); nothing else from the shim install.
+        shutil.copyfile((sdl3 / 'lib' / SDL3_SHIM_LIB).resolve(), libs / SDL3_SHIM_LIB)
+        os.chmod(libs / SDL3_SHIM_LIB, 0o755)
+        (data / 'licenses/LICENSE.SDL3-sdl2-backend.txt').write_text(SDL3_SHIM_NOTICE + (sdl3 / 'LICENSE.txt').read_text())
+        # hidapi is compiled into SDL3 only in the static build; the shim is built with SDL_HIDAPI=OFF.
+        (data / 'licenses/LICENSE.hidapi.txt').unlink(missing_ok=True)
 
     # PortMaster convention: the launcher is committed 644; the CFW sets the exec bit.
     shutil.copyfile(port_dir / LAUNCHER, tree / LAUNCHER)
@@ -106,6 +125,8 @@ def main():
     parser.add_argument('--build', type=Path, default=ROOT / 'build/portmaster-a35')
     parser.add_argument('--sdk', type=Path, default=os.environ.get('FLIP_TOOLCHAIN'))
     parser.add_argument('--output', type=Path, default=ROOT / 'dist/portmaster')
+    parser.add_argument('--sdl3', type=Path,
+                        help='SDL3-over-SDL2 shim install prefix to ship in melee/libs.aarch64 (shared-SDL builds)')
     args = parser.parse_args()
     if not args.sdk:
         parser.error('Set FLIP_TOOLCHAIN or pass --sdk')
@@ -115,7 +136,7 @@ def main():
         command = [sys.executable, str(ROOT / 'native/tools/package_flip.py'), '--build', str(args.build),
                    '--sdk', str(args.sdk), '--output', str(bundle)]
         subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
-        tree, zip_path = assemble(bundle, args.output)
+        tree, zip_path = assemble(bundle, args.output, sdl3=args.sdl3)
     digest = hashlib.sha256(zip_path.read_bytes()).hexdigest()
     print(tree)
     print(f'{zip_path}  sha256={digest}  bytes={zip_path.stat().st_size}')
