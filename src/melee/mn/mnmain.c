@@ -817,7 +817,14 @@ static void mn_NativeSettingsIdle(MainMenuData* data)
     static const Vec3 origin = { 0.0f, 0.0f, 0.0f };
     // SIS text y grows downwards (jobj world y grows upwards); the bar origin
     // is its centre, so start the label a little right of the left edge.
-    static const Vec3 label_offset = { -4.4f, -0.6f, 0.0f };
+    // Centred on the bar like the retail labels: about 360 * font_size px per
+    // kerned glyph, 20 px per world unit, bar origin at its centre.
+    static const char label_text[] = "Port Settings";
+    static const f32 label_font = 0.048f;
+    static const Vec3 label_offset = {
+        -(f32) (sizeof(label_text) - 1) * 0.048f * 360.0f * 0.5f / 20.0f, -0.6f,
+        0.0f
+    };
     static const GXColor label_color = { 0x30, 0x24, 0x10, 0xFF };
     int i;
     if (data->menu_kind != MENU_KIND_SETTINGS) {
@@ -835,13 +842,13 @@ static void mn_NativeSettingsIdle(MainMenuData* data)
         text->pos_x = pos.x + label_offset.x;
         text->pos_y = -pos.y + label_offset.y;
         text->pos_z = pos.z + label_offset.z;
-        text->font_size.x = 0.048f;
-        text->font_size.y = 0.048f;
+        text->font_size.x = label_font;
+        text->font_size.y = label_font;
         text->text_color = label_color;
         text->active_color = label_color;
         text->default_kerning = 1;
         text->kerning = 1;
-        HSD_SisLib_803A6B98(text, 0.0f, 0.0f, "Port Settings");
+        HSD_SisLib_803A6B98(text, 0.0f, 0.0f, "%s", label_text);
     }
     data->port_label->hidden = 0;
 }

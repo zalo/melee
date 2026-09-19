@@ -205,8 +205,14 @@ static void rebuild(PortMenuData* data)
     Vec3 pos;
     free_all(data);
     pos = bar_position(0);
-    data->title = make_text(pos.x, pos.y, pos.z, kTitleFont, kTitleColor,
-                            "Port Settings");
+    {
+        // Title centred on the Options panel (its centre is about 5 px right
+        // of the screen centre); ~360 * font px per kerned glyph.
+        static const char title[] = "Port Settings";
+        f32 width_units = (f32) (sizeof(title) - 1) * kTitleFont * 360.0f / 20.0f;
+        data->title = make_text(0.25f - width_units * 0.5f, pos.y, pos.z,
+                                kTitleFont, kTitleColor, title);
+    }
     for (i = 0; i < ROW_COUNT; i++) {
         const struct PortRow* row = &rows[i];
         GXColor color = kRowColor;
