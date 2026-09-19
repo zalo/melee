@@ -589,6 +589,8 @@ struct Archive {
         // MnNamedef/MnExtAll/MnMaAll.dat name lists (mnnamenew.c): Shift-JIS string pointer tables.
         else if(root->first.starts_with("mnName")&&(root->first.ends_with("Name")||root->first.ends_with("NameUs"))) result=materialize(AT_STRING_TABLE,root->second);
         else if(root->first=="smSoundTestLoadData") result=materialize(AT_SOUNDTEST_DATA,root->second);
+        // DbCo.dat (dbinit.c db_Setup, debug overlays): bonus, motion-state and sub-motion name tables.
+        else if(root->first=="dbLoadCommonData") result=materialize(AT_DB_COMMON_DATA,root->second);
         // TmBox.dat BracketSrcEntry arrays (gmtoulib.static.h): 0x28-byte entries, s32 fields at 0x8..0x14.
         else if(root->first.starts_with("tournament_box")&&root->first.ends_with("_array")) {
             auto size=extent(root->second);

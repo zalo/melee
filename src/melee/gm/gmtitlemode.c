@@ -62,7 +62,13 @@ void onExit(GameModeState* scene)
         if (!gm_80173754(1, 0)) {
             gm_SetPendingGameMode(GM_MENU);
         }
-    } else {
+    }
+#ifdef MELEE_NATIVE
+    else if ((*buttons & HSD_PAD_Y) && MeleeNativeDebugMenu()) {
+        gm_SetPendingGameMode(GM_DEBUG); // the port's developer menu
+    }
+#endif
+    else {
         gm_801BF708(1);
         gm_SetPendingGameMode(GM_OPENING_MV);
     }

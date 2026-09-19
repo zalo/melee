@@ -2010,8 +2010,15 @@ void fn_8016E730(StartMeleeData* arg0)
     VsSceneController* r30;
 
     db_Setup();
-    gm_SetDbPauseInputHandlers(gm_AnyControllerPressedStart,
-                               gm_AnyControllerPressedZ);
+#ifdef MELEE_NATIVE
+    if (DbLevel < DbLKind_DebugRom) {
+        // Overlay-only mode keeps the retail pause on Start, so the debug
+        // pause takes the non-VS chord (X + D-pad up) and Z still steps.
+        gm_801A4B1C();
+    } else
+#endif
+        gm_SetDbPauseInputHandlers(gm_AnyControllerPressedStart,
+                                   gm_AnyControllerPressedZ);
     gm_SetPreGObjProcCallback(db_RunEveryFrame);
     gm_801A4B50(1);
     lb_80019880(OSSecondsToTicks(1.0F / GM_FPS / arg0->rules.game_speed));

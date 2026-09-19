@@ -146,6 +146,24 @@ authors.
   connector's preferred mode (then the current CRTC mode, then the first mode) and renders
   at the mode size: 640x480 on the Flip, the mode size elsewhere. `MeleeFlipDisplaySize()`
   feeds `AuroraConfig.windowWidth/Height`. No rotation.
+- **Developer menu, Port Settings and debug overlays (2026-09-18, first item of
+  `native/FEATURE_FEASIBILITY.md`)**: Y on the title screen opens the game's own developer
+  menu on every native build (`gmtitle.c`, `gmtitlemode.c`, `gmopeningmode.c`; retail ignores
+  Y there). Its first row, "Port Settings" (`src/melee/if/soundtest.c`, `MELEE_NATIVE`), edits
+  `native/settings.c`'s key = value file `<userPath>/settings.cfg` (`melee/runtime/config/
+  melee-native/settings.cfg` on PortMaster; `native/include/melee_settings.h`; unit test
+  `native/tests/settings_test.c`): `debug_overlays` (0/1), `debug_level` (0 retail, 1..4
+  forced `DbLevel` at the next launch, applied in `gmmain.c` after `gmMain_8015FDA4`), plus an
+  "Unlock All Characters+Stages" action (`gm_80164F18` + `gm_8016468C` + card save, the
+  development build's new-save behaviour). `MELEE_DEBUG_OVERLAYS` / `MELEE_DEBUG_LEVEL` override
+  the file for one launch. Overlays without a debug level: `db_HasOverlays()` in
+  `src/melee/db/db.h` replaces `DbLevel >= DbLKind_DebugRom` only at the overlay sites
+  (`db_Setup`, `db_RunEveryFrame`, the debug pause/frame-step hook in `gmscene.c`), so the
+  gameplay changes tied to the debug level (`ft_0881.c` stale-move decay, `fighter.c` C-stick,
+  `gmvs.c` chords and asserts) stay retail; in that mode `gmvs.c` installs the non-VS debug
+  pause chord (X + D-pad up, Z steps) because Start still pauses normally. The input-script
+  replay gained GameCube D-pad tokens (`DU/DD/DL/DR`) and `SCENE_DEBUG_MENU`; matrix cases
+  `debugmenu` and `overlays` (frame capture) cover the feature on the devices.
 
 ### What was tested (builds and host tests only)
 - Host Linux build (`clang`, RelWithDebInfo, Aurora `04448f6` worktree): `melee_native` and

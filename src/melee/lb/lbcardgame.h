@@ -23,6 +23,9 @@ typedef enum {
 /* 01CC84 */ void lb_8001CC84(void);
 /* 01CDB4 */ void lb_8001CDB4(void);
 /* 01CE00 */ void lbCardGame_SaveChanges(void);
+#ifdef MELEE_NATIVE
+void lbCardGame_RequestSave(void);
+#endif
 /* 01CE78 */ u8 lbCardGame_DecideGameMode(void);
 /* 01CF18 */ void lbCardGame_InitScene(void);
 /* 01D164 */ void lbCardGame_LoadArchive(int);

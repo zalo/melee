@@ -69,7 +69,7 @@ void db_Setup(void)
         char** submotion_names;
     }* commonData;
 
-    if (DbLevel >= DbLKind_DebugRom) {
+    if (db_HasOverlays()) {
         for (i = 0; i < 4; i++) {
             db_ButtonStates[i].repeat = 0;
             db_ButtonStates[i].released = 0;
@@ -170,7 +170,7 @@ void db_RunEveryFrame(void)
     int stack[4];
     int i;
     int num_players;
-    if (DbLevel < DbLKind_DebugRom) {
+    if (!db_HasOverlays()) {
         return;
     }
     if (ftLib_IsMasterHandPresent() || ftLib_IsCrazyHandPresent()) {

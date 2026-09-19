@@ -75,6 +75,20 @@ typedef enum DbLKind {
 /* 229240 */ void fn_UpdateObjAllocLimiter(int arg0);
 /* 3EA6C8 */ extern char db_build_timestamp[];
 /* 4D4A08 */ extern DbLKind DbLevel;
+
+#ifdef MELEE_NATIVE
+/// The port can switch the development overlays (collision bubbles, animation
+/// info, debug pause and frame step, camera and item tools) on without raising
+/// DbLevel, so the gameplay changes tied to DbLKind_DebugRom (stale-move decay,
+/// C-stick handling, self-destruct chords, live asserts) stay retail.
+int MeleeNativeDebugOverlays(void);
+/// Port setting: Y on the title screen opens the developer menu.
+int MeleeNativeDebugMenu(void);
+#define db_HasOverlays()                                                   \
+    (DbLevel >= DbLKind_DebugRom || MeleeNativeDebugOverlays())
+#else
+#define db_HasOverlays() (DbLevel >= DbLKind_DebugRom)
+#endif
 /* 4D6B20 */ extern bool db_804D6B20;
 /* 4D6B24 */ extern char** db_submotion_names;
 /* 4D6B28 */ extern char** db_motionstate_names;

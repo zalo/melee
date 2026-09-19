@@ -17,6 +17,9 @@ typedef struct _MainMenuData {
     /* 0x0003 */ u8 pad_3;
     /* 0x0004 */ HSD_JObj* tree[42]; // 42 * 4 = 0xA8 bytes
     /* 0x00AC */ HSD_Text* description;
+#ifdef MELEE_NATIVE
+    HSD_Text* port_label; ///< "Port Settings" over the Options list's blank bar
+#endif
 } MainMenuData;
 
 typedef struct _MainMenuPanelData {

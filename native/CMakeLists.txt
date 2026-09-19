@@ -87,7 +87,7 @@ add_library(melee_os_runtime OBJECT os_runtime.c)
 target_include_directories(melee_os_runtime PRIVATE $<TARGET_PROPERTY:melee_game,INCLUDE_DIRECTORIES>)
 target_compile_definitions(melee_os_runtime PRIVATE $<TARGET_PROPERTY:melee_game,COMPILE_DEFINITIONS>)
 target_compile_options(melee_os_runtime PRIVATE $<TARGET_PROPERTY:melee_game,COMPILE_OPTIONS>)
-add_executable(melee_native EXCLUDE_FROM_ALL runtime_main.cpp disc_fonts.cpp gx_bridge.cpp vi_runtime.cpp pad_bridge.cpp "${MELEE_ROOT}/src/MSL/float.c" $<TARGET_OBJECTS:melee_game> $<TARGET_OBJECTS:melee_os_runtime>)
+add_executable(melee_native EXCLUDE_FROM_ALL runtime_main.cpp disc_fonts.cpp gx_bridge.cpp vi_runtime.cpp pad_bridge.cpp settings.c "${MELEE_ROOT}/src/MSL/float.c" $<TARGET_OBJECTS:melee_game> $<TARGET_OBJECTS:melee_os_runtime>)
 target_link_libraries(melee_native PRIVATE aurora::core aurora::gx aurora::os aurora::dvd
   aurora::card aurora::mtx aurora::pad aurora::vi aurora::thp)
 if(APPLE)
@@ -167,6 +167,12 @@ target_compile_options(native_os_test PRIVATE $<TARGET_PROPERTY:melee_game,COMPI
 target_link_options(native_os_test PRIVATE -fsanitize=address,undefined)
 add_test(NAME native_os COMMAND native_os_test)
 set_tests_properties(native_os PROPERTIES LABELS melee)
+add_executable(native_settings_test tests/settings_test.c settings.c)
+target_include_directories(native_settings_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_compile_options(native_settings_test PRIVATE -fsanitize=address,undefined)
+target_link_options(native_settings_test PRIVATE -fsanitize=address,undefined)
+add_test(NAME native_settings COMMAND native_settings_test)
+set_tests_properties(native_settings PROPERTIES LABELS melee)
 
 add_executable(native_devcom_test tests/devcom_test.c os_runtime.c
   "${MELEE_ROOT}/src/sysdolphin/baselib/devcom.c")
@@ -192,7 +198,7 @@ target_sources(melee_asset_probe PRIVATE $<TARGET_OBJECTS:melee_gx_probe>)
 
 # Developer-only loader probe. Unimplemented functions still fail at their first
 # call; the actual melee_native target continues requiring a complete static link.
-add_executable(melee_boot_probe EXCLUDE_FROM_ALL runtime_main.cpp disc_fonts.cpp gx_bridge.cpp vi_runtime.cpp pad_bridge.cpp
+add_executable(melee_boot_probe EXCLUDE_FROM_ALL runtime_main.cpp disc_fonts.cpp gx_bridge.cpp vi_runtime.cpp pad_bridge.cpp settings.c
   "${MELEE_ROOT}/src/MSL/float.c" $<TARGET_OBJECTS:melee_game> $<TARGET_OBJECTS:melee_os_runtime>)
 target_link_libraries(melee_boot_probe PRIVATE aurora::core aurora::gx aurora::os aurora::dvd
   aurora::card aurora::mtx aurora::pad aurora::vi aurora::thp)

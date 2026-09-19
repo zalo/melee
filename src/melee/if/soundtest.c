@@ -2358,8 +2358,73 @@ bool un_80301E08(enum soundtest_callback_arg0 update_scene)
 /* 803FA4A8 */ char un_803FA4A8[] = "New DefCalc :";
 /* 803FA4B8 */ char un_803FA4B8[] = "Global Data Edit >";
 /* 803FA4CC */ char un_803FA4CC[] = "Mode Team Test >";
-/* 803FA4E0 */ struct un_80304138_objalloc_t_x8 un_803FA4E0[11] = {
+#ifdef MELEE_NATIVE
+/// "Port Settings" submenu: the native port's persistent options
+/// (native/include/melee_settings.h), saved on every change.
+#include "melee_settings.h"
+static char mnPort_title[] = "< Port Settings >";
+static char mnPort_menu_label[] = "Debug Menu (Y on title) :";
+static char mnPort_overlays[] = "Debug Overlays :";
+static char mnPort_level[] = "DbLevel (next launch) :";
+static char mnPort_retail[] = "Retail";
+static char* mnPort_levels[5] = { mnPort_retail, un_803FA414, un_803FA424,
+                                  un_803FA434, un_804D5898 };
+static char mnPort_open_label[] = "Port Settings  >";
+static char mnPort_unlock[] = "Unlock All Characters+Stages (A)";
+static bool mnPort_OnChange(enum soundtest_callback_arg0 arg0)
+{
+    if (arg0 == 2 || arg0 == 3) {
+        MeleeNativeSettingsSave();
+    }
+    return false;
+}
+/// Sets every character and stage unlock bit in the loaded save data and
+/// marks the memory card dirty, like the development build does for a new
+/// save (gmMainLib_8015FA34). Nothing else in the save changes. The title
+/// screen has not loaded the card archive, so the write happens when the
+/// next menu scene does (lbCardGame_RequestSave).
+static bool mnPort_UnlockAll(enum soundtest_callback_arg0 arg0)
+{
+    if (arg0 == 1) {
+        int i;
+        sfxForward();
+        gmMainLib_GetCardData()->save_data.x186C = 0xFF;
+        gm_80164F18();
+        gm_8016468C();
+        gm_8017297C(); // all special messages achieved and shown
+        for (i = 0; i < 0x42; i++) {
+            gmMainLib_8015D8B0(i); // no pending pop-ups
+        }
+        lbCardGame_RequestSave();
+        OSReport("[port-settings] all characters and stages unlocked\n");
+    }
+    return false;
+}
+static struct un_80304138_objalloc_t_x8 mnPort_menu[6] = {
+    { 0, NULL, mnPort_title, NULL, NULL, 0.0f, 0.0f, 0.0f },
+    { 2, mnPort_OnChange, mnPort_menu_label, un_804D5880,
+      &MeleeNativeSettingsData.debug_menu, 0.0f, 2.0f, 0.0f },
+    { 2, mnPort_OnChange, mnPort_overlays, un_804D5880,
+      &MeleeNativeSettingsData.debug_overlays, 0.0f, 2.0f, 0.0f },
+    { 2, mnPort_OnChange, mnPort_level, mnPort_levels,
+      &MeleeNativeSettingsData.debug_level, 0.0f, 5.0f, 0.0f },
+    { 1, mnPort_UnlockAll, mnPort_unlock, NULL, NULL, 0.0f, 0.0f, 0.0f },
+    { 9, NULL, NULL, NULL, NULL, 0.0f, 0.0f, 0.0f },
+};
+static bool mnPort_Open(enum soundtest_callback_arg0 arg0)
+{
+    un_802FFD94(arg0, mnPort_menu, fn_802FFE6C);
+    return false;
+}
+#define UN_803FA4E0_ROWS 12
+#else
+#define UN_803FA4E0_ROWS 11
+#endif
+/* 803FA4E0 */ struct un_80304138_objalloc_t_x8 un_803FA4E0[UN_803FA4E0_ROWS] = {
     { 0, NULL, db_build_timestamp, NULL, NULL, 0.0f, 0.0f, 0.0f },
+#ifdef MELEE_NATIVE
+    { 1, mnPort_Open, mnPort_open_label, NULL, NULL, 0.0f, 0.0f, 0.0f },
+#endif
     { 1, un_803001DC, un_803FA454, NULL, NULL, 0.0f, 0.0f, 0.0f },
     { 1, un_80301420, un_803FA468, NULL, NULL, 0.0f, 0.0f, 0.0f },
     { 2, un_80300218, un_803FA474, un_804D5888, &un_803FA258.x0, 0.0f, 2.0f,

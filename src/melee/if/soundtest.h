@@ -71,7 +71,11 @@ ASSERT_SIZE(struct UnkSoundTestData1, 0x20);
 /* 301BA8 */ void un_80301BA8(struct UnkSoundTestData1* out);
 /* 301C64 */ void un_80301C64(un_80301C64_t*);
 /* 3F9FA4 */ extern struct SoundTestMenuData un_803F9FA4;
+#ifdef MELEE_NATIVE
+/* 3FA4E0 */ extern struct un_80304138_objalloc_t_x8 un_803FA4E0[12];
+#else
 /* 3FA4E0 */ extern struct un_80304138_objalloc_t_x8 un_803FA4E0[11];
+#endif
 /* 3FA790 */ extern struct un_80304138_objalloc_t_x8 un_803FA790[4];
 /* 3FC4CC */ extern struct un_80304138_objalloc_t_x8 un_803FC4CC[10];
 

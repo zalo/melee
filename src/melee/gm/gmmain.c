@@ -140,6 +140,18 @@ int main(void)
     OSInitAlarm();
     db_GetGameLaunchButtonState();
     gmMain_8015FDA4();
+#ifdef MELEE_NATIVE
+    {
+        // Port setting (settings.cfg debug_level / MELEE_DEBUG_LEVEL): force a
+        // development DbLevel without a develop.ini on the disc. Overlays alone
+        // do not need this; see db_HasOverlays.
+        int MeleeNativeDebugLevel(void);
+        int level = MeleeNativeDebugLevel();
+        if (level > DbLKind_Master && level <= DbLKind_Develop) {
+            DbLevel = (DbLKind) level;
+        }
+    }
+#endif
     if (OSGetConsoleSimulatedMemSize() / (1024 * 1024) == 48) {
         OSAllocFromArenaHi(0x01800000, 4);
     }

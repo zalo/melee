@@ -295,7 +295,16 @@ void onExitTitle(GameModeState* arg0)
             gm_SetPendingGameMode(GM_DEBUG);
             gm_SetNewGameModePending();
         }
-    } else if (*temp_r3 & 0x1000) {
+    }
+#ifdef MELEE_NATIVE
+    else if ((*temp_r3 & HSD_PAD_Y) && MeleeNativeDebugMenu()) {
+        // Y on the title screen opens the port's developer menu when the
+        // Port Settings "Debug Menu" option is on.
+        gm_SetPendingGameMode(GM_DEBUG);
+        gm_SetNewGameModePending();
+    }
+#endif
+    else if (*temp_r3 & 0x1000) {
         gm_80173EEC();
         gm_80172898(0x100);
         if (!gm_80173754(1, 0)) {

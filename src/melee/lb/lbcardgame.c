@@ -272,6 +272,21 @@ void lbCardGame_SaveChanges(void)
     _p(dirty) = true;
 }
 
+#ifdef MELEE_NATIVE
+static bool native_save_pending;
+/// Port menus run in scenes that have not loaded the card archive (the title
+/// screen's developer menu), where lbCardGame_SaveChanges would assert. Save at
+/// once when possible, otherwise as soon as the next scene loads the archive.
+void lbCardGame_RequestSave(void)
+{
+    if (_p(enable)) {
+        lbCardGame_SaveChanges();
+    } else {
+        native_save_pending = true;
+    }
+}
+#endif
+
 u8 lbCardGame_DecideGameMode(void)
 {
     updateCardStatus();
@@ -367,6 +382,12 @@ void lbCardGame_LoadArchive(int jobj_translate_idx)
                            "ScNtcCommon_scene_data", 0);
         _p(jobj_translate_idx) = jobj_translate_idx;
         _p(enable) = true;
+#ifdef MELEE_NATIVE
+        if (native_save_pending) {
+            native_save_pending = false;
+            lbCardGame_SaveChanges();
+        }
+#endif
     }
 }
 

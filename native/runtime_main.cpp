@@ -26,6 +26,7 @@ static void reset_game(int type) {
 }
 
 extern "C" int melee_game_main(void);
+extern "C" void MeleeNativeSettingsLoad(const char* user_path);
 
 #ifdef __linux__
 // Cached pipeline configs only decode to the shaders of the build that wrote them, so every binary
@@ -186,6 +187,7 @@ int main(int argc, char** argv) {
         }
     }
     MeleeNativeConfigureOS(info.userPath, reset_game);
+    MeleeNativeSettingsLoad(info.userPath);
 #ifdef __APPLE__
     MeleeNativeSkipSavePrompt = graphical_launch;
     if (graphical_launch) {

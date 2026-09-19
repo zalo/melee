@@ -50,6 +50,10 @@
 #include <sysdolphin/baselib/lobj.h>
 #include <sysdolphin/baselib/memory.h>
 #include <sysdolphin/baselib/mobj.h>
+#ifdef MELEE_NATIVE
+#include "mnportsettings.h"
+#include <melee/lb/lb_00B0.h>
+#endif
 
 /* 22C068 */ static void mn_8022C068(HSD_LObj*, int, int);
 
@@ -722,7 +726,12 @@ bool mn_80229938(MenuKind menu_kind, s32 selection)
         return false;
     }
     if (menu_kind == MENU_KIND_SETTINGS && selection == SEL_SETTINGS_3) {
+#ifdef MELEE_NATIVE
+        // The port uses the slot Nintendo left hidden for its own settings.
+        return true;
+#else
         return false;
+#endif
     }
     if (menu_kind == MENU_KIND_1P && selection == SEL_1P_2) {
         return false;
@@ -768,6 +777,24 @@ static void mn_80229A7C(MainMenuData* data, MenuKind menu_kind, int selection)
         data->description = NULL;
     }
     sis_idx = mn_803EB6B0[menu_kind].description_indices;
+#ifdef MELEE_NATIVE
+    if (menu_kind == MENU_KIND_SETTINGS && selection == SEL_SETTINGS_3) {
+        // The port's slot has no SIS string on the disc: print our own.
+        text = HSD_SisLib_803A6754(0, mn_804D6BB4);
+        data->description = text;
+        text->pos_x = -9.5f;
+        text->pos_y = 9.1f;
+        text->pos_z = 17.0f;
+        text->box_size_x = 364.68332f;
+        text->box_size_y = 38.38772f;
+        text->font_size.x = 0.0521f;
+        text->font_size.y = 0.0521f;
+        text->default_kerning = 1;
+        text->kerning = 1;
+        HSD_SisLib_803A6B98(text, 0.0f, 0.0f, "%s", mn_NativePortDescription);
+        return;
+    }
+#endif
     if (sis_idx != 0) {
         text = HSD_SisLib_803A5ACC(0, mn_804D6BB4, -9.5f, 9.1f, 17.0f,
                                    364.68332f, 38.38772f);
@@ -782,6 +809,44 @@ static inline void mn_80229A7C_dontinline(void* arg0, int arg1, int arg2)
 {
     mn_80229A7C(arg0, arg1, arg2);
 }
+
+#ifdef MELEE_NATIVE
+/// While the Options list is idle: sample the bar positions for the Port
+/// Settings screen and label the blank fourth bar.
+static void mn_NativeSettingsIdle(MainMenuData* data)
+{
+    static const Vec3 origin = { 0.0f, 0.0f, 0.0f };
+    // SIS text y grows downwards (jobj world y grows upwards); the bar origin
+    // is its centre, so start the label a little right of the left edge.
+    static const Vec3 label_offset = { -4.4f, -0.6f, 0.0f };
+    static const GXColor label_color = { 0x30, 0x24, 0x10, 0xFF };
+    int i;
+    if (data->menu_kind != MENU_KIND_SETTINGS) {
+        return;
+    }
+    for (i = 0; i < 6; i++) {
+        lb_8000B1CC(data->tree[mn_803EAE68[i]], (Vec3*) &origin,
+                    &mn_NativeSettingsBars[i]);
+    }
+    mn_NativeSettingsBarsValid = 1;
+    if (data->port_label == NULL) {
+        Vec3 pos = mn_NativeSettingsBars[SEL_SETTINGS_3];
+        HSD_Text* text = HSD_SisLib_803A6754(0, 1);
+        data->port_label = text;
+        text->pos_x = pos.x + label_offset.x;
+        text->pos_y = -pos.y + label_offset.y;
+        text->pos_z = pos.z + label_offset.z;
+        text->font_size.x = 0.048f;
+        text->font_size.y = 0.048f;
+        text->text_color = label_color;
+        text->active_color = label_color;
+        text->default_kerning = 1;
+        text->kerning = 1;
+        HSD_SisLib_803A6B98(text, 0.0f, 0.0f, "Port Settings");
+    }
+    data->port_label->hidden = 0;
+}
+#endif
 
 StaticModelDesc MenMainBack_Top;
 
@@ -1347,6 +1412,12 @@ void fn_8022AFEC(HSD_GObj* gp)
             HSD_SisLib_803A5CC4(final_data->description);
             final_data->description = NULL;
         }
+#ifdef MELEE_NATIVE
+        if (final_data->port_label != NULL) {
+            HSD_SisLib_803A5CC4(final_data->port_label);
+            final_data->port_label = NULL;
+        }
+#endif
         break;
     case MENU_STATE_IDLE:
         if ((s32) state != false) {
@@ -1354,6 +1425,9 @@ void fn_8022AFEC(HSD_GObj* gp)
                                    hovered_selection);
         }
         final_data->description->hidden = 0;
+#ifdef MELEE_NATIVE
+        mn_NativeSettingsIdle(final_data);
+#endif
         break;
     }
     if (var_r26 != 0) {
@@ -1433,6 +1507,9 @@ HSD_GObj* mn_8022B3A0(u8 state)
     user_data->hovered_selection = mn_804A04F0.hovered_selection;
     user_data->state = state;
     user_data->description = NULL;
+#ifdef MELEE_NATIVE
+    user_data->port_label = NULL;
+#endif
     for (idx = 0; idx < (int) ARRAY_SIZE(user_data->tree); idx++) {
         lb_80011E24(root_jobj, &user_data->tree[idx], idx, -1);
     }
@@ -2333,6 +2410,13 @@ void mn_8022D104(HSD_GObj* gp)
             mnDeflicker_8024A6C4(1);
             HSD_GObjFree(gp);
             break;
+#ifdef MELEE_NATIVE
+        case SEL_SETTINGS_3:
+            sfxForward();
+            mnPort_Init();
+            HSD_GObjFree(gp);
+            break;
+#endif
         case SEL_SETTINGS_LANG:
             sfxForward();
             mnLanguage_8024C5C0((HSD_GObj*) 1);

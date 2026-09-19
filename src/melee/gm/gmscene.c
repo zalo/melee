@@ -315,7 +315,7 @@ void gm_801A4D34(void (*on_frame)(void), UNUSED GameSceneInfo* info)
                 if (MeleeNativeTestFreeze()) continue;
             }
 #endif
-            if (DbLevel >= DbLKind_DebugRom) {
+            if (db_HasOverlays()) {
                 gm_801A4970(&temp_r25->unk_10.db_input);
             }
             if (gm_801A46B8(0) || !gm_GetDbPauseFlag(0)) {

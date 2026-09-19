@@ -44,6 +44,44 @@ pipeline cache in `melee/runtime/cache`.
 | Start | Start |
 | Start + Select | Exit |
 
+## Port Settings
+
+Main menu > **Options** > the fourth, unlabelled-on-disc row (it reads **Port Settings** here)
+opens this port's own options screen. Left and right change a value, A activates a row, B saves
+and returns. Values live in `melee/runtime/config/melee-native/settings.cfg`.
+
+| Row | Effect |
+| --- | --- |
+| Debug Menu, Y on title | On: Y on the title screen opens the game's developer menu (below). Off by default. |
+| Debug Overlays | On: matches gain the development tools below while gameplay stays retail. |
+| Unlock All Characters and Stages | Sets every character and stage unlock (and the game's own "special message" bonuses) in the current save and writes the memory card. On the next visit to the main menu the game hands out the trophies it awards for those unlocks, one pop-up each; press A through them once. |
+| Online Play | Reserved for the online-play configuration screen; shows "Coming soon". |
+
+## Developer menu
+
+With Debug Menu on, press **Y on the title screen** to open the game's own developer menu (the
+retail game ignores Y there). Its first row, **Port Settings**, mirrors the screen above and adds:
+
+| Row | Effect |
+| --- | --- |
+| DbLevel (next launch) | Forces a development debug level at the next launch (Debug-Rom is the full development build: stale-move decay off, self-destruct chords, live asserts). Leave on Retail unless you know the debug build. |
+
+With Debug Overlays on, in any VS-style match (handheld buttons; the left stick is the GameCube
+D-pad):
+
+| Chord | Tool |
+| --- | --- |
+| R2 + left stick up | Cycle the collision-bubble view for every fighter (three steps; the second draws hurtboxes and hitboxes in place of the models) |
+| R2 + left stick left | Cycle extra ranges (ledge grab, throws, item pickup, coin pickup) |
+| Y (hold) + left stick down | Toggle the action-state / animation info panel |
+| X (hold) + left stick down | Cycle the HUD off and on |
+| X (hold) + left stick up | Debug pause (the retail Start pause keeps working) |
+| R1 (Z) while debug-paused | Advance one frame |
+| Y (hold) + left stick left/right | Camera info and free camera (C-stick moves it) |
+
+The launcher environment can force any of these for one run: `MELEE_DEBUG_MENU=1`,
+`MELEE_DEBUG_OVERLAYS=1`, `MELEE_DEBUG_LEVEL=3`.
+
 ## Building
 
 The port is cross-compiled on an x86_64 Linux host with the Bootlin

@@ -62,6 +62,7 @@ static bool replayInput() {
             else if(key=="SCENE_CSS") wait_scene=8;
             else if(key=="SCENE_SSS") wait_scene=9;
             else if(key=="SCENE_MOVIE") wait_scene=28;
+            else if(key=="SCENE_DEBUG_MENU") wait_scene=7;
             else {
                 size_t start=0;
                 do {
@@ -75,6 +76,11 @@ static bool replayInput() {
                     else if(part=="E") buttons|=PAD_TRIGGER_R;
                     else if(part=="R") buttons|=PAD_TRIGGER_Z;
                     else if(part=="START") buttons|=PAD_BUTTON_START;
+                    // GameCube D-pad (the debug overlay chords use it with R, X and Y).
+                    else if(part=="DU") buttons|=PAD_BUTTON_UP;
+                    else if(part=="DD") buttons|=PAD_BUTTON_DOWN;
+                    else if(part=="DL") buttons|=PAD_BUTTON_LEFT;
+                    else if(part=="DR") buttons|=PAD_BUTTON_RIGHT;
                     else if(part=="W") y=80;
                     else if(part=="S") y=-80;
                     else if(part=="A") x=-80;

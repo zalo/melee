@@ -40,6 +40,9 @@
 #define B(T,m,o,n) F(T,m,o,AF_BYTE,n,0)
 #define S(name, T, disk, ...) static const MeleeAssetField name##_fields[]={__VA_ARGS__}; static const MeleeAssetSchema name={disk,sizeof(T),name##_fields,sizeof(name##_fields)/sizeof(*name##_fields)}
 S(soundtestdata,struct SmSoundTestLoadData,32,U(struct SmSoundTestLoadData,mode_count,0,1),P(struct SmSoundTestLoadData,mode_names,4,AT_STRING_TABLE),P(struct SmSoundTestLoadData,fgm_group_names,8,AT_STRING_TABLE),P(struct SmSoundTestLoadData,fgm_names,12,AT_STRING_TABLE),U(struct SmSoundTestLoadData,fgm_count,16,1),P(struct SmSoundTestLoadData,fgm_ids,20,AT_WORDS),P(struct SmSoundTestLoadData,fgm_group_sizes,24,AT_WORDS),P(struct SmSoundTestLoadData,bgm_names,28,AT_STRING_TABLE));
+/* DbCo.dat dbLoadCommonData (dbinit.c db_Setup): three name tables for the development overlays. */
+struct DbCommonData { char** bonus_names; char** motionstate_names; char** submotion_names; };
+S(dbcommondata,struct DbCommonData,12,P(struct DbCommonData,bonus_names,0,AT_STRING_TABLE),P(struct DbCommonData,motionstate_names,4,AT_STRING_TABLE),P(struct DbCommonData,submotion_names,8,AT_STRING_TABLE));
 S(scene,SceneDesc,16,P(SceneDesc,models,0,AT_MODELS),P(SceneDesc,cameras,4,AT_CAMERAS),P(SceneDesc,lights,8,AT_LIGHT_LISTS),P(SceneDesc,fogs,12,AT_SCENE_FOG));
 S(model,DynamicModelDesc,16,P(DynamicModelDesc,joint,0,AT_JOINT),P(DynamicModelDesc,anims,4,AT_ANIMS),P(DynamicModelDesc,matanims,8,AT_MATANIMS),P(DynamicModelDesc,shapeanims,12,AT_SHAPEANIMS));
 S(scene_fog,struct SceneFogDesc,8,P(struct SceneFogDesc,desc,0,AT_FOG),P(struct SceneFogDesc,anims,4,AT_CAMERA_ANIMS));
@@ -265,7 +268,7 @@ const MeleeAssetSchema* MeleeNativeAssetSchema(unsigned type) {
     CASE(AT_ITEM_ATTR,itemattr); CASE(AT_ITEM_HURT,itemhurt); CASE(AT_ITEM_STATES,itemstates);
     CASE(AT_ITEM_MODEL,itemmodel); CASE(AT_ITEM_DYNAMICS,itemdynamics); CASE(AT_BONE_DYNAMICS,bonedynamics);
     CASE(AT_ITEM_FOODS,itemfoods); CASE(AT_ITEM_KINOKO,itemkinoko); CASE(AT_ITEM_WSTAR,itemwstar);
-    CASE(AT_ITEM_KURI,itemkuri); CASE(AT_ITEM_LIKELIKE,itemlikelike); CASE(AT_SOUNDTEST_DATA,soundtestdata); CASE(AT_ITEM_LEADEAD,itemleadead); CASE(AT_ITEM_OCTA,itemocta);
+    CASE(AT_ITEM_KURI,itemkuri); CASE(AT_ITEM_LIKELIKE,itemlikelike); CASE(AT_SOUNDTEST_DATA,soundtestdata); CASE(AT_DB_COMMON_DATA,dbcommondata); CASE(AT_ITEM_LEADEAD,itemleadead); CASE(AT_ITEM_OCTA,itemocta);
     CASE(AT_ITEM_OTTO,itemotto); CASE(AT_ITEM_TIERS,itemtiers); CASE(AT_ITEM_UNKNOWN,itemunknown);
     CASE(AT_EVENT,event); CASE(AT_EVENT_INIT,eventinit); CASE(AT_EVENT_PLAYER,eventplayer); CASE(AT_EVENT_BONUS,eventbonus); CASE(AT_EVENT_STAGE,eventstage); CASE(AT_EVENT_EXTRA,eventextra); CASE(AT_EVENT_TIMING,eventtiming); CASE(AT_REFRACT,refract); CASE(AT_TROPHIES,trophies); CASE(AT_TROPHY_DISPLAY,trophy_display); CASE(AT_TROPHY_FILES,trophy_files);
     CASE(AT_SHAPEJOINT,shapejoint); CASE(AT_SHAPEDOBJ,shapedobj); CASE(AT_SHAPEANIM,shapeanim);

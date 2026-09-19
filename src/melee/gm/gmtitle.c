@@ -278,7 +278,20 @@ void gm_Scene_Title_OnFrame(void)
         tmp = gm_GetCurrentSceneExitData();
         *tmp = input;
         gm_801A4B60();
-    } else if (DbLevel >= DbLKind_DebugRom) {
+    }
+#ifdef MELEE_NATIVE
+    // The port's developer menu (Port Settings, overlays) opens with Y on
+    // every build; retail ignores Y here.
+    else if (DbLevel < DbLKind_DebugRom && (input & HSD_PAD_Y) &&
+             MeleeNativeDebugMenu())
+    {
+        sfxForward();
+        tmp = gm_GetCurrentSceneExitData();
+        *tmp = input;
+        gm_801A4B60();
+    }
+#endif
+    else if (DbLevel >= DbLKind_DebugRom) {
         if (input & HSD_PAD_Y) {
             sfxForward();
             tmp = gm_GetCurrentSceneExitData();

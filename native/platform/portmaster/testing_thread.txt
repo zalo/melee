@@ -51,7 +51,7 @@ Porter results (13 scripted modes: VS match, Classic, Adventure, Event, Multi-Ma
 | --- | --- | --- |
 | Anbernic RG351P (RK3326, 480x320) | AmberELEC | all modes pass; 60 FPS in menus and events, 13-36 FPS in the scripted VS match |
 | Anbernic RG351P (RK3326, 480x320) | Batocera 42 (libmali r13p0) | all modes pass; medians 38-49 FPS in matches and menus, 60 in Home-Run |
-| Anbernic RG351P (RK3326, 480x320) | ROCKNIX 20260901 (libmali g31) | all modes pass; medians 21 FPS in the VS match, 22-58 elsewhere |
+| Anbernic RG351P (RK3326, 480x320) | ROCKNIX 20260901 (libmali g31) | all modes pass; medians 22-58 FPS (final build: VS match 30, Event 39, Tournament 59) |
 | Anbernic RG351P (RK3326, 480x320) | ROCKNIX 20260901 (Panfrost, Mesa 26.1) | all modes pass; slow: medians 10-45 FPS, 20 in the VS match, menus at 10 FPS, about 60 MB of RAM free; libmali is the better driver here |
 | Anbernic RG351P (RK3326, 480x320) | dArkOS (RG351MP image, libmali g31 r13p0) | all modes pass; medians 48-60 FPS, 53 in the VS match, the fastest RG351P result. No rumble: dArkOS exposes no force-feedback device on this board |
 | Miyoo Flip (RK3566, 640x480) | stock firmware (libmali g2p0), also g29p1 | menus, VS, Classic, Event; 50-60 FPS in matches, 60 in menus |
