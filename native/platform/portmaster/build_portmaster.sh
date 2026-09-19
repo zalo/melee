@@ -26,10 +26,12 @@ echo "== Aurora (zalo/aurora-arm gles-direct-submission)"
 python3 "$root/native/tools/bootstrap.py"
 
 if [ -z "${FLIP_TOOLCHAIN:-}" ] || [ -z "${FLIP_DAWN_PREFIX:-}" ]; then
-    echo "== Preparing the SDK and Dawn (needs the device on ADB once, for its GLES libraries)"
-    python3 "$root/native/tools/prepare_flip.py" ${PREPARE_FLIP_ARGS:-}
+    # PREPARE_FLIP_ARGS=--no-device takes the device libraries from Debian arm64 packages (CI);
+    # otherwise the device must be on ADB once for its GLES libraries.
+    echo "== Preparing the SDK, device libraries and the cortex-a35 Dawn"
+    python3 "$root/native/tools/prepare_flip.py" --cpu a35 ${PREPARE_FLIP_ARGS:-}
     : "${FLIP_TOOLCHAIN:=$tools/aarch64--glibc--stable-2023.08-1}"
-    : "${FLIP_DAWN_PREFIX:=$tools/dawn-install}"
+    : "${FLIP_DAWN_PREFIX:=$tools/dawn-install-a35}"
 fi
 export FLIP_TOOLCHAIN FLIP_DAWN_PREFIX
 sdk=$FLIP_TOOLCHAIN

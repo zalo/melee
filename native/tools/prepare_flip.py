@@ -58,10 +58,67 @@ def apply_patch(directory, patch):
     subprocess.run(command + [str(patch)], env=env, check=True)
 
 
+# Device libraries for builds without a device (CI): Debian bookworm arm64 packages providing the
+# same sonames the Flip's /usr/lib has. Only libdrm is linked; glvnd's libEGL/libGLESv2 stand in for
+# the Mali wrappers (native/CMakeLists.txt links them directly when no libmali is present), and
+# libgbm/libasound/libudev only satisfy SDL's configure checks (dlopened at run time).
+DEVICE_PACKAGES = {
+    'libd/libdrm/libdrm2_2.4.114-1+b1_arm64.deb': 'f5f15a46d02cf5d9fa52d4f1c54b8cf80c398711ad771a9938b12399b8d8090c',
+    'm/mesa/libgbm1_22.3.6-1+deb12u2_arm64.deb': 'f5c8fdddbf365259d74af270fb10f30d7fddb3fbe7b2ff62f0fdd556f8db0dc8',
+    'libg/libglvnd/libegl1_1.6.0-1_arm64.deb': '707097a275155c600e2e9251c4ee7cdfdb2d8f50a678a850a2526a7bc9664166',
+    'libg/libglvnd/libgles2_1.6.0-1_arm64.deb': 'efeb2717380f8411d66b3f669bb99bbd83ff09db3d4a1661533aa31af659608c',
+    'a/alsa-lib/libasound2_1.2.8-1+b1_arm64.deb': '9fa889400fcee4b92c8f4a2fafbb7f2cd33444d9ec1665a71002ab67c06114bb',
+    's/systemd/libudev1_252.39-1~deb12u2_arm64.deb': 'b76444b0259abfa416f8c1d9a652d208a24770667a1181aa52317b74d12a7a72',
+}
+DEVICE_SONAMES = {'EGL': 'libEGL.so.1', 'GLESv2': 'libGLESv2.so.2', 'gbm': 'libgbm.so.1', 'drm': 'libdrm.so.2',
+                  'asound': 'libasound.so.2', 'udev': 'libudev.so.1'}
+
+
+def fetch_device_libraries(usr):
+    """Populate <sysroot>/usr/lib with the Debian arm64 libraries listed in DEVICE_PACKAGES."""
+    import io
+    import sys
+    import tarfile
+    import tempfile
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import prepare_wayland
+    lib = usr / 'lib'
+    with tempfile.TemporaryDirectory() as scratch:
+        root = Path(scratch)
+        for path, expected in DEVICE_PACKAGES.items():
+            with urllib.request.urlopen(prepare_wayland.MIRROR + path, timeout=120) as response:
+                deb = response.read()
+            digest = hashlib.sha256(deb).hexdigest()
+            if digest != expected:
+                raise RuntimeError(f'{path}: sha256 {digest}, expected {expected}')
+            with tarfile.open(fileobj=io.BytesIO(prepare_wayland.deb_data(deb))) as archive:
+                archive.extractall(root, filter='tar')
+        for entry in sorted((root / 'usr/lib/aarch64-linux-gnu').iterdir()):
+            if entry.name.startswith('lib') and '.so' in entry.name:
+                target = lib / entry.name
+                if target.exists() or target.is_symlink():
+                    continue
+                if entry.is_symlink():
+                    target.symlink_to(os.readlink(entry))
+                else:
+                    shutil.copy2(entry, target)
+    for stem, soname in DEVICE_SONAMES.items():
+        if not (lib / soname).exists():
+            raise RuntimeError(f'{soname} missing after extracting the Debian packages')
+        link = lib / ('lib' + stem + '.so')
+        if not link.exists():
+            link.symlink_to(soname)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--adb', default='adb')
     parser.add_argument('--device', default='10.0.0.178:5555')
+    parser.add_argument('--no-device', action='store_true',
+                        help='Take the device libraries from Debian arm64 packages instead of pulling them over ADB')
+    parser.add_argument('--cpu', choices=['a55', 'a35'], default='a55',
+                        help='Dawn target: a55 (Flip tuning; build/flip-dawn, dawn-install) or '
+                             'a35 (PortMaster baseline; build/flip-dawn-a35, dawn-install-a35)')
     parser.add_argument('--prepare-only', action='store_true')
     parser.add_argument('--with-g29', action='store_true', help='Fetch the verified app-local GLES driver')
     args = parser.parse_args()
@@ -101,22 +158,29 @@ def main():
             shutil.copytree(src, usr / 'include' / name, dirs_exist_ok=True)
         else:
             shutil.copy2(src, usr / 'include' / name)
-    subprocess.run([args.adb, 'connect', args.device], check=True)
-    # Resolve device symlinks while pulling, and provide normal linker names.
-    for stem, soname in {'EGL': 'libEGL.so.1', 'GLESv2': 'libGLESv2.so.2',
-                         'gbm': 'libgbm.so.1', 'drm': 'libdrm.so.2',
-                         'mali': 'libmali.so.1', 'mali_hook': 'libmali_hook.so.1',
-                         'asound': 'libasound.so.2', 'udev': 'libudev.so.1'}.items():
-        target = usr / 'lib' / soname
-        if not target.exists():
-            subprocess.run([args.adb, '-s', args.device, 'pull', '/usr/lib/' + soname, str(target)], check=True)
-        link = usr / 'lib' / ('lib' + stem + '.so')
-        if not link.exists():
-            link.symlink_to(soname)
+    if args.no_device:
+        fetch_device_libraries(usr)
+    else:
+        subprocess.run([args.adb, 'connect', args.device], check=True)
+        # Resolve device symlinks while pulling, and provide normal linker names.
+        for stem, soname in {'EGL': 'libEGL.so.1', 'GLESv2': 'libGLESv2.so.2',
+                             'gbm': 'libgbm.so.1', 'drm': 'libdrm.so.2',
+                             'mali': 'libmali.so.1', 'mali_hook': 'libmali_hook.so.1',
+                             'asound': 'libasound.so.2', 'udev': 'libudev.so.1'}.items():
+            target = usr / 'lib' / soname
+            if not target.exists():
+                subprocess.run([args.adb, '-s', args.device, 'pull', '/usr/lib/' + soname, str(target)], check=True)
+            link = usr / 'lib' / ('lib' + stem + '.so')
+            if not link.exists():
+                link.symlink_to(soname)
     env = dict(os.environ, FLIP_TOOLCHAIN=str(sdk))
+    suffix = '' if args.cpu == 'a55' else '-' + args.cpu
+    toolchain_file = ROOT / 'native/platform/flip' / ('toolchain.cmake' if args.cpu == 'a55' else f'toolchain-{args.cpu}.cmake')
+    dawn_build = ROOT / ('build/flip-dawn' + suffix)
+    dawn_prefix = TOOLS / ('dawn-install' + suffix)
     if not args.prepare_only:
-        subprocess.run(['cmake', '-S', str(dawn), '-B', str(ROOT / 'build/flip-dawn'),
-                        '-DCMAKE_TOOLCHAIN_FILE=' + str(ROOT / 'native/platform/flip/toolchain.cmake'),
+        subprocess.run(['cmake', '-S', str(dawn), '-B', str(dawn_build),
+                        '-DCMAKE_TOOLCHAIN_FILE=' + str(toolchain_file),
                         '-DCMAKE_BUILD_TYPE=Release', '-DDAWN_ENABLE_OPENGLES=ON',
                         '-DDAWN_ENABLE_DESKTOP_GL=OFF', '-DDAWN_ENABLE_VULKAN=OFF',
                         '-DDAWN_USE_X11=OFF', '-DDAWN_USE_WAYLAND=OFF', '-DDAWN_USE_GLFW=OFF',
@@ -124,12 +188,11 @@ def main():
                         '-DTINT_BUILD_CMD_TOOLS=OFF', '-DDAWN_BUILD_PROTOBUF=OFF', '-DTINT_BUILD_IR_BINARY=OFF',
                         '-DDAWN_BUILD_MONOLITHIC_LIBRARY=STATIC', '-DDAWN_ENABLE_INSTALL=ON',
                         '-DDAWN_FETCH_DEPENDENCIES=ON'], env=env, check=True)
-        subprocess.run(['cmake', '--build', str(ROOT / 'build/flip-dawn'), '--target', 'webgpu_dawn',
+        subprocess.run(['cmake', '--build', str(dawn_build), '--target', 'webgpu_dawn',
                         '--parallel', os.environ.get('BUILD_JOBS', '6')], env=env, check=True)
-        subprocess.run(['cmake', '--install', str(ROOT / 'build/flip-dawn'), '--prefix', str(TOOLS / 'dawn-install')],
-                       env=env, check=True)
+        subprocess.run(['cmake', '--install', str(dawn_build), '--prefix', str(dawn_prefix)], env=env, check=True)
     print(f'FLIP_TOOLCHAIN={sdk}')
-    print(f'FLIP_DAWN_PREFIX={TOOLS / "dawn-install"}')
+    print(f'FLIP_DAWN_PREFIX={dawn_prefix}')
 
 
 if __name__ == '__main__':

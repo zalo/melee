@@ -9,9 +9,16 @@ URL: https://github.com/zalo/melee/tree/portmaster (game code from https://githu
 
 Instructions:
 Copy your own US 1.02 disc image (GALE01; .iso, .gcm, .ciso or .rvz) into ports/melee/assets/.
-Launch "Super Smash Bros. Melee (native)" and answer Yes at the memory-card prompt.
+Any file name works; the launcher picks the first image it finds there. No other game data is
+needed or shipped; the port reads everything from your image.
+Launch "Super Smash Bros. Melee (native)" and answer Yes at the memory-card prompt (saves are
+Dolphin-compatible .gci files under ports/melee/runtime/config).
 The first matches stutter while shaders compile; please report FPS from the second launch on,
 and attach ports/melee/log.txt to every report.
+Port options: main menu > Options > Port Settings (the fourth row). "Unlock All Characters and
+Stages" saves at once; the game then shows its trophy pop-ups once on the next menu visit.
+"Debug Overlays" turns on Melee's own hitbox/hurtbox bubbles in matches (R2 + left stick up),
+"Debug Menu" lets Y on the title screen open the developer menu. Both default to off.
 
 | Button | Action |
 |--|--|

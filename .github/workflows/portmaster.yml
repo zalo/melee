@@ -1,0 +1,93 @@
+name: PortMaster package
+
+# Cross-builds the AArch64 PortMaster port (cortex-a35 baseline, glibc 2.30 link) and uploads
+# dist/portmaster/melee.zip plus the unstripped symbols. Everything slow (the Bootlin SDK, the
+# glibc 2.30 hybrid toolchain, the patched Dawn, Rust) lives in build/flip-tools and is cached;
+# the first run builds Dawn and takes over an hour, later runs take about 15 minutes.
+
+on:
+  push:
+    branches: [portmaster]
+  pull_request:
+    branches: [portmaster]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    env:
+      FLIP_TOOLS: ${{ github.workspace }}/build/flip-tools
+      BUILD_JOBS: 4
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install host tools and the development headers the SDK sysroot borrows
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang ninja-build cmake python3 pkg-config git curl bzip2 xz-utils \
+            libegl-dev libgles-dev libglvnd-dev libdrm-dev libgbm-dev libasound2-dev libudev-dev
+
+      - name: Cache the toolchains, Dawn and Rust
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/flip-tools/aarch64--glibc--stable-2023.08-1
+            build/flip-tools/aarch64--glibc-2.30-hybrid
+            build/flip-tools/dawn-install-a35
+            build/flip-tools/wayland-arm64
+            build/flip-tools/rustup
+            build/flip-tools/cargo
+          key: portmaster-tools-${{ hashFiles('native/tools/prepare_flip.py', 'native/tools/prepare_wayland.py', 'native/tools/glibc230_toolchain.sh', 'native/tools/glibc_compat.c', 'native/platform/flip/dawn-gl-interop.patch', 'native/platform/flip/toolchain-a35.cmake', 'native/platform/flip/cc', 'native/platform/flip/cxx') }}
+
+      - name: Install Rust for the disc reader
+        run: |
+          export RUSTUP_HOME="$FLIP_TOOLS/rustup" CARGO_HOME="$FLIP_TOOLS/cargo"
+          if [ ! -x "$CARGO_HOME/bin/rustup" ]; then
+            curl -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal --default-toolchain stable
+          fi
+          "$CARGO_HOME/bin/rustup" target add aarch64-unknown-linux-gnu
+
+      - name: Prepare the SDK, Debian device libraries, Aurora and the patched Dawn
+        run: |
+          # Dawn is the slow part; once its install directory comes out of the cache only the
+          # SDK/sysroot preparation runs.
+          extra=
+          [ -d "$FLIP_TOOLS/dawn-install-a35" ] && extra=--prepare-only
+          python3 native/tools/prepare_flip.py --no-device --cpu a35 $extra
+
+      - name: Build and package
+        run: |
+          export RUSTUP_HOME="$FLIP_TOOLS/rustup" CARGO_HOME="$FLIP_TOOLS/cargo" PATH="$FLIP_TOOLS/cargo/bin:$PATH"
+          export FLIP_TOOLCHAIN="$FLIP_TOOLS/aarch64--glibc--stable-2023.08-1" FLIP_DAWN_PREFIX="$FLIP_TOOLS/dawn-install-a35"
+          sh native/platform/portmaster/build_portmaster.sh
+
+      - name: Package tests
+        run: MELEE_PORTMASTER_ZIP=dist/portmaster/melee.zip python3 native/tests/test_portmaster_package.py
+
+      - name: Summary
+        run: |
+          {
+            echo "## melee.zip"
+            echo
+            echo '```'
+            sha256sum dist/portmaster/melee.zip
+            ls -l dist/portmaster/melee.zip
+            md5sum dist/portmaster/melee/melee/melee.aarch64
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: melee-portmaster
+          path: dist/portmaster/melee.zip
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: melee-portmaster-symbols
+          path: build/flip-tools/melee_native-portmaster-*-symbols
+          if-no-files-found: error
