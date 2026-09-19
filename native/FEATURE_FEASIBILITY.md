@@ -170,6 +170,33 @@ Persistence for a new option:
 | UI scaling for small screens | Mostly not feasible | Menus are 3D jobj scenes rendered at 4:3; the readable-size problem on 480x320 is inherent. DevText overlays can be scaled (its setup takes cell sizes, `if_2FF2.c:239-245`). |
 | Crash reporting | Feasible, recommend local-only | Today: `LOG_FATAL`/`OSPanic` print a backtrace to `log.txt`, but a raw SIGSEGV prints nothing; the dev-only `flip-crash-trace.so` handler (`native/tools/crash_trace.c`) is not in the package. Compile that handler into the binary (SA_RESETHAND, async-signal-safe writes of pc/lr and the module offsets) and keep the symbol file per release: 1 day, and it removes the LD_PRELOAD dance from every bug report. Symbolicated minidumps via Breakpad/Crashpad on AArch64 glibc are 1 week more. Automatic upload needs a server and a privacy story; keep it opt-in and local until then. |
 
+## 6b. Online play, measured against MeleePad's ONLINE-PLAY.md (2026-09-19)
+
+[MeleePad](https://github.com/chrissotraidis/meleepad) is a static recompilation of the PowerPC
+executable running on a Dolphin-derived runtime ("ModernGekko"), so it inherits Dolphin's netplay
+whole: *Private Room* and *Direct IP* are Dolphin's fixed-delay input-exchange netplay over ENet
+(UDP 2626), peers found through Dolphin's public traversal server with eight-character room codes,
+no relay, plaintext, "not Slippi rollback netcode"; its separate Slippi mode is the Slippi
+Dolphin stack itself. Their document's own list of requirements, "matching build on both devices,
+identical game revision and modules, compatible gameplay settings", is the lockstep contract.
+
+What that means for a C decompilation compiled natively:
+
+| Piece | State here | Effort |
+| --- | --- | --- |
+| Determinism between two devices | Same binary + same inputs + same seed should give identical state (game code built `-ffp-contract=off`, seeded RNG, no wall-clock reads in game code), but no test proves it. | 1-2 days: hash fighter/item/stage state per frame under `MELEE_MATRIX_TEST`, run the same input script on two devices (or twice on one), diff. Prerequisite for everything below. |
+| Input injection point | `native/pad_bridge.cpp` `MeleeNativePADRead()` is the single place the game reads all four `PADStatus`; a netplay layer delays local pads by N frames and fills the remote port from the network there. `online_enabled` / `online_input_delay` settings rows exist already (README's "Online Play: Coming soon"). | Part of the transport work. |
+| Fixed-delay lockstep transport (Direct IP / LAN) | Nothing exists. Design: 12-byte `PADStatus` per player per frame over UDP with a fixed delay (3-5 frames on handheld Wi-Fi), frame numbers, redundancy of the last few frames in every packet, stall when a remote frame is late; ENet (MIT, small) or a hand-rolled UDP layer. Start in lockstep from the main menu like Dolphin does: seed (`HSD_RandSeedPtr`), save-file bytes and settings are copied from host to guest at connect so menus, CSS and SSS stay in sync as inputs. | 3-4 weeks to a menu-driven host/join Direct IP mode with a connection screen behind the existing "Online Play" row, plus the on-device test on two units. |
+| Room codes / NAT traversal | Dolphin's traversal protocol is small (UDP to `stun.dolphin-emu.org`, hello / connect-please / connect-ready messages); a client is ~500 lines and MeleePad relies on the same public server. No relay when traversal fails, as in MeleePad. | 1 week after the transport, assuming we may use Dolphin's public server; a self-hosted copy is the same code. |
+| Rollback (Slippi-style) | Needs per-frame savestates of the whole game state at native speed and full determinism; the `native/FEATURE_FEASIBILITY.md` §4 save-state item is itself weeks. | Months; not now. |
+| Slippi online (accounts, matchmaking, Unranked) | Requires bit-exact parity with Slippi Dolphin: PowerPC paired-single and estimate-instruction results are not reproduced on AArch64, so an AArch64 native player desyncs against Dolphin players within seconds; also the Slippi launcher/auth protocol. | Not feasible for this port; MeleePad gets it because it emulates the PowerPC executable. |
+| Cross-play with MeleePad's Private Room | Same determinism problem (their game is the PowerPC binary): would desync. | Not feasible. |
+
+Recommendation: native-to-native only. Step 1 the determinism test, step 2 Direct IP / LAN
+lockstep between two handhelds on one network (this is the MeleePad *Direct IP* mode), step 3 room
+codes through the traversal server (their *Private Room*). Budget 5-6 weeks to step 3 with two
+devices on the desk, and expect the input delay to be 4-5 frames on Wi-Fi handhelds.
+
 ## 7. Suggested order
 
 1. Debug switch plus chord remap (§1), and the developer-menu "Port Settings" submenu (§2 A).

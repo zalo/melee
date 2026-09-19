@@ -157,9 +157,9 @@ authors.
   scripts), `portmaster-dawn-<DAWN_CACHE_VERSION>-*` (dawn-install-a35, rustup, cargo; key = Dawn patch
   + toolchain files; a prefix-only restore now deletes dawn-install-a35 so Dawn is rebuilt with the new
   patch instead of silently reused), `portmaster-ccache-<sha>` (ccache in front of the cc/cxx wrappers,
-  `CCACHE_COMPILERCHECK=%compiler% --version`, 2 GB, restored from the newest run). Timings before ccache:
-  Dawn rebuild ~20 min, cached run 6 min of which "Build and package" 4.5 min; the ccache stats land in
-  the job summary.
+  `CCACHE_COMPILERCHECK=%compiler% --version`, 2 GB, restored from the newest run). Timings: Dawn rebuild ~20 min; cached
+  run without ccache 6 min ("Build and package" 4.5 min); with a warm ccache 2 min end to end ("Build
+  and package" 54 s, run 35456671875). The ccache stats land in the job summary.
 
 ### Testing round 2 (2026-09-19, shim build on hardware)
 - Matrix `match` case (`build/matrix/matrix.py`, results under `build/matrix/results/<device>/sh1-*`
