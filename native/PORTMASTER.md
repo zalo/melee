@@ -146,6 +146,20 @@ authors.
   `test_portmaster_package.py` fail when NEEDED contains libdrm/libgbm/libwayland/libSDL2/libstdc++.
   NEEDED is now libEGL/libGLESv2 (the CFW's GL driver), libSDL3.so.0 and libc-level libraries only.
 
+### Crash reporting and the pipeline-cache crash loop (2026-09-19, Pi 5 report)
+- A Batocera 43.1 Raspberry Pi 5 (V3D, Mesa 25.3.6 GLES 3.1) reached the menu, segfaulted when the
+  match started (a shader compile inside the driver, presumably) and then segfaulted at every launch
+  right after "Using surface format", i.e. while the pipeline worker recompiled the cached pipelines.
+  `runtime_main.cpp` now installs a crash handler (SIGSEGV/SIGBUS/SIGILL/SIGFPE/SIGABRT) that writes
+  `[crash] signal`, the faulting address, the executable's map line and a raw backtrace to log.txt
+  (symbolize against the `melee-portmaster-symbols` artifact of the same release with the map base),
+  and keeps a marker in the cache root: "init" until the first simulated frame, "running" after,
+  removed on a clean exit or SIGTERM/SIGINT/SIGHUP. A launch that finds "init" left behind sets that
+  build's `pipeline-*` directory aside (`.crashed`) and starts empty; a run that had been playing keeps
+  its cache whatever killed it (the matrix's kill -9 included; `pmrun-matrix.sh` now sends SIGTERM
+  first). `Melee.sh` shows "Melee crashed (signal N)" for a signal exit. Verified on the Flip: two
+  consecutive harness runs keep the cache and leave no marker.
+
 ### Releases and CI caching (2026-09-19)
 - `.github/workflows/portmaster.yml` runs on `portmaster` and `release`. A push to `release` adds the
   `release` job: it downloads the `package` artifacts and runs `gh release create` with tag

@@ -72,6 +72,11 @@ if [ $status -ne 0 ] && grep -q "^\[flip-display\] Cannot initialize SDL video" 
 elif [ $status -ne 0 ] && grep -q "^\[flip-display\] Cannot\|^\[flip-display\] .*needs the KMSDRM" "$GAMEDIR/log.txt"; then
   pm_message "Melee could not start the GPU. It needs an OpenGL ES 3.1 driver (Mali-G31/G52 or newer). Details are in melee/log.txt."
   sleep 15
+elif [ $status -ge 128 ]; then
+  # Killed by a signal (a GPU driver crash, most often). The game logged a backtrace, and the next
+  # launch starts with a fresh shader cache so a cached pipeline cannot crash it again and again.
+  pm_message "Melee crashed (signal $((status - 128))). Please share melee/log.txt; the next launch starts with a fresh shader cache."
+  sleep 10
 fi
 
 pm_finish

@@ -111,5 +111,6 @@ Tester results (first zip):
 | Anbernic RG552 (RK3399, 1920x1152) | ROCKNIX (Panfrost, Mali-T860, Mesa 26.1) | runs, pillarboxed 4:3, rumble works; no sound (PulseAudio backend missing from that build; fixed in the second zip); first match started slowly and parts of the stage appeared late while shaders compiled, then 57-60 FPS |
 | Powkiddy RGB30 (RK3566, 720x720) | ROCKNIX 20260710 (libmali g24p0) | works (release zip); the slow-driver workaround engaged because that nightly's g24p0 blob drops draws: update ROCKNIX (20260901+ has g29p1) or switch its GPU driver to Panfrost |
 | muOS device (tester report, details pending) | muOS | works (release zip; fbdev SDL2 path through the shim) |
+| Raspberry Pi 5 (Broadcom V3D, Mesa 25.3.6 GLES 3.1, 1920x1080) | Batocera 43.1 | reached the menu; a shader compile crashed the driver when the match started, and the cached pipeline then crashed every launch at start-up. The next build logs a backtrace on a crash and starts with a fresh shader cache after a start-up crash; until then, deleting ports/melee/runtime/cache restores the menu |
 
 Untested so far: muOS, ArkOS, H700 / A133P / Snapdragon devices, RG552 on AmberELEC with the second zip. Reports from those are the most useful.

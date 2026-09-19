@@ -182,6 +182,7 @@ u32 MeleeNativeStateHash(void)
  * them null. */
 void MeleeNativeNetplayFrameHash(unsigned frame, u32 hash) __attribute__((weak));
 void MeleeNativeAudioTick(void) __attribute__((weak));
+void MeleeNativeRunPhaseRunning(void) __attribute__((weak));
 
 static void state_hash_tick(void)
 {
@@ -203,6 +204,9 @@ static void state_hash_tick(void)
 void MeleeNativeMatrixTick(void)
 {
     ++melee_native_logic_frames;
+    /* Start-up is over once the game simulates: the crash-loop guard (runtime_main.cpp) only sets
+     * the pipeline cache aside for runs that died before this point. */
+    if (melee_native_logic_frames == 1 && MeleeNativeRunPhaseRunning) MeleeNativeRunPhaseRunning();
     /* Deterministic mode: the audio engine advances here, a fixed number of AX frames per logic
      * frame, before the digest is taken. */
     if (MeleeNativeAudioTick) MeleeNativeAudioTick();

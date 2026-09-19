@@ -48,7 +48,9 @@ please include the driver line from that notice in a report.
 
 Attach `ports/melee/log.txt` (written on every launch) and say which device, CFW and GPU driver you
 used. If the display cannot be opened, that log lists the video drivers, the `/dev/dri` nodes and
-SDL's reason for rejecting each driver.
+SDL's reason for rejecting each driver. If the game crashes, the log ends with `[crash]` lines that
+locate it, and the next launch starts with a fresh shader cache by itself when the crash happened
+during start-up.
 
 ## Files
 
