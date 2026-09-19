@@ -34,7 +34,7 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 # path), checked out by tools/bootstrap.py. A review build may point MELEE_AURORA_DIR at another
 # checkout and pass its revision as MELEE_AURORA_EXPECTED_REV.
 set(MELEE_AURORA_DIR "${MELEE_ROOT}/build/native-deps/aurora" CACHE PATH "Aurora source checkout")
-set(MELEE_AURORA_EXPECTED_REV "0fab9c6cfc6d3f2465a8c03d759ecc40047e8e60" CACHE STRING "Expected Aurora revision")
+set(MELEE_AURORA_EXPECTED_REV "8ee1078fdc4584e80f9d3ae50b458b548f53df73" CACHE STRING "Expected Aurora revision")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/tools/prepare_sdk.py")
 execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/prepare_sdk.py"
   "${CMAKE_CURRENT_BINARY_DIR}/sdk" "${MELEE_AURORA_DIR}" COMMAND_ERROR_IS_FATAL ANY)

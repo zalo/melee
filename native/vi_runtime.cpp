@@ -17,6 +17,7 @@ extern "C" uint64_t aurora_render_stats_fifo_process_ns(void);
 extern "C" uint64_t aurora_render_stats_render_worker_busy_ns(void);
 extern "C" uint64_t aurora_render_stats_pipeline_wait_ns(void);
 extern "C" uint64_t aurora_render_stats_pipeline_wait_count(void);
+extern "C" const char* aurora_gl_driver_notice(void);
 extern "C" unsigned melee_native_logic_frames;
 namespace {
 using Clock = std::chrono::steady_clock;
@@ -89,8 +90,19 @@ void VIWaitForRetrace(void) {
         previous_present = measured_now;
         const double seconds = std::chrono::duration<double>(measured_now - measurement_start).count();
         if (seconds >= 5.0) {
-            std::fprintf(stderr, "[perf] presented_fps=%.2f game_render_fps=%.2f frames=%u seconds=%.3f held_retraces=%u target_hz=60\n",
-                         measured_frames / seconds, measured_game_frames / seconds, measured_frames, seconds, held_retraces);
+            // The GL driver probe fell back to per-draw texture barriers (a driver that drops draws): the game
+            // renders correctly but several times slower. Say so once, and tag every perf line after it, so a
+            // log.txt with low frame rates explains itself.
+            static bool driver_workaround_announced = false;
+            const bool driver_workaround = aurora_gl_driver_notice() != nullptr;
+            if (driver_workaround && !driver_workaround_announced) {
+                driver_workaround_announced = true;
+                std::fprintf(stderr, "[perf] GPU driver workaround active: per-draw texture barriers because this GPU driver drops "
+                                     "draws without them; expect low frame rates until the GPU driver is updated (notice shown on screen)\n");
+            }
+            std::fprintf(stderr, "[perf] presented_fps=%.2f game_render_fps=%.2f frames=%u seconds=%.3f held_retraces=%u target_hz=60%s\n",
+                         measured_frames / seconds, measured_game_frames / seconds, measured_frames, seconds, held_retraces,
+                         driver_workaround ? " driver_workaround=per-draw-barrier" : "");
             if (breakdown) {
                 // Per presented frame, game-thread wall time: outside VI (simulation + GX recording),
                 // aurora_end_frame (the FIFO join unless asyncFrames is on), the 60 Hz sleep, and

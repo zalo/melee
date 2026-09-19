@@ -3,6 +3,7 @@
 #include <dolphin/ar.h>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 static SDL_AudioStream* output;
 static void (*renderer)(int16_t*, unsigned);
@@ -37,6 +38,17 @@ static void fill(void*, SDL_AudioStream* stream, int additional, int) {
 // and when that backend is not available in this build or on this device, fall back to SDL's own
 // order (pipewire, pulseaudio, alsa) instead of running silent.
 static bool initAudioSubsystem() {
+    // With the SDL3-over-SDL2 shim the launcher sets SDL_AUDIODRIVER=sdl2 to pick the shim's audio
+    // driver; the CFW's SDL2 inside the shim reads the same variable and would reject the name unless
+    // SDL3SHIM_SDL2_AUDIODRIVER replaces it. Keep the choice as an SDL3 hint and drop the variable so
+    // the inner SDL2 opens its own default backend (see initSdlVideo in platform/flip/display.cpp).
+    const char* fromEnv = std::getenv("SDL_AUDIODRIVER");
+    const char* named = SDL_GetHint(SDL_HINT_AUDIO_DRIVER);
+    if ((fromEnv && !std::strcmp(fromEnv, "sdl2")) || (named && !std::strcmp(named, "sdl2"))) {
+        SDL_SetHintWithPriority(SDL_HINT_AUDIO_DRIVER, "sdl2", SDL_HINT_OVERRIDE);
+        unsetenv("SDL_AUDIODRIVER");
+        unsetenv(SDL_HINT_AUDIO_DRIVER);
+    }
     if (SDL_InitSubSystem(SDL_INIT_AUDIO)) return true;
     const char* wanted = SDL_GetHint(SDL_HINT_AUDIO_DRIVER);
     if (!wanted || !*wanted) return false;

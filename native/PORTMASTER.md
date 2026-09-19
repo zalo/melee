@@ -126,6 +126,43 @@ authors.
   `SDL3SHIM_SDL2_VIDEODRIVER` / `_AUDIODRIVER`, and sets SDL3's own drivers to `sdl2`.
   `check_sdl_backends.sh --shim` verifies the packaged pair; `package_portmaster.py --sdl3` ships the
   library and its notice (`LICENSE.SDL3-sdl2-backend.txt`); CI caches the shim with the SDK.
+- Driver-name handoff: the shim copies `SDL3SHIM_SDL2_VIDEODRIVER` over `SDL_VIDEODRIVER` only when
+  it is set and non-empty, and the CFW's SDL2 inside the shim reads `SDL_VIDEODRIVER` too. On CFWs
+  that name no driver (AmberELEC, Knulli; EmulationStation exports no `SDL_*` there) the inner SDL2
+  therefore saw our `sdl2` and failed with "sdl2 not available" (the video path survived through
+  `initSdlVideo()`'s fallback, audio did not: the shim ignores the inner `SDL2_Init(AUDIO)` failure and
+  every `SDL2_OpenAudioDevice` then fails). `initSdlVideo()` and `initAudioSubsystem()` now move an
+  `sdl2` driver choice from the environment into an SDL3 hint (`SDL_HINT_OVERRIDE`) and unset the
+  variables before `SDL_InitSubSystem`, so the inner SDL2 picks its own default (KMSDRM, fbdev, ...)
+  and the shim's explicit `SDL3SHIM_SDL2_*` override still applies where the CFW names a driver.
+
+### Testing round 2 (2026-09-19, shim build on hardware)
+- Matrix `match` case (`build/matrix/matrix.py`, results under `build/matrix/results/<device>/sh1-*`
+  for the first shim build 9eba154d and `sh2-*` for the fixed build 9aef2cff):
+  - Flip ROCKNIX 20260902 (libmali g29p1, run with EmulationStation's `SDL_VIDEODRIVER=wayland`
+    `SDL_AUDIODRIVER=pulseaudio` `XDG_RUNTIME_DIR` `WAYLAND_DISPLAY` via `--env`): PASS 19/19, match at
+    53-60 FPS, `SDL display (sdl2)` with the inner SDL2 on Wayland, `[audio] driver=sdl2 device=System
+    audio playback device` through PulseAudio (the tester's silent ROCKNIX is fixed for the shim path).
+  - Flip Knulli (KMSDRM, libmali g13p0, `--scale 2.5`): PASS 19/19 with both builds, median 9 FPS as with
+    the static builds (this blob trips the driver probe: per-draw barriers). The first build went through
+    the driver fallback; the fixed one opens the display directly. Audio failed in both SSH-launched runs
+    (`SDL2_OpenAudioDevice failed`; the static build's k1 run failed the same way with ALSA "Host is
+    down"): Knulli's EmulationStation gives ports `XDG_RUNTIME_DIR=/var/run` and `SDL_NOMOUSE=1` and no
+    `SDL_*DRIVER`; `knulli-roundtrip.sh` now passes `XDG_RUNTIME_DIR` so the next run tells whether the
+    PipeWire/PulseAudio socket lookup was the missing piece.
+- Slow-driver reporting (user request, 2026-09-19): Aurora's driver probe only drew its "GPU driver update
+  needed" notice for 20 s starting a few seconds after launch, during the intro movie, so a Knulli run
+  looked like an unexplained 9 FPS port afterwards. Aurora 8ee1078 keeps a one-line banner at the bottom
+  edge after the notice (`gles_direct::driver_banner()`, worded "rendering slowly" when the probe measured
+  the barriers as expensive) and exports `aurora_gl_driver_notice()`; `vi_runtime.cpp` prints
+  `[perf] GPU driver workaround active: ...` once and appends `driver_workaround=per-draw-barrier` to every
+  `[perf] presented_fps=` line; `matrix.py` adds a `notes` column ("per-draw barrier (slow driver
+  workaround)") to the summary and its progress lines so the FPS column is never read as comparable.
+  - RG351P AmberELEC prerelease-20250515 (SDL2 2.32.4 KMSDRM with the RGA rotation patch, panel reported
+    as 480x320 landscape, `rotate 0`): PASS 19/19, median 19 FPS, same as the static builds; first shim
+    build via the fallback without audio, fixed build opens the display and audio directly.
+  - QEMU stand-in (`/data/agent-untrusted/qemu-melee/run.sh INNER_VIDEO=none`): fixed build without any
+    `SDL3SHIM_SDL2_*` set brings up display and audio without the fallback line.
 
 ### Testing round 1 (2026-09-19)
 - Two tester reports on an RG552 (RK3399, 1920x1152). AmberELEC: "No available video device";
@@ -158,7 +195,7 @@ authors.
   `seed_ptr` -> `HSD_RandSeedPtr`, event data field names in `asset_schema.c`.
 - **Aurora pinned to the fork**: `native/tools/bootstrap.py` clones
   `https://github.com/zalo/aurora-arm.git` branch `gles-direct-submission` at
-  `0fab9c6cfc6d3f2465a8c03d759ecc40047e8e60` (upstream Aurora + the nine perf PRs + Flip
+  `8ee1078fdc4584e80f9d3ae50b458b548f53df73` (upstream Aurora + the nine perf PRs + Flip
   platform hunks + GLES fast path; 0fab9c6 on 2026-09-19 makes Aurora reuse the application's SDL
   window on MELEE_MIYOO_FLIP for the SDL2 shim; previous pin 2d943c98: upstream + the nine perf PRs + Flip
   platform hunks + GLES fast path + the frame-stream overflow fix; since 2026-09-18 also the

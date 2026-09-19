@@ -449,6 +449,18 @@ void cleanupSdl() {
 // works, log what this build offers and why SDL rejected each driver, so a tester's log.txt explains
 // the failure (drivers built in, /dev/dri nodes, SDL's own video-category debug output).
 bool initSdlVideo() {
+    // The SDL3-over-SDL2 shim's video driver is named "sdl2", and the launcher selects it through
+    // SDL_VIDEODRIVER. The CFW's SDL2 inside the shim reads that same variable and rejects the name
+    // ("sdl2 not available") unless the launcher also set SDL3SHIM_SDL2_VIDEODRIVER, which the shim
+    // copies over it. Keep the choice as an SDL3 hint and drop the variable, so the inner SDL2 picks
+    // its own default driver (KMSDRM, fbdev, ...) on CFWs that name none.
+    const char* fromEnv = std::getenv("SDL_VIDEODRIVER");
+    const char* wanted = SDL_GetHint(SDL_HINT_VIDEO_DRIVER);
+    if ((fromEnv && !std::strcmp(fromEnv, "sdl2")) || (wanted && !std::strcmp(wanted, "sdl2"))) {
+        SDL_SetHintWithPriority(SDL_HINT_VIDEO_DRIVER, "sdl2", SDL_HINT_OVERRIDE);
+        unsetenv("SDL_VIDEODRIVER");
+        unsetenv(SDL_HINT_VIDEO_DRIVER);
+    }
     if (SDL_InitSubSystem(SDL_INIT_VIDEO)) return true;
     if (const char* wanted = SDL_GetHint(SDL_HINT_VIDEO_DRIVER); wanted && *wanted) {
         std::fprintf(stderr, "[flip-display] video driver '%s' from the environment is unavailable (%s); trying the others\n",

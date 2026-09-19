@@ -56,6 +56,16 @@ Second testing zip (2026-09-19), what changed after the first reports:
 - Reported RG552/ROCKNIX behaviour: the 4:3 pillarbox is intentional (the game is 4:3), the slow
   first half-minute of the first match is Mesa compiling shaders and should be gone from the
   second launch on; please say whether it is.
+- Slow-driver notice: some Mali blobs (Knulli's g13p0 on the Flip, for one) drop draws unless the
+  renderer puts a barrier after every draw. The game detects this at startup and switches to the
+  workaround: correct picture, but 2-4x slower. It now says so: a "GPU driver update needed" box
+  for the first 20 seconds, then a one-line banner along the bottom edge for the rest of the run,
+  and log.txt carries "[perf] GPU driver workaround active" plus driver_workaround=per-draw-barrier
+  on every frame-rate line. If you see the banner, please report the CFW and the Driver line from
+  the box; a low frame rate without the banner is a different problem.
+- Verified on our hardware with this zip before posting: Miyoo Flip on ROCKNIX (inner SDL 2 on
+  Wayland, sound through PulseAudio) and Knulli (KMSDRM), Anbernic RG351P on AmberELEC (KMSDRM,
+  480x320), all through the CFW's own SDL 2.
 
 CFW Tests:
 [x] AmberELEC (RG351P)
