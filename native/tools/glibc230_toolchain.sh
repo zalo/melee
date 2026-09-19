@@ -53,6 +53,10 @@ build() {
     for h in alsa EGL GLES3 KHR gbm.h libdrm libudev.h xf86drm.h xf86drmMode.h zconf.h zlib.h; do
         cp -a "$NS/usr/include/$h" "$S/usr/include/"
     done
+    # SDL's KMSDRM configure check (prepare_flip.py writes these, relative to their own location).
+    for p in libdrm.pc gbm.pc; do
+        [ -e "$NS/usr/lib/pkgconfig/$p" ] && cp -a "$NS/usr/lib/pkgconfig/$p" "$S/usr/lib/pkgconfig/"
+    done
     rm -f "$S"/usr/lib/libstdc++.so.6.0.25 "$S"/usr/lib/libstdc++.so.6.0.25-gdb.py
     for l in "$NS"/usr/lib/libasound.* "$NS"/usr/lib/libdrm.* "$NS"/usr/lib/libEGL.* "$NS"/usr/lib/libgbm.* \
              "$NS"/usr/lib/libGLESv2.* "$NS"/usr/lib/libmali.* "$NS"/usr/lib/libmali_hook.* "$NS"/usr/lib/libudev.* \

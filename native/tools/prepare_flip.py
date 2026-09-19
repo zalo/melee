@@ -110,6 +110,25 @@ def fetch_device_libraries(usr):
             link.symlink_to(soname)
 
 
+# pkg-config data SDL's KMSDRM driver needs at configure time (it dlopens the libraries at run
+# time). The device libraries come without .pc files; these point at the sysroot they sit in.
+SYSROOT_PC = {
+    'libdrm': 'prefix=${pcfiledir}/../..\nName: libdrm\nDescription: device libdrm (dlopened by SDL)\n'
+              'Version: 2.4.114\nLibs: -L${prefix}/lib -ldrm\nCflags: -I${prefix}/include -I${prefix}/include/libdrm\n',
+    'gbm': 'prefix=${pcfiledir}/../..\nName: gbm\nDescription: device libgbm (dlopened by SDL)\n'
+           'Version: 22.3.6\nLibs: -L${prefix}/lib -lgbm\nCflags: -I${prefix}/include\n',
+}
+
+
+def write_sysroot_pkgconfig(usr):
+    pkgconfig = usr / 'lib/pkgconfig'
+    pkgconfig.mkdir(parents=True, exist_ok=True)
+    for name, text in SYSROOT_PC.items():
+        path = pkgconfig / f'{name}.pc'
+        if not path.exists():
+            path.write_text(text)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--adb', default='adb')
@@ -158,6 +177,7 @@ def main():
             shutil.copytree(src, usr / 'include' / name, dirs_exist_ok=True)
         else:
             shutil.copy2(src, usr / 'include' / name)
+    write_sysroot_pkgconfig(usr)
     if args.no_device:
         fetch_device_libraries(usr)
     else:

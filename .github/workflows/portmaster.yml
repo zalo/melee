@@ -28,7 +28,8 @@ jobs:
       - name: Install host tools and the development headers the SDK sysroot borrows
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang ninja-build cmake python3 pkg-config git curl bzip2 xz-utils \
+          # libwayland-bin: wayland-scanner, without which SDL silently drops its Wayland driver.
+          sudo apt-get install -y clang ninja-build cmake python3 pkg-config git curl bzip2 xz-utils libwayland-bin \
             libegl-dev libgles-dev libglvnd-dev libdrm-dev libgbm-dev libasound2-dev libudev-dev
 
       - name: Cache the toolchains, Dawn and Rust
@@ -64,6 +65,15 @@ jobs:
           export RUSTUP_HOME="$FLIP_TOOLS/rustup" CARGO_HOME="$FLIP_TOOLS/cargo" PATH="$FLIP_TOOLS/cargo/bin:$PATH"
           export FLIP_TOOLCHAIN="$FLIP_TOOLS/aarch64--glibc--stable-2023.08-1" FLIP_DAWN_PREFIX="$FLIP_TOOLS/dawn-install-a35"
           sh native/platform/portmaster/build_portmaster.sh
+
+      - name: SDL video drivers must be compiled in
+        # A binary without them starts with "No available video device" on every CFW.
+        run: |
+          for driver in wayland kmsdrm; do
+            grep -q "SDL_$(echo $driver | tr a-z A-Z):BOOL=ON" build/portmaster-a35/CMakeCache.txt \
+              || { echo "SDL built without the $driver driver"; grep -i "SDL_$(echo $driver | tr a-z A-Z)" build/portmaster-a35/CMakeCache.txt; exit 1; }
+          done
+          strings -n 6 dist/portmaster/melee/melee/melee.aarch64 | grep -qx libwayland-client.so.0 || { echo "no Wayland client soname in the binary"; exit 1; }
 
       - name: Package tests
         run: MELEE_PORTMASTER_ZIP=dist/portmaster/melee.zip python3 native/tests/test_portmaster_package.py
