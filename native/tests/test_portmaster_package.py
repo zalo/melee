@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Validate the PortMaster port files, the launcher, and (when built) the zip."""
+import hashlib
 import importlib.util
 import json
 import os
@@ -334,6 +335,35 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 
 @unittest.skipUnless(ZIP.exists(), 'no built melee.zip (set MELEE_PORTMASTER_ZIP)')
+class ReleaseNotesTests(unittest.TestCase):
+    """The release job renders RELEASE_NOTES.md around the built zip; every placeholder must resolve."""
+    def setUp(self):
+        spec = importlib.util.spec_from_file_location('release_notes', NATIVE / 'tools/release_notes.py')
+        self.notes = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.notes)
+
+    def test_template_renders_with_checksum_and_links(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = Path(tmp) / 'melee.zip'
+            fake.write_bytes(b'PK\x05\x06' + bytes(18))
+            text = self.notes.render((PORT_DIR / 'RELEASE_NOTES.md').read_text(), fake,
+                                     'portmaster-20260919-abcdef0', 'abcdef0123456789abcdef0123456789abcdef01', '2026-09-19')
+        self.assertNotIn('{{', text)
+        self.assertIn('portmaster-20260919-abcdef0', text)
+        self.assertIn('[zalo/melee `abcdef012`](https://github.com/zalo/melee/commit/abcdef0123456789abcdef0123456789abcdef01)', text)
+        self.assertIn(hashlib.sha256(b'PK\x05\x06' + bytes(18)).hexdigest(), text)
+        self.assertIn('autoinstall', text)
+        self.assertIn('melee/assets', text)
+        self.assertIn('log.txt', text)
+
+    def test_unknown_placeholder_is_an_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = Path(tmp) / 'melee.zip'
+            fake.write_bytes(b'x')
+            with self.assertRaises(SystemExit):
+                self.notes.render('{{NOPE}}', fake, 't', 'c', 'd')
+
+
 class BuiltZipTests(unittest.TestCase):
     def test_zip_layout_and_binary(self):
         with zipfile.ZipFile(ZIP) as archive:

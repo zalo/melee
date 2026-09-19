@@ -146,6 +146,21 @@ authors.
   `test_portmaster_package.py` fail when NEEDED contains libdrm/libgbm/libwayland/libSDL2/libstdc++.
   NEEDED is now libEGL/libGLESv2 (the CFW's GL driver), libSDL3.so.0 and libc-level libraries only.
 
+### Releases and CI caching (2026-09-19)
+- `.github/workflows/portmaster.yml` runs on `portmaster` and `release`. A push to `release` adds the
+  `release` job: it downloads the `package` artifacts and runs `gh release create` with tag
+  `portmaster-<yyyymmdd>-<sha7>`, `melee.zip`, `melee-portmaster-symbols.tar.gz` and notes rendered by
+  `native/tools/release_notes.py` from `native/platform/portmaster/RELEASE_NOTES.md` (install through
+  `ports/PortMaster/autoinstall/`, disc image, controls, what to attach to a report, SHA-256).
+  Release = `git push zalo <commit>:release`; testers get the notes and zip from the Releases page.
+- Caches: `portmaster-sdk-*` (SDK, glibc 2.30 hybrid, wayland-arm64, sdl3-shim-install; key = prepare
+  scripts), `portmaster-dawn-<DAWN_CACHE_VERSION>-*` (dawn-install-a35, rustup, cargo; key = Dawn patch
+  + toolchain files; a prefix-only restore now deletes dawn-install-a35 so Dawn is rebuilt with the new
+  patch instead of silently reused), `portmaster-ccache-<sha>` (ccache in front of the cc/cxx wrappers,
+  `CCACHE_COMPILERCHECK=%compiler% --version`, 2 GB, restored from the newest run). Timings before ccache:
+  Dawn rebuild ~20 min, cached run 6 min of which "Build and package" 4.5 min; the ccache stats land in
+  the job summary.
+
 ### Testing round 2 (2026-09-19, shim build on hardware)
 - Matrix `match` case (`build/matrix/matrix.py`, results under `build/matrix/results/<device>/sh1-*`
   for the first shim build 9eba154d and `sh2-*` for the fixed build 9aef2cff):

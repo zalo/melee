@@ -2,12 +2,14 @@ name: PortMaster package
 
 # Cross-builds the AArch64 PortMaster port (cortex-a35 baseline, glibc 2.30 link) and uploads
 # dist/portmaster/melee.zip plus the unstripped symbols. Everything slow (the Bootlin SDK, the
-# glibc 2.30 hybrid toolchain, the patched Dawn, Rust) lives in build/flip-tools and is cached;
-# the first run builds Dawn and takes over an hour, later runs take about 15 minutes.
+# glibc 2.30 hybrid toolchain, the patched Dawn, Rust) lives in build/flip-tools and is cached, and
+# ccache keeps the game and Aurora objects between runs; the first run builds Dawn and takes over an
+# hour, later runs a few minutes. A push to the `release` branch additionally publishes a GitHub
+# release with the zip, the symbols and rendered install notes.
 
 on:
   push:
-    branches: [portmaster]
+    branches: [portmaster, release]
   pull_request:
     branches: [portmaster]
   workflow_dispatch:
@@ -23,6 +25,7 @@ jobs:
       FLIP_TOOLS: ${{ github.workspace }}/build/flip-tools
       BUILD_JOBS: 4
       DAWN_CACHE_VERSION: 1
+      CCACHE_DIR: ${{ github.workspace }}/build/flip-tools/ccache
     steps:
       - uses: actions/checkout@v6
 
@@ -31,11 +34,12 @@ jobs:
           sudo apt-get update
           # libwayland-bin: wayland-scanner, without which SDL silently drops its Wayland driver.
           sudo apt-get install -y clang ninja-build cmake python3 pkg-config git curl bzip2 xz-utils libwayland-bin \
-            libegl-dev libgles-dev libglvnd-dev libdrm-dev libgbm-dev libasound2-dev libudev-dev
+            libegl-dev libgles-dev libglvnd-dev libdrm-dev libgbm-dev libasound2-dev libudev-dev ccache
 
-      # Two caches: the SDK/sysroot side changes with the prepare scripts (minutes to rebuild), the
-      # Dawn side only with the Dawn patch or toolchain (over an hour), so one must not evict the other.
-      - name: Cache the SDK, the glibc 2.30 toolchain and the Wayland client files
+      # Three caches: the SDK/sysroot side changes with the prepare scripts (minutes to rebuild), the
+      # Dawn side only with the Dawn patch or toolchain (over an hour), and ccache holds the game and
+      # Aurora objects (minutes per run), so one must not evict another.
+      - name: Cache the SDK, the glibc 2.30 toolchain, the Wayland client files and the SDL3 shim
         uses: actions/cache@v4
         with:
           path: |
@@ -46,6 +50,7 @@ jobs:
           key: portmaster-sdk-${{ hashFiles('native/tools/prepare_flip.py', 'native/tools/prepare_wayland.py', 'native/tools/glibc230_toolchain.sh', 'native/tools/glibc_compat.c', 'native/tools/build_sdl3_shim.sh') }}
 
       - name: Cache Dawn and Rust
+        id: dawn
         uses: actions/cache@v4
         with:
           path: |
@@ -58,6 +63,15 @@ jobs:
             portmaster-dawn-${{ env.DAWN_CACHE_VERSION }}-
             portmaster-tools-
 
+      - name: Cache compiled objects (ccache)
+        uses: actions/cache@v4
+        with:
+          path: build/flip-tools/ccache
+          # Every run saves under its own key and restores the newest one, so the cache follows HEAD.
+          key: portmaster-ccache-${{ github.sha }}
+          restore-keys: |
+            portmaster-ccache-
+
       - name: Install Rust for the disc reader
         run: |
           export RUSTUP_HOME="$FLIP_TOOLS/rustup" CARGO_HOME="$FLIP_TOOLS/cargo"
@@ -69,16 +83,37 @@ jobs:
       - name: Prepare the SDK, Debian device libraries, Aurora and the patched Dawn
         run: |
           # Dawn is the slow part; once its install directory comes out of the cache only the
-          # SDK/sysroot preparation runs.
+          # SDK/sysroot preparation runs. A Dawn install restored through a restore-key prefix was
+          # built from another patch or toolchain: drop it so it is rebuilt, not reused.
+          if [ "${{ steps.dawn.outputs.cache-hit }}" != "true" ] && [ -d "$FLIP_TOOLS/dawn-install-a35" ]; then
+            echo "Dawn cache key mismatch (patch or toolchain changed): rebuilding Dawn"
+            rm -rf "$FLIP_TOOLS/dawn-install-a35"
+          fi
           extra=
           [ -d "$FLIP_TOOLS/dawn-install-a35" ] && extra=--prepare-only
           python3 native/tools/prepare_flip.py --no-device --cpu a35 $extra
 
       - name: Build and package
+        env:
+          # ccache in front of the cc/cxx wrapper scripts; the wrappers exec clang, so the compiler
+          # identity comes from `cc --version`, not from the wrapper's mtime.
+          CMAKE_C_COMPILER_LAUNCHER: ccache
+          CMAKE_CXX_COMPILER_LAUNCHER: ccache
+          CCACHE_COMPILERCHECK: "%compiler% --version"
+          CCACHE_MAXSIZE: 2G
+          CCACHE_BASEDIR: ${{ github.workspace }}
         run: |
           export RUSTUP_HOME="$FLIP_TOOLS/rustup" CARGO_HOME="$FLIP_TOOLS/cargo" PATH="$FLIP_TOOLS/cargo/bin:$PATH"
           export FLIP_TOOLCHAIN="$FLIP_TOOLS/aarch64--glibc--stable-2023.08-1" FLIP_DAWN_PREFIX="$FLIP_TOOLS/dawn-install-a35"
+          ccache --zero-stats > /dev/null
           sh native/platform/portmaster/build_portmaster.sh
+          {
+            echo "## ccache"
+            echo
+            echo '```'
+            ccache --show-stats
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: SDL must be the shared SDL3-over-SDL2 shim
         # The game links libSDL3.so.0 dynamically and ships the shim; the CFW's SDL2 owns the display.
@@ -110,3 +145,43 @@ jobs:
           name: melee-portmaster-symbols
           path: build/flip-tools/melee_native-portmaster-*-symbols
           if-no-files-found: error
+
+  # Every push to `release` publishes what `package` built: melee.zip, the matching unstripped binary
+  # and install notes rendered from native/platform/portmaster/RELEASE_NOTES.md. The tag carries the
+  # date and the short commit, so successive pushes stack up as separate releases.
+  release:
+    needs: package
+    if: github.event_name == 'push' && github.ref == 'refs/heads/release'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: melee-portmaster
+          path: release
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: melee-portmaster-symbols
+          path: symbols
+
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          tag="portmaster-$(date -u +%Y%m%d)-${GITHUB_SHA::7}"
+          tar -czf release/melee-portmaster-symbols.tar.gz -C symbols .
+          python3 native/tools/release_notes.py --zip release/melee.zip --tag "$tag" --commit "$GITHUB_SHA" \
+            --date "$(date -u +%Y-%m-%d)" > release/notes.md
+          gh release create "$tag" release/melee.zip release/melee-portmaster-symbols.tar.gz \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest \
+            --title "Melee (native) for PortMaster, $tag" --notes-file release/notes.md
+          {
+            echo "## Release $tag"
+            echo
+            echo "https://github.com/$GITHUB_REPOSITORY/releases/tag/$tag"
+          } >> "$GITHUB_STEP_SUMMARY"
