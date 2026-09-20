@@ -742,6 +742,29 @@ HSD_GObj* grIzumi_801CCD98(void)
     return gobj;
 }
 
+#ifdef MELEE_NATIVE
+#include <stdlib.h>
+#include <string.h>
+// Fountain of Dreams' reflective floor re-renders the whole scene three times each frame into an
+// 80x60 mirror texture (the render block in grIzumi_801CCEA0) - the stage's biggest extra draw cost:
+// ~150 draws/frame, worth roughly +40% frame rate on an RG351P (20->28 FPS) and +25% on a Flip
+// (40->~50 FPS) when skipped. Off by default here for performance on weak devices (the floor then
+// shows a flat surface); MELEE_IZUMI_REFLECTION=1 restores the reflection on capable devices.
+// TODO(perf): a middle ground that keeps the look - render the reflection every Nth frame (reusing
+// the last mirror texture between), or cull the mirror pass to the stage and fighters only, instead
+// of dropping it outright. It is not the only FoD cost: the fountain sprites' GPU fill remains the
+// wall to 60 FPS, but those are the fountains themselves and are already batched/half-res-optimised.
+int grIzumi_NativeReflectionEnabled(void)
+{
+    static int value = -1;
+    if (value < 0) {
+        const char* env = getenv("MELEE_IZUMI_REFLECTION");
+        value = env != NULL && env[0] != '\0' && strcmp(env, "0") != 0;
+    }
+    return value;
+}
+#endif
+
 void grIzumi_801CCEA0(HSD_GObj* gobj, int renderpass)
 {
     Mtx mtx;
@@ -778,17 +801,25 @@ void grIzumi_801CCEA0(HSD_GObj* gobj, int renderpass)
         if (HSD_CObjSetCurrent(cobj)) {
             HSD_SetEraseColor(0xFF, 0xFF, 0xFF, 1);
             HSD_CObjEraseScreen(cobj, 1, 0, 0);
-            HSD_LObjDeleteCurrentAll(0);
-            Camera_800310A0(0);
-            Camera_80031074(1);
-            gobj->gxlink_prios = 0x25;
-            HSD_GObj_80390ED0(gobj, 3);
-            Camera_80031074(0);
-            gobj->gxlink_prios = 0x70;
-            HSD_GObj_80390ED0(gobj, 7);
-            HSD_FogSet(0);
-            gobj->gxlink_prios = 0x80;
-            HSD_GObj_80390ED0(gobj, 7);
+#ifdef MELEE_NATIVE
+            // The three scene re-renders here (the reflective floor's mirror pass) are the stage's
+            // heaviest extra draw work; MELEE_IZUMI_REFLECTION=0 skips them (the floor then shows the
+            // flat erase-coloured surface cleared above) for weak devices.
+            if (grIzumi_NativeReflectionEnabled())
+#endif
+            {
+                HSD_LObjDeleteCurrentAll(0);
+                Camera_800310A0(0);
+                Camera_80031074(1);
+                gobj->gxlink_prios = 0x25;
+                HSD_GObj_80390ED0(gobj, 3);
+                Camera_80031074(0);
+                gobj->gxlink_prios = 0x70;
+                HSD_GObj_80390ED0(gobj, 7);
+                HSD_FogSet(0);
+                gobj->gxlink_prios = 0x80;
+                HSD_GObj_80390ED0(gobj, 7);
+            }
             HSD_CObjEndCurrent();
         }
         lb_800122C8(refl->image, 0, 0, 1);

@@ -91,6 +91,12 @@ Third testing zip (2026-09-19 evening), what changed:
   from the second launch.
 
 Fourth testing zip (2026-09-20), what changed:
+- Fountain of Dreams runs faster: the reflective-floor mirror pass (it re-rendered the whole scene
+  three more times each frame) is off by default now, which is the stage's biggest extra cost -
+  roughly +40% frame rate on an RG351P and +25% on a Miyoo Flip. The floor is flat instead of
+  reflective; MELEE_IZUMI_REFLECTION=1 in Melee.sh brings the reflection back on capable devices.
+  (The fountains' own water sprites are the remaining cost and are already optimised, so this does
+  not reach a locked 60 on the weakest boards - the RG351P lands around 28 FPS, the Flip around 50.)
 - Standard controls: the earlier Miyoo-Flip remap (D-pad drove the control stick, the analog stick
   drove the D-pad, and A/B were swapped) is now OFF. The left analog stick is the control stick, the
   D-pad is the GameCube D-pad (taunt), and A/B are as labelled - the same as any other controller.
