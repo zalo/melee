@@ -44,12 +44,19 @@ for rejecting each driver.
 The first matches after installing stutter while shaders compile; later runs use the
 pipeline cache in `melee/runtime/cache`.
 
+When a device cannot draw 60 frames a second, single-player still runs at full speed: it simulates
+every frame and draws fewer of them, as the GameCube does under load, so a 20 FPS picture is not a
+slow-motion match. `log.txt` shows both rates on its `[perf]` lines (`presented_fps` and
+`logic_fps`). Exporting `MELEE_VI_CATCHUP=0` in `Melee.sh` restores the old behaviour, one game
+frame per drawn frame. Online play keeps that one-to-one pacing so both consoles stay in step, so an
+online match runs at the slower device's frame rate.
+
 ## Controls
 
 | Handheld | Game |
 | --- | --- |
-| D-pad | Control stick |
-| Left stick | D-pad (taunt) |
+| Left stick | Control stick |
+| D-pad | D-pad (taunt) |
 | Right stick | C-stick |
 | A / B | A / B |
 | X, Y | Jump |

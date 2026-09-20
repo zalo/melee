@@ -22,8 +22,8 @@ Stages" saves at once; the game then shows its trophy pop-ups once on the next m
 
 | Button | Action |
 |--|--|
-| D-pad | Control stick (move, menu cursor) |
-| Left stick | GameCube D-pad (taunt) |
+| Left stick | Control stick (move, menu cursor) |
+| D-pad | GameCube D-pad (taunt) |
 | Right stick | C-stick (smash attacks) |
 | A | A (attack, confirm) |
 | B | B (special, back) |
@@ -71,6 +71,39 @@ Second testing zip (2026-09-19), what changed after the first reports:
 - Verified on our hardware with this zip before posting: Miyoo Flip on ROCKNIX (inner SDL 2 on
   Wayland, sound through PulseAudio) and Knulli (KMSDRM), Anbernic RG351P on AmberELEC (KMSDRM,
   480x320), all through the CFW's own SDL 2.
+
+Third testing zip (2026-09-19 evening), what changed:
+- Full speed on slow devices (single-player): the game now simulates every frame and draws fewer of
+  them when the renderer cannot keep 60 FPS (the console's own behaviour under load), instead of
+  running in slow motion. On the RG351P a 20 FPS picture used to mean a match at a third of real time;
+  the same match now runs at 38-44 game frames a second with 25-28 drawn. log.txt's [perf] lines show
+  both rates (presented_fps and logic_fps); "dropped_periods" above zero means the device could not
+  keep up even so. Please mention if a match feels choppier than before; MELEE_VI_CATCHUP=0 in
+  Melee.sh restores the old one-frame-per-draw pacing for comparison.
+- Online play still keeps one drawn frame per game frame on both devices (both consoles must run the
+  same simulation lock-step), so an online match runs at the slower device's frame rate; that is
+  unchanged. Same math on every CFW makes both devices compute identical physics.
+- Crash reporting: log.txt ends with [crash] lines and a backtrace when the game dies from a
+  signal, and a crash during start-up makes the next launch start with a fresh shader cache (Pi 5
+  Batocera report). PortMaster shows "Melee crashed (signal N)" instead of returning silently.
+- Note for anyone comparing frame rates: the first run after installing a new zip compiles every
+  shader again (the cache is per binary) and reads 10 FPS with long pauses at the first match; judge
+  from the second launch.
+
+Fourth testing zip (2026-09-20), what changed:
+- Standard controls: the earlier Miyoo-Flip remap (D-pad drove the control stick, the analog stick
+  drove the D-pad, and A/B were swapped) is now OFF. The left analog stick is the control stick, the
+  D-pad is the GameCube D-pad (taunt), and A/B are as labelled - the same as any other controller.
+  Anyone who preferred the old Flip layout can set MELEE_FLIP_SWAP_CONTROLS=1 in Melee.sh.
+- Raspberry Pi 5 crash fixed (Batocera, Mesa V3D): the game reached the menu but segfaulted inside
+  the V3D driver the moment a match started. Cause: shaders are normally compiled on a background
+  thread, and V3D crashes when the main thread then draws with a program that thread created. On V3D
+  the port now compiles shaders on the main thread instead (autodetected from the driver name), which
+  trades a brief stutter as a match's shaders first appear for not crashing. Any device can force it
+  with AURORA_PIPELINE_SYNC=1 in Melee.sh, or force the old threaded path with AURORA_PIPELINE_SYNC=0.
+  Please retest the Pi 5 (and any other Mesa/V3D device) into an actual match; the log now prints
+  "Pipeline compilation runs on the main thread (synchronous)" when the workaround is active. This is
+  a Mesa V3D issue only: Mali (libmali/Panfrost) devices are unaffected and keep the threaded path.
 
 CFW Tests:
 [x] AmberELEC (RG351P)

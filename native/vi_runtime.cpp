@@ -1,4 +1,5 @@
 #include "os_runtime.h"
+#include "vi_pacing.h"
 #include "include/melee_netplay.h"
 #include <aurora/aurora.h>
 #include <aurora/event.h>
@@ -37,7 +38,30 @@ auto measurement_start = Clock::now();
 auto previous_present = Clock::now();
 std::vector<double> present_intervals;
 auto next_retrace = Clock::now();
-constexpr auto frame_period = std::chrono::nanoseconds(16666667);
+constexpr auto frame_period = vi_pacing::kPeriod;
+// Catch-up: retraces (pad polls) delivered per wait when the game thread is late, so the game keeps
+// real time and drops displayed frames instead of slowing down. MELEE_VI_CATCHUP=N caps the burst
+// (default 3); 0 or 1 turns it off.
+//
+// Off in deterministic mode (online play, MELEE_DETERMINISTIC_IO): reproducible simulation still
+// needs one render per logic frame there. Two of the render-cadence couplings that break catch-up
+// online have been removed - the particle list is now sorted once per simulated frame (psdisp.c /
+// matrix_runtime.c) and draw-time RNG goes to a separate visual seed (random.c) - and a quiet match
+// is byte-identical across frame rates. But an active fight still draws a cadence-dependent number of
+// game-seed randoms (a hit/effect path reading render-computed state), so a peer that skipped frames
+// would desync; until that is found, online keeps one render per logic frame. gmscene.c enforces the
+// matching one-update-per-iteration clamp there; this keeps the wait from queuing several polls.
+extern "C" int MeleeNativeDeterministicIO(void);
+const unsigned max_retraces_per_wait = [] {
+    if (MeleeNativeDeterministicIO()) return 1u;
+    const char* v = std::getenv("MELEE_VI_CATCHUP");
+    if (!v || !*v) return vi_pacing::kDefaultMaxRetraces;
+    const long n = std::strtol(v, nullptr, 10);
+    return n < 1 ? 1u : n > 4 ? 4u : static_cast<unsigned>(n);
+}();
+unsigned catchup_retraces;   // extra retraces delivered by catch-up in the current measurement window
+unsigned dropped_periods;    // missed periods beyond the cap (the game ran slower than real time)
+unsigned last_logic_frames;  // melee_native_logic_frames at the last [perf] line
 // Critical-path breakdown for the [perf] line: MELEE_FLIP_PROFILE (with Aurora's render statistics) or
 // MELEE_VI_TIMING (game-thread timers only, cheap enough for the RG351P).
 const bool breakdown = [] {
@@ -114,9 +138,16 @@ void VIWaitForRetrace(void) {
                 std::fprintf(stderr, "[perf] GPU driver workaround active: per-draw texture barriers because this GPU driver drops "
                                      "draws without them; expect low frame rates until the GPU driver is updated (notice shown on screen)\n");
             }
-            std::fprintf(stderr, "[perf] presented_fps=%.2f game_render_fps=%.2f frames=%u seconds=%.3f held_retraces=%u target_hz=60%s\n",
-                         measured_frames / seconds, measured_game_frames / seconds, measured_frames, seconds, held_retraces,
-                         driver_workaround ? " driver_workaround=per-draw-barrier" : "");
+            // logic_fps is the game's own update rate: with catch-up it stays near 60 while presented_fps
+            // falls on a slow renderer; catchup_retraces counts the extra polls that made up the
+            // difference and dropped_periods the time the game could not make up (it ran slow).
+            const unsigned logic_frames = melee_native_logic_frames - last_logic_frames;
+            last_logic_frames = melee_native_logic_frames;
+            std::fprintf(stderr, "[perf] presented_fps=%.2f game_render_fps=%.2f logic_fps=%.2f frames=%u seconds=%.3f held_retraces=%u "
+                                 "catchup_retraces=%u dropped_periods=%u target_hz=60%s\n",
+                         measured_frames / seconds, measured_game_frames / seconds, logic_frames / seconds, measured_frames, seconds,
+                         held_retraces, catchup_retraces, dropped_periods, driver_workaround ? " driver_workaround=per-draw-barrier" : "");
+            catchup_retraces = dropped_periods = 0;
             if (const char* netplay = MeleeNativeNetplayStatsLine()) std::fprintf(stderr, "%s\n", netplay);
             if (breakdown) {
                 // Per presented frame, game-thread wall time: outside VI (simulation + GX recording),
@@ -130,8 +161,7 @@ void VIWaitForRetrace(void) {
                 std::fprintf(stderr, "[perf-breakdown] game_ms=%.3f end_ms=%.3f drain_wait_ms=%.3f sleep_ms=%.3f begin_ms=%.3f fifo_busy_ms=%.3f render_busy_ms=%.3f pipeline_wait_ms=%.3f pipeline_waits=%u updates_per_frame=%.2f\n",
                              sum_game_ms / n, sum_end_ms / n, (drain - last_drain_ns) / 1e6 / n, sum_sleep_ms / n, sum_begin_ms / n,
                              (fifo - last_fifo_ns) / 1e6 / n, (render - last_render_ns) / 1e6 / n, (pipeWait - last_pipe_ns) / 1e6 / n,
-                             unsigned(pipeCount - last_pipe_count), melee_native_logic_frames / n);
-                melee_native_logic_frames = 0;
+                             unsigned(pipeCount - last_pipe_count), logic_frames / n);
                 last_drain_ns = drain; last_fifo_ns = fifo; last_render_ns = render; last_pipe_ns = pipeWait; last_pipe_count = pipeCount;
                 sum_game_ms = sum_end_ms = sum_sleep_ms = sum_begin_ms = 0;
             }
@@ -148,7 +178,14 @@ void VIWaitForRetrace(void) {
     } else if (frame_active) ++held_retraces;
     next_retrace += frame_period;
     const auto now = Clock::now();
-    if (next_retrace < now) next_retrace = now;
+    // Late by whole periods: deliver one retrace per missed period below (each polls the pads, and
+    // Melee's scene loop runs one update per queued poll before it draws), forgive the rest.
+    const vi_pacing::Plan pacing = vi_pacing::plan(std::chrono::duration_cast<std::chrono::nanoseconds>(now - next_retrace),
+                                                   max_retraces_per_wait);
+    next_retrace += frame_period * (pacing.retraces - 1);
+    catchup_retraces += pacing.retraces - 1;
+    dropped_periods += pacing.dropped_periods;
+    if (pacing.dropped_periods) next_retrace = now;
     std::this_thread::sleep_until(next_retrace);
     const auto woke = Clock::now();
     if (breakdown) sum_sleep_ms += ms(woke - now);
@@ -172,12 +209,17 @@ void VIWaitForRetrace(void) {
     // Letting the translator finish the last frame before the retrace keeps the phase at 60 Hz.
     static const bool wait_draw_done = [] { const char* v = std::getenv("MELEE_VI_DRAWDONE_WAIT"); return !v || v[0] != '0'; }();
     if (wait_draw_done) GXWaitDrawDone();
-    ++retraces;
-    const auto enabled = OSDisableInterrupts();
-    if (before_retrace) before_retrace(retraces);
-    current_buffer = next_buffer;
-    if (after_retrace) after_retrace(retraces);
-    OSRestoreInterrupts(enabled);
+    // One retrace normally; several when catching up. HSD's own pre/post callbacks only rotate the
+    // XFBs when a new frame is pending, so the extra ones just poll the pads (lb_0195.c) into the
+    // queue the scene loop drains.
+    for (unsigned i = 0; i < pacing.retraces; ++i) {
+        ++retraces;
+        const auto enabled = OSDisableInterrupts();
+        if (before_retrace) before_retrace(retraces);
+        current_buffer = next_buffer;
+        if (after_retrace) after_retrace(retraces);
+        OSRestoreInterrupts(enabled);
+    }
     segment_start = Clock::now();
 }
 }

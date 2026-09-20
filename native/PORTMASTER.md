@@ -101,6 +101,58 @@ authors.
 
 ## Status (branch `portmaster`, 2026-09-15)
 
+### Full-speed gameplay on slow renderers: catch-up frame pacing (2026-09-19)
+- Before this, one rendered frame was one game frame: `VIWaitForRetrace` delivered a single retrace
+  per call and re-based its clock when late, so the RG351P's 20 FPS match ran at a third of real
+  time and an online session ran at the slower device's rendered rate. The console never behaved
+  that way: its retrace is a hardware interrupt, every retrace polls the pads into HSD's five-entry
+  queue, and Melee's scene loop (`gmscene.c`) runs one update per queued poll before it draws.
+- `native/vi_pacing.h` + `vi_runtime.cpp`: when the game thread arrives late by whole 16.7 ms
+  periods, the wait delivers one retrace per missed period (each runs the HSD pre/post callbacks,
+  which only rotate XFBs when a frame is pending, and `lb_0195.c`'s pad poll), capped at 3 per wait
+  (`MELEE_VI_CATCHUP=N`, 0/1 = off) so a shader-compile or disc stall never becomes a burst; debt
+  beyond the cap is dropped (the game slows, as before). `native/tests/vi_pacing_test.cpp` covers the
+  arithmetic (`ctest -R native_vi_pacing`).
+- The `[perf]` line gained `logic_fps=` (the game's update rate; `presented_fps` is the picture),
+  `catchup_retraces=` (extra polls delivered) and `dropped_periods=` (16.7 ms slots the game could
+  not make up: nonzero means it ran slower than real time in that window). `[perf-breakdown]`'s
+  `updates_per_frame` no longer resets the logic-frame counter.
+- **Single-player only; off in deterministic/online mode.** Frame skipping means a device updates
+  more times than it renders, and Melee's HUD and item code read joint state computed during the
+  render: the damage-number shake in `ifstatus.c` draws gameplay RNG a render-count-dependent number
+  of times, so two devices at different frame rates would desync (proven: an online match with a
+  bat item desynced at frame ~2300 whether catch-up was on or off, the moment the clamp was gone;
+  found with `MELEE_TRACE_RAND` + an ordered per-frame draw diff, first divergence in
+  `ifStatus_802F4EDC`). So `vi_runtime.cpp` forces the cap to 1 when `MeleeNativeDeterministicIO()`
+  and `gmscene.c` keeps the one-update-per-iteration clamp for deterministic mode. Online play stays
+  exactly as it was (one render per logic frame on both peers, the match at the slower device's
+  pace); single-player gets the frame-skip win. Making online itself run the faster device ahead
+  would require removing every simulation read of render-computed state (HUD, items, effects) and is
+  out of scope here.
+- Release build with catch-up: `dist/portmaster/melee.zip` binary md5 `654bd5aa`; 17 package tests
+  pass. (The intermediate `c68555af`/`8bb1ed38` build with a particle-sort experiment was reverted
+  once the control showed the desync was pre-existing, not caused by catch-up.)
+- Harness: `pmrun-matrix.sh` now kills Melee.sh's leftover PortMaster dialog helpers (`pugwash
+  fifo_control`) at case end; three of them (~50 MB each) had pushed a Flip run into a four-minute
+  thrash with SSH unreachable (dt15).
+- Measured (warm shader cache; the first run after any new binary compiles every shader, since the
+  cache directory is keyed by the executable's size and mtime, and that cold run reads 10 FPS on
+  the Flip with the renderer waiting up to a minute for a frame slot: not a regression):
+  - Flip ROCKNIX libmali g29p1, scripted VS match (fs2): presented 55-59 FPS, `logic_fps` 59.3-60.1,
+    2-16 catch-up retraces per 5 s window, 0-11 dropped periods. Unchanged picture, no slow-down.
+  - RG351P AmberELEC (fs1-fs5): `logic_fps` 28-44 (was 20-24 with the picture at the same rate),
+    presented 17-32 FPS, 1.4-2.1 updates per drawn frame; steady-state frames are 17-20 ms so the
+    game does keep real time between stalls, but `dropped_periods` runs 90-190 per 5 s: AmberELEC
+    stalls 150-450 ms several times a window (p95 120-380 ms), and those account for the rest.
+    Not shader compiles (`pipeline_wait_ms=0`), not the present call (`[flip-thread-present]`
+    present_ms > 30 ms on 4 of 4,945 frames), not the CPU/DDR/GPU governors (all three set to
+    performance in fs3/fs5: median 17-19 ms and +5 FPS, stalls unchanged; AmberELEC runs
+    `dmc_ondemand` at 528 MHz DDR by default). The game thread spends those stalls asleep in the
+    frame-slot wait, so the FIFO/render side is what blocks; Batocera 42 and dArkOS on the same
+    RG351P show p95 22-42 ms with no such stalls, so it is AmberELEC-specific (kernel 4.4.189,
+    libmali r13p0, KMSDRM+RGA rotation SDL2). Open lead for a later session; `perf_event_open` is
+    not implemented on that kernel, so use gdb batch backtraces or Aurora-side timers.
+
 ### SDL: shared SDL3 over the CFW's SDL2 (2026-09-19, after tester feedback)
 - Testers and PortMaster maintainers objected to the built-in SDL3 ("dynamically link it so it uses
   the system's SDL build", "what about fbdev CFWs like H700 Knulli and muOS?"). They are right: SDL3

@@ -22,6 +22,8 @@ extern "C" u32 PADRead(PADStatus* output) {
 }
 extern "C" void PADClamp(PADStatus*) {}
 int main() {
+    // The swap is opt-in now (standard controls pass through by default); enable it for this test.
+    setenv("MELEE_FLIP_SWAP_CONTROLS", "1", 1);
     PADSetSamplingRate(0);
     GamePad pads[4];
     MeleeNativePADRead(pads);

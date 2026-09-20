@@ -35,15 +35,15 @@ void copy_to_game(MeleePadStatus* game, const PADStatus* native) {
     }
 }
 #ifdef MELEE_MIYOO_FLIP
-// The Flip's D-pad sits where a GameCube control stick would be used, so the
-// D-pad drives the control stick and the analog stick drives the D-pad. The
-// device also labels its face buttons in Nintendo order (B below A), the
-// reverse of the Xbox layout its gamepad driver reports. MELEE_FLIP_SWAP_CONTROLS=0
-// restores Aurora's default mapping.
+// Optional Flip-ergonomics remap, OFF by default: the standard controller mapping now comes through
+// unchanged (analog stick -> control stick, D-pad -> D-pad, A -> A, B -> B). Set
+// MELEE_FLIP_SWAP_CONTROLS=1 to restore the old Miyoo-Flip layout, where the D-pad drives the control
+// stick and the analog stick the D-pad (the Flip's D-pad sits where a control-stick thumb would rest),
+// and A/B trade places to match the Flip's Nintendo-order face-button labels.
 bool swap_controls_enabled() {
     static const bool enabled = [] {
         const char* env = std::getenv("MELEE_FLIP_SWAP_CONTROLS");
-        return env == nullptr || std::strcmp(env, "0") != 0;
+        return env != nullptr && env[0] != '\0' && std::strcmp(env, "0") != 0;
     }();
     return enabled;
 }

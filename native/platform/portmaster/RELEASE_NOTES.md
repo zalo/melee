@@ -23,8 +23,8 @@ in `ports/melee/runtime/cache`. Full controls, port settings and the developer m
 
 | Handheld | Game |
 | --- | --- |
-| D-pad | Control stick |
-| Left stick | D-pad (taunt) |
+| Left stick | Control stick |
+| D-pad | D-pad (taunt) |
 | Right stick | C-stick |
 | A / B | A / B |
 | X, Y | Jump |
@@ -43,6 +43,12 @@ CFW's OpenGL ES 3.1 driver (Mali-G31/G52 and newer, or Panfrost). On a Mali driv
 "GPU driver update needed" notice and a banner along the bottom edge and runs correctly but slowly.
 On ROCKNIX, update to 20260901 or newer (libmali g29p1) or switch the GPU driver setting to Panfrost;
 please include the driver line from that notice in a report.
+
+A device that cannot draw 60 frames a second still plays single-player at full speed: the game
+simulates every frame and draws fewer of them, as the console does under load. `log.txt`'s `[perf]`
+lines show the picture rate (`presented_fps`) and the game rate (`logic_fps`) separately;
+`dropped_periods` above zero means the device could not keep up even so. Online matches keep one
+drawn frame per game frame on both consoles, so they run at the slower device's frame rate.
 
 ## Reporting problems
 

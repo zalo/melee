@@ -121,6 +121,17 @@ int MeleeNativeTestFreeze(void)
 
 unsigned melee_native_logic_frames; // game updates, read by the VI timing line
 
+/* Render phase bracket: MeleeNativeEnterRenderPhase/ExitRenderPhase wrap the scene loop's draw
+ * section (gmscene.c), and while the depth is non-zero random.c routes HSD_Rand/HSD_Randf to a
+ * separate visual seed so nothing a draw callback pulls perturbs the game seed. This is what lets
+ * catch-up frame pacing run in online play: a device may render fewer frames than it simulates
+ * without its RNG stream diverging from the peer's. A counter (not a flag) keeps nested draws, such
+ * as an offscreen shadow pass rendered from a camera callback, inside the render phase. */
+static int render_phase_depth;
+void MeleeNativeEnterRenderPhase(void) { ++render_phase_depth; }
+void MeleeNativeExitRenderPhase(void) { if (render_phase_depth > 0) --render_phase_depth; }
+int MeleeNativeInRenderPhase(void) { return render_phase_depth > 0; }
+
 /* Deterministic I/O: disc reads and ARAM transfers complete at the next VI pump instead of on
  * their worker threads, so the frame a load finishes on no longer depends on SD-card speed. Online
  * play needs it (both peers must spend the same number of frames in every loading screen); the
@@ -183,6 +194,9 @@ u32 MeleeNativeStateHash(void)
 void MeleeNativeNetplayFrameHash(unsigned frame, u32 hash) __attribute__((weak));
 void MeleeNativeAudioTick(void) __attribute__((weak));
 void MeleeNativeRunPhaseRunning(void) __attribute__((weak));
+/* Sorts the particle list once per simulated frame so its order (and the RNG the particles draw) is
+ * a pure function of the frames simulated rather than of how often the frame was drawn (psdisp.c). */
+void MeleeNativePsSortForUpdate(void) __attribute__((weak));
 
 static void state_hash_tick(void)
 {
@@ -196,9 +210,11 @@ static void state_hash_tick(void)
     if (!log_every && !MeleeNativeNetplayFrameHash) return;
     h = MeleeNativeStateHash();
     if (MeleeNativeNetplayFrameHash) MeleeNativeNetplayFrameHash(melee_native_logic_frames, h);
-    if (log_every && melee_native_logic_frames % (unsigned) log_every == 0)
-        fprintf(stderr, "[state-hash] frame=%u hash=%08x seed=%u\n", melee_native_logic_frames, h,
-                *HSD_RandSeedPtr);
+    if (log_every && melee_native_logic_frames % (unsigned) log_every == 0) {
+        extern unsigned melee_native_game_rand_draws __attribute__((weak));
+        fprintf(stderr, "[state-hash] frame=%u hash=%08x seed=%u draws=%u\n", melee_native_logic_frames, h,
+                *HSD_RandSeedPtr, &melee_native_game_rand_draws ? melee_native_game_rand_draws : 0u);
+    }
 }
 
 void MeleeNativeMatrixTick(void)
@@ -207,6 +223,11 @@ void MeleeNativeMatrixTick(void)
     /* Start-up is over once the game simulates: the crash-loop guard (runtime_main.cpp) only sets
      * the pipeline cache aside for runs that died before this point. */
     if (melee_native_logic_frames == 1 && MeleeNativeRunPhaseRunning) MeleeNativeRunPhaseRunning();
+    /* Deterministic mode: re-sort the particle list here, once per simulated frame (right after the
+     * particle update proc ran in HSD_GObj_RunProcs), instead of leaving it to the draw. This is what
+     * lets catch-up frame pacing run online - a device may draw fewer frames than it simulates and
+     * still keep the same particle order, and the same RNG stream, as its peer. */
+    if (MeleeNativeDeterministicIO() && MeleeNativePsSortForUpdate) MeleeNativePsSortForUpdate();
     /* Deterministic mode: the audio engine advances here, a fixed number of AX frames per logic
      * frame, before the digest is taken. */
     if (MeleeNativeAudioTick) MeleeNativeAudioTick();

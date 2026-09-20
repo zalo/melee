@@ -313,14 +313,21 @@ void gm_801A4D34(void (*on_frame)(void), UNUSED GameSceneInfo* info)
         lb_800195D0();
 #ifdef MELEE_NATIVE
         {
-            // Reproducible simulation: one logic frame per loop iteration. The scene-change check
-            // below runs once per iteration, so draining several queued polls at once would run a
-            // device-dependent number of extra frames in the departing scene (the two-device test
-            // entered the CSS one frame apart). The remaining polls are consumed by later iterations.
+            // Reproducible simulation (online play, MELEE_DETERMINISTIC_IO): one logic frame per loop
+            // iteration, so exactly one render happens per update on every device. Draining several
+            // queued polls between renders lets a device update more times than it renders, and an
+            // active fight then draws a render-cadence-dependent number of game-seed randoms (a hit or
+            // effect path that reads state computed during the draw), which desyncs two devices at
+            // different frame rates. The particle-sort and visual-seed fixes removed the couplings a
+            // quiet match hit, but not this one yet, so online still holds to one render per logic
+            // frame. Single-player leaves this off and drains the queue, so catch-up frame pacing
+            // (vi_runtime.cpp) keeps real time by rendering less often. MELEE_FORCE_1_1 forces the
+            // clamp on for anyone (a stable 1:1 reference cadence when isolating the remaining
+            // coupling against a catch-up run).
             extern int MeleeNativeDeterministicIO(void);
-            if (MeleeNativeDeterministicIO() && pad_queue_count > 1) {
-                pad_queue_count = 1;
-            }
+            static int force_1_1 = -1;
+            if (force_1_1 < 0) { const char* v = getenv("MELEE_FORCE_1_1"); force_1_1 = v && *v && *v != '0'; }
+            if ((MeleeNativeDeterministicIO() || force_1_1) && pad_queue_count > 1) pad_queue_count = 1;
         }
 #endif
 
@@ -409,12 +416,22 @@ void gm_801A4D34(void (*on_frame)(void), UNUSED GameSceneInfo* info)
         lb_800195D0();
         GXInvalidateVtxCache();
         GXInvalidateTexAll();
+#ifdef MELEE_NATIVE
+        // Any random number the draw callbacks below pull goes to a separate visual seed instead of
+        // the game seed (random.c), so drawing the frame never advances the simulation's RNG. That is
+        // what lets a device draw fewer frames than it simulates (catch-up pacing) and still stay in
+        // step with a peer that draws every frame.
+        void MeleeNativeEnterRenderPhase(void);
+        void MeleeNativeExitRenderPhase(void);
+        MeleeNativeEnterRenderPhase();
+#endif
         HSD_StartRender(HSD_RP_SCREEN);
         HSD_GObj_80390FC0();
         HSD_Init_803755A8();
         HSD_PerfSetDrawTime();
         HSD_VICopyXFBAsync(HSD_RP_SCREEN);
 #ifdef MELEE_NATIVE
+        MeleeNativeExitRenderPhase();
         MeleeNativeGameFrame();
 #endif
         if (temp_r25->unk_4 != -2U) {

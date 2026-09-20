@@ -122,8 +122,10 @@ local network in fixed-delay lockstep. Nothing here talks to Slippi or to Dolphi
    apart: the scene loop checks for a scene change once per iteration and drains every queued poll
    as a frame in between, and the next scene starts by discarding all but the newest queued poll;
    both counts depend on how many polls piled up during the transition. In deterministic mode the
-   loop runs one frame per iteration and the flush is skipped (`gmscene.c`), so the same polls give
-   the same frames in the same scenes.
+   scene-entry flush is skipped (`gmscene.c`), so the same polls give the same frames in the same
+   scenes. (An earlier fix also clamped the loop to one poll per iteration; that clamp was removed
+   once the simulation was made independent of the render count - see "How online play catches up"
+   below - so a device can now drain several queued polls between renders and skip frames online.)
 
 10. **The CFW's libm.** The first online sessions connected, agreed through the menus and into the
     match, then desynced at frame 647 with the RNG seeds still identical on both sides and the same
@@ -136,6 +138,57 @@ local network in fixed-delay lockstep. Nothing here talks to Slippi or to Dolphi
     runs identical math; `check_sdl_backends.sh --shim` and the built-zip test fail if the binary ever
     requires libm.so.6 or imports those functions again. The two-device determinism test had not
     caught this because its idle scripted match happened not to hit a differing input in 80 s.
+## Toward online catch-up (frame skipping) - in progress
+
+Goal: let a slow peer draw fewer frames than it simulates and still stay in lock-step, so an online
+match runs at real time on both sides instead of at the slower device's frame rate (single-player
+already does this via `native/vi_pacing.h`). That needs the simulation to be a pure function of the
+frames simulated, independent of how often the picture is drawn. Two of Melee's draw-to-sim couplings
+are now fixed; a third remains, so **online still holds to one render per logic frame for now**
+(catch-up gated off when `MeleeNativeDeterministicIO()`, `vi_runtime.cpp`, and the `gmscene.c`
+one-poll-per-iteration clamp kept).
+
+Fixed:
+
+1. **The particle list.** `particleSort` (`psdisp.c`) re-links the global particle list
+   `hsd_804D0908[]` in place by blend kind, and the per-frame particle update walks that same list, so
+   its order feeds back into the simulation. It used to run from the draw callback
+   (`efLib_render_callback`), a render-count-dependent number of times; it now runs once per simulated
+   frame from `MeleeNativeMatrixTick` right after the particle update (deterministic mode), and the
+   render skips its `psFrameNum` advance so the draw-time sort finds nothing to do. The list state is
+   identical at both points (nothing touches it between the update and the render), so single-frame
+   visuals are unchanged. This was the cause of the frame ~2620 desync: with the clamp removed, the
+   two peers sorted the list a different number of times.
+
+2. **Draw-time RNG.** A gobj draw callback that pulled from the shared game seed would advance it a
+   render-count-dependent number of times. No in-match render callback does today (surveyed: fighters,
+   items, HUD, effects and stages draw no RNG from their `render_cb`; the `ifstatus.c` damage-number
+   shake and the rest are all update procs), but as a guard, while a render callback is on the stack
+   `HSD_Rand`/`HSD_Randf` draw from a separate visual seed (`random.c`, bracketed in `gmscene.c`)
+   whose values are cosmetic and never feed back.
+
+With those two fixed, a **quiet match is fully cadence-independent**: single-device A/B on the RG351P
+(`match_nomovie`, `MELEE_DETERMINISTIC_IO`, every frame hashed), catch-up off (1 draw per frame) vs
+on (the RG drew ~15 FPS while simulating ~30), was **byte-identical for all 6,909 common frames**
+(before the particle fix it parted at 2620). A short online fight with items also stayed in sync for
+all 948 hashed frames at different frame rates on the two devices.
+
+Still open - the reason catch-up is not yet enabled online:
+
+3. **A busy-fight coupling.** An *active* fight (the `online_p1`/`online_p2` scripts, which attack,
+   grab and use specials, unlike `match_nomovie` where P1 stands still) draws a **render-cadence-
+   dependent number of game-seed randoms** - some hit/effect path reads state computed during the
+   draw. Evidence: the shipped clamped build (654bd5aa, true 1:1) is deterministic on that fight
+   across repeated runs, but with the clamp removed a single-device catch-up-off-vs-on A/B parts at
+   ~frame 2298, and the exact frame wanders with timing (the frame-skip pattern is wall-clock
+   dependent). Same class as the particle bug, different consumer, not yet located. Localizing tools
+   added this pass: a per-frame game-seed draw counter (`melee_native_game_rand_draws`, in the
+   `[state-hash]` line as `draws=`) and `MELEE_FORCE_1_1` (forces 1:1 as a stable reference cadence).
+   Finding and fixing this - and auditing any other hit/effect read of `jobj->mtx` set up at draw - is
+   what remains before online catch-up can be turned on.
+
+- **on10 (2026-09-19 evening, build 654bd5aa):** the regression baseline, 7,122 frames of an active
+  item fight in sync with catch-up gated off and the clamp kept - the behaviour online still ships.
 
 ## Results
 

@@ -614,6 +614,19 @@ void efLib_render_callback(HSD_GObj* gobj, int code)
 {
     u32 particles_code;
 
+#ifdef MELEE_NATIVE
+    {
+        // Online play (deterministic I/O): psFrameNum and the particle sort are driven once per
+        // simulated frame (MeleeNativePsSortForUpdate, psdisp.c). code 0 only advances psFrameNum;
+        // letting the render advance it too would make the draw-time sort re-link the particle list a
+        // render-count-dependent number of times and desync catch-up online play, so skip it here.
+        extern int MeleeNativeDeterministicIO(void);
+        if (code == 0 && MeleeNativeDeterministicIO()) {
+            return;
+        }
+    }
+#endif
+
     switch (code) {
     case 0:
         particles_code = 0;

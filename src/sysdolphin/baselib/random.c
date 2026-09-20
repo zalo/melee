@@ -15,10 +15,26 @@ u32* HSD_RandSeedPtr = &seed;
 int MeleeNativeOnGameThread(void) __attribute__((weak));
 extern unsigned melee_native_logic_frames __attribute__((weak));
 static u32 off_thread_seed = 0x2545F491;
+/* The gobj GX/display callbacks (the render phase, HSD_GObj_80390FC0/HSD_GObj_80390ED0) run a
+ * device-dependent number of times per simulated frame: catch-up frame pacing lets a slow device
+ * simulate every frame but draw fewer of them, so two peers in a lock-step online match render a
+ * different number of times between the same pair of logic frames. Any random number a draw pulls
+ * from the shared game seed would then advance that seed a different number of times on the two
+ * devices and desync the match. So while a render callback runs on the game thread, HSD_Rand/
+ * HSD_Randf draw from a separate visual seed whose state never feeds back into the simulation; the
+ * game's own sequence stays a pure function of the frames it has simulated, no matter how often the
+ * picture is drawn. MeleeNativeInRenderPhase() (matrix_runtime.c) is non-zero only while a draw
+ * callback is on the stack. The visual seed free-runs; its exact values are cosmetic (HUD shake
+ * jitter, effect flicker) and need not agree between devices. */
+int MeleeNativeInRenderPhase(void) __attribute__((weak));
+static u32 visual_seed = 0x6D2B79F5;
 static u32* seed_ptr(void)
 {
     if (MeleeNativeOnGameThread && !MeleeNativeOnGameThread()) {
         return &off_thread_seed;
+    }
+    if (MeleeNativeInRenderPhase && MeleeNativeInRenderPhase()) {
+        return &visual_seed;
     }
     return HSD_RandSeedPtr;
 }
@@ -55,15 +71,23 @@ static void trace_draw(u32* p)
     for (int i = 1; i < n; i++) fprintf(stderr, "%p ", frames[i]);
     fprintf(stderr, "\n");
 }
+/* Cumulative count of draws from the game seed (not the visual or off-thread seeds). Logged per
+ * logic frame with the state hash (MELEE_STATE_HASH_LOG) to localize a determinism divergence to the
+ * exact frame whose game-seed draw count differs between two runs, without the timing perturbation of
+ * MELEE_TRACE_RAND's per-draw backtrace. */
+unsigned melee_native_game_rand_draws;
+#define count_draw(p) ((void) ((p) == HSD_RandSeedPtr ? ++melee_native_game_rand_draws : 0u))
 #else
 #define seed_ptr() HSD_RandSeedPtr
 #define trace_draw(p) ((void) 0)
+#define count_draw(p) ((void) 0)
 #endif
 
 s32 HSD_Rand(void)
 {
     u32* p = seed_ptr();
     trace_draw(p);
+    count_draw(p);
     *p = *p * 214013 + 2531011;
     return *p >> 0x10;
 }
@@ -72,6 +96,7 @@ f32 HSD_Randf(void)
 {
     u32* p = seed_ptr();
     trace_draw(p);
+    count_draw(p);
     *p = *p * 214013 + 2531011;
     return (f32) (*p >> 0x10) / (1 << 16);
 }

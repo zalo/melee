@@ -515,6 +515,36 @@ HSD_Particle* particleSort(s32 arg0, u8 arg1, HSD_Particle** arg2,
     return var_r3;
 }
 
+#ifdef MELEE_NATIVE
+/* Online play (deterministic I/O): the particle list hsd_804D0908[] is normally re-sorted by
+ * blend-kind inside the draw path (particleSort, reached from psDispParticles in efLib_render_callback),
+ * which both advances psFrameNum and re-links the list in place. The per-frame particle update
+ * (hsd_8039CEAC) walks that same list, so once catch-up frame pacing lets a device draw fewer frames
+ * than it simulates, the list ends up in a different order on two peers and their particle
+ * simulations - and the random numbers those particles draw - drift apart (the match desynced at
+ * ~frame 2620 with the sort left on the draw). This performs the identical sort once per simulated
+ * frame instead, called from MeleeNativeMatrixTick right after the particle update proc, so the order
+ * is a pure function of the frames simulated. efLib_render_callback then skips its own psFrameNum
+ * advance in this mode, and the draw-time particleSort finds psFrameNum unchanged and re-links
+ * nothing. The list state here is the same one the draw would have sorted (nothing touches
+ * hsd_804D0908 between the update proc and the render), so the resulting order - and single-frame
+ * visuals - match the one-render-per-frame behaviour exactly. */
+void MeleeNativePsSortForUpdate(void)
+{
+    HSD_Particle* sorted;
+    HSD_Particle* non_edge;
+    s32 i;
+    if (psFrameNum < 0xFFU) {
+        psFrameNum += 1;
+    } else {
+        psFrameNum = 1;
+    }
+    for (i = 0; i < 16; i++) {
+        particleSort(i, psFrameNum, &sorted, &non_edge);
+    }
+}
+#endif
+
 static inline HSD_Particle* psDispSubPoint(HSD_Particle* pp)
 {
     Vec3 buf[16];
