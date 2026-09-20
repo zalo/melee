@@ -1931,6 +1931,20 @@ void psDispParticles(u32 target_link, u32 sw)
         psFrameNum = 1;
         return;
     }
+#ifdef MELEE_NATIVE
+    {
+        // Skip drawing particles on stages that opt out for performance. Fountain of Dreams' fountains
+        // are runtime point-sprite particles (confirmed: the stage's static geometry has zero point
+        // primitives - see MeleeNativeDumpStagePoints), and their GPU fill is the stage's wall on
+        // higher-resolution devices. The particle UPDATE still runs (gobj proc), so gameplay RNG and
+        // online determinism are untouched; only the draw is dropped. matrix_runtime.c chooses per
+        // stage; MELEE_FOD_PARTICLES=1 keeps them.
+        extern int MeleeNativeSkipParticles(void) __attribute__((weak));
+        if (MeleeNativeSkipParticles && MeleeNativeSkipParticles()) {
+            return;
+        }
+    }
+#endif
     sp7B4 = 0;
     do {
         if (target_link & (1 << sp7B4)) {

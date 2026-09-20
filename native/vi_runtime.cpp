@@ -10,6 +10,7 @@
 #include <thread>
 #include <cstdlib>
 #include <cstdio>
+#include <unistd.h>
 #include <vector>
 #include <algorithm>
 
@@ -19,6 +20,21 @@ extern "C" uint64_t aurora_render_stats_fifo_process_ns(void);
 extern "C" uint64_t aurora_render_stats_render_worker_busy_ns(void);
 extern "C" uint64_t aurora_render_stats_pipeline_wait_ns(void);
 extern "C" uint64_t aurora_render_stats_pipeline_wait_count(void);
+extern "C" uint64_t aurora_render_stats_created_pipelines(void);
+
+// Resident set size in MiB from /proc/self/statm (resident pages * page size). Cheap; read once per
+// [perf] line so a log.txt shows memory growth over a session - the low-RAM out-of-memory kill
+// (signal 9) shows up here as rss_mb climbing, and pipelines= alongside says whether the render
+// pipeline cache (which never evicts) is what is growing.
+static unsigned melee_native_rss_mb() {
+    FILE* f = std::fopen("/proc/self/statm", "r");
+    if (!f) return 0;
+    unsigned long size_pages = 0, resident_pages = 0;
+    const int n = std::fscanf(f, "%lu %lu", &size_pages, &resident_pages);
+    std::fclose(f);
+    if (n < 2) return 0;
+    return static_cast<unsigned>((resident_pages * (unsigned long) sysconf(_SC_PAGESIZE)) >> 20);
+}
 extern "C" const char* aurora_gl_driver_notice(void);
 extern "C" unsigned melee_native_logic_frames;
 namespace {
@@ -144,9 +160,11 @@ void VIWaitForRetrace(void) {
             const unsigned logic_frames = melee_native_logic_frames - last_logic_frames;
             last_logic_frames = melee_native_logic_frames;
             std::fprintf(stderr, "[perf] presented_fps=%.2f game_render_fps=%.2f logic_fps=%.2f frames=%u seconds=%.3f held_retraces=%u "
-                                 "catchup_retraces=%u dropped_periods=%u target_hz=60%s\n",
+                                 "catchup_retraces=%u dropped_periods=%u rss_mb=%u pipelines=%llu target_hz=60%s\n",
                          measured_frames / seconds, measured_game_frames / seconds, logic_frames / seconds, measured_frames, seconds,
-                         held_retraces, catchup_retraces, dropped_periods, driver_workaround ? " driver_workaround=per-draw-barrier" : "");
+                         held_retraces, catchup_retraces, dropped_periods, melee_native_rss_mb(),
+                         (unsigned long long) aurora_render_stats_created_pipelines(),
+                         driver_workaround ? " driver_workaround=per-draw-barrier" : "");
             catchup_retraces = dropped_periods = 0;
             if (const char* netplay = MeleeNativeNetplayStatsLine()) std::fprintf(stderr, "%s\n", netplay);
             if (breakdown) {

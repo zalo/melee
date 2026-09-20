@@ -80,9 +80,100 @@ void MeleeNativeTestPrepareCss(CSSData* css)
 
 #include <melee/pl/player.h>
 #include <melee/gr/stage.h>
+#include <melee/gr/ground.h>
 #include <melee/ft/types.h>
 #include <melee/it/itspawn.h>
 #include <sysdolphin/baselib/gobj.h>
+#include <sysdolphin/baselib/jobj.h>
+#include <sysdolphin/baselib/dobj.h>
+#include <sysdolphin/baselib/pobj.h>
+
+/* Tool (MELEE_STAGE_POINT_DUMP=1): walk every stage-part JObj tree and report the PObjs whose display
+ * list draws GX_POINTS - point sprites like Fountain of Dreams' fountains, which are stage geometry in
+ * a display list, not psDispParticles. Each hit prints the stage part, the JObj's tree index and the
+ * point count, so the heavy fountain PObj can be identified and targeted. The DL is GameCube format:
+ * the first byte is the GXBegin opcode (primitive in the top 5 bits; GX_POINTS = 0xB8) followed by a
+ * big-endian u16 vertex count. Static, one-shot at match start; no per-frame cost. */
+struct StagePointScan {
+    unsigned jobjs, dobjs, pobjs, point_pobjs, point_verts;
+    unsigned prim_hist[8]; /* by (opcode>>3)&7: 0 quads..7 points */
+};
+static void dump_jobj_points(HSD_JObj* jobj, int part, int* index, struct StagePointScan* s)
+{
+    for (; jobj != NULL; jobj = HSD_JObjGetNext(jobj)) {
+        int idx = (*index)++;
+        s->jobjs++;
+        if (union_type_dobj(jobj) && jobj->u.dobj != NULL) {
+            HSD_DObj* dobj;
+            int dobj_idx = 0;
+            for (dobj = jobj->u.dobj; dobj != NULL; dobj = dobj->next, dobj_idx++) {
+                HSD_PObj* pobj;
+                s->dobjs++;
+                for (pobj = dobj->pobj; pobj != NULL; pobj = pobj->next) {
+                    const u8* dl = pobj->display;
+                    s->pobjs++;
+                    if (dl == NULL || pobj->n_display == 0) continue;
+                    if (dl[0] & 0x80) s->prim_hist[(dl[0] >> 3) & 7]++;
+                    /* Top 5 bits of the opcode are the primitive; GX_POINTS = 0xB8. */
+                    if ((dl[0] & 0xF8) == 0xB8) {
+                        unsigned count = ((unsigned) dl[1] << 8) | dl[2];
+                        s->point_pobjs++;
+                        s->point_verts += count;
+                        fprintf(stderr,
+                                "[stage-points] part=%d jobj=%d dobj=%d pobj=%p points=%u dl_bytes=%u\n",
+                                part, idx, dobj_idx, (void*) pobj, count,
+                                (unsigned) pobj->n_display * 32u);
+                    }
+                }
+            }
+        }
+        dump_jobj_points(HSD_JObjGetChild(jobj), part, index, s);
+    }
+}
+
+void MeleeNativeDumpStagePoints(void)
+{
+    int part;
+    struct StagePointScan total = {0};
+    if (!getenv("MELEE_STAGE_POINT_DUMP")) return;
+    fprintf(stderr, "[stage-points] current stage=%d: scanning stage + map JObj trees for GX_POINTS\n",
+            Stage_80225194());
+    for (part = 0; part < 16; part++) {
+        struct StagePointScan s = {0};
+        Ground_GObj* stage_gobj = Ground_GetStageGObj(part);
+        Ground_GObj* map_gobj = Ground_GetMapGObj(part);
+        int index = 0;
+        if (stage_gobj != NULL && GET_JOBJ(stage_gobj) != NULL)
+            dump_jobj_points(GET_JOBJ(stage_gobj), part, &index, &s);
+        if (map_gobj != NULL && map_gobj != stage_gobj && GET_JOBJ(map_gobj) != NULL)
+            dump_jobj_points(GET_JOBJ(map_gobj), part, &index, &s);
+        if (s.jobjs == 0) continue;
+        fprintf(stderr, "[stage-points] part=%d jobjs=%u dobjs=%u pobjs=%u point_pobjs=%u point_verts=%u "
+                        "prims[quad/tri/tristrip/fan/line/linestrip/?/point]=%u/%u/%u/%u/%u/%u/%u/%u\n",
+                part, s.jobjs, s.dobjs, s.pobjs, s.point_pobjs, s.point_verts,
+                s.prim_hist[0], s.prim_hist[2], s.prim_hist[3], s.prim_hist[4],
+                s.prim_hist[5], s.prim_hist[6], s.prim_hist[1], s.prim_hist[7]);
+        total.jobjs += s.jobjs; total.pobjs += s.pobjs;
+        total.point_pobjs += s.point_pobjs; total.point_verts += s.point_verts;
+    }
+    fprintf(stderr, "[stage-points] done: jobjs=%u pobjs=%u point_pobjs=%u point_verts=%u (0 point_verts => fountains are runtime particles, not static geometry)\n",
+            total.jobjs, total.pobjs, total.point_pobjs, total.point_verts);
+}
+
+/* Fountain of Dreams (St_Kind_Izumi) sprays its fountains as runtime point-sprite particles (the
+ * stage has no static point geometry - MeleeNativeDumpStagePoints confirmed it). Their GPU fill is
+ * the stage's wall on higher-resolution devices, so psDispParticles skips the particle DRAW there by
+ * default (the update still runs, so gameplay and online determinism are untouched). Only on FoD;
+ * MELEE_FOD_PARTICLES=1 keeps the fountains for anyone who prefers the look. */
+int MeleeNativeSkipParticles(void)
+{
+    static int keep = -1;
+    if (keep < 0) {
+        const char* v = getenv("MELEE_FOD_PARTICLES");
+        keep = v && v[0] != '\0' && strcmp(v, "0") != 0;
+    }
+    return !keep && Stage_80225194() == St_Kind_Izumi;
+}
 
 static int matrix_scene = -1;
 static unsigned matrix_frames;
@@ -92,6 +183,7 @@ void MeleeNativeMatrixScene(int scene)
     matrix_scene = scene;
     matrix_frames = 0;
     freeze_frames = 0;
+    if (scene == 2) MeleeNativeDumpStagePoints();
     if (scene == 2 && getenv("MELEE_MATRIX_TEST")) {
         int expected = setting("MELEE_TEST_CHARACTER", 32, CKind_Fox);
         int actual = Player_GetPlayerCharacter(0);
