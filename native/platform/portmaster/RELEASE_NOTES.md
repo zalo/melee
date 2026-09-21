@@ -6,6 +6,10 @@ no game data: you need your own dump of the disc (US, version 1.02, `GALE01`).
 
 ## Changes in this build
 
+- **More reliable GPU driver-bug detection.** On Mali GPUs whose driver needs a per-draw workaround, the
+  renderer now keeps checking for the rendering bug when a heavier scene loads later (for example Fountain of
+  Dreams reached after the menu), instead of only during the first few seconds — so the workaround engages on
+  those scenes too. Correct drivers are unaffected.
 - **Crash fix on match exit.** Leaving a match (for example exiting training mode) could crash the game
   with a segmentation fault; a stale fighter reference in the per-frame state check is now guarded.
 - **Runs on more CPUs.** The build no longer uses the optional ARMv8 crypto instructions, which some
