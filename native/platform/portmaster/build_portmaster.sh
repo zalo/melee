@@ -18,7 +18,11 @@ export RUSTUP_HOME="${RUSTUP_HOME:-$tools/rustup}"
 export CARGO_HOME="${CARGO_HOME:-$tools/cargo}"
 export PATH="$CARGO_HOME/bin:$PATH"
 export MELEE_BUILD_DIR="${MELEE_BUILD_DIR:-$root/build/portmaster-a35}"
-export FLIP_CPU=cortex-a35
+# +nocrypto: the ARMv8 crypto ext (AES/SHA/PMULL) is OPTIONAL on Cortex-A35 but clang enables it by default
+# for -mcpu=cortex-a35, so abseil emits AES/PMULL/SHA in its hashing. This binary must run on crypto-less
+# aarch64 CPUs too (e.g. Raspberry Pi 4 / BCM2711 Cortex-A72: fp/asimd/crc32 but NOT aes) where those
+# instructions SIGILL. crc32 stays. See native/platform/flip/toolchain-a35.cmake for the Dawn side.
+export FLIP_CPU=cortex-a35+nocrypto
 rust_toolchain="${RUST_TOOLCHAIN:-stable-x86_64-unknown-linux-gnu}"
 output="${PORTMASTER_OUTPUT:-$root/dist/portmaster}"
 
