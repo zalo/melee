@@ -6,6 +6,8 @@ no game data: you need your own dump of the disc (US, version 1.02, `GALE01`).
 
 ## Changes in this build
 
+- **Crash fix on match exit.** Leaving a match (for example exiting training mode) could crash the game
+  with a segmentation fault; a stale fighter reference in the per-frame state check is now guarded.
 - **Runs on more CPUs.** The build no longer uses the optional ARMv8 crypto instructions, which some
   aarch64 chips (e.g. the Raspberry Pi 4 / Cortex-A72) do not have; those devices previously crashed on
   launch with an illegal instruction. Verified now booting and rendering on Raspberry Pi 4 (V3D).
