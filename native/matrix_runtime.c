@@ -262,7 +262,15 @@ u32 MeleeNativeStateHash(void)
     for (slot = 0; slot < 4; slot++) {
         HSD_GObj* gobj = Player_GetEntity(slot);
         Fighter* fp;
-        if (gobj == NULL || gobj->user_data == NULL) {
+        /* Player_GetEntity returns player_slots[].player_entity, a stored pointer that goes stale when
+         * the fighter is freed on scene teardown (e.g. leaving a match by exiting training mode): the
+         * gobj is recycled within the fixed gobj pool - still mapped, so its classifier is safe to read -
+         * but is no longer a fighter, and its user_data no longer points at a live Fighter (a non-null
+         * poison/stale value slips past the old NULL check and faults when dereferenced). Only hash a
+         * slot that is currently a live fighter gobj. Determinism-safe: in a live match every peer sees
+         * a valid fighter here, and peers leave the match in lockstep, so the placeholder branch is taken
+         * on the same frames on both sides. */
+        if (gobj == NULL || gobj->classifier != HSD_GOBJ_CLASS_FIGHTER || gobj->user_data == NULL) {
             h = hash_mix(h, 0xF0000000u | (u32) slot);
             continue;
         }
