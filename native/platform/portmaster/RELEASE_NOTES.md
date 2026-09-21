@@ -4,6 +4,19 @@ Native AArch64 build of *Super Smash Bros. Melee* (US 1.02) for PortMaster CFWs,
 [zalo/melee `{{SHORT}}`](https://github.com/zalo/melee/commit/{{COMMIT}}) on {{DATE}}. It contains
 no game data: you need your own dump of the disc (US, version 1.02, `GALE01`).
 
+## Changes in this build
+
+- **Runs on more CPUs.** The build no longer uses the optional ARMv8 crypto instructions, which some
+  aarch64 chips (e.g. the Raspberry Pi 4 / Cortex-A72) do not have; those devices previously crashed on
+  launch with an illegal instruction. Verified now booting and rendering on Raspberry Pi 4 (V3D).
+- **Internal render resolution.** On a high-resolution display (1080p or larger) the 3-D scene now renders
+  at quarter resolution and is upscaled on output, which greatly relieves fill/present-bound GPUs at high
+  panel resolutions (on a Pi 4 at 1080p a match went from ~10 to ~30 fps); the HUD/output stay full
+  resolution and low-resolution handhelds are unaffected. Override with `MELEE_FLIP_RENDER_SCALE`
+  (0 auto, 1 native, 2 half, 4 quarter).
+- **Opt-in draw-call merge** for stage geometry via `MELEE_FLIP_RESIDENT_RECORDS=1` (off by default; ~+13%
+  on Fountain of Dreams on a Mali-G31).
+
 ## Install
 
 1. Download `melee.zip` below. Do not unpack it.
