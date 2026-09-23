@@ -839,7 +839,14 @@ typedef struct itUnk4_ItemVars {
 
 typedef struct itGamewatchchef_ItemVars {
     /* +0 ip+DD4 */ s32 x0;
-    /* +4 ip+DD8 */ s32 x4;
+#ifdef MELEE_NATIVE
+    // itGamewatch_ItemVars::attr shares this itemVar union and is an 8-byte pointer on 64-bit, so the
+    // spawn code (itzako.c it_8027CE64: gamewatch.attr = ...) writes DD4..DDB and clobbered x4 at DD8
+    // with the pointer's high half. That corrupted the sausage type index, so its gravity parameters
+    // read as garbage/zero and the sausages flew flat. Push x4 past the pointer's high half.
+    s32 _pad_attr_hi64;
+#endif
+    /* +4 (GC) / +8 (native) ip+DD8 */ s32 x4;
 } itGamewatchchef_ItemVars;
 
 typedef struct itGamewatchchefAttrEntry {

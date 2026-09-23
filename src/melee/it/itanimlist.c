@@ -137,12 +137,29 @@ void it_802790C0(Item_GObj* item_gobj, CommandInfo* cmd)
     hit->x42_b1 = cmd->u->create_hitbox_5.x1_b5;
     hit->x42_b2 = cmd->u->create_hitbox_5.x1_b6;
     hit->x42_b3 = cmd->u->create_hitbox_5.x1_b7;
+#ifdef MELEE_NATIVE
+    // The command word is byteswapped to a native-endian u32 on load, so raw byte indexing
+    // ((u8*)cmd->u)[2] reads the wrong byte on little-endian and drops these hitbox flags - notably
+    // x42_b5, the bit ftColl checks to let an item's hitbox strike a fighter. Without it, ray-gun
+    // bullets, the super mushroom and every script-hitbox item passed straight through fighters.
+    // Read the intended byte (GC big-endian byte 2 = value bits 8..15) via a value shift instead.
+    {
+      const u8 byte2 = (u8) (*(const u32*) cmd->u >> 8);
+      hit->x42_b4 = (byte2 >> 7) & 1;
+      hit->x42_b5 = (byte2 >> 6) & 1;
+      hit->x42_b6 = (byte2 >> 5) & 1;
+      hit->x42_b7 = (byte2 >> 4) & 1;
+      hit->x43_b0 = (byte2 >> 3) & 1;
+      hb->x138 = (byte2 >> 2) & 1;
+    }
+#else
     hit->x42_b4 = (((u8*) cmd->u)[2] >> 7) & 1;
     hit->x42_b5 = (((u8*) cmd->u)[2] >> 6) & 1;
     hit->x42_b6 = (((u8*) cmd->u)[2] >> 5) & 1;
     hit->x42_b7 = (((u8*) cmd->u)[2] >> 4) & 1;
     hit->x43_b0 = (((u8*) cmd->u)[2] >> 3) & 1;
     hb->x138 = (((u8*) cmd->u)[2] >> 2) & 1;
+#endif
     ++cmd->u;
 
     hit->x43_b2 = 0;

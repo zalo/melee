@@ -6,6 +6,17 @@ no game data: you need your own dump of the disc (US, version 1.02, `GALE01`).
 
 ## Changes in this build
 
+- **No more flashing textures or black stage floors on Mali GPUs.** On some Mali drivers (notably the
+  Mali-G31 in the RG35XX / H700 handhelds) stage geometry and HUD icons would briefly flash the wrong
+  texture, and the stage floor could turn solid black. The renderer now identifies textures by their
+  contents instead of by a memory address that the game reuses across different textures, so cached
+  textures no longer get crossed. This also stops a slow memory leak that could eventually kill the game.
+- **Items with hitboxes strike fighters again.** Ray-gun bullets, the Super Mushroom and every other
+  script-hitbox item passed straight through fighters instead of hitting them; a byte-order bug that
+  dropped the "this hitbox can hit a fighter" flag on little-endian CPUs is fixed.
+- **Game & Watch's sausages obey gravity.** Chef's sausages flew flat instead of arcing, because a
+  64-bit pointer in the shared item state overwrote the sausage's type index; the layout is fixed so the
+  sausages fall as they should.
 - **More reliable GPU driver-bug detection.** On Mali GPUs whose driver needs a per-draw workaround, the
   renderer now keeps checking for the rendering bug when a heavier scene loads later (for example Fountain of
   Dreams reached after the menu), instead of only during the first few seconds — so the workaround engages on
