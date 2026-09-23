@@ -44,11 +44,38 @@ if [ ${#sdl_controllerconfig} -lt 100000 ]; then
 fi
 chmod +x "$GAMEDIR/melee.aarch64"
 
+# European translation of the game's own on-screen text (menus, tips, results, trophy
+# blurbs). Pick the language, in order of preference: an explicit melee/language.txt, then
+# the language chosen in PortMaster (config/config.json "language", e.g. "de_DE" - the same
+# value its own GUI uses, so this follows the CFW without a per-CFW special case), then the
+# system locale. Anything unset or unsupported keeps the retail US English text. Supported
+# codes: de es fr it pt nl pl. The compiled tables ship in melee/locale.
+export MELEE_LOCALE_DIR="$GAMEDIR/locale"
+if [ -z "${MELEE_LANG:-}" ]; then
+  melee_lang_src=""
+  if [ -f "$GAMEDIR/language.txt" ]; then
+    melee_lang_src="$(head -n1 "$GAMEDIR/language.txt")"
+  fi
+  if [ -z "$melee_lang_src" ] && [ -f "$controlfolder/config/config.json" ]; then
+    melee_lang_src="$(sed -n 's/.*"language"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$controlfolder/config/config.json" | head -n1)"
+  fi
+  [ -z "$melee_lang_src" ] && melee_lang_src="${LANG:-}"
+  case "$(printf '%s' "$melee_lang_src" | tr '[:upper:]' '[:lower:]')" in
+    de*) MELEE_LANG=de ;; es*) MELEE_LANG=es ;; fr*) MELEE_LANG=fr ;;
+    it*) MELEE_LANG=it ;; pt*) MELEE_LANG=pt ;; nl*) MELEE_LANG=nl ;;
+    pl*) MELEE_LANG=pl ;; *) MELEE_LANG="" ;;
+  esac
+  export MELEE_LANG
+fi
+
 # The game links SDL 3 as a shared library; libs.aarch64 holds only the SDL3-over-SDL2 shim (the library
 # Dusklight ships), whose "sdl2" driver runs display, audio and pads through this CFW's own SDL 2.
 export LD_LIBRARY_PATH="$GAMEDIR/libs.${DEVICE_ARCH}:$LD_LIBRARY_PATH"
 # SDL_VIDEODRIVER / SDL_AUDIODRIVER from the CFW name SDL 2 drivers (ROCKNIX: wayland, pulseaudio). Hand
-# them to the inner SDL 2 unchanged and point SDL 3 itself at the shim's driver.
+# them to the inner SDL 2 unchanged and point SDL 3 itself at the shim's driver. We do NOT force a driver
+# here: display, audio and pads use the CFW's own SDL 2 exactly as it configures itself (its explicit
+# hint if set, otherwise its own autodetect). A device that needs a forced driver is handled by the
+# KMSDRM retry below, and only when the CFW's own path actually fails to bring up the display.
 if [ -n "${SDL_VIDEODRIVER:-}" ] && [ -z "${SDL3SHIM_SDL2_VIDEODRIVER:-}" ]; then
   export SDL3SHIM_SDL2_VIDEODRIVER="$SDL_VIDEODRIVER"
 fi
@@ -57,26 +84,64 @@ if [ -n "${SDL_AUDIODRIVER:-}" ] && [ -z "${SDL3SHIM_SDL2_AUDIODRIVER:-}" ]; the
 fi
 export SDL_VIDEODRIVER=sdl2 SDL_AUDIODRIVER=sdl2
 
-# The game reads the pad through SDL; gptokeyb2 only provides the exit hotkey (melee.ini maps no keys).
-$GPTOKEYB2 "melee.aarch64" -c "$GAMEDIR/melee.ini" &
+# Aurora's texture-fetch-barrier driver probe re-probes whenever a heavier scene appears. On some
+# good Mali drivers (measured: Mali-G31 r13p0) it never finds a fault yet keeps re-probing every few
+# frames in busy scenes - each probe renders the busiest pass twice with glFinish, which stalls the
+# frame and intermittently corrupts what is presented (black flashes over the stage). Force the
+# barrier off, which also marks the policy overridden so the probe never runs. A device that truly
+# needs the barrier can set AURORA_GLES_DRAW_BARRIER (0/1/pass/finish/flush) itself.
+export AURORA_GLES_DRAW_BARRIER="${AURORA_GLES_DRAW_BARRIER:-0}"
 
-pm_platform_helper "$GAMEDIR/melee.aarch64"
-./melee.aarch64 "${discs[0]}"
+# The game reads the pad through SDL; gptokeyb2 only provides the exit hotkey (melee.ini maps no keys).
+run_melee() {
+  $GPTOKEYB2 "melee.aarch64" -c "$GAMEDIR/melee.ini" &
+  local gptokeyb_pid=$!
+  pm_platform_helper "$GAMEDIR/melee.aarch64"
+  ./melee.aarch64 "${discs[0]}"
+  local rc=$?
+  kill "$gptokeyb_pid" 2>/dev/null
+  return $rc
+}
+
+# First launch uses the CFW's own SDL 2 as-is. Some CFWs (dArkOS RE) set no video driver and SDL 2
+# autodetect then lands on a GL path our EGL can't see ("SDL did not create an EGL display"). Only in
+# that case, and only when nothing already pinned the inner driver, retry once forcing KMSDRM.
+run_melee
 status=$?
+if [ $status -ne 0 ] && [ -z "${SDL3SHIM_SDL2_VIDEODRIVER:-}" ] \
+   && grep -q "SDL did not create an EGL display" "$GAMEDIR/log.txt"; then
+  export SDL3SHIM_SDL2_VIDEODRIVER=kmsdrm
+  run_melee
+  status=$?
+fi
 
 # Display or GPU setup failed: say which instead of returning to the menu silently. The game reaches
 # the screen through SDL's KMSDRM or Wayland driver; a CFW offering neither (fbdev-only) cannot run it.
 if [ $status -ne 0 ] && grep -q "^\[flip-display\] Cannot initialize SDL video" "$GAMEDIR/log.txt"; then
   pm_message "Melee could not open the display: no KMSDRM or Wayland video driver worked here. Details are in melee/log.txt."
   sleep 15
+elif [ $status -ne 0 ] && grep -q "SDL did not create an EGL display" "$GAMEDIR/log.txt"; then
+  pm_message "Melee could not get a GL display through this CFW's SDL 2 (a KMSDRM retry did not help). Please share melee/log.txt and your GPU driver setting."
+  sleep 15
 elif [ $status -ne 0 ] && grep -q "^\[flip-display\] Cannot\|^\[flip-display\] .*needs the KMSDRM" "$GAMEDIR/log.txt"; then
   pm_message "Melee could not start the GPU. It needs an OpenGL ES 3.1 driver (Mali-G31/G52 or newer). Details are in melee/log.txt."
   sleep 15
 elif [ $status -ge 128 ]; then
-  # Killed by a signal (a GPU driver crash, most often). The game logged a backtrace, and the next
-  # launch starts with a fresh shader cache so a cached pipeline cannot crash it again and again.
-  pm_message "Melee crashed (signal $((status - 128))). Please share melee/log.txt; the next launch starts with a fresh shader cache."
-  sleep 10
+  # The game was killed by a signal. Distinguish three cases so a normal quit is not reported as a
+  # crash: (1) a genuine fault - SIGILL/ABRT/BUS/FPE/SEGV, or any run that logged an abort backtrace
+  # (OSPanic / Aurora LOG_FATAL both print one before aborting); (2) an out-of-memory kill (SIGKILL
+  # with a matching kernel oom-killer line); (3) the Start+Select exit hotkey, which gptokeyb2
+  # delivers as SIGKILL too - that is a clean user quit and must stay silent.
+  sig=$((status - 128))
+  if [ $status -eq 132 ] || [ $status -eq 134 ] || [ $status -eq 135 ] || [ $status -eq 136 ] || [ $status -eq 139 ] \
+     || grep -q "Native game panic\|melee\.aarch64(\|) \[0x[0-9a-f]" "$GAMEDIR/log.txt"; then
+    pm_message "Melee crashed (signal $sig). Please share melee/log.txt; the next launch starts with a fresh shader cache."
+    sleep 10
+  elif [ $status -eq 137 ] && dmesg 2>/dev/null | grep -qiE "out of memory.*melee|oom-kill.*melee|killed process [0-9]+ \(melee"; then
+    pm_message "Melee ran low on memory and was closed. Details are in melee/log.txt."
+    sleep 10
+  fi
+  # Otherwise it was the exit hotkey (SIGKILL/SIGTERM) or a clean shutdown: return to the menu quietly.
 fi
 
 pm_finish
