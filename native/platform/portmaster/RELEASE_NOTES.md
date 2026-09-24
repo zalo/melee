@@ -6,6 +6,10 @@ no game data: you need your own dump of the disc (US, version 1.02, `GALE01`).
 
 ## Changes in this build
 
+- **Fixes the crash when opening Special Melee.** Entering the Special Melee menu crashed the game on
+  every device: that menu has more options than a fixed-size list the menu renderer used, so it wrote past
+  the end and corrupted the stack (the extra safety checks in this build turned that into an immediate
+  crash). The list is now sized correctly.
 - **Fixes the out-of-memory crash on heavy stages (e.g. Onett) on 1 GB handhelds.** The texture cache
   kept far more GPU texture memory resident than its budget implied, growing the working set until the
   system ran out of memory and killed the game (worst on RAM-limited devices like the Miyoo Flip and the

@@ -1089,7 +1089,16 @@ void mn_8022A440(HSD_GObj* gp, HSD_JObj* root, MainMenuSelection selection)
 void mn_8022A5D0(HSD_GObj* gp, MainMenuSelection selection)
 {
     u8 _[8];
+#ifdef MELEE_NATIVE
+    // This array is filled for i < option_count, and the Special Melee menu (MENU_KIND_SPECIAL) has 10
+    // options (SEL_SPECIAL_VS_CAMERA..SLOMO; mn_803EAE68 holds 10 tree indices). The original [7] therefore
+    // overflowed the stack for that menu - harmless on GC (no stack protector), but the native build's
+    // -fstack-protector detects the smashed canary and abort()s (the Special Melee crash). Size it to the
+    // menu maximum, matching option_jobjs[12] in the sibling renderer mn_8022B3A0.
+    HSD_JObj* spA0[12];
+#else
     HSD_JObj* spA0[7];
+#endif
     HSD_JObj* sp84[7];
     HSD_JObj* sp80;
     Vec3 sp74;
