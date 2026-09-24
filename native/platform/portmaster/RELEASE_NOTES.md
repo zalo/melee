@@ -6,6 +6,12 @@ no game data: you need your own dump of the disc (US, version 1.02, `GALE01`).
 
 ## Changes in this build
 
+- **Fixes the out-of-memory crash on heavy stages (e.g. Onett) on 1 GB handhelds.** The texture cache
+  kept far more GPU texture memory resident than its budget implied, growing the working set until the
+  system ran out of memory and killed the game (worst on RAM-limited devices like the Miyoo Flip and the
+  RG35XX family). The cache now scales to the device's RAM and releases unused textures much sooner, which
+  also **greatly improves frame rate** on those stages (a match on Onett went from stuttering and crashing
+  to a steady ~35 fps in testing). Tunable with `MELEE_TEXTURE_CACHE_MB` and `MELEE_TEXOBJ_IDLE_FRAMES`.
 - **No more flashing textures or black stage floors on Mali GPUs.** On some Mali drivers (notably the
   Mali-G31 in the RG35XX / H700 handhelds) stage geometry and HUD icons would briefly flash the wrong
   texture, and the stage floor could turn solid black. The renderer now identifies textures by their
