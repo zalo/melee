@@ -38,6 +38,17 @@ export XDG_STATE_HOME="$GAMEDIR/runtime/state"
 export XDG_CACHE_HOME="$GAMEDIR/runtime/cache"
 mkdir -p "$XDG_CONFIG_HOME" "$XDG_STATE_HOME" "$XDG_CACHE_HOME"
 
+# On some CFWs (e.g. ROCKNIX on the RG351 series) gptokeyb2 grabs the physical pad and the
+# game instead sees gptokeyb2's passthrough device, the "OpenSimHardware OSH PB Controller".
+# get_controls only maps the physical pad, so without this the virtual pad has no Start binding
+# and the menus become unusable. Append PortMaster's own OSH mapping (falling back to the
+# known-good layout) so the game works whether it reads the physical or the virtual pad.
+osh_map="$(grep -m1 'OpenSimHardware OSH PB Controller' "$controlfolder/gamecontrollerdb.txt" 2>/dev/null)"
+if [ -z "$osh_map" ]; then
+  osh_map="03000000091200000031000011010000,OpenSimHardware OSH PB Controller,a:b0,b:b1,back:b7,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,dpup:h0.1,guide:b12,leftshoulder:b4,leftstick:b8,lefttrigger:b10,leftx:a0~,lefty:a1~,rightshoulder:b5,rightstick:b9,righttrigger:b11,rightx:a2,righty:a3,start:b6,x:b2,y:b3,platform:Linux,"
+fi
+sdl_controllerconfig="${sdl_controllerconfig}"$'\n'"${osh_map}"
+
 # Linux caps one environment string at 128 KiB; a whole controller database would stop every command from starting.
 if [ ${#sdl_controllerconfig} -lt 100000 ]; then
   export SDL_GAMECONTROLLERCONFIG="$sdl_controllerconfig"

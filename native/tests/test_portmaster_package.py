@@ -185,11 +185,15 @@ exit 0
         env = (root / 'env').read_text().splitlines()
         # Only the SDL3-over-SDL2 shim is bundled; the launcher puts its folder first on the library path.
         self.assertTrue(env[0].startswith(f'{gamedir}/libs.aarch64:'), env[0])
-        # SDL3 is pointed at the shim's driver; with no CFW driver names the inner SDL2 auto-picks.
-        self.assertEqual(env[5:9], ['sdl2', 'sdl2', 'unset', 'unset'])
         self.assertEqual(env[1:4], [str(gamedir / 'runtime/config'), str(gamedir / 'runtime/state'),
                                     str(gamedir / 'runtime/cache')])
+        # SDL_GAMECONTROLLERCONFIG is get_controls' map plus the appended OpenSimHardware OSH PB Controller
+        # mapping (gptokeyb2's virtual pad on ROCKNIX etc.), so it spans two lines.
         self.assertEqual(env[4], 'fake-map')
+        self.assertIn('OpenSimHardware OSH PB Controller', env[5])
+        self.assertIn('start:b6', env[5])
+        # SDL3 is pointed at the shim's driver; with no CFW driver names the inner SDL2 auto-picks.
+        self.assertEqual(env[6:10], ['sdl2', 'sdl2', 'unset', 'unset'])
         self.assertEqual((root / 'gptokeyb.log').read_text().split(),
                          ['melee.aarch64', '-c', str(gamedir / 'melee.ini')])
         self.assertEqual((root / 'helper').read_text().strip(), str(gamedir / 'melee.aarch64'))
@@ -202,7 +206,8 @@ exit 0
         root, gamedir, result = self.run_launcher(cfw_env={'SDL_VIDEODRIVER': 'wayland', 'SDL_AUDIODRIVER': 'pulseaudio'})
         self.assertEqual(result, 0)
         env = (root / 'env').read_text().splitlines()
-        self.assertEqual(env[5:9], ['sdl2', 'sdl2', 'wayland', 'pulseaudio'])
+        # env[5] is the appended OSH controller mapping (see test_normal_run); drivers follow it.
+        self.assertEqual(env[6:10], ['sdl2', 'sdl2', 'wayland', 'pulseaudio'])
 
     def test_missing_disc_reports_and_exits(self):
         root, gamedir, result = self.run_launcher(disc=False)

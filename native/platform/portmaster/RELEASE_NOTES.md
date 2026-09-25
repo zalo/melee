@@ -6,6 +6,17 @@ no game data: you need your own dump of the disc (US, version 1.02, `GALE01`).
 
 ## Changes in this build
 
+- **Fixes the Start button (and other buttons) on ROCKNIX and CFWs that route the pad through gptokeyb.**
+  On devices where the frontend hands the game gptokeyb's virtual controller instead of the physical pad
+  (notably ROCKNIX on the RG351 series), the controller had no button mapping, so Start did nothing and the
+  menus were unusable. The port now always supplies that virtual controller's mapping, so the pad works
+  whether the game reads the physical or the virtual device.
+- **Larger texture cache for smoother visuals.** The per-device texture budget was far more conservative
+  than it needed to be; testing showed ~1 GB handhelds hold a steady ~520–550 MB with 130+ MB free on the
+  heaviest stage at budgets up to 256 MB, so the default is now much larger (192 MB on ~1 GB devices, more
+  on roomier ones). This keeps more textures resident — fewer reloads and rendering-pipeline glitches — with
+  no increase in the memory peak that previously caused out-of-memory crashes. Still tunable with
+  `MELEE_TEXTURE_CACHE_MB`.
 - **Fixes the crash when opening Special Melee.** Entering the Special Melee menu crashed the game on
   every device: that menu has more options than a fixed-size list the menu renderer used, so it wrote past
   the end and corrupted the stack (the extra safety checks in this build turned that into an immediate
