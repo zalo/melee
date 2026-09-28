@@ -113,8 +113,9 @@ class LauncherTextTests(unittest.TestCase):
                        'chmod +x "$GAMEDIR/melee.aarch64"',
                        'XDG_CONFIG_HOME="$GAMEDIR/runtime/config"', 'XDG_CACHE_HOME', 'SDL_GAMECONTROLLERCONFIG',
                        'export LD_LIBRARY_PATH="$GAMEDIR/libs.${DEVICE_ARCH}:$LD_LIBRARY_PATH"',
-                       'export SDL3SHIM_SDL2_VIDEODRIVER="$SDL_VIDEODRIVER"', 'export SDL3SHIM_SDL2_AUDIODRIVER="$SDL_AUDIODRIVER"',
-                       'export SDL_VIDEODRIVER=sdl2 SDL_AUDIODRIVER=sdl2']:
+                       'export SDL_VIDEODRIVER=sdl2',
+                       'if [ "$CFW_NAME" = "ROCKNIX" ]; then',
+                       'export SDL3SHIM_SDL2_VIDEODRIVER=wayland']:
             self.assertIn(needle, self.text, needle)
         for extension in ['*.iso', '*.gcm', '*.ciso', '*.rvz']:
             self.assertIn(extension, self.text)
@@ -129,7 +130,7 @@ class LauncherTextTests(unittest.TestCase):
 class LauncherBehaviourTests(unittest.TestCase):
     """Run Melee.sh against a fake PortMaster control folder and sysfs."""
 
-    def run_launcher(self, mode='normal', disc=True, cfw_env=()):
+    def run_launcher(self, mode='normal', disc=True, cfw_env=(), cfw_name='testcfw'):
         cfw_env = dict(cfw_env)
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -142,7 +143,7 @@ class LauncherBehaviourTests(unittest.TestCase):
 ESUDO=""
 directory="{str(root).lstrip('/')}"
 DEVICE_ARCH=aarch64
-CFW_NAME=testcfw
+CFW_NAME={cfw_name}
 GPTOKEYB="{root}/gptokeyb-classic"
 GPTOKEYB2="{root}/gptokeyb"
 get_controls() {{ sdl_controllerconfig="fake-map"; }}
@@ -150,7 +151,7 @@ pm_message() {{ printf '%s\\n' "$1" > "{root}/message"; }}
 pm_platform_helper() {{ printf '%s\\n' "$1" > "{root}/helper"; }}
 pm_finish() {{ printf finished > "{root}/finished"; }}
 ''')
-        (control / 'mod_testcfw.txt').write_text(f'printf sourced > "{root}/mod"\n')
+        (control / f'mod_{cfw_name}.txt').write_text(f'printf sourced > "{root}/mod"\n')
         (root / 'gptokeyb').write_text('#!/bin/sh\nprintf "%s\\n" "$@" > "$GPTOKEYB_LOG"\nexit 0\n')
         (root / 'gptokeyb').chmod(0o755)
         if disc:
@@ -187,27 +188,35 @@ exit 0
         self.assertTrue(env[0].startswith(f'{gamedir}/libs.aarch64:'), env[0])
         self.assertEqual(env[1:4], [str(gamedir / 'runtime/config'), str(gamedir / 'runtime/state'),
                                     str(gamedir / 'runtime/cache')])
-        # SDL_GAMECONTROLLERCONFIG is get_controls' map plus the appended OpenSimHardware OSH PB Controller
-        # mapping (gptokeyb2's virtual pad on ROCKNIX etc.), so it spans two lines.
+        # get_controls' map is handed to the game as-is (the CFW's SDL2 owns the pad mapping).
         self.assertEqual(env[4], 'fake-map')
-        self.assertIn('OpenSimHardware OSH PB Controller', env[5])
-        self.assertIn('start:b6', env[5])
-        # SDL3 is pointed at the shim's driver; with no CFW driver names the inner SDL2 auto-picks.
-        self.assertEqual(env[6:10], ['sdl2', 'sdl2', 'unset', 'unset'])
+        # SDL3 uses the shim's "sdl2" driver; with no CFW driver names and no ROCKNIX pin the inner
+        # SDL2 auto-picks display and audio (SDL_AUDIODRIVER and both shim overrides stay unset).
+        self.assertEqual(env[5], 'sdl2')
+        self.assertEqual(env[6:9], ['', 'unset', 'unset'])
         self.assertEqual((root / 'gptokeyb.log').read_text().split(),
                          ['melee.aarch64', '-c', str(gamedir / 'melee.ini')])
         self.assertEqual((root / 'helper').read_text().strip(), str(gamedir / 'melee.aarch64'))
         self.assertTrue((root / 'finished').exists())
         self.assertTrue((gamedir / 'log.txt').exists())
 
-    def test_cfw_sdl_driver_names_go_to_the_inner_sdl2(self):
-        # ROCKNIX exports SDL_VIDEODRIVER=wayland and SDL_AUDIODRIVER=pulseaudio to ports: SDL2 driver
-        # names, which the shim must receive while SDL3 itself uses the shim driver.
-        root, gamedir, result = self.run_launcher(cfw_env={'SDL_VIDEODRIVER': 'wayland', 'SDL_AUDIODRIVER': 'pulseaudio'})
+    def test_forces_shim_video_driver(self):
+        # Whatever SDL video driver the CFW exported, the game's SDL3 uses the shim's "sdl2" driver;
+        # the inner SDL2 then autodetects display and audio (no shim overrides on a non-ROCKNIX CFW).
+        root, gamedir, result = self.run_launcher(
+            cfw_env={'SDL_VIDEODRIVER': 'wayland', 'SDL_AUDIODRIVER': 'pulseaudio'})
         self.assertEqual(result, 0)
         env = (root / 'env').read_text().splitlines()
-        # env[5] is the appended OSH controller mapping (see test_normal_run); drivers follow it.
-        self.assertEqual(env[6:10], ['sdl2', 'sdl2', 'wayland', 'pulseaudio'])
+        self.assertEqual(env[5], 'sdl2')
+        self.assertEqual(env[7:9], ['unset', 'unset'])
+
+    def test_rocknix_pins_inner_wayland(self):
+        # ROCKNIX's inner SDL2 does not autodetect its Wayland display, so the launcher pins it.
+        root, gamedir, result = self.run_launcher(cfw_name='ROCKNIX')
+        self.assertEqual(result, 0)
+        env = (root / 'env').read_text().splitlines()
+        self.assertEqual(env[5], 'sdl2')
+        self.assertEqual(env[7], 'wayland')
 
     def test_missing_disc_reports_and_exits(self):
         root, gamedir, result = self.run_launcher(disc=False)
