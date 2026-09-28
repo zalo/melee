@@ -98,7 +98,9 @@ struct Archive {
         for(const auto& layout:stage_numeric_layouts) {
             if(!source.roots().contains(layout.marker)) continue;
             auto size=layout.minimum_size?layout.minimum_size:extent(offset);
-            if(extent(offset)<size) throw std::runtime_error("Truncated stage parameter block");
+            // Bound against the archive tail, not extent(): a pointer landing inside this block adds a
+            // false interior boundary that makes extent() under-report and false-aborts a valid stage.
+            if(source.data_size()-offset<size) throw std::runtime_error("Truncated stage parameter block");
             for(auto field:pointer_fields) if(field>=offset&&field<offset+size&&std::find(layout.scripts.begin(),layout.scripts.end(),field-offset)==layout.scripts.end()&&std::find(layout.data_pointers.begin(),layout.data_pointers.end(),field-offset)==layout.data_pointers.end())
                 throw std::runtime_error("Stage parameters need a pointer schema");
             auto result=static_cast<std::byte*>(allocate(size));
@@ -130,7 +132,13 @@ struct Archive {
         throw std::runtime_error("Missing native stage parameter layout");
     }
     void* particleBank(std::uint32_t offset,bool textures) {
-        const size_t size=extent(offset);
+        // extent() stops at the next entry in `boundaries`, which holds every pointer target in the
+        // archive; an unrelated pointer landing inside this bank creates a false interior boundary and
+        // makes the bank look shorter than it is, so valid particle/texture offsets read as
+        // "outside bank" and abort (seen on effKirbySamusDataTable). The real upper bound is the
+        // archive tail; source.bytes()/u32() still catch genuinely out-of-archive reads. The bank is
+        // copied per referenced slice (copy_raw), not `size` bytes, so this does not over-allocate.
+        const size_t size=source.data_size()-offset;
         const auto word=[&](size_t at) {
             if(at+4>size) throw std::runtime_error("Particle bank word outside block");
             return source.u32(offset+at);
@@ -164,7 +172,12 @@ struct Archive {
                 if(n>65536||at+24ULL+4ULL*n>size) throw std::runtime_error("Invalid particle texture group");
                 texture_counts[at]=n;
                 for(unsigned j=0;j<n;++j) if(auto data=word(at+24+j*4)) {
-                    if(data>=size) throw std::runtime_error("Particle texture outside bank");
+                    // A paletted texture group (fmt 8-10) can carry a slot that is not a relocated
+                    // texture offset (e.g. effKirbySamusDataTable stores a raw, high-bit value there);
+                    // it points outside the archive. Skip such slots (the group slot stays NULL) rather
+                    // than aborting the whole game. In-archive offsets — including ones past a false
+                    // interior boundary — are still below the archive tail and copied normally.
+                    if(data>=size) continue;
                     cuts.push_back(data);
                 }
             }
@@ -186,6 +199,7 @@ struct Archive {
                 for(unsigned j=0;j<5;++j) {auto value=word(at+j*4);std::memcpy(group+j*4,&value,4);}
                 for(unsigned j=20;j<24;j+=2) {auto value=source.u16(offset+at+j);std::memcpy(group+j,&value,2);}
                 for(unsigned j=0;j<n;++j) if(auto data=word(at+24+j*4)) {
+                    if(data>=size) continue; // skip non-offset slots (see pass 1); group slot left NULL
                     void* p=copy_raw(data);std::memcpy(group+24+j*sizeof(void*),&p,sizeof(p));
                 }
                 bank->entries[i]=group;
@@ -349,7 +363,9 @@ struct Archive {
         }
         if(type==AT_ITEM_FOODS) {
             count=source.u32(offset)+1;
-            if((count-1)*16+4!=extent(offset)) throw std::runtime_error("Invalid food-attribute array size");
+            // Only reject when the array truly overruns the archive; extent() can under-report (a
+            // pointer inside the array adds a false boundary) so an exact-equality check false-aborts.
+            if((count-1)*16+4>source.data_size()-offset) throw std::runtime_error("Invalid food-attribute array size");
         }
         if(type==AT_TROPHIES||type==AT_TROPHY_DISPLAY||type==AT_TROPHY_FILES||type==AT_COLOR_DESC) {
             if(extent(offset)%schema->file_size) throw std::runtime_error("Invalid trophy table size");

@@ -924,7 +924,9 @@ void grShrineRoute_8020A104(Ground_GObj* gobj)
 
     lobj = GET_LOBJ(gp->u.shrineroute2.xC4);
     gp->u.shrineroute2.x168 = 0;
-    while (lobj != NULL) {
+    // xC8[]/x118[] are sized 20; bound the light-chain walk so a longer chain cannot overflow the
+    // arrays and corrupt the adjacent count (identical shape to the grpushon.c overflow).
+    while (lobj != NULL && gp->u.shrineroute2.x168 < 20) {
         gp->u.shrineroute2.xC8[gp->u.shrineroute2.x168] = lobj;
         gp->u.shrineroute2.x118[gp->u.shrineroute2.x168] =
             HSD_LObjGetFlags(lobj);

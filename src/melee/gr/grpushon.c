@@ -309,7 +309,9 @@ void grPushOn_802187A8(Ground_GObj* gobj)
     grPushOn_802190D0(gp->u.pushon.gobj);
     lobj = ((HSD_GObj*) gp->u.pushon.gobj)->hsd_obj;
     gp->u.pushon.count = 0;
-    while (lobj != NULL) {
+    // lobjs[]/lobj_flags[] are sized 20; a light chain longer than that would overflow the arrays
+    // (and corrupt the adjacent count), so a later reader dereferences a garbage light pointer.
+    while (lobj != NULL && gp->u.pushon.count < 20) {
         gp->u.pushon.lobjs[gp->u.pushon.count] = lobj;
         gp->u.pushon.lobj_flags[gp->u.pushon.count] = HSD_LObjGetFlags(lobj);
         lobj = lobj == NULL ? NULL : lobj->next;

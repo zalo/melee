@@ -405,6 +405,9 @@ EF_Effect* efLib_Create(int gfx_id, HSD_GObj* parent_gobj)
     EF_EffectDesc* desc;
     u8 p_link;
 
+    if (gfx_id / 1000 >= 51 || efAsync_DatEntries[gfx_id / 1000].data == NULL) {
+        return NULL;
+    }
     desc = &((EF_EffectDesc*) efAsync_DatEntries[gfx_id / 1000]
                  .data)[gfx_id % 1000];
 

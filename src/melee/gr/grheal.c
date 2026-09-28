@@ -244,7 +244,9 @@ void stageGObj1_OnInit(Ground_GObj* gobj)
             }
         }
 
-        for (next_count = 0; next_count < gm_80473A18._94[1]; next_count++) {
+        // next_players[] is sized 4 and only three next-opponent jobj slots (58/59/60) exist; bound
+        // both loops so an out-of-range opponent count cannot overflow either fixed array.
+        for (next_count = 0; next_count < gm_80473A18._94[1] && next_count < 4; next_count++) {
             next_players[next_count] = gm_80473A18._94[next_count + 2];
         }
 
@@ -252,7 +254,7 @@ void stageGObj1_OnInit(Ground_GObj* gobj)
         next_jobjs[1] = Ground_801C3FA4(gobj, 59);
         next_jobjs[2] = Ground_801C3FA4(gobj, 60);
 
-        for (next_idx = 0; next_idx < next_count; next_idx++) {
+        for (next_idx = 0; next_idx < next_count && next_idx < 3; next_idx++) {
             grHeal_8021F4E8(grHeal_8021F70C(next_players[next_idx]),
                             next_jobjs[next_idx]);
         }

@@ -195,6 +195,9 @@ void fn_802F770C(HSD_GObj* gobj, intptr_t callback)
     HudIndex* status = ifStatus_GetHUDInfo();
     s32 slot = GetSlot(gobj);
 
+    if (slot < 0) {
+        return;
+    }
     if (!status->players[slot].flags.hide_all_digits) {
         HSD_GObj_JObjCallback(gobj, callback);
     }

@@ -476,6 +476,9 @@ void ifStatus_802F5B48(HSD_GObj* gobj)
     u8 t;
 
     p = find_player_by_entity(gobj);
+    if (p == NULL) {
+        return;
+    }
     t = p->unk9;
     if (t != 0) {
         t = t + 1;
@@ -556,7 +559,8 @@ static inline IfDamageState* getPlayerByHUDParent(HSD_GObj* parent)
 
 void ifStatus_802F5DE0(HSD_GObj* player, intptr_t arg1)
 {
-    if (!getPlayerByHUDParent(player)->flags.hide_all_digits) {
+    IfDamageState* p = getPlayerByHUDParent(player);
+    if (p != NULL && !p->flags.hide_all_digits) {
         HSD_GObj_JObjCallback(player, arg1);
     }
 }
@@ -575,7 +579,7 @@ static inline IfDamageState* getPlayerByNext(HSD_GObj* gobj)
 void ifStatus_802F5E50(HSD_GObj* gobj, intptr_t arg1)
 {
     IfDamageState* player = getPlayerByNext(gobj);
-    if (!player->flags.hide_all_digits) {
+    if (player != NULL && !player->flags.hide_all_digits) {
         HSD_GObj_JObjCallback(gobj, arg1);
     }
 }
