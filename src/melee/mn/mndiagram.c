@@ -57,8 +57,22 @@ typedef struct mnDiagram_PopupAnimTableHead {
     /* 0x00 */ Point3d points[3];
 } mnDiagram_PopupAnimTableHead;
 
+#ifdef MELEE_NATIVE
+/* mnDiagram_Assets overlays &mnDiagram_FighterDisplayOrder and reaches into
+ * sorted_names at +0x1C, which the matching build relies on the linker placing
+ * mnDiagram_NameDisplayOrder immediately after. The native build makes no such
+ * .bss-adjacency guarantee, so back both tables with one contiguous struct
+ * (fighters[0x1C] then names[0x78] == mnDiagram_Assets, size 0x94). */
+static struct {
+    u8 fighters[0x1C];
+    u8 names[GM_NAMETAG_COUNT];
+} mnDiagram_OrderStorage;
+#define mnDiagram_FighterDisplayOrder (mnDiagram_OrderStorage.fighters)
+#define mnDiagram_NameDisplayOrder (mnDiagram_OrderStorage.names)
+#else
 u8 mnDiagram_FighterDisplayOrder[0x1C];
 u8 mnDiagram_NameDisplayOrder[GM_NAMETAG_COUNT];
+#endif
 
 static mnDiagram_PopupAnimTableHead mnDiagram_PopupTextOffsets = {
     {

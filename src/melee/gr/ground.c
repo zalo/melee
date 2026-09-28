@@ -1986,7 +1986,12 @@ void Ground_801C34AC(s32 map_id, HSD_JObj* root, struct HSD_Joint* joint)
             i++;
         }
         prev_index = i;
-        stage_info.x280[pair[1]] = jobj;
+#ifdef MELEE_NATIVE
+        /* pair[1] is an archive-supplied index; a malformed file could point
+         * it outside x280 and corrupt memory. Skip out-of-range writes. */
+        if ((u32) pair[1] < ARRAY_SIZE(stage_info.x280))
+#endif
+            stage_info.x280[pair[1]] = jobj;
         pair += 2;
     }
 }
