@@ -1,14 +1,4 @@
-#ifdef MELEE_NATIVE
-#define ZEBES_ACID(p) ((p)->u.zebes_acid)
-#define ZEBES_GOBJ_ARG uintptr_t
-#else
-#define ZEBES_ACID(p) ((p)->u.zebes5)
-#define ZEBES_GOBJ_ARG s32
-#endif
 #include "grzebes.h"
-#ifdef MELEE_NATIVE
-#include <string.h>
-#endif
 
 #include <Runtime/platform.h>
 
@@ -72,7 +62,7 @@
 /* 1DC260 */ static void grZebes_801DC260(void);
 /* 1DC408 */ static void grZebes_801DC408(Ground_GObj*);
 /* 1DC744 */ static void grZebes_801DC744(s32, u8);
-/* 1DC9DC */ static void grZebes_801DC9DC(ZEBES_GOBJ_ARG arg);
+/* 1DC9DC */ static void grZebes_801DC9DC(s32 arg);
 /* 1DCCB8 */ static DynamicsDesc* grZebes_801DCCB8(enum_t arg);
 /* 1DCCC0 */ static bool grZebes_801DCCC0(Vec3* arg, int arg0, HSD_JObj* jobj);
 
@@ -153,14 +143,8 @@ typedef struct grZe_BubbleSpawnPos {
     /* 0x1C */ f32 pad_1C[2];
 } grZe_BubbleSpawnPos;
 
-#ifdef MELEE_NATIVE
-static Vec3 grZe_BubbleBounds[4];
-#define grZe_8049F140 grZe_BubbleBounds
-#define grZe_8049F158 (grZe_BubbleBounds + 2)
-#else
 /* 8049F140 */ static Vec3 grZe_8049F140[2];
 /* 8049F158 */ static Vec3 grZe_8049F158[2];
-#endif
 /* 8049F170 */ static grZe_BubbleEntry grZe_8049F170[20];
 
 typedef struct grZe_BubbleScales {
@@ -176,22 +160,6 @@ typedef struct grZe_BubbleState {
     Vec3 positions[4];
     grZe_BubbleEntry bubbles[20];
 } grZe_BubbleState;
-
-#ifndef MELEE_NATIVE
-typedef struct grZe_AcidState {
-    /* +00 */ u8 x00_state;
-    /* +01 */ u8 x01_next;
-    /* +02 */ s16 x02_timer;
-    /* +04 */ f32 x04_base_x;
-    /* +08 */ f32 x08_offset;
-    /* +0C */ f32 x0C_velocity;
-    /* +10 */ f32 x10_damage;
-    /* +14 */ HSD_JObj* x14_jobj1;
-    /* +18 */ HSD_JObj* x18_jobj2;
-    /* +1C */ Item_GObj* x1C_mat;
-    /* +20 */ s16 x20_anim_idx;
-} grZe_AcidState;
-#endif
 
 GrJoint grZe_803E1A10[] = {
     { 1, 6, 21 }, { 4, 6, 14 }, { 3, 6, 1 }, { 2, 7, 6 }, { 5, 7, 1 },
@@ -227,7 +195,7 @@ StageCallbacks grZe_callbacks[] = {
         grZebes_801D8814,
         grZebes_801D881C,
         grZebes_801D90FC,
-        (1 << 30) | (1U << 31),
+        (1 << 30) | (1 << 31),
     },
     {
         grZebes_801D9100,
@@ -348,7 +316,7 @@ void grZebes_801D8644(HSD_GObj* gobj)
     Vec3 pos;
     UNUSED u8 _[4];
 
-    ZEBES_ACID(gp).xF0 = (grZePtr) grZebes_801D8558(7);
+    gp->u.zebes5.xF0 = (u32) grZebes_801D8558(7);
     Ground_InitMapColl(jobj, gp->map_id);
     grAnime_801C8138(gobj, gp->map_id, 0);
     child_jobj = Ground_801C3FA4(gobj, 0x1E);
@@ -356,30 +324,30 @@ void grZebes_801D8644(HSD_GObj* gobj)
         grMaterial_801C8CFC(7, 0, gp, child_jobj, NULL, fn_801DA9D8, NULL);
     grMaterial_801C8DE0(mat_gobj, 0.0f, -7.0f, 0.0f, 0.0f, 7.0f, 0.0f, 3.0f);
     grMaterial_801C8E08(mat_gobj);
-    ZEBES_ACID(gp).xC4 = 0;
-    ((grZe_AcidState*) &ZEBES_ACID(gp).xC8)->x00_state = 0xFF;
-    ((grZe_AcidState*) &ZEBES_ACID(gp).xC8)->x01_next = 0;
-    ((grZe_AcidState*) &ZEBES_ACID(gp).xC8)->x02_timer = 0;
-    ((grZe_AcidState*) &ZEBES_ACID(gp).xC8)->x04_base_x =
+    gp->u.zebes5.xC4 = 0;
+    ((grZe_AcidState*) &gp->u.zebes5.xC8)->x00_state = 0xFF;
+    ((grZe_AcidState*) &gp->u.zebes5.xC8)->x01_next = 0;
+    ((grZe_AcidState*) &gp->u.zebes5.xC8)->x02_timer = 0;
+    ((grZe_AcidState*) &gp->u.zebes5.xC8)->x04_base_x =
         HSD_JObjGetTranslationX(child_jobj);
-    ((grZe_AcidState*) &ZEBES_ACID(gp).xC8)->x08_offset = 0.0f;
-    ((grZe_AcidState*) &ZEBES_ACID(gp).xC8)->x0C_velocity = 0.0f;
-    ((grZe_AcidState*) &ZEBES_ACID(gp).xC8)->x10_damage = 0.0f;
-    ((grZe_AcidState*) &ZEBES_ACID(gp).xC8)->x14_jobj1 = child_jobj;
-    ((grZe_AcidState*) &ZEBES_ACID(gp).xC8)->x18_jobj2 =
+    ((grZe_AcidState*) &gp->u.zebes5.xC8)->x08_offset = 0.0f;
+    ((grZe_AcidState*) &gp->u.zebes5.xC8)->x0C_velocity = 0.0f;
+    ((grZe_AcidState*) &gp->u.zebes5.xC8)->x10_damage = 0.0f;
+    ((grZe_AcidState*) &gp->u.zebes5.xC8)->x14_jobj1 = child_jobj;
+    ((grZe_AcidState*) &gp->u.zebes5.xC8)->x18_jobj2 =
         Ground_801C3FA4(gobj, 0x20);
-    ((grZe_AcidState*) &ZEBES_ACID(gp).xC8)->x1C_mat = mat_gobj2 = mat_gobj;
+    ((grZe_AcidState*) &gp->u.zebes5.xC8)->x1C_mat = mat_gobj2 = mat_gobj;
 
-    ((grZe_AcidState*) &ZEBES_ACID(gp).xC8)->x20_anim_idx = 0x1C;
-    ZEBES_ACID(gp).xEC = 0;
-    ZEBES_ACID(gp).xF4 = 0;
+    ((grZe_AcidState*) &gp->u.zebes5.xC8)->x20_anim_idx = 0x1C;
+    gp->u.zebes5.xEC = 0;
+    gp->u.zebes5.xF4 = 0;
     pos = grZe_803B7FF0.player_pos;
     mat_gobj2 =
         grMaterial_801C8D44(0, 0, gp, &pos, 0, NULL, fn_801DAC90, NULL);
     grMaterial_801C8E08(mat_gobj2);
-    ZEBES_ACID(gp).x100 = (grZePtr) mat_gobj2;
-    grZebes_801DC9DC((ZEBES_GOBJ_ARG) gobj);
-    ZEBES_ACID(gp).xFC = (grZePtr) grZakoGenerator_801CA394(
+    gp->u.zebes5.x100 = (u32) mat_gobj2;
+    grZebes_801DC9DC((s32) gobj);
+    gp->u.zebes5.xFC = (u32) grZakoGenerator_801CA394(
         (UNK_T) &grZe_803E1B90, 0xA, (UNK_T) grZebes_801DCB64, 1.0f);
     mpJointSetB10(0);
     Ground_UpdateMapColl((Ground_GObj*) gobj);
@@ -403,11 +371,7 @@ grZebes_UpdateCollisionColumns(grZe_BubbleState* state, f32 column_width,
                                f32* column_x, f32* column_heights,
                                int* bubble_idx, int* vertex_idx)
 {
-#ifdef MELEE_NATIVE
-    grZe_BubbleEntry* bubble = grZe_8049F170;
-#else
     grZe_BubbleEntry* bubble = state->bubbles;
-#endif
     f32 top_y;
     f32 x_offset;
     f32 left_x;
@@ -462,12 +426,12 @@ void grZebes_801D881C(HSD_GObj* gobj)
     HSD_JObj* sima_jobj;
     s32 result;
     int vertex_idx;
-    sima_gobj = (HSD_GObj*) ZEBES_ACID(gp).xF0;
-    result = grZebes_801DA528(gobj, &ZEBES_ACID(gp).xC8, 1, 2);
+    sima_gobj = (HSD_GObj*) gp->u.zebes5.xF0;
+    result = grZebes_801DA528(gobj, &gp->u.zebes5.xC8, 1, 2);
     PAD_STACK(0x8);
 
-    if ((s32) ZEBES_ACID(gp).xEC != result) {
-        ZEBES_ACID(gp).xEC = result;
+    if ((s32) gp->u.zebes5.xEC != result) {
+        gp->u.zebes5.xEC = result;
         if (result == 1) {
             grAnime_801C7FF8(gobj, 0x15, 1, 1, 30.0f, 1.0f);
             grAnime_801C78FC(gobj, 0x15, 1U);
@@ -478,15 +442,15 @@ void grZebes_801D881C(HSD_GObj* gobj)
     }
 
     {
-        s16 timer = *(s16*) &ZEBES_ACID(gp).xF8;
-        *(s16*) &ZEBES_ACID(gp).xF8 = timer - 1;
+        s16 timer = *(s16*) &gp->u.zebes5.xF8;
+        *(s16*) &gp->u.zebes5.xF8 = timer - 1;
         if (timer < 0) {
             grZebes_801DAA08();
             {
                 f32 rand = HSD_Randf();
                 f32 base = yakumono_param->x08;
                 f32 diff = yakumono_param->x0C - base;
-                *(s16*) &ZEBES_ACID(gp).xF8 = diff * rand + base;
+                *(s16*) &gp->u.zebes5.xF8 = diff * rand + base;
             }
         }
     }
@@ -494,13 +458,13 @@ void grZebes_801D881C(HSD_GObj* gobj)
     {
         result = grZebes_801DB3CC(gobj);
         grZebes_801DC260();
-        grZebes_801DBB60((HSD_GObj*) ZEBES_ACID(gp).x100);
+        grZebes_801DBB60((HSD_GObj*) gp->u.zebes5.x100);
         grZebes_801DC408(gobj);
 
-        switch (ZEBES_ACID(gp).xC4) {
+        switch (gp->u.zebes5.xC4) {
         case 0:
             if (result != 0) {
-                ZEBES_ACID(gp).xC4 = 1;
+                gp->u.zebes5.xC4 = 1;
                 grAnime_801C8098(gobj, 0xE, 1, 3, 0.0f, 1.0f);
                 grAnime_801C7980(gobj, 0xE, 1U);
                 grAnime_801C8098(sima_gobj, 1, 1, 3, 0.0f, 1.0f);
@@ -512,22 +476,22 @@ void grZebes_801D881C(HSD_GObj* gobj)
                 f32 rand;
                 f32 base;
                 f32 diff;
-                ZEBES_ACID(gp).xC4 = 2;
+                gp->u.zebes5.xC4 = 2;
                 rand = HSD_Randf();
                 base = yakumono_param->x00;
                 diff = yakumono_param->x04 - base;
-                ZEBES_ACID(gp).xC6 = (s16) (diff * rand + base);
+                gp->u.zebes5.xC6 = (s16) (diff * rand + base);
             }
             break;
         case 2:
-            ZEBES_ACID(gp).xC6 = (s16) (ZEBES_ACID(gp).xC6 - 1);
-            if (ZEBES_ACID(gp).xC6 < 0) {
-                ZEBES_ACID(gp).xC4 = 3;
+            gp->u.zebes5.xC6 = (s16) (gp->u.zebes5.xC6 - 1);
+            if (gp->u.zebes5.xC6 < 0) {
+                gp->u.zebes5.xC4 = 3;
                 grAnime_801C8098(gobj, 0xE, 1, 4, 0.0f, 1.0f);
                 grAnime_801C7980(gobj, 0xE, 1U);
                 grAnime_801C8098(sima_gobj, 1, 1, 4, 0.0f, 1.0f);
                 grAnime_801C7980(sima_gobj, 1, 1U);
-                ZEBES_ACID(gp).xF6 = 0;
+                gp->u.zebes5.xF6 = 0;
                 grZe_804D6994 = 0;
             }
             break;
@@ -535,9 +499,9 @@ void grZebes_801D881C(HSD_GObj* gobj)
             s16 eq_counter;
             s32 divisor;
             s32 spawn_phase;
-            ZEBES_ACID(gp).xF6 = (s16) (ZEBES_ACID(gp).xF6 + 1);
+            gp->u.zebes5.xF6 = (s16) (gp->u.zebes5.xF6 + 1);
             divisor = yakumono_param->x10;
-            eq_counter = ZEBES_ACID(gp).xF6;
+            eq_counter = gp->u.zebes5.xF6;
             if (eq_counter % divisor == 0) {
                 s32 mirror;
                 spawn_phase = eq_counter / divisor;
@@ -565,7 +529,7 @@ void grZebes_801D881C(HSD_GObj* gobj)
                 }
             }
             if (grAnime_801C83D0(gobj, 0xE, 1) != 0) {
-                ZEBES_ACID(gp).xC4 = 0;
+                gp->u.zebes5.xC4 = 0;
                 for (result = 0; result < 20; result++) {
                     if (grZe_8049F170[result].x00_active == 4) {
                         grZe_8049F170[result].x00_active = 1;
@@ -587,7 +551,7 @@ void grZebes_801D881C(HSD_GObj* gobj)
         }
     }
 
-    if (ZEBES_ACID(gp).xC4 == 0) {
+    if (gp->u.zebes5.xC4 == 0) {
         f32 column_heights[6];
         f32 column_x[6];
         Vec3 upper_point_pos;
@@ -661,7 +625,7 @@ void grZebes_801D881C(HSD_GObj* gobj)
         f32 slope;
         f32 intercept;
         Ground_801C4368(&slope, &intercept);
-        grZakoGenerator_801CA43C((grZakoGenerator_Config*) ZEBES_ACID(gp).xFC,
+        grZakoGenerator_801CA43C((grZakoGenerator_Config*) gp->u.zebes5.xFC,
                                  Ground_801C3FA4(gobj, 0xE), slope);
     }
     Ground_UpdateMapColl((Ground_GObj*) gobj);
@@ -700,13 +664,13 @@ void grZebes_801D9100(HSD_GObj* gobj)
     gp->u.zebes4.xCC = 0.0f;
     gp->u.zebes4.xD0 = 0.0f;
     gp->u.zebes4.xD4 = 0.0f;
-    gp->u.zebes4.xD8 = (grZePtr) child_jobj;
+    gp->u.zebes4.xD8 = (u32) child_jobj;
     new_var = 0xD;
-    gp->u.zebes4.xDC = (grZePtr) Ground_801C3FA4(gobj, 0x11);
-    gp->u.zebes4.xE0 = (grZePtr) mat_gobj;
+    gp->u.zebes4.xDC = (u32) Ground_801C3FA4(gobj, 0x11);
+    gp->u.zebes4.xE0 = (u32) mat_gobj;
     gp->u.zebes4.xE4 = new_var;
     gp->u.zebes4.xE8 = 0;
-    gp->u.zebes4.xEC = (grZePtr) grZakoGenerator_801CA394(
+    gp->u.zebes4.xEC = (u32) grZakoGenerator_801CA394(
         (void*) &grZe_803E1C80, 4, (void*) grZebes_801DCBB0, 1.0f);
     Ground_UpdateMapColl(new_var2);
 }
@@ -1201,12 +1165,8 @@ static inline void grZebes_801DA254_inline2(HSD_LObj* lobj, GXColor* color)
 void grZebes_801DA254(Ground_GObj* gobj, f32 level)
 {
     Ground* gp = GET_GROUND(gobj);
-#ifdef MELEE_NATIVE
-    HSD_LObj* lobj = gp->u.zebes5.xDC;
-#else
     HSD_LObj* lobj = (HSD_LObj*) gp->u.zebes4.xDC;
-    gp->u.zebes4.xDC = (grZePtr) lobj;
-#endif
+    gp->u.zebes4.xDC = (u32) lobj;
     if (lobj == NULL) {
         HSD_GObj* lgobj = HSD_GObjGXLinkHead[4];
         if (lgobj != NULL) {
@@ -1218,11 +1178,7 @@ void grZebes_801DA254(Ground_GObj* gobj, f32 level)
                 lobj = HSD_LObjGetNext(lobj);
             }
         }
-#ifdef MELEE_NATIVE
-        gp->u.zebes5.xDC = lobj;
-#else
-        gp->u.zebes4.xDC = (grZePtr) lobj;
-#endif
+        gp->u.zebes4.xDC = (u32) lobj;
     }
 
     if (lobj != NULL) {
@@ -1467,17 +1423,10 @@ s32 grZebes_801DAA08(void)
 
             {
                 u8* dat = (0, (u8*) grDatFiles_801C6330(2)->unk4->unk8);
-#ifdef MELEE_NATIVE
-                struct UnkStageDat_x8_t* model = &grDatFiles_801C6330(2)->unk4->unk8[2];
-                HSD_ShapeAnimJoint** sap = model->unkC;
-                HSD_AnimJoint** ajp = model->unk4;
-                HSD_MatAnimJoint** mjp = model->unk8;
-#else
                 HSD_ShapeAnimJoint** sap =
                     *(HSD_ShapeAnimJoint***) (dat + 0x74);
                 HSD_AnimJoint** ajp = *(HSD_AnimJoint***) (dat + 0x6C);
                 HSD_MatAnimJoint** mjp = *(HSD_MatAnimJoint***) (dat + 0x70);
-#endif
                 HSD_ShapeAnimJoint* sa;
                 HSD_MatAnimJoint* ma;
                 HSD_AnimJoint* aj;
@@ -2220,14 +2169,14 @@ void grZebes_801DC408(Ground_GObj* gobj)
 {
     Ground* gp = GET_GROUND(gobj);
 
-    if (ZEBES_ACID(gp).xC4 == 0) {
+    if (gp->u.zebes5.xC4 == 0) {
         if (grZe_804D6994 != 0) {
             grZe_804D6994 -= 1;
             return;
         }
 
-        ZEBES_ACID(gp).xF4 = (s16) (ZEBES_ACID(gp).xF4 - 1);
-        if (ZEBES_ACID(gp).xF4 < 0) {
+        gp->u.zebes5.xF4 = (s16) (gp->u.zebes5.xF4 - 1);
+        if (gp->u.zebes5.xF4 < 0) {
             s32 first_free = -1;
             s32 i;
             s32 count = 0;
@@ -2268,7 +2217,7 @@ void grZebes_801DC408(Ground_GObj* gobj)
                     s32 range = t_min - timer;
                     timer += (range != 0 ? HSD_Randi(range) : 0);
                 }
-                ZEBES_ACID(gp).xF4 = (s16) timer;
+                gp->u.zebes5.xF4 = (s16) timer;
             }
         }
     }
@@ -2360,7 +2309,7 @@ void grZebes_801DC744(s32 arg0, u8 arg1)
     }
 }
 
-void grZebes_801DC9DC(ZEBES_GOBJ_ARG arg0)
+void grZebes_801DC9DC(s32 arg0)
 {
     int i;
     PAD_STACK(0x30);
@@ -2417,12 +2366,7 @@ bool grZebes_801DCBFC(Ground_GObj* gobj, HSD_GObj* fobj, void* arg)
     ftLib_GetPrevPos(fobj, &prev);
     prev.y += intercept;
     if (pos.y < slope) {
-        #ifdef MELEE_NATIVE
-        void* MeleeNativeScriptPointer(const void*);
-        *(void**) arg = MeleeNativeScriptPointer((u8*) yakumono_param + 0x2C);
-#else
         *(void**) arg = ((HSD_GObj*) yakumono_param)->user_data;
-#endif
         if (prev.y > slope) {
             Ground_801C43A4(&pos);
             Ground_801C53EC(0x61A82);
@@ -2451,7 +2395,8 @@ f32 grZebes_801DCCC8(void)
 }
 
 #ifdef MELEE_NATIVE
-// Exercise the real stage callbacks. Adjacent native pointers must survive a hit.
+// Matrix-check: Brinstar (Zebes) acid damage must update only the damage/velocity
+// fields and leave the adjacent 64-bit jobj pointers intact on a native host.
 void MeleeNativeCheckBrinstarDamage(void)
 {
     Ground actual = {0}, expected;
@@ -2465,8 +2410,8 @@ void MeleeNativeCheckBrinstarDamage(void)
     if (memcmp(&actual, &expected, sizeof(actual)))
         OSPanic(__FILE__, __LINE__, "Brinstar main-platform damage layout");
     memset(&actual, 0, sizeof(actual));
-    actual.u.zebes4.xD8 = (uintptr_t) &actual;
-    actual.u.zebes4.xDC = (uintptr_t) &expected;
+    actual.u.zebes4.xD8 = (grZePtr) &actual;
+    actual.u.zebes4.xDC = (grZePtr) &expected;
     memcpy(&expected, &actual, sizeof(actual));
     expected.u.zebes4.xD4 = 3;
     expected.u.zebes4.xD0 = 7;
@@ -2475,5 +2420,4 @@ void MeleeNativeCheckBrinstarDamage(void)
         OSPanic(__FILE__, __LINE__, "Brinstar side-platform damage layout");
     OSReport("[matrix-check] Brinstar damage preserves adjacent fields\n");
 }
-
 #endif

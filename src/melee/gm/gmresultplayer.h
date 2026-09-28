@@ -122,6 +122,26 @@ extern u32 gmResultScoreTableInit[0x20 / sizeof(u32)];
 extern ResultsCharacterData gmResultCharacterData;
 extern HSD_CameraDescPerspective gmResultCameraDesc;
 
+#ifdef MELEE_NATIVE
+/// The results dimension/score tables are stored as big-endian half-word pairs
+/// (main.dol .sdata2); unpack them into u16[4] on a little-endian host.
+static inline void Results_UnpackHalfWords(u16* dst, u32 first, u32 second)
+{
+    dst[0] = first >> 16;
+    dst[1] = first;
+    dst[2] = second >> 16;
+    dst[3] = second;
+}
+
+/// Natively the split results globals share one struct so their pointer fields
+/// land at the correct host offsets; the GC symbols alias into it.
+extern ResultsDisplayLayout native_results_display;
+#define lbl_8046E1B0 native_results_display
+#define lbl_8046E38C native_results_display.gobjs
+#define lbl_8046E39C native_results_display.jobjs
+#define lbl_8046E3AC native_results_display.state
+#endif
+
 /* 177724 */ void gm_80177724(struct ResultsMatchInfo*);
 /* 177748 */ void fn_80177748(void);
 /* 177920 */ void fn_80177920(HSD_GObj*);

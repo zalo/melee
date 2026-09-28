@@ -52,9 +52,9 @@ for source in (root / 'libs/dolphin/include').rglob('*.h'):
             text = re.sub(r'\bCARD' + name + r'Async\b', 'MeleeNativeCARD' + name + 'Async', text)
             text = '#define CARD' + name + 'Async MeleeNativeCARD' + name + 'Async\n' + text
     if source.name == 'thp.h':
-        text = text.replace('s32 THPVideoDecode(', 'intptr_t MeleeNativeTHPVideoDecode(')
-        text = text.replace('THPDec_80331340(s32,', 'THPDec_80331340(intptr_t,')
-        text = text.replace('THPDec_803313D0(s32,', 'THPDec_803313D0(intptr_t,')
+        # Upstream types the THP entry points as THPFileInfo*; the native decoder
+        # keeps that return/handle type and casts to its own frame internally.
+        text = text.replace('THPFileInfo* THPVideoDecode(', 'THPFileInfo* MeleeNativeTHPVideoDecode(')
         text += '\n#define THPVideoDecode MeleeNativeTHPVideoDecode\n'
     if source.name == 'os.h':
         text = text.replace('#define OSRoundUp32B(x) (((u32) (x) + 32 - 1) & ~(32 - 1))', '#define OSRoundUp32B(x) (((uintptr_t)(x) + 31) & ~(uintptr_t)31)')

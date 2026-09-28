@@ -25,6 +25,8 @@
 /* 17A9B4 */ void fn_8017A9B4(int);
 /* 17AA78 */ void fn_8017AA78(const u8*);
 
+#ifndef MELEE_NATIVE
 extern lbl_8046E3AC_t lbl_8046E3AC;
+#endif
 
 #endif

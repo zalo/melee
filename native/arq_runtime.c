@@ -8,7 +8,8 @@
 typedef struct Transfer {
     struct Transfer* next;
     ARQRequest* request;
-    u32 owner, type, priority, length;
+    uintptr_t owner;
+    u32 type, priority, length;
     uintptr_t source, dest;
     ARQCallback callback;
 } Transfer;
@@ -82,7 +83,7 @@ void MeleeNativePumpArq(void) {
     }
     OSRestoreInterrupts(enabled);
 }
-void ARQPostRequest(ARQRequest* request, u32 owner, u32 type, u32 priority,
+void ARQPostRequest(ARQRequest* request, uintptr_t owner, u32 type, u32 priority,
                     uintptr_t source, uintptr_t dest, u32 length, ARQCallback callback) {
     if (!request || type > 1 || priority > 1) OSPanic(__FILE__, __LINE__, "Invalid ARQ request");
     if (MeleeNativeDeterministicIO()) {
@@ -112,7 +113,7 @@ void ARQPostRequest(ARQRequest* request, u32 owner, u32 type, u32 priority,
     pthread_cond_signal(&ready);
     pthread_mutex_unlock(&mutex);
 }
-static void remove_matching(ARQRequest* request, u32 owner, int mode) {
+static void remove_matching(ARQRequest* request, uintptr_t owner, int mode) {
     int enabled = OSDisableInterrupts();
     pthread_mutex_lock(&mutex);
     Transfer** link = &head; tail = NULL;
@@ -132,7 +133,7 @@ static void remove_matching(ARQRequest* request, u32 owner, int mode) {
     OSRestoreInterrupts(enabled);
 }
 void ARQRemoveRequest(ARQRequest* request) { remove_matching(request, 0, 0); }
-void ARQRemoveOwnerRequest(u32 owner) { remove_matching(NULL, owner, 1); }
+void ARQRemoveOwnerRequest(uintptr_t owner) { remove_matching(NULL, owner, 1); }
 void ARQFlushQueue(void) { remove_matching(NULL, 0, 2); }
 void ARQReset(void) { ARQFlushQueue(); }
 void ARQSetChunkSize(u32 size) { if (!size || (size & 31)) OSPanic(__FILE__, __LINE__, "Invalid ARQ chunk size"); chunk_size = size; }

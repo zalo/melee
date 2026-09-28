@@ -87,7 +87,7 @@ S(effectdesc,EF_EffectDesc,20,U(EF_EffectDesc,lifetime,0,1),P(EF_EffectDesc,mode
 S(spline,HSD_Spline,24,B(HSD_Spline,type,0,1),H(HSD_Spline,numcv,2,1),U(HSD_Spline,tension,4,1),P(HSD_Spline,cv,8,AT_WORDS),U(HSD_Spline,totalLength,12,1),P(HSD_Spline,segLength,16,AT_WORDS),P(HSD_Spline,segPoly,20,AT_WORDS));
 S(ptcllist,HSD_SList,8,P(HSD_SList,next,0,AT_PTCL_LIST),U(HSD_SList,data,4,1));
 S(playercommon,pl_804D6470_t,0x184,U(pl_804D6470_t,x0,0,48),B(pl_804D6470_t,xC0,0xC0,4),U(pl_804D6470_t,xC4,0xC4,48));
-S(ftcommon,ftCommonData,0x818,U(ftCommonData,horizontal_stick_deadzone,0,0x6DC/4),B(ftCommonData,x6DC_colorsByPlayer,0x6DC,20),U(ftCommonData,metal_armor,0x6F0,(0x7D8-0x6F0)/4),B(ftCommonData,x7D8,0x7D8,4),U(ftCommonData,x7DC,0x7DC,(0x818-0x7DC)/4));
+S(ftcommon,ftCommonData,0x818,U(ftCommonData,horizontal_stick_deadzone,0,0x6DC/4),B(ftCommonData,sub_colors,0x6DC,20),U(ftCommonData,metal_armor,0x6F0,(0x7D8-0x6F0)/4),B(ftCommonData,x7D8,0x7D8,4),U(ftCommonData,x7DC,0x7DC,(0x818-0x7DC)/4));
 S(ftparts,FighterPartsTable,12,P(FighterPartsTable,joint_to_part,0,AT_RAW),P(FighterPartsTable,part_to_joint,4,AT_RAW),U(FighterPartsTable,parts_num,8,1));
 S(bytepair,struct Fighter_804D6540_t,8,P(struct Fighter_804D6540_t,x0,0,AT_RAW),U(struct Fighter_804D6540_t,x4,4,1));
 S(shake,struct Fighter_ShakeTable_t,8,P(struct Fighter_ShakeTable_t,x0,0,AT_WORDS),U(struct Fighter_ShakeTable_t,x4,4,1));
