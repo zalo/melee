@@ -58,7 +58,14 @@ static lbArqState lbArq_80014ABC(lbArqNode* arg0)
 
 static void lbArq_80014AC4(ARQRequest* request)
 {
+#ifdef MELEE_NATIVE
+    // The native ARQ (arq_runtime.c) passes &node->arq as the request and keeps its owner tag in
+    // its own Transfer record, so ARQRequest.owner is not the node; recover the node from the
+    // embedded request member instead.
+    lbArqNode* node = (lbArqNode*) ((u8*) request - offsetof(lbArqNode, arq));
+#else
     lbArqNode* node = (lbArqNode*) request->owner;
+#endif
     lbArqNode** prev;
     lbArqNode** tail;
     BOOL intr;

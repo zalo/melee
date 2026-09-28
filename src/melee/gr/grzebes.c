@@ -2401,20 +2401,23 @@ void MeleeNativeCheckBrinstarDamage(void)
 {
     Ground actual = {0}, expected;
     Vec3 position = {7, 0, 0};
-    actual.u.zebes_acid.xC8.x14_jobj1 = (HSD_JObj*) &actual;
-    actual.u.zebes_acid.xC8.x18_jobj2 = (HSD_JObj*) &expected;
+    // Mirror the exact accessor the acid functions use so the check and the code under
+    // test address the same bytes (grZe_AcidState is 8-byte aligned, so it must be reached
+    // through the same cast, not through a differently-aligned union member).
+    ((grZe_AcidState*) &actual.u.zebes5.xC8)->x14_jobj1 = (HSD_JObj*) &actual;
+    ((grZe_AcidState*) &actual.u.zebes5.xC8)->x18_jobj2 = (HSD_JObj*) &expected;
     memcpy(&expected, &actual, sizeof(actual));
-    expected.u.zebes_acid.xC8.x10_damage = 3;
-    expected.u.zebes_acid.xC8.x0C_velocity = 7;
+    ((grZe_AcidState*) &expected.u.zebes5.xC8)->x10_damage = 3;
+    ((grZe_AcidState*) &expected.u.zebes5.xC8)->x0C_velocity = 7;
     fn_801DA9D8(NULL, &actual, &position, NULL, 3);
     if (memcmp(&actual, &expected, sizeof(actual)))
         OSPanic(__FILE__, __LINE__, "Brinstar main-platform damage layout");
     memset(&actual, 0, sizeof(actual));
-    actual.u.zebes4.xD8 = (grZePtr) &actual;
-    actual.u.zebes4.xDC = (grZePtr) &expected;
+    ((grZe_AcidState*) &actual.u.zebes4.xC4)->x14_jobj1 = (HSD_JObj*) &actual;
+    ((grZe_AcidState*) &actual.u.zebes4.xC4)->x18_jobj2 = (HSD_JObj*) &expected;
     memcpy(&expected, &actual, sizeof(actual));
-    expected.u.zebes4.xD4 = 3;
-    expected.u.zebes4.xD0 = 7;
+    ((grZe_AcidState*) &expected.u.zebes4.xC4)->x10_damage = 3;
+    ((grZe_AcidState*) &expected.u.zebes4.xC4)->x0C_velocity = 7;
     fn_801DA9F0(NULL, &actual, &position, NULL, 3);
     if (memcmp(&actual, &expected, sizeof(actual)))
         OSPanic(__FILE__, __LINE__, "Brinstar side-platform damage layout");
