@@ -122,42 +122,39 @@ void HSD_ObjSetHeap(u32 size, void* ptr)
 #ifdef MELEE_NATIVE
     objalloc_quarantine_clear();
 #endif
-    obj_heap.curr = (HSD_ObjAddress) ptr;
-    obj_heap.top = (HSD_ObjAddress) ptr;
+    obj_heap.curr = (uintptr_t) ptr;
+    obj_heap.top = (uintptr_t) ptr;
     obj_heap.remain = size;
     obj_heap.size = size;
 }
 
 s32 HSD_ObjAllocAddFree(HSD_ObjAllocData* data, u32 num)
 {
-    HSD_ObjAddress computed_start;
-    HSD_ObjAddress pool_end;
-    u32 pool_size;
-    u8* pool_start;
-
-    u8 _[4];
+    uintptr_t pool_end;
+    uintptr_t pool_size;
+    uintptr_t pool_start;
 
     HSD_ASSERT(0xEE, data);
     pool_size = data->size * num;
     if (obj_heap.top != 0) {
+        uintptr_t align = data->align;
         pool_end = obj_heap.top + obj_heap.size;
-        computed_start = (obj_heap.curr + data->align) & ~(HSD_ObjAddress) data->align;
-        pool_start = (void*) computed_start;
-        if (computed_start > pool_end) {
+        pool_start = (obj_heap.curr + align) & ~align;
+        if (pool_start > pool_end) {
             return 0;
         }
-        if (pool_end - (HSD_ObjAddress) pool_start < pool_size) {
-            pool_size = pool_end - (HSD_ObjAddress) pool_start -
-                        (pool_end - (HSD_ObjAddress) pool_start) % data->size;
+        if (pool_end - pool_start < pool_size) {
+            pool_size =
+                pool_end - pool_start - (pool_end - pool_start) % data->size;
         }
         num = pool_size / data->size;
         if (num == 0) {
             return 0;
         }
-        obj_heap.curr = (HSD_ObjAddress) pool_start + pool_size;
+        obj_heap.curr = pool_start + pool_size;
         obj_heap.remain = pool_end - obj_heap.curr;
     } else {
-        pool_start = HSD_MemAlloc(pool_size);
+        pool_start = (uintptr_t) HSD_MemAlloc(pool_size);
         if (pool_start == 0) {
             return 0;
         }
@@ -166,11 +163,14 @@ s32 HSD_ObjAllocAddFree(HSD_ObjAllocData* data, u32 num)
 
     {
         int i;
+        HSD_ObjAllocLink* link;
         for (i = 0; (unsigned) i < num - 1; i++) {
-            *(void**) (pool_start + data->size * i) =
-                (void*) (pool_start + data->size * (i + 1));
+            link = (HSD_ObjAllocLink*) (pool_start + data->size * i);
+            link->next =
+                (HSD_ObjAllocLink*) (pool_start + data->size * (i + 1));
         }
-        *(void**) (pool_start + data->size * i) = data->freehead;
+        link = (HSD_ObjAllocLink*) (pool_start + data->size * i);
+        link->next = data->freehead;
     }
 
     data->freehead = (HSD_ObjAllocLink*) pool_start;

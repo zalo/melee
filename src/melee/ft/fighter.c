@@ -239,8 +239,8 @@ void Fighter_UnkInitReset_80067C98(Fighter* fp)
     float x, y, z;
 
     fp->x8_spawnNum = Fighter_NewSpawn_80068E40();
-    Player_LoadPlayerCoords(fp->player_id, &player_coords);
-    fp->facing_dir = Player_GetFacingDirection(fp->player_id);
+    Player_LoadPlayerCoords(fp->player_idx, &player_coords);
+    fp->facing_dir = Player_GetFacingDirection(fp->player_idx);
 
     player_coords.x = fp->facing_dir * ftCommon_800804EC(fp) + player_coords.x;
     x = player_coords.x;
@@ -305,7 +305,7 @@ void Fighter_UnkInitReset_80067C98(Fighter* fp)
     fp->hitlag_mul = 0;
     fp->x2064_ledgeCooldown = 0;
 
-    fp->dmg.x1830_percent = Player_GetDamage(fp->player_id);
+    fp->dmg.x1830_percent = Player_GetDamage(fp->player_idx);
 
     fp->dmg.x1838_percentTemp = 0;
 
@@ -484,7 +484,7 @@ void Fighter_UnkInitReset_80067C98(Fighter* fp)
     fp->x2038 = 0;
     fp->x1980 = 0;
 
-    fp->x2224_b2 = fp->x2224_b3 = false;
+    fp->stamina_dead = fp->x2224_b3 = false;
 
     fp->x2224_b4 = false;
     fp->capture_timer = 0;
@@ -515,7 +515,7 @@ void Fighter_UnkInitReset_80067C98(Fighter* fp)
     fp->x2229_b4 = true;
 }
 
-void Fighter_UnkProcessDeath_80068354(Fighter_GObj* gobj)
+void Fighter_Spawn(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
 
@@ -558,8 +558,8 @@ void Fighter_UnkProcessDeath_80068354(Fighter_GObj* gobj)
         ftData_OnDeath[fp->kind](gobj);
     }
 
-    ftCo_800A101C(fp, Player_GetCpuType(fp->player_id),
-                  Player_GetCpuLevel(fp->player_id), 0);
+    ftCo_800A101C(fp, Player_GetCpuType(fp->player_idx),
+                  Player_GetCpuLevel(fp->player_idx), 0);
 
     efAsync_QueueClear(&fp->x60C);
     ft_8007C17C(gobj);
@@ -572,7 +572,7 @@ void Fighter_UnkUpdateCostumeJoint_800686E4(Fighter_GObj* gobj)
     HSD_JObj* jobj;
 
     fp->x108_costume_joint = CostumeListsForeachCharacter[fp->kind]
-                                 .costume_list[fp->x619_costume_id]
+                                 .costume_list[fp->costume_id]
                                  .joint;
     ftPartsPObjSetDefaultClass();
     jobj = HSD_JObjLoadJoint(fp->x108_costume_joint);
@@ -694,43 +694,41 @@ void Fighter_UnkInitLoad_80068914(Fighter_GObj* gobj,
     Fighter* fp = GET_FIGHTER(gobj);
     s32 costume_id;
     fp->kind = argdata->internal_id;
-    fp->player_id = argdata->slot;
+    fp->player_idx = argdata->slot;
 
     fp->is_sub_fighter = argdata->b0;
 
-    fp->x34_scale.x = Player_GetModelScale(fp->player_id);
+    fp->x34_scale.x = Player_GetModelScale(fp->player_idx);
     fp->x61C = argdata->x5;
-    fp->x618_player_id = Player_GetPlayerId(fp->player_id);
-    fp->x61A_controller_index = Player_GetControllerIndex(fp->player_id);
-    fp->is_always_metal = Player_GetFlagsBit5(fp->player_id);
-    fp->x2226_b3 = Player_GetFlagsBit6(fp->player_id);
-    fp->x2226_b6 = Player_GetFlagsBit7(fp->player_id);
-    fp->x2225_b5 = Player_GetMoreFlagsBit1(fp->player_id);
-    fp->x2225_b7 = Player_GetMoreFlagsBit2(fp->player_id);
-    fp->x2228_b3 = Player_GetMoreFlagsBit6(fp->player_id);
-    fp->x2229_b1 = Player_GetFlagsAEBit0(fp->player_id);
+    fp->pad_port = Player_GetPadPort(fp->player_idx);
+    fp->sub_color = Player_GetSubColor(fp->player_idx);
+    fp->is_always_metal = Player_GetFlagsBit5(fp->player_idx);
+    fp->x2226_b3 = Player_GetFlagsBit6(fp->player_idx);
+    fp->x2226_b6 = Player_GetFlagsBit7(fp->player_idx);
+    fp->x2225_b5 = Player_GetMoreFlagsBit1(fp->player_idx);
+    fp->x2225_b7 = Player_GetMoreFlagsBit2(fp->player_idx);
+    fp->x2228_b3 = Player_GetMoreFlagsBit6(fp->player_idx);
+    fp->x2229_b1 = Player_GetFlagsAEBit0(fp->player_idx);
 
-    if (fp->x61A_controller_index > 4) {
+    if (fp->sub_color > 4) {
         HSD_ASSERTREPORT(0x33C, 0, "fighter sub color num over!\n");
     }
 
-    if (fp->x61A_controller_index != 0) {
-        GXColor* color =
-            &p_ftCommonData
-                 ->x6DC_colorsByPlayer[fp->x61A_controller_index - 1];
+    if (fp->sub_color != 0) {
+        GXColor* color = &p_ftCommonData->sub_colors[fp->sub_color - 1];
         fp->x610_color_rgba[0].r = (color->r * color->a) / 255;
         fp->x610_color_rgba[0].g = (color->g * color->a) / 255;
         fp->x610_color_rgba[0].b = (color->b * color->a) / 255;
         fp->x610_color_rgba[0].a = color->a;
     }
 
-    costume_id = Player_GetCostumeId(fp->player_id);
+    costume_id = Player_GetCostumeId(fp->player_idx);
     if (costume_id >= CostumeListsForeachCharacter[fp->kind].numCostumes) {
         costume_id = 0;
     }
 
-    fp->x619_costume_id = costume_id;
-    fp->team = Player_GetTeam(fp->player_id);
+    fp->costume_id = costume_id;
+    fp->team = Player_GetTeam(fp->player_idx);
     fp->gobj = gobj;
     fp->ft_data = gFtDataList[fp->kind];
     ftCo_800D0FA0(gobj);
@@ -765,10 +763,10 @@ void Fighter_UnkInitLoad_80068914(Fighter_GObj* gobj,
     fp->x221F_b0 = 0;
     fp->x21EC = 0;
 
-    fp->x221D_b3 = 0;
-    fp->x221D_b4 = 0;
+    fp->has_prev_input = 0;
+    fp->input_disabled = 0;
 
-    fp->x221F_b3 = 0;
+    fp->is_sleeping = false;
 
     fp->x2220_b0 = 0;
 
@@ -798,7 +796,7 @@ void Fighter_UnkInitLoad_80068914(Fighter_GObj* gobj,
 
     fp->can_walljump = false;
 
-    fp->x60C = 0;
+    fp->x60C = NULL;
 
     fp->x2225_b3 = 0;
     fp->is_sandbag = 0;
@@ -870,7 +868,7 @@ Fighter_GObj* Fighter_Create(struct plAllocInfo* input)
     ftData_8008572C(input->internal_id);
     Fighter_UnkInitLoad_80068914(gobj, input);
     efAsync_LoadSync(ftData_UnkBytePerCharacter[fp->kind]);
-    ftData_80085820(fp->kind, fp->x619_costume_id);
+    ftData_80085820(fp->kind, fp->costume_id);
 
     Fighter_UnkUpdateCostumeJoint_800686E4(gobj);
 
@@ -902,22 +900,22 @@ Fighter_GObj* Fighter_Create(struct plAllocInfo* input)
 
     jobj = GET_JOBJ(gobj);
     lbShadow_8000ED54(&fp->x20A4, jobj);
-    HSD_GObj_SetupProc(gobj, &Fighter_8006A1BC, 0);
-    HSD_GObj_SetupProc(gobj, &Fighter_8006A360, 1);
-    HSD_GObj_SetupProc(gobj, &Fighter_8006ABA0, 2);
-    HSD_GObj_SetupProc(gobj, &Fighter_Spaghetti_8006AD10, 3);
+    HSD_GObj_SetupProc(gobj, &Fighter_procHitlag, 0);
+    HSD_GObj_SetupProc(gobj, &Fighter_procAnim, 1);
+    HSD_GObj_SetupProc(gobj, &Fighter_procCpu, 2);
+    HSD_GObj_SetupProc(gobj, &Fighter_procInput, 3);
     HSD_GObj_SetupProc(gobj, &Fighter_procUpdate, 4);
     HSD_GObj_SetupProc(gobj, &Fighter_procMap, 6);
-    HSD_GObj_SetupProc(gobj, &Fighter_8006C5F4, 7);
-    HSD_GObj_SetupProc(gobj, &Fighter_CallAcessoryCallbacks_8006C624, 8);
-    HSD_GObj_SetupProc(gobj, &Fighter_8006C80C, 9);
-    HSD_GObj_SetupProc(gobj, &Fighter_UnkProcessGrab_8006CA5C, 0xC);
-    HSD_GObj_SetupProc(gobj, &Fighter_8006CB94, 0xD);
-    HSD_GObj_SetupProc(gobj, &Fighter_ProcessHit_8006D1EC, 0xE);
-    HSD_GObj_SetupProc(gobj, &Fighter_8006D9AC, 0x10);
-    HSD_GObj_SetupProc(gobj, &Fighter_UnkCallCameraCallback_8006D9EC, 0x12);
-    HSD_GObj_SetupProc(gobj, &Fighter_8006DA4C, 0x16);
-    Fighter_UnkProcessDeath_80068354(gobj);
+    HSD_GObj_SetupProc(gobj, &Fighter_procIK, 7);
+    HSD_GObj_SetupProc(gobj, &Fighter_procAccessory, 8);
+    HSD_GObj_SetupProc(gobj, &Fighter_procCollPos, 9);
+    HSD_GObj_SetupProc(gobj, &Fighter_procGrabColl, 12);
+    HSD_GObj_SetupProc(gobj, &Fighter_procAttackColl, 13);
+    HSD_GObj_SetupProc(gobj, &Fighter_procCollResolve, 14);
+    HSD_GObj_SetupProc(gobj, &Fighter_procDynamics, 16);
+    HSD_GObj_SetupProc(gobj, &Fighter_procCamera, 18);
+    HSD_GObj_SetupProc(gobj, &Fighter_procPlayer, 22);
+    Fighter_Spawn(gobj);
 
     if (fp->kind == Ft_Kind_MasterH) {
         ftMh_MS_341_8014FE10(gobj);
@@ -925,7 +923,7 @@ Fighter_GObj* Fighter_Create(struct plAllocInfo* input)
         ftCh_Init_80155FCC(gobj);
     } else if (input->has_transformation) {
         ftCo_800BFD04(gobj);
-    } else if (Player_GetFlagsBit3(fp->player_id) != 0) {
+    } else if (Player_GetFlagsBit3(fp->player_idx) != 0) {
         ftCo_800C61B0(gobj);
     } else {
         if (!fp->no_normal_motion) {
@@ -934,7 +932,7 @@ Fighter_GObj* Fighter_Create(struct plAllocInfo* input)
             HSD_ASSERTREPORT(1065, 0, "ellegal flag fp->no_normal_motion\n");
         }
     }
-    ftLib_800867E8(gobj);
+    ftLib_DisableInput(gobj);
     return gobj;
 }
 
@@ -1043,7 +1041,7 @@ void Fighter_ChangeMotionState(Fighter_GObj* gobj, FtMotionId msid,
         fp->x2098 = p_ftCommonData->x4CC;
     }
 
-    fp->x221F_b3 = 0;
+    fp->is_sleeping = false;
     fp->x2219_b1 = 0;
     fp->x2219_b2 = 0;
 
@@ -1137,11 +1135,11 @@ void Fighter_ChangeMotionState(Fighter_GObj* gobj, FtMotionId msid,
         fp->x213C = -1;
 
         if (fp->x2227_b4 != 0U) {
-            pl_8003FE1C(fp->player_id, fp->is_sub_fighter);
+            pl_8003FE1C(fp->player_idx, fp->is_sub_fighter);
             fp->x2227_b4 = false;
         }
         fp->x2227_b5 = false;
-        pl_80040330(fp->player_id, fp->is_sub_fighter, fp->x2140);
+        pl_80040330(fp->player_idx, fp->is_sub_fighter, fp->x2140);
         fp->x2140 = 0;
         fp->used_tether = false;
         fp->x2180 = 6;
@@ -1398,11 +1396,11 @@ void Fighter_ChangeMotionState(Fighter_GObj* gobj, FtMotionId msid,
     }
 }
 
-void Fighter_8006A1BC(Fighter_GObj* gobj)
+void Fighter_procHitlag(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
 
-    if (!fp->x221F_b3) {
+    if (!fp->is_sleeping) {
         if (fp->dmg.x1954 > 0.0f) {
             fp->dmg.x1954 -= 1.0f;
             if (fp->dmg.x1954 <= 0.0f) {
@@ -1449,11 +1447,11 @@ void Fighter_8006A1BC(Fighter_GObj* gobj)
     }
 }
 
-void Fighter_8006A360(Fighter_GObj* gobj)
+void Fighter_procAnim(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
 
-    if (!fp->x221F_b3) {
+    if (!fp->is_sleeping) {
         fp->pos_delta.x = fp->cur_pos.x - fp->prev_pos.x;
         fp->pos_delta.y = fp->cur_pos.y - fp->prev_pos.y;
         fp->pos_delta.z = fp->cur_pos.z - fp->prev_pos.z;
@@ -1602,8 +1600,8 @@ void Fighter_8006A360(Fighter_GObj* gobj)
 
         if (!fp->is_sub_fighter && Camera_80031144() == 1.0f) {
             if (fp->dmg.x1830_percent < p_ftCommonData->x7B0) {
-                if (ifMagnify_802FC998(fp->player_id) &&
-                    (Player_GetMoreFlagsBit3(fp->player_id) != 0))
+                if (ifMagnify_802FC998(fp->player_idx) &&
+                    (Player_GetMoreFlagsBit3(fp->player_idx) != 0))
                 {
                     fp->dmg.x1910++;
                 } else {
@@ -1623,9 +1621,9 @@ void Fighter_8006A360(Fighter_GObj* gobj)
             if (fp->dmg.x1830_percent > 0.0f) {
                 fp->dmg.x1830_percent--;
                 ft_80088640(fp, 0x7D, 0x7F, 0x40);
-                Player_SetHPByIndex(fp->player_id, fp->is_sub_fighter,
+                Player_SetHPByIndex(fp->player_idx, fp->is_sub_fighter,
                                     fp->dmg.x1830_percent);
-                pl_80040B8C(fp->player_id, fp->is_sub_fighter, 1);
+                pl_80040B8C(fp->player_idx, fp->is_sub_fighter, 1);
             }
 
             if (fp->dmg.x1830_percent <= 0.0f) {
@@ -1666,7 +1664,7 @@ void Fighter_8006A360(Fighter_GObj* gobj)
         }
 
         if (!fp->x2219_b5) {
-            if (fp->x209A > 1 && !fp->x221D_b4) {
+            if (fp->x209A > 1 && !fp->input_disabled) {
                 fp->x209A--;
             }
             if (fp->x2223_b0) {
@@ -1694,7 +1692,7 @@ void Fighter_8006A360(Fighter_GObj* gobj)
             ftColl_800764DC(gobj);
 
             if (!fp->x221C_b6) {
-                pl_800411C4(fp->player_id, fp->is_sub_fighter);
+                pl_800411C4(fp->player_idx, fp->is_sub_fighter);
             }
             ftCo_800DEF38(gobj);
 
@@ -1708,15 +1706,14 @@ void Fighter_8006A360(Fighter_GObj* gobj)
     }
 }
 
-void Fighter_8006ABA0(Fighter_GObj* gobj)
+void Fighter_procCpu(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    if (!fp->x221F_b3 && ftCo_IsCpuControlled(fp)) {
+    if (!fp->is_sleeping && ftCo_IsCpuControlled(fp)) {
         ftCo_800B3900(gobj);
     }
 }
 
-/// https://decomp.me/scratch/A7CgG
 void Fighter_UnkIncrementCounters_8006ABEC(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
@@ -1763,7 +1760,7 @@ void Fighter_UnkIncrementCounters_8006ABEC(Fighter_GObj* gobj)
         *stickY = y;                                                          \
     } while (0)
 
-static void Fighter_Spaghetti_8006AD10_Inner1(Fighter* fp)
+static void Fighter_procInput_Inner1(Fighter* fp)
 {
     s32 temp0_loc_1;
     s32 temp0_loc_0;
@@ -1782,22 +1779,22 @@ static void Fighter_Spaghetti_8006AD10_Inner1(Fighter* fp)
     }
 }
 
-void Fighter_Spaghetti_8006AD10(Fighter_GObj* gobj)
+void Fighter_procInput(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     float tempf1;
     float tempf0;
 
-    if (!fp->x221F_b3) {
-        if (!fp->x2224_b2) {
-            if (!fp->x221D_b3) {
+    if (!fp->is_sleeping) {
+        if (!fp->stamina_dead) {
+            if (!fp->has_prev_input) {
                 SET_STICKS(fp->input.lstick[1].x, fp->input.lstick[1].y,
                            fp->input.lstick[2].x, fp->input.lstick[2].y);
                 SET_STICKS(fp->input.cstick[1].x, fp->input.cstick[1].y,
                            fp->input.cstick[2].x, fp->input.cstick[2].y);
                 fp->input.triggers[1] = fp->input.triggers[2];
                 fp->input.held_buttons[1] = fp->input.held_buttons[2];
-                fp->x221D_b3 = 1;
+                fp->has_prev_input = 1;
             } else {
                 SET_STICKS(fp->input.lstick[1].x, fp->input.lstick[1].y,
                            fp->input.lstick[0].x, fp->input.lstick[0].y);
@@ -1827,22 +1824,21 @@ void Fighter_Spaghetti_8006AD10(Fighter_GObj* gobj)
 
             } else {
                 SET_STICKS(fp->input.lstick[0].x, fp->input.lstick[0].y,
-                           HSD_PadGameStatus[fp->x618_player_id].nml_stickX,
-                           HSD_PadGameStatus[fp->x618_player_id].nml_stickY);
+                           HSD_PadGameStatus[fp->pad_port].nml_stickX,
+                           HSD_PadGameStatus[fp->pad_port].nml_stickY);
                 if (DbLevel < DbLKind_DebugRom &&
                     gm_IsCurrently1PMode_inline() == 0)
                 {
-                    SET_STICKS(
-                        fp->input.cstick[0].x, fp->input.cstick[0].y,
-                        HSD_PadGameStatus[fp->x618_player_id].nml_subStickX,
-                        HSD_PadGameStatus[fp->x618_player_id].nml_subStickY);
+                    SET_STICKS(fp->input.cstick[0].x, fp->input.cstick[0].y,
+                               HSD_PadGameStatus[fp->pad_port].nml_subStickX,
+                               HSD_PadGameStatus[fp->pad_port].nml_subStickY);
                 } else {
                     fp->input.cstick[0].x = 0;
                     fp->input.cstick[0].y = 0;
                 }
 
-                tempf1 = HSD_PadGameStatus[fp->x618_player_id].nml_analogR;
-                tempf0 = HSD_PadGameStatus[fp->x618_player_id].nml_analogL;
+                tempf1 = HSD_PadGameStatus[fp->pad_port].nml_analogR;
+                tempf0 = HSD_PadGameStatus[fp->pad_port].nml_analogL;
 
                 fp->input.triggers[0] = (tempf0 > tempf1) ? tempf0 : tempf1;
             }
@@ -1881,7 +1877,7 @@ void Fighter_Spaghetti_8006AD10(Fighter_GObj* gobj)
                 fp->input.held_buttons[0] = ftCo_GetCpuButtons(fp);
             } else {
                 fp->input.held_buttons[0] =
-                    HSD_PadGameStatus[fp->x618_player_id].button;
+                    HSD_PadGameStatus[fp->pad_port].button;
             }
 
             if (gm_8016B0FC()) {
@@ -1907,7 +1903,7 @@ void Fighter_Spaghetti_8006AD10(Fighter_GObj* gobj)
                 }
             }
 
-            Fighter_Spaghetti_8006AD10_Inner1(fp);
+            Fighter_procInput_Inner1(fp);
 
             // Fighter_ClampSpecificValue
             fp->active_duration.lstick.x++;
@@ -2124,14 +2120,14 @@ void Fighter_Spaghetti_8006AD10(Fighter_GObj* gobj)
             }
         }
 
-        if (fp->x221D_b4 || fp->x2224_b2 || gm_GetDbPauseFlag(2)) {
+        if (fp->input_disabled || fp->stamina_dead || gm_GetDbPauseFlag(2)) {
             fp->input.lstick[2].x = fp->input.lstick[0].x;
             fp->input.lstick[2].y = fp->input.lstick[0].y;
             fp->input.cstick[2].x = fp->input.cstick[0].x;
             fp->input.cstick[2].y = fp->input.cstick[0].y;
             fp->input.triggers[2] = fp->input.triggers[0];
             fp->input.held_buttons[2] = fp->input.held_buttons[0];
-            fp->x221D_b3 = 0;
+            fp->has_prev_input = 0;
 
             Fighter_UnkInitLoad_80068914_Inner1(gobj);
         }
@@ -2151,7 +2147,6 @@ void Fighter_Spaghetti_8006AD10(Fighter_GObj* gobj)
     }
 }
 
-//// https://decomp.me/scratch/oFu1o
 #define VEC_CLEAR(vec)                                                        \
     do {                                                                      \
         Vec3* vecLocal = (void*) &vec;                                        \
@@ -2164,7 +2159,7 @@ void Fighter_procUpdate(Fighter_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
     Vec3 windOffset;
 
-    if (fp->x221F_b3) {
+    if (fp->is_sleeping) {
         return;
     }
 
@@ -2486,7 +2481,7 @@ void Fighter_procMap(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
 
-    if (!fp->x221F_b3) {
+    if (!fp->is_sleeping) {
         if (fp->ecb_lock) {
             fp->ecb_lock--;
             if (!fp->ecb_lock) {
@@ -2504,7 +2499,7 @@ void Fighter_procMap(Fighter_GObj* gobj)
         }
 
         if (fp->ground_or_air == GA_Ground) {
-            pl_80041280(fp->player_id, fp->is_sub_fighter);
+            pl_80041280(fp->player_idx, fp->is_sub_fighter);
         }
 
         if (DbLevel >= DbLKind_DebugRom) {
@@ -2524,21 +2519,21 @@ void Fighter_procMap(Fighter_GObj* gobj)
     }
 }
 
-void Fighter_8006C5F4(Fighter_GObj* gobj)
+void Fighter_procIK(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    if (!fp->x221F_b3) {
+    if (!fp->is_sleeping) {
         ft_80089B08(gobj);
     }
 }
 
-void Fighter_CallAcessoryCallbacks_8006C624(Fighter_GObj* gobj)
+void Fighter_procAccessory(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
 
     u8 _[4];
 
-    if (!fp->x221F_b3) {
+    if (!fp->is_sleeping) {
         if (fp->x2219_b5) {
             if (fp->accessory3_cb) {
                 fp->accessory3_cb(gobj);
@@ -2558,11 +2553,11 @@ void Fighter_CallAcessoryCallbacks_8006C624(Fighter_GObj* gobj)
     }
 }
 
-void Fighter_8006C80C(Fighter_GObj* gobj)
+void Fighter_procCollPos(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
 
-    if (!fp->x221F_b3) {
+    if (!fp->is_sleeping) {
         efAsync_QueueFlush(gobj, &fp->x60C);
         Fighter_UnkApplyTransformation_8006C0F0(gobj);
 
@@ -2583,7 +2578,7 @@ void Fighter_8006C80C(Fighter_GObj* gobj)
         if (fp->ground_or_air == GA_Air &&
             fp->cur_pos.y < Stage_GetCamBoundsBottomOffset())
         {
-            if (ifMagnify_802FB6E8(fp->player_id) == 3) {
+            if (ifMagnify_802FB6E8(fp->player_idx) == 3) {
                 Vec3 cam_offset;
                 Stage_UnkSetVec3TCam_Offset(&cam_offset);
 
@@ -2595,11 +2590,11 @@ void Fighter_8006C80C(Fighter_GObj* gobj)
     }
 }
 
-void Fighter_UnkProcessGrab_8006CA5C(Fighter_GObj* gobj)
+void Fighter_procGrabColl(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
 
-    if (!fp->x221F_b3 && !gm_8016B1C4()) {
+    if (!fp->is_sleeping && !gm_8016B1C4()) {
         ftColl_8007BA0C(gobj);
         if (fp->x221E_b6) {
             ftColl_80078A2C(gobj);
@@ -2627,12 +2622,12 @@ void Fighter_UnkProcessGrab_8006CA5C(Fighter_GObj* gobj)
     }
 }
 
-void Fighter_8006CB94(Fighter_GObj* gobj)
+void Fighter_procAttackColl(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     float func_8007BBCC_float_output;
 
-    if (!fp->x221F_b3 && !fp->x2219_b1) {
+    if (!fp->is_sleeping && !fp->x2219_b1) {
         ftColl_800765E0();
         ftColl_80078C70(gobj);
         ft_8007C77C(gobj);
@@ -2669,9 +2664,9 @@ void Fighter_TakeDamage_8006CC7C(Fighter* fp, float damage_amount)
         if (fp->dmg.x1830_percent > 999.0f) {
             fp->dmg.x1830_percent = 999.0f;
         }
-        Player_SetHPByIndex(fp->player_id, fp->is_sub_fighter,
+        Player_SetHPByIndex(fp->player_idx, fp->is_sub_fighter,
                             fp->dmg.x1830_percent);
-        pl_8003EC9C(fp->player_id, fp->is_sub_fighter, fp->dmg.x1830_percent,
+        pl_8003EC9C(fp->player_idx, fp->is_sub_fighter, fp->dmg.x1830_percent,
                     damage_amount);
         ftCo_800C8C84(fp->gobj);
     }
@@ -2718,7 +2713,7 @@ void Fighter_8006CDA4(Fighter* fp, s32 arg1)
 
 void Fighter_8006CF5C(Fighter* fp, s32 arg1)
 {
-    if (!fp->x2224_b2) {
+    if (!fp->stamina_dead) {
         fp->dmg.x18F0 += arg1;
         ftCo_800BFFD0(fp, 8, 0);
         ftCommon_8007EBAC(fp, 2, 0);
@@ -2812,7 +2807,7 @@ void Fighter_8006D10C(Fighter_GObj* gobj)
     }
 }
 
-void Fighter_ProcessHit_8006D1EC(Fighter_GObj* gobj)
+void Fighter_procCollResolve(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     bool bool1 = 0;
@@ -2822,7 +2817,7 @@ void Fighter_ProcessHit_8006D1EC(Fighter_GObj* gobj)
     bool bool4 = 0;
     float forceAppliedOnHit;
 
-    if (!fp->x221F_b3) {
+    if (!fp->is_sleeping) {
         if (!fp->x221A_b7) {
             if (fp->shield_health < p_ftCommonData->x260_startShieldHealth) {
                 fp->shield_health += p_ftCommonData->x27C;
@@ -2846,7 +2841,7 @@ void Fighter_ProcessHit_8006D1EC(Fighter_GObj* gobj)
                 fp->shield_health = p_ftCommonData->x280_unkShieldHealth;
                 /// this function is called when shield is broken
                 pl_8003E058(fp->x19BC_shieldDamageTaken3, fp->x221F_b6,
-                            fp->player_id, fp->is_sub_fighter);
+                            fp->player_idx, fp->is_sub_fighter);
             }
         }
 
@@ -3056,22 +3051,22 @@ void Fighter_ProcessHit_8006D1EC(Fighter_GObj* gobj)
     }
 }
 
-void Fighter_8006D9AC(Fighter_GObj* gobj)
+void Fighter_procDynamics(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
 
-    if (fp->x221F_b3 || fp->x2219_b5) {
+    if (fp->is_sleeping || fp->x2219_b5) {
         return;
     }
 
     ftCo_8009E0A8(gobj);
 }
 
-void Fighter_UnkCallCameraCallback_8006D9EC(Fighter_GObj* gobj)
+void Fighter_procCamera(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
 
-    if (!fp->x221F_b3) {
+    if (!fp->is_sleeping) {
         ftCommon_8008021C(gobj);
         if (fp->cam_cb) {
             fp->cam_cb(gobj);
@@ -3079,15 +3074,15 @@ void Fighter_UnkCallCameraCallback_8006D9EC(Fighter_GObj* gobj)
     }
 }
 
-void Fighter_8006DA4C(Fighter_GObj* gobj)
+void Fighter_procPlayer(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
 
-    if (!fp->x221F_b3) {
-        Player_80032828(fp->player_id, fp->is_sub_fighter, &fp->cur_pos);
-        Player_SetFacingDirectionConditional(fp->player_id, fp->is_sub_fighter,
-                                             fp->facing_dir);
-        pl_8003FAA8(fp->player_id, fp->is_sub_fighter, &fp->cur_pos,
+    if (!fp->is_sleeping) {
+        Player_80032828(fp->player_idx, fp->is_sub_fighter, &fp->cur_pos);
+        Player_SetFacingDirectionConditional(
+            fp->player_idx, fp->is_sub_fighter, fp->facing_dir);
+        pl_8003FAA8(fp->player_idx, fp->is_sub_fighter, &fp->cur_pos,
                     &fp->prev_pos);
     }
 }
@@ -3120,7 +3115,7 @@ void Fighter_Unload_8006DABC(void* user_data)
     HSD_JObjUnref(fp->x2184);
     ftData_800859A8(fp);
     HSD_LObjRemoveAll(fp->x588);
-    Player_80031FB0(fp->player_id, fp->is_sub_fighter);
+    Player_80031FB0(fp->player_idx, fp->is_sub_fighter);
 
     HSD_ObjFree(&fighter_x59C_alloc_data, fp->x59C);
     HSD_ObjFree(&fighter_x59C_alloc_data, fp->x5A0);

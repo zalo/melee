@@ -14,7 +14,7 @@
 #endif
 
 void lbArchive_InitializeDAT(HSD_Archive* archive, void* data, size_t length);
-void lbArchive_LoadSections(HSD_Archive* archive, void** symbols, ...) LB_ARCHIVE_SENTINEL;
+void lbArchive_LoadSections(HSD_Archive* archive, void* symbols, ...);
 HSD_Archive* lbArchive_LoadArchive(const char* filename);
 HSD_Archive* lbArchive_LoadSymbols(const char* filename, void* symbols, ...) LB_ARCHIVE_SENTINEL;
 HSD_Archive* lbArchive_80016DBC(const char* filename, void* symbols, ...) LB_ARCHIVE_SENTINEL;

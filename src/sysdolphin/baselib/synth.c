@@ -9,9 +9,9 @@
 
 #include "debug.h"
 #include "devcom.h"
-#include "synth.static.h"
 #include <dolphin/ai.h>
 #include <dolphin/ar.h>
+#include <dolphin/ax.h>
 #include <dolphin/os.h>
 
 #ifdef MELEE_NATIVE
@@ -28,6 +28,104 @@ static void synthDecodeHeader(void* buffer,unsigned words,unsigned bytes) {
 #else
 #define SYNTH_RATIO(v) (*(u32*)&HSD_Synth_80407FD8.ratioHi=(v))
 #endif
+OSHeapHandle HSD_Synth_804D6018 = -1; // audio heap
+
+struct SfxLoadStreamNode;
+
+/// Named after the assertion text pooled in this TU's `.data`.
+struct HSD_SynthSFXGroup {
+    int arsize;
+};
+
+#define USERVOL_NUM 2
+
+struct HSD_SynthSFXNode {
+    /* 00 */ int x0;
+    /* 04 */ int sfx_id;
+    /* 08 */ u8 pad8;
+    /* 09 */ u8 flags;
+    /* 0A */ u8 voice_count;
+    /* 0B */ u8 xB;
+    /* 0C */ AXVPB* voice[2];
+    /* 14 */ float x14;
+    /* 18 */ float x18[2];
+    /* 20 */ struct HSD_SynthSFXNode* x20;
+    /* 24 */ u16 x24;
+    /* 26 */ u8 volume_update_pending;
+    /* 27 */ u8 x27;
+    /* 28 */ float unk28;
+    /* 2C */ struct {
+        /* 2C */ float volume;
+        /* 30 */ int x4;
+        union {
+            /* 34 */ u8 x8;
+            /* 34 */ float x8_float;
+        };
+    } user_vol[USERVOL_NUM];
+    /* 44 */ float x44;
+    /* 48 */ float x48;
+    /* 4C */ float x4C;
+};
+
+static AXVPB* voicelist[0x100 / 4];
+static void* hsd_SynthSFXDataHash[0x80 / 4];
+static struct {
+    /* 00 */ int entrynum;
+    /* 04 */ int bankID;
+    /* 08 */ void (*x8)(int, int);
+    /* 0C */ int xC;
+} HSD_Synth_804C2A60[6];
+static u32 hsd_SynthSFXLoadBuf[0x20 / 4];
+static AXVPB* HSD_Synth_804C2AE0[0x80 / 4];
+static int hsd_SynthSFXBank[0x80 / 4];
+static int hsd_SynthSFXBankHead[0x84 / 4];
+static struct HSD_SynthSFXNode hsd_SynthSFXNodes[0x40];
+
+static struct {
+    float x1784;
+    float x1788;
+    int x178C;
+} voicelist_1784[0xC0 / 0xC];
+
+#define HSD_SYNTHSFXGROUP_MAX 0x100
+
+static int voicelist_1844[HSD_SYNTHSFXGROUP_MAX];
+
+static u8 lbl_804C4524[0x1C];
+
+static struct {
+    /* 00 */ s32 x0;
+    /* 04 */ s32 x4;
+    /* 08 */ s32 x8;
+    /* 0C */ char pad[0x14];
+} pstHakoHeader[3];
+
+/* 4D7720 */ static int HSD_Synth_804D7720;
+/* 4D7724 */ static int hsd_SynthSFXBankNum;
+/* 4D7728 */ static u32 hsd_SynthSFXBankAREnd;
+/* 4D772C */ static volatile int HSD_Synth_804D772C;
+/* 4D7730 */ static struct SfxLoadStreamNode* HSD_Synth_804D7730;
+/* 4D7734 */ static u32* HSD_Synth_804D7734;
+/* 4D7738 */ static int HSD_Synth_804D7738;
+/* 4D773C */ static volatile int sfxGroupDataReaddressCounter;
+/* 4D7740 */ static void (*driverInactivatedCallback)(int);
+/* 4D7744 */ static void (*driverMasterClockCallback)(int);
+/* 4D7748 */ static void (*driverPauseCallback)(s32);
+/* 4D774C */ static struct HSD_SynthSFXNode* HSD_Synth_804D774C;
+/* 4D7750 */ static int HSD_Synth_804D7750;
+/* 4D7754 */ static u32 HSD_Synth_804D7754; // sound mode
+/* 4D7758 */ static u32 HSD_Synth_804D7758;
+/* 4D7754 */ static int HSD_Synth_804D775C;
+/* 4D7760 */ static int HSD_Synth_804D7760;
+/* 4D7764 */ static s32 HSD_Synth_804D7764;
+/* 4D7768 */ static u32 HSD_Synth_804D7768;
+/* 4D776C */ static u32 HSD_Synth_804D776C;
+/* 4D7770 */ static u32 HSD_Synth_804D7770;
+/* 4D7774 */ static u32 HSD_Synth_804D7774;
+/* 4D7778 */ static volatile u8 HSD_Synth_804D7778;
+/* 4D777C */ static s32 HSD_Synth_804D777C;
+/* 4D7780 */ static u32 HSD_Synth_804D7780;
+/* 4D7784 */ static u32 HSD_Synth_804D7784;
 
 /* 389334 */ static int HSD_Synth_80389334(int sfx_id, u8 vol, u8 vol2, u8 pan,
                                            int priority, int itd_flag,
@@ -64,8 +162,8 @@ static inline s32 SfxLoadStreamDataSize(s32 size)
     return size + 8;
 }
 
-static void HSD_SynthSFXSampleLoadCallback(int result, int length, void* addr,
-                                           bool cancelflag)
+static void HSD_SynthSFXSampleLoadCallback(int result, uintptr_t args,
+                                           void* addr, bool cancelflag)
 {
     BOOL intr;
     s32 i;
@@ -186,8 +284,8 @@ static void HSD_SynthSFXSampleLoadCallback(int result, int length, void* addr,
     OSRestoreInterrupts(intr);
 }
 
-static void HSD_SynthSFXHeaderLoadCallback(int result, int length, void* addr,
-                                           bool cancelflag)
+static void HSD_SynthSFXHeaderLoadCallback(int result, uintptr_t args,
+                                           void* addr, bool cancelflag)
 {
     s32 header_size;
     size_t alloc_size;
@@ -225,7 +323,7 @@ static void HSD_SynthSFXHeaderLoadCallback(int result, int length, void* addr,
             HSD_Synth_804C2A60[0].entrynum, OSRoundUp32B(header_size + 0x10),
             hsd_SynthSFXBank[HSD_Synth_804C2A60[0].bankID],
             hsd_SynthSFXLoadBuf[1], 0x23, 1, HSD_SynthSFXSampleLoadCallback,
-            NULL);
+            0);
         return;
     }
     HSD_Synth_804D7730 = NULL;
@@ -238,7 +336,7 @@ void HSD_SynthSFXLoadNewProc(void)
         bool enabled = OSDisableInterrupts();
         HSD_Synth_804D6028[0] = HSD_DevComRequest(
             HSD_Synth_804C2A60[0].entrynum, 0, (size_t) hsd_SynthSFXLoadBuf,
-            0x20, 0x21, 1, HSD_SynthSFXHeaderLoadCallback, NULL);
+            0x20, 0x21, 1, HSD_SynthSFXHeaderLoadCallback, 0);
         OSRestoreInterrupts(enabled);
     }
 }
@@ -404,8 +502,8 @@ void HSD_SynthSFXGroupDataRemove(int sfx_id)
     }
 }
 
-static void HSD_SynthSFXGroupDataReaddressCallback(void* result, int length,
-                                                   void* addr, int cancelflag)
+static void HSD_SynthSFXGroupDataReaddressCallback(int result, uintptr_t args,
+                                                   void* addr, bool cancelflag)
 {
     HSD_ASSERT(0x182, sfxGroupDataReaddressCounter > 0);
     sfxGroupDataReaddressCounter--;
@@ -435,11 +533,9 @@ void HSD_SynthSFXGroupDataReaddress(AXVPB* arg0, void* callback)
     p = (u8*) arg0 + 0x18;
 #endif
     sfxGroupDataReaddressCounter += 1;
-    HSD_DevComRequest(
-        0, (uintptr_t) arg0->callback, (uintptr_t) callback, arg0->userContext,
-        0x1B, 0,
-        (HSD_DevComCallback) (Event) HSD_SynthSFXGroupDataReaddressCallback,
-        NULL);
+    HSD_DevComRequest(0, (uintptr_t) arg0->callback, (uintptr_t) callback,
+                      arg0->userContext, 0x1B, 0,
+                      HSD_SynthSFXGroupDataReaddressCallback, 0);
     i = 0;
     delta = ((u8*) callback - (u8*) arg0->callback) * 2;
 #ifdef MELEE_NATIVE
@@ -1257,13 +1353,15 @@ void HSD_SynthCallback(void)
     OSRestoreInterrupts(enabled);
 }
 
-void HSD_SynthResetStreamCounters(int result, int length, void* buf, bool b)
+void HSD_SynthResetStreamCounters(int result, uintptr_t args, void* buf,
+                                  bool b)
 {
     HSD_Synth_804D776C = HSD_Synth_804D7768;
     HSD_Synth_804D7778 = 0;
 }
 
-void HSD_SynthPStreamHakoHeaderCallback(u32 offset, uintptr_t src)
+void HSD_SynthPStreamHakoHeaderCallback(int dcReq, uintptr_t src, void* buf,
+                                        bool cancelflag)
 {
 #ifdef MELEE_NATIVE
     synthDecodeHeader(&pstHakoHeader[HSD_Synth_804D7768], 3, 32);
@@ -1297,10 +1395,7 @@ static inline void HSD_SynthPStreamMasterClockCallback_inline(u32 pos)
                 HSD_DevComRequest(
                     HSD_Synth_804D7764, src,
                     (uintptr_t) &pstHakoHeader[HSD_Synth_804D7768], 0x20, 0x21,
-                    0,
-                    (HSD_DevComCallback) (Event)
-                        HSD_SynthPStreamHakoHeaderCallback,
-                    (struct HSD_SynthStreamHeader*) (src + 0x20));
+                    0, HSD_SynthPStreamHakoHeaderCallback, src + 0x20);
             }
         }
         OSRestoreInterrupts(intr);
@@ -1422,7 +1517,8 @@ void HSD_SynthPStreamFirstHakoDataCallback(void)
     }
 }
 
-void HSD_SynthPStreamFirstHakoHeaderCallback(void)
+void HSD_SynthPStreamFirstHakoHeaderCallback(int dcReq, uintptr_t args,
+                                             void* buf, bool cancelflag)
 {
 #ifdef MELEE_NATIVE
     synthDecodeHeader(&pstHakoHeader[HSD_Synth_804D7768], 3, 32);
@@ -1434,7 +1530,7 @@ void HSD_SynthPStreamFirstHakoHeaderCallback(void)
         (HSD_DevComCallback) HSD_SynthPStreamFirstHakoDataCallback, 0);
 }
 
-void HSD_SynthPStreamHeaderCallback(int arg0, int arg1, void* arg2,
+void HSD_SynthPStreamHeaderCallback(int arg0, uintptr_t arg1, void* arg2,
                                     bool cancelflag)
 {
     u32* entry = arg2;
@@ -1461,11 +1557,9 @@ void HSD_SynthPStreamHeaderCallback(int arg0, int arg1, void* arg2,
         HSD_Synth_804D7774 = (HSD_Synth_804D7774 + 2) % 3;
         HSD_Synth_804D776C = HSD_Synth_804D7770 = HSD_Synth_804D7768 =
             HSD_Synth_804D7774;
-        HSD_DevComRequest(
-            HSD_Synth_804D7764, 0x80,
-            (uintptr_t) &pstHakoHeader[HSD_Synth_804D7768], 0x20, 0x21, 0,
-            (HSD_DevComCallback) HSD_SynthPStreamFirstHakoHeaderCallback,
-            NULL);
+        HSD_DevComRequest(HSD_Synth_804D7764, 0x80,
+                          (uintptr_t) &pstHakoHeader[HSD_Synth_804D7768], 0x20,
+                          0x21, 0, HSD_SynthPStreamFirstHakoHeaderCallback, 0);
     } else {
         HSD_Synth_804D7778 = 0;
     }
@@ -1545,7 +1639,7 @@ int HSD_SynthPStreamStart(int entrynum, u8 vol, u8 vol2, int channel)
     voice_node->x48 = 0.0F;
     voice_node->x4C = 0.0F;
     HSD_DevComRequest(entrynum, 0, 0, 0x80, 0x22, 1,
-                      HSD_SynthPStreamHeaderCallback, NULL);
+                      HSD_SynthPStreamHeaderCallback, 0);
     OSRestoreInterrupts(enabled);
     return HSD_Synth_804D7760;
 }

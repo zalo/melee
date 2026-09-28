@@ -33,90 +33,33 @@
 #include <sysdolphin/baselib/sislib.h>
 #include <sysdolphin/baselib/tobj.h>
 
-#ifdef MELEE_NATIVE
-/// #lbl_80472D28 is also read as fn_8017FA1C_arg. Natively both views are this
-/// one struct so their pointer fields land at the same host offsets.
+/// Shared state used by the scene setup and update paths.
 struct lbl_80472D28_t {
-    HSD_GObj* x0;
-    HSD_JObj* x4;
-    HSD_JObj* x8;
-    HSD_JObj* xC;
-    HSD_JObj* x10;
-    HSD_JObj* x14;
-    HSD_JObj* x18;
-    HSD_JObj* x1C;
-    HSD_JObj* x20;
-    HSD_JObj* x24;
-    char pad_28[4];
-    HSD_GObj* x2C;
-    HSD_ImageDesc x30;
-    HSD_Archive* x48;
-    /// Filled by fn_80168A6C: model, lights, camera desc and anims, fog.
-    DynamicModelDesc x4C;
-    void* x5C;
-    void* x60;
-    void* x64;
-    void* x68;
-    HSD_Text* x6C;
-    HSD_Text* x70;
-    HSD_Text* x74;
-    HSD_Text* x78;
-    HSD_Text* x7C;
-    HSD_Text* x80;
-    /// fn_8017F2A4 and fn_8017F47C: one text, seven row texts, seven values.
-    HSD_Text* x84;
-    HSD_Text* x88[7];
-    s32 xA4[7];
-    u16 xC0;
-    u16 pad_C2;
-    u32 xC4;
-    u8 xC8;
-    u8 pad_C9[3];
-    s32 xCC;
-    s32 xD0;
-    s32 xD4;
-    s32 xD8;
-    s32 xDC;
-    s32 xE0;
-    s32 xE4;
-    s32 xE8;
-    s32 xEC;
-    s32 xF0;
-    s32 xF4;
-    s32 xF8;
-    s32 xFC;
-    s32 x100;
-    int x104;
-    s16 x108;
-    s16 x10A;
-    f32 x10C;
-    u32 x110;
-    u8 x114;
-    u8 x115;
-    u8 x116;
-    u8 x117;
-    u8 x118;
-    u8 x119;
-    u8 x11A;
-    u8 x11B;
-    u8 x11C;
-    u8 x11D;
-    u8 x11E;
-    u8 x11F;
-};
-#else
-struct lbl_80472D28_t {
-    /*   +0 */ char pad_0[0x20];
+    /*   +0 */ HSD_GObj* x0;
+    /*   +4 */ HSD_JObj* x4;
+    /*   +8 */ HSD_JObj* x8;
+    /*   +C */ HSD_JObj* xC;
+    /* +10 */ HSD_JObj* x10;
+    /* +14 */ HSD_JObj* x14;
+    /* +18 */ HSD_JObj* x18;
+    /* +1C */ HSD_JObj* x1C;
     /* +20 */ HSD_JObj* x20;
     /* +24 */ HSD_JObj* x24;
-    /* +28 */ char pad_28[4];
+    /* +28 */ HSD_JObj* x28;
     /* +2C */ HSD_GObj* x2C;
     /* +30 */ HSD_ImageDesc x30;
     /* +48 */ HSD_Archive* x48;
     /* +4C */ DynamicModelDesc x4C;
-    /* +5C */ void* x5C;
-    /* +60 */ void* x60;
-    /* +64 */ char pad_64[0x20];
+    /* +5C */ LightList** x5C;
+    /* +60 */ HSD_CObjDesc* x60;
+    /* +64 */ void* x64;
+    /* +68 */ struct SceneFogDesc* x68;
+    /* +6C */ HSD_Text* x6C;
+    /* +70 */ HSD_Text* x70;
+    /* +74 */ HSD_Text* x74;
+    /* +78 */ HSD_Text* x78;
+    /* +7C */ HSD_Text* x7C;
+    /* +80 */ HSD_Text* x80;
     /* +84 */ HSD_Text* x84;
     /* +88 */ char pad_88[0x38];
     /* +C0 */ u16 xC0;
@@ -156,7 +99,6 @@ struct lbl_80472D28_t {
     /* +11E */ u8 x11E;
     /* +11F */ u8 x11F;
 };
-#endif
 
 typedef struct RegClearEv {
     /* 0x00 */ char pad_0[0x1C];
@@ -242,9 +184,6 @@ typedef struct fn_8017F14C_arg {
     /* 0x98 */ s32 x98;
 } fn_8017F14C_arg;
 
-#ifdef MUST_MATCH
-#pragma dont_inline on
-#endif
 s32 fn_8017F14C(void* arg0)
 {
     fn_8017F14C_arg* p = arg0;
@@ -259,9 +198,6 @@ s32 fn_8017F14C(void* arg0)
     }
     return 0;
 }
-#ifdef MUST_MATCH
-#pragma dont_inline off
-#endif
 
 s32 fn_8017F1B8(void)
 {
@@ -398,56 +334,7 @@ s32 fn_8017F47C(HSD_Text** arg0, int arg1)
     PAD_STACK(0x18);
 }
 
-#ifdef MELEE_NATIVE
 typedef struct lbl_80472D28_t fn_8017FA1C_arg;
-#else
-typedef struct fn_8017FA1C_arg {
-    /* 0x000 */ HSD_GObj* x0;
-    /* 0x004 */ HSD_JObj* x4;
-    /* 0x008 */ HSD_JObj* x8;
-    /* 0x00C */ HSD_JObj* xC;
-    /* 0x010 */ HSD_JObj* x10;
-    /* 0x014 */ HSD_JObj* x14;
-    /* 0x018 */ HSD_JObj* x18;
-    /* 0x01C */ HSD_JObj* x1C;
-    /* 0x020 */ HSD_JObj* x20;
-    /* 0x024 */ HSD_JObj* x24;
-    /* 0x028 */ char pad_28[0x24];
-    /* 0x04C */ DynamicModelDesc x4C;
-    /* 0x05C */ char pad_5C[0x10];
-    /* 0x06C */ HSD_Text* x6C;
-    /* 0x070 */ HSD_Text* x70;
-    /* 0x074 */ HSD_Text* x74;
-    /* 0x078 */ HSD_Text* x78;
-    /* 0x07C */ HSD_Text* x7C;
-    /* 0x080 */ HSD_Text* x80;
-    /* 0x084 */ char pad_84[0x48];
-    /* 0x0CC */ s32 xCC;
-    /* 0x0D0 */ s32 xD0;
-    /* 0x0D4 */ s32 xD4;
-    /* 0x0D8 */ s32 xD8;
-    /* 0x0DC */ s32 xDC;
-    /* 0x0E0 */ s32 xE0;
-    /* 0x0E4 */ s32 xE4;
-    /* 0x0E8 */ char pad_E8[0x08];
-    /* 0x0F0 */ s32 xF0;
-    /* 0x0F4 */ s32 xF4;
-    /* 0x0F8 */ s32 xF8;
-    /* 0x0FC */ s32 xFC;
-    /* 0x100 */ s32 x100;
-    /* 0x104 */ s32 x104;
-    /* 0x108 */ s16 x108;
-    /* 0x10A */ s16 x10A;
-    /* 0x10C */ char pad_10C[0x08];
-    /* 0x114 */ u8 x114;
-    /* 0x115 */ u8 x115;
-    /* 0x116 */ char pad_116[2];
-    /* 0x118 */ u8 x118;
-    /* 0x119 */ char pad_119;
-    /* 0x11A */ u8 x11A;
-    /* 0x11B */ u8 x11B;
-} fn_8017FA1C_arg;
-#endif
 
 static const Vec3 lbl_803B7C18 = { -41.0f, -0.25f, 0.0f };
 
@@ -795,8 +682,8 @@ void fn_8017FF1C(HSD_GObj* gobj)
         }
 
         {
-            u64 buttons = gm_GetButtonsTriggered(Player_GetPlayerId(0));
-            u64 repeat = gm_801A36C0(Player_GetPlayerId(0));
+            u64 buttons = gm_GetButtonsTriggered(Player_GetPadPort(0));
+            u64 repeat = gm_801A36C0(Player_GetPadPort(0));
             if (((repeat | buttons) & (PAD_BUTTON_DOWN | PAD_STICK_DOWN)) |
                 ((repeat | buttons) & 0))
             {
@@ -814,8 +701,8 @@ void fn_8017FF1C(HSD_GObj* gobj)
                     }
                 }
             } else {
-                buttons = gm_GetButtonsTriggered(Player_GetPlayerId(0));
-                repeat = gm_801A36C0(Player_GetPlayerId(0));
+                buttons = gm_GetButtonsTriggered(Player_GetPadPort(0));
+                repeat = gm_801A36C0(Player_GetPadPort(0));
                 if (((repeat | buttons) & (PAD_BUTTON_UP | PAD_STICK_UP)) |
                     ((repeat | buttons) & 0))
                 {
@@ -849,7 +736,7 @@ void fn_8017FF1C(HSD_GObj* gobj)
 
     for (i = 0; i < 6; i++) {
         if (Player_GetPlayerSlotType(i) == Gm_PKind_Human &&
-            (HSD_PadMasterStatus[(u8) Player_GetPlayerId(i)].trigger &
+            (HSD_PadMasterStatus[(u8) Player_GetPadPort(i)].trigger &
              HSD_PAD_A))
         {
             data.state->xFC = data.state->x104;
@@ -861,7 +748,7 @@ void fn_8017FF1C(HSD_GObj* gobj)
     if (data.state->x110 > 0x3EU) {
         for (i = 0; i < 6; i++) {
             if (Player_GetPlayerSlotType(i) == Gm_PKind_Human &&
-                (HSD_PadMasterStatus[(u8) Player_GetPlayerId(i)].trigger &
+                (HSD_PadMasterStatus[(u8) Player_GetPadPort(i)].trigger &
                  0x1000))
             {
                 data.state->xFC = data.state->x104;
@@ -960,6 +847,13 @@ s32 fn_801803FC(void* arg0)
     fn_8017FBA4(arg0);
     return fn_8017FA1C(arg0);
     PAD_STACK(4);
+}
+
+static inline void setScoreBonuses(struct lbl_80472D28_t* state,
+                                   MatchEnd* result)
+{
+    state->xD0 = fn_8017F09C();
+    state->xDC = fn_8017F14C(result);
 }
 
 static inline HSD_GObj* fn_80180630_CreateCameraGObj(void)
@@ -1101,8 +995,7 @@ void fn_80180630(int arg0, int arg1, int arg2, bool arg3, MatchEnd* arg4)
     }
 
     if (state->x118 == 0) {
-        state->xD0 = fn_8017F09C();
-        state->xDC = fn_8017F14C(arg4);
+        setScoreBonuses(state, arg4);
     }
 
     if (state->x117 != 0) {

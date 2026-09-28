@@ -92,7 +92,7 @@ void un_8031D9F8(CharacterKind char_kind, int costume, int spawn_mode,
     Player_80036E20(char_kind, un_804D6F78, 3);
     Player_SetPlayerCharacter(0, char_kind);
     Player_SetCostumeId(0, costume);
-    Player_SetPlayerId(0, 0);
+    Player_SetPadPort(0, 0);
     Player_SetSlottype(0, Gm_PKind_Demo);
     Player_SetFacingDirection(0, 1.0f);
     Player_80032768(0, &initial_pos);
@@ -107,7 +107,7 @@ void un_8031D9F8(CharacterKind char_kind, int costume, int spawn_mode,
         Player_SetFlagsBit1(i);
         Player_SetPlayerCharacter(i, CKind_Kirby);
         Player_SetCostumeId(i, spawn_mode);
-        Player_SetPlayerId(i, 0);
+        Player_SetPadPort(i, 0);
         Player_SetSlottype(i, Gm_PKind_Demo);
         Player_SetFacingDirection(i, 1.0f);
         Player_80032768(i, &initial_pos);
@@ -117,7 +117,7 @@ void un_8031D9F8(CharacterKind char_kind, int costume, int spawn_mode,
         jobj = GET_JOBJ(un_804A2E98[i - 1]);
         HSD_JObjReqAnimAll(jobj, 140.0f);
         HSD_JObjAnimAll(jobj);
-        HSD_JObjGetTranslation2((HSD_JObj*) un_804A2E98[i - 1]->hsd_obj, &v);
+        HSD_JObjGetTranslation((HSD_JObj*) un_804A2E98[i - 1]->hsd_obj, &v);
         scale = getScale();
         v.x *= scale;
         v.y *= scale;
@@ -131,11 +131,10 @@ void un_8031D9F8(CharacterKind char_kind, int costume, int spawn_mode,
     lbAudioAx_80027648();
 }
 
-void vi_8031DC80(HSD_GObj* gobj, int unused)
+void vi_8031DC80(HSD_GObj* gobj, intptr_t unused)
 {
-    PAD_STACK(8);
     lbShadow_8000F38C(0);
-    vi_RunCamera(gobj, (u8*) &erase_colors_vi0501, 0x281);
+    vi_RunCamera(gobj, &erase_colors_vi0501, 0x281);
 }
 
 void fn_8031DD14(HSD_GObj* gobj)

@@ -12,8 +12,8 @@ typedef u32 HSD_ObjAddress;
 #endif
 
 typedef struct _objheap {
-    HSD_ObjAddress top;
-    HSD_ObjAddress curr;
+    uintptr_t top;
+    uintptr_t curr;
     u32 size;
     u32 remain;
 } objheap;
@@ -75,6 +75,7 @@ static inline void HSD_ObjAllocDisableNumLimit(HSD_ObjAllocData* data)
     data->num_limit_flag = 0;
 }
 
+/// A NULL pool uses HSD_MemAlloc for backing storage.
 void HSD_ObjSetHeap(u32 size, void* ptr);
 s32 HSD_ObjAllocAddFree(HSD_ObjAllocData* data, u32 num);
 void* HSD_ObjAlloc(HSD_ObjAllocData* data);

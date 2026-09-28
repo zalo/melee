@@ -45,7 +45,7 @@ HSD_SObj* lbMthp8001F890(HSD_GObj* gobj)
     return lbl_804335B8.x90;
 }
 
-void lbMthp8001F928(HSD_GObj* gobj, int arg1)
+void lbMthp8001F928(HSD_GObj* gobj, intptr_t arg1)
 {
     u16* pWidth = &lbl_804335B8.x6C;
     u16* pHeight = &lbl_804335B8.x6E;
@@ -83,7 +83,7 @@ void lbMthp8001FAA0(const char* filename, int width, int height)
     s32 uv_size;
     void* context;
     void* decode_buf;
-    intptr_t decoded;
+    THPFileInfo* decoded;
 
     lbl_804335B8.x6C = (u16) width;
     lbl_804335B8.x6E = (u16) height;

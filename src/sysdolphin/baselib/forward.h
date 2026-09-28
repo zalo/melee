@@ -96,7 +96,6 @@ typedef struct RumbleCommand RumbleCommand;
 typedef struct RumbleInfo RumbleInfo;
 typedef struct SisBlock SisBlock;
 typedef struct sislib_UnkAlloc3 sislib_UnkAlloc3;
-typedef struct TextKerning TextKerning;
 typedef union HSD_CObjDesc HSD_CObjDesc;
 typedef union HSD_ObjData HSD_ObjData;
 typedef union HSD_Rumble HSD_Rumble;
@@ -108,9 +107,9 @@ typedef u32 HSD_IDKey;
 typedef uintptr_t HSD_IDKey;
 #endif
 
-typedef void (*GObj_RenderFunc)(HSD_GObj* gobj, int code);
+typedef void (*GObj_RenderFunc)(HSD_GObj* gobj, intptr_t code);
 typedef void (*HSD_ObjUpdateFunc)(void* obj, enum_t type, HSD_ObjData* fval);
-typedef void (*HSD_DevComCallback)(int, intptr_t, void*, bool cancelflag);
+typedef void (*HSD_DevComCallback)(int, uintptr_t, void*, bool cancelflag);
 typedef void (*HSD_GObjEvent)(HSD_GObj* gobj);
 typedef void (*HSD_UserDataEvent)(void* user_data);
 typedef bool (*HSD_GObjPredicate)(HSD_GObj* gobj);

@@ -1841,22 +1841,22 @@ bool ftCo_800B8A9C(Fighter* fp)
         } else {
             switch (item->kind) {
             case It_Kind_Harisen:
-                weapon_reach = ((float*) Fighter_804D64FC->x24)[0];
+                weapon_reach = Fighter_804D64FC->x24[0];
                 break;
             case It_Kind_LipStick:
-                weapon_reach = ((float*) Fighter_804D64FC->x24)[1];
+                weapon_reach = Fighter_804D64FC->x24[1];
                 break;
             case It_Kind_StarRod:
-                weapon_reach = ((float*) Fighter_804D64FC->x24)[2];
+                weapon_reach = Fighter_804D64FC->x24[2];
                 break;
             case It_Kind_Sword:
-                weapon_reach = ((float*) Fighter_804D64FC->x24)[3];
+                weapon_reach = Fighter_804D64FC->x24[3];
                 break;
             case It_Kind_Bat:
-                weapon_reach = ((float*) Fighter_804D64FC->x24)[4];
+                weapon_reach = Fighter_804D64FC->x24[4];
                 break;
             case It_Kind_Parasol:
-                weapon_reach = ((float*) Fighter_804D64FC->x24)[5];
+                weapon_reach = Fighter_804D64FC->x24[5];
                 break;
             default:
                 weapon_reach = 0.0f;
@@ -2685,7 +2685,8 @@ int ftCo_800BB220(Fighter* fp, Item* ip, Vec3* arg2, f32 arg3)
     if (ip->owner == fp->gobj) {
         return 0;
     }
-    if (ftLib_80086960(ip->owner) && ftCo_IsAlly(fp, GET_FIGHTER(ip->owner))) {
+    if (ftLib_IsFighter(ip->owner) && ftCo_IsAlly(fp, GET_FIGHTER(ip->owner)))
+    {
         return 0;
     }
     switch (ip->kind) {

@@ -82,32 +82,35 @@ static struct strings us_msg[6] = {
 
 /* 4D63D0 */ static HSD_Text* lb_804D63D0;
 
-#ifdef MUST_MATCH
-#pragma push
-#pragma dont_inline on
-#endif
 static enum_t lb_80019230(void)
 {
+    enum_t result;
+
     switch (DVDGetDriveStatus()) {
     case 5:
-        return 0;
+        result = 0;
+        break;
     case 4:
-        return 1;
+        result = 1;
+        break;
     case 6:
-        return 2;
+        result = 2;
+        break;
     case 11:
-        return 3;
+        result = 3;
+        break;
     case -1:
-        return 4;
+        result = 4;
+        break;
     case 1:
-        return 5;
+        result = 5;
+        break;
     default:
-        return -1;
+        result = -1;
+        break;
     }
+    return result;
 }
-#ifdef MUST_MATCH
-#pragma pop
-#endif
 
 void lb_800192A8(void (*cb)(void))
 {
@@ -170,7 +173,7 @@ void lb_800192A8(void (*cb)(void))
 #ifdef MELEE_NATIVE
             HSD_SisLib_803A84BC_Text(lb_804D63D0);
 #else
-            HSD_SisLib_803A84BC(NULL, (u32) lb_804D63D0);
+            HSD_SisLib_803A84BC(NULL, (intptr_t) lb_804D63D0);
 #endif
             HSD_Init_803755A8();
             HSD_VICopyXFBAsync(HSD_RP_SCREEN);

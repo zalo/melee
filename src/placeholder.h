@@ -10,6 +10,7 @@ typedef void (*jmp_t)(void);
 typedef jmp_t jtbl_t[];
 
 #ifndef MWERKS_GEKKO
+/* Reciprocal sqrt estimate; callers Newton-refine it as 1/sqrt. */
 #ifndef __frsqrte
 #define __frsqrte(x) (1.0 / sqrt(x))
 #endif

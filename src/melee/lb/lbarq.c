@@ -28,11 +28,6 @@ typedef struct lbArqGlobal {
     /* 0x1E0 */ lbArqNode* list[3];
 } lbArqGlobal;
 
-typedef struct lbArqHandle {
-    /* 0x00 */ void* unk0;
-    /* 0x04 */ lbArqNode* node;
-} lbArqHandle;
-
 /* 4316C0 */ lbArqGlobal lbArq_804316C0;
 
 /// @todo Non-inlined function forces loop in ::lbArq_80014BD0 to yield to
@@ -61,41 +56,24 @@ static lbArqState lbArq_80014ABC(lbArqNode* arg0)
 #pragma pop
 #endif
 
-#ifdef MELEE_NATIVE
 static void lbArq_80014AC4(ARQRequest* request)
-#else
-static void lbArq_80014AC4(lbArqHandle* handle)
-#endif
 {
-    lbArqGlobal* global = &lbArq_804316C0;
-#ifdef MELEE_NATIVE
-    lbArqNode* node = (lbArqNode*) ((u8*) request - offsetof(lbArqNode, arq));
-#else
-    lbArqNode* node = handle->node;
-#endif
+    lbArqNode* node = (lbArqNode*) request->owner;
     lbArqNode** prev;
     lbArqNode** tail;
-    uintptr_t offset;
     BOOL intr;
 
     intr = OSDisableInterrupts();
 
     /* Remove from current list (indexed by state) */
-#ifdef MELEE_NATIVE
-    prev = &global->list[node->state];
-#else
-    offset = node->state * 4;
-    offset += 0x1E0;
-    offset += (uintptr_t) global;
-    prev = (lbArqNode**) offset;
-#endif
+    prev = &lbArq_804316C0.list[node->state];
     while (*prev != node) {
         prev = &(*prev)->next;
     }
     *prev = node->next;
 
     /* Add to done list */
-    tail = &global->list[LB_ARQ_STATE_DONE];
+    tail = &lbArq_804316C0.list[LB_ARQ_STATE_DONE];
     while (*tail != NULL) {
         tail = &(*tail)->next;
     }
@@ -112,14 +90,14 @@ static void lbArq_80014AC4(lbArqHandle* handle)
         intr = OSDisableInterrupts();
 
         /* Remove from current list again */
-        prev = &global->list[node->state];
+        prev = &lbArq_804316C0.list[node->state];
         while (*prev != node) {
             prev = &(*prev)->next;
         }
         *prev = node->next;
 
         /* Add to free list */
-        tail = &global->list[LB_ARQ_STATE_FREE];
+        tail = &lbArq_804316C0.list[LB_ARQ_STATE_FREE];
         while (*tail != NULL) {
             tail = &(*tail)->next;
         }
@@ -134,27 +112,26 @@ static void lbArq_80014AC4(lbArqHandle* handle)
 void lbArq_80014BD0(unsigned int source, void* dest, size_t length,
                     lbArqCallback callback, void* callback_arg)
 {
-    u32 source_tmp;
-    lbArqNode* rp_tmp;
-    lbArqGlobal* global = &lbArq_804316C0;
     lbArqNode* rp;
     lbArqNode** tail;
     BOOL intr;
     lbArqNode** free_head;
-    lbArqNode* tmp;
+    lbArqNode* head;
+    uintptr_t owner;
+    u32 aram;
 
     PAD_STACK(16);
     DCInvalidateRange(dest, length);
     intr = OSDisableInterrupts();
-    tmp = global->list[LB_ARQ_STATE_FREE];
-    rp = tmp;
-    free_head = &global->list[LB_ARQ_STATE_FREE];
+    head = lbArq_804316C0.list[LB_ARQ_STATE_FREE];
+    rp = head;
+    free_head = &lbArq_804316C0.list[LB_ARQ_STATE_FREE];
     HSD_ASSERT(0x67, rp);
     *free_head = rp->next;
     rp->callback = callback;
     rp->callback_arg = callback_arg;
 
-    tail = &global->list[LB_ARQ_STATE_PENDING];
+    tail = &lbArq_804316C0.list[LB_ARQ_STATE_PENDING];
     while (*tail != NULL) {
         tail = &(*tail)->next;
     }
@@ -162,17 +139,17 @@ void lbArq_80014BD0(unsigned int source, void* dest, size_t length,
     rp->next = NULL;
     rp->state = LB_ARQ_STATE_PENDING;
 
-    rp_tmp = rp;
-    source_tmp = source;
-    ARQPostRequest(&rp->arq, (u32) rp_tmp, 1, 0, source_tmp, (uintptr_t) dest,
-                   length, (ARQCallback) lbArq_80014AC4);
+    owner = (uintptr_t) rp;
+    aram = source;
+    ARQPostRequest(&rp->arq, owner, ARQ_TYPE_ARAM_TO_MRAM, ARQ_PRIORITY_LOW,
+                   aram, (uintptr_t) dest, length, lbArq_80014AC4);
 
     if (rp->callback == NULL) {
         OSRestoreInterrupts(intr);
         while (lbArq_80014ABC(rp) != LB_ARQ_STATE_DONE) {
         }
         intr = OSDisableInterrupts();
-        tail = &global->list[rp->state];
+        tail = &lbArq_804316C0.list[rp->state];
         while (*tail != rp) {
             tail = &(*tail)->next;
         }

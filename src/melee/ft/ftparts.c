@@ -6,7 +6,6 @@
 #include "forward.h"
 #include "ftdata.h"
 #include "ftmaterial.h"
-#include "ftparts.static.h"
 #include "inlines.h"
 #include "types.h"
 #include <dolphin/mtx.h>
@@ -20,6 +19,13 @@
 #include <sysdolphin/baselib/perf.h>
 #include <sysdolphin/baselib/pobj.h>
 #include <sysdolphin/baselib/util.h>
+
+/// .bss
+struct {
+    Mtx mtx;
+    u8 has_z_scale : 1;
+    char unk_31[7];
+} ft_jobj_scale;
 
 HSD_JObjInfo ftJObj = { ftParts_JObjInfoInit };
 HSD_JObjInfo ftIntpJObj = { ftParts_IntpJObjInfoInit };
@@ -126,14 +132,14 @@ void ftPartsSetupRigidMtx(HSD_PObj* pobj, Mtx vmtx, Mtx pmtx, u32 rendermode)
     MtxPtr tmp;          // r29
     PObjSetupFlag flags; // r28
 
-    Mtx mtx;             // sp54
-    HSD_JObj* mark_jobj; // sp50
-    u32 mark;            // sp4C
+    Mtx mtx;        // sp54
+    void* mark_obj; // sp50
+    u32 mark;       // sp4C
 
     tmp = pmtx;
     jobj = HSD_JObjGetCurrent();
-    HSD_PObjGetMtxMark(0, (void**) &mark_jobj, &mark);
-    if (mark_jobj != jobj || mark != HSD_MTX_RIGID) {
+    HSD_PObjGetMtxMark(0, &mark_obj, &mark);
+    if (mark_obj != jobj || mark != HSD_MTX_RIGID) {
         HSD_PObjSetMtxMark(0, jobj, HSD_MTX_RIGID);
         GXSetCurrentMtx(GX_PNMTX0);
 
@@ -157,22 +163,22 @@ void ftPartsSetupSharedVtxMtx(HSD_PObj* pobj, MtxPtr vmtx, MtxPtr pmtx,
     HSD_JObj* jobj;
     PObjSetupFlag flags = SETUP_NONE; // r28
 
-    Mtx mtx0;            // spE4
-    Mtx mtx1;            // spB4
-    Mtx tmp;             // sp84
-    HSD_JObj* mark_jobj; // sp80
-    u32 mark;            // sp7C
+    Mtx mtx0;       // spE4
+    Mtx mtx1;       // spB4
+    Mtx tmp;        // sp84
+    void* mark_obj; // sp80
+    u32 mark;       // sp7C
 
     jobj = HSD_JObjGetCurrent();
 
-    HSD_PObjGetMtxMark(0, (void**) &mark_jobj, &mark);
-    if (mark_jobj != jobj && mark != HSD_MTX_RIGID) {
+    HSD_PObjGetMtxMark(0, &mark_obj, &mark);
+    if (mark_obj != jobj && mark != HSD_MTX_RIGID) {
         flags |= SETUP_JOINT0;
     }
     HSD_PObjSetMtxMark(0, jobj, HSD_MTX_RIGID);
 
-    HSD_PObjGetMtxMark(1, (void**) &mark_jobj, &mark);
-    if (mark_jobj != pobj->u.jobj && mark != HSD_MTX_RIGID) {
+    HSD_PObjGetMtxMark(1, &mark_obj, &mark);
+    if (mark_obj != pobj->u.jobj && mark != HSD_MTX_RIGID) {
         flags |= SETUP_JOINT1;
     }
     HSD_PObjSetMtxMark(1, pobj->u.jobj, HSD_MTX_RIGID);
@@ -366,7 +372,7 @@ void ftParts_80074194(Fighter* fighter, FighterBone* bone, HSD_JObj* jobj,
         if (*dobj_index >= 124) {
             HSD_ASSERTREPORT(466, 0,
                              "fighter parts model dobj num over! player %d\n",
-                             fighter->player_id);
+                             fighter->player_idx);
         }
         fighter->dobj_list.data[*dobj_index] = dobj;
         mobj = dobj != NULL ? dobj->mobj : NULL;
@@ -379,7 +385,7 @@ void ftParts_80074194(Fighter* fighter, FighterBone* bone, HSD_JObj* jobj,
     }
     if (dobj_count >= 128) {
         HSD_ASSERTREPORT(480, 0, "fighter dobj num over! player %d\n",
-                         fighter->player_id);
+                         fighter->player_idx);
     }
     if (*dobj_index != 0) {
         bone->xD = *dobj_index - 1;
@@ -399,7 +405,7 @@ void ftParts_SetupParts(Fighter_GObj* fighter_obj)
 
     if (ftPartsTable[fp->kind]->parts_num > MAX_FT_PARTS) {
         HSD_ASSERTREPORT(503, 0, "fighter parts num over! player %d\n",
-                         fp->player_id);
+                         fp->player_idx);
     }
 
     while (jobj != NULL) {
@@ -450,7 +456,7 @@ void ftParts_SetupParts(Fighter_GObj* fighter_obj)
 
     if (part != ftPartsTable[fp->kind]->parts_num) {
         HSD_ASSERTREPORT(546, 0, "fighter parts num not match! player %d\n",
-                         fp->player_id);
+                         fp->player_idx);
     }
 }
 
@@ -493,7 +499,7 @@ void ftParts_8007462C(Fighter_GObj* gobj)
     }
     if (i != ftPartsTable[fp->kind]->parts_num) {
         HSD_ASSERTREPORT(593, 0, "fighter parts num not match! player %d\n",
-                         fp->player_id);
+                         fp->player_idx);
     }
 }
 
@@ -544,7 +550,7 @@ void ftParts_800749CC(Fighter_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
     int i;
 
-    ftParts_8007487C(&fp->ft_data->x8->x0, &fp->x5AC, fp->x619_costume_id,
+    ftParts_8007487C(&fp->ft_data->x8->x0, &fp->x5AC, fp->costume_id,
                      &fp->dobj_list, &fp->x203C);
     for (i = 0; i < fp->x5AC.model_num; i++) {
         fp->x5F4_arr[i].prev = -1;

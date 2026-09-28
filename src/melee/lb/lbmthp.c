@@ -30,6 +30,16 @@ static int32_t movieUploadedFrame;
 #include <sysdolphin/baselib/tobj.h>
 #include <sysdolphin/baselib/video.h>
 
+/**
+ * One entry of the decode ring: a movie frame as read from the file. The frame
+ * data is prefixed by the packed size of the frame that follows it, which is
+ * what the next read request uses.
+ */
+typedef struct THPFrameBuffer {
+    /* 0x00 */ u32 next_packed_size;
+    /* 0x04 */ u8 data[];
+} THPFrameBuffer;
+
 /* Struct used by fn_8001EBF0 for THP decode component init */
 typedef struct THPDecComp {
     /* 0x00 */ u8 pad0[0x08];
@@ -46,7 +56,7 @@ typedef struct THPDecComp {
     /* 0x40 */ u32 unk_40;
     /* 0x44 */ u32 width;
     /* 0x48 */ u32 height;
-    /* 0x4C */ uintptr_t* frame_buffers;
+    /* 0x4C */ THPFrameBuffer** frame_buffers;
     /* 0x50 */ void* unk_50;
     /* 0x54 */ void* unk_54;
     /* 0x58 */ void* unk_58;
@@ -64,7 +74,7 @@ typedef struct THPDecComp {
     /* 0x8C */ u32 unk_8C;
     /* 0x90 */ u32 unk_90;
     /* 0x94 */ s32 unk_94;
-    /* 0x98 */ intptr_t unk_98;
+    /* 0x98 */ THPFileInfo* unk_98;
     /* 0x9C */ THPDec_8032FD40_Data unk_9C;
     /* 0xA8 */ u16 unk_A8;
     /* 0xAA */ u16 unk_AA;
@@ -95,16 +105,6 @@ typedef struct THPDecComp {
     /* 0x1B8 */ GXTexObj unk_1B8;
 } THPDecComp;
 
-struct lbl_803BAFE8_t {
-    /* 0x00 */ s32 x0;
-    /* 0x04 */ u16 x4;
-    /* 0x06 */ u16 x6;
-    /* 0x08 */ s32 x8;
-    /* 0x0C */ s32 xC;
-    /* 0x10 */ s32 x10;
-    /* 0x14 */ s32 x14;
-}; /* size = 0x18 */
-
 /* 01F294 */ static s32 fn_8001F294(void);
 /* The first 0x40 bytes are also the DVD header read destination. */
 #ifdef MELEE_NATIVE
@@ -113,7 +113,7 @@ struct lbl_803BAFE8_t {
 /* 4333E0 */ static THPDecComp MoviePlayer;
 #endif
 
-static void fn_8001E910(int arg0, int arg1, void* arg2, int cancelflag)
+static void fn_8001E910(int arg0, uintptr_t arg1, void* arg2, bool cancelflag)
 {
     THPDecComp* streamPlayer = &MoviePlayer;
     s32 tick_diff;
@@ -141,7 +141,8 @@ static void fn_8001E910(int arg0, int arg1, void* arg2, int cancelflag)
     } else {
         var_r0 = streamPlayer->unk_8C - 1;
     }
-    streamPlayer->currPackedSize = movieReadWord((void*)streamPlayer->frame_buffers[var_r0]);
+    streamPlayer->currPackedSize =
+        movieReadWord((void*) streamPlayer->frame_buffers[var_r0]);
     if (streamPlayer->unk_90 != streamPlayer->unk_8C &&
         streamPlayer->unk_70 != 0)
     {
@@ -160,7 +161,7 @@ static void fn_8001E910(int arg0, int arg1, void* arg2, int cancelflag)
                 streamPlayer->file_entrynum, streamPlayer->curr_file_offset,
                 (uintptr_t) streamPlayer->frame_buffers[streamPlayer->unk_8C],
                 (streamPlayer->currPackedSize + 0x1F) & 0xFFFFFFE0, 0x21, 1,
-                fn_8001E910, NULL);
+                fn_8001E910, 0);
             streamPlayer->unk_74 += 1;
             if ((streamPlayer->unk_74 == streamPlayer->unk_40) &&
                 (streamPlayer->unk_68 != 0))
@@ -191,9 +192,9 @@ static s32 fn_8001EB14(THPDecComp* data, const char* path)
     data->file_entrynum = DVDConvertPathToEntrynum(path);
     lbFile_800161C4(data->file_entrynum, 0, (uintptr_t) data, 0x40, 0x21, 1);
 #ifdef MELEE_NATIVE
-    for(unsigned offset=8;offset<0x2C;offset+=4) {
-        u32 value=movieReadWord((u8*)data+offset);
-        memcpy((u8*)data+offset,&value,4);
+    for (unsigned offset = 8; offset < 0x2C; offset += 4) {
+        u32 value = movieReadWord((u8*) data + offset);
+        memcpy((u8*) data + offset, &value, 4);
     }
 #endif
 
@@ -291,7 +292,7 @@ static void fn_8001ECF4(THPDecComp* data, void* buf)
     width = data->width;
     height = data->height;
     y_size = width * height;
-    data->frame_buffers = (uintptr_t*) buf;
+    data->frame_buffers = buf;
     count = data->unk_104;
     data->unk_64 = 0;
     uv_size = (width * height) >> 2U;
@@ -302,7 +303,7 @@ static void fn_8001ECF4(THPDecComp* data, void* buf)
         var_r25 = 0;
         data->curr_file_offset = data->first_frame;
         for (; var_r25 < data->unk_104; var_r25++) {
-            data->frame_buffers[var_r25] = (uintptr_t) var_r29;
+            data->frame_buffers[var_r25] = (THPFrameBuffer*) var_r29;
             if (var_r24 == 0) {
                 OSReport("by sugano & yoshiki.\n");
                 OSReport("base %x\n", var_r29);
@@ -323,8 +324,8 @@ static void fn_8001ECF4(THPDecComp* data, void* buf)
                 HSD_ASSERT(266, 0);
             }
             lbFile_800161C4(data->file_entrynum, data->curr_file_offset,
-                            (uintptr_t) var_r29, (var_r24 + 0x1F) & 0xFFFFFFE0, 0x21,
-                            1);
+                            (uintptr_t) var_r29, (var_r24 + 0x1F) & 0xFFFFFFE0,
+                            0x21, 1);
             csizep = var_r29;
             data->curr_file_offset += var_r24;
             var_r24 = movieReadWord(var_r29);
@@ -351,7 +352,7 @@ static void fn_8001ECF4(THPDecComp* data, void* buf)
     data->unk_58 = var_r29;
     DCInvalidateRange(var_r29, uv_size);
     var_r29 = var_r29 + uv_size;
-    data->unk_98 = (intptr_t) var_r29;
+    data->unk_98 = (THPFileInfo*) var_r29;
 }
 
 static s32 fn_8001F13C(THPDecComp* streamPlayer);
@@ -366,9 +367,9 @@ static s32 fn_8001EF5C(THPDecComp* data)
         movieTraceDecodes++;
 #endif
         intr = OSDisableInterrupts();
-        data->unk_98 = THPVideoDecode(
-            &data->unk_A8, &spC, (void*) data->unk_98,
-            (void*) (data->frame_buffers[data->unk_90] + 4), &data->unk_9C);
+        data->unk_98 = THPVideoDecode(&data->unk_A8, &spC, data->unk_98,
+                                      data->frame_buffers[data->unk_90]->data,
+                                      &data->unk_9C);
         OSRestoreInterrupts(intr);
 
         if (data->width == 0x280) {
@@ -443,9 +444,9 @@ s32 fn_8001F13C(THPDecComp* streamPlayer)
                              streamPlayer->curr_file_offset);
             HSD_DevComRequest(
                 streamPlayer->file_entrynum, streamPlayer->curr_file_offset,
-                streamPlayer->frame_buffers[streamPlayer->unk_8C],
+                (uintptr_t) streamPlayer->frame_buffers[streamPlayer->unk_8C],
                 ALIGN_32(streamPlayer->currPackedSize), 0x21, 1, fn_8001E910,
-                NULL);
+                0);
             streamPlayer->unk_74++;
             if ((streamPlayer->unk_74 == streamPlayer->unk_40) &&
                 (streamPlayer->unk_68 != 0))
@@ -651,7 +652,7 @@ HSD_SObj* lbMthp_8001F624(HSD_GObj* gobj, int width, int height)
     return sobj;
 }
 
-void lbMthp_8001F67C(HSD_GObj* gobj, int arg1)
+void lbMthp_8001F67C(HSD_GObj* gobj, intptr_t arg1)
 {
     THPDecComp* streamPlayer = &MoviePlayer;
     PAD_STACK(8);
