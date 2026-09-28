@@ -1,0 +1,44 @@
+--- a/src/dawn/native/opengl/DisplayEGL.cpp	2026-09-27 16:21:14.238953345 -0700
++++ b/src/dawn/native/opengl/DisplayEGL.cpp	2026-09-27 16:21:14.244841020 -0700
+@@ -35,6 +35,28 @@
+ 
+ namespace dawn::native::opengl {
+ 
++namespace {
++
++// Some GLES EGL drivers (PowerVR on the TrimUI Smart Pro, some older Mali) do not implement
++// EGL_KHR_get_all_proc_addresses, so their eglGetProcAddress() returns nullptr for the core EGL 1.x
++// entry points (eglChooseConfig, eglGetDisplay, ...). Wrap the driver's eglGetProcAddress so those
++// core symbols fall back to a direct dlsym from the same libEGL. There is only one libEGL.so on the
++// system, so the shared statics are safe across the sequential display-discovery attempts.
++using DawnEglProc = void (*)();  // matches Dawn's EGLFunctionPointerType
++
++DynamicLib* sDlsymEglLib = nullptr;
++EGLGetProcProc sDriverGetProc = nullptr;
++
++DawnEglProc EGLGetProcOrDlsym(const char* name) {
++    DawnEglProc proc = sDriverGetProc ? sDriverGetProc(name) : nullptr;
++    if (proc == nullptr && sDlsymEglLib != nullptr) {
++        proc = reinterpret_cast<DawnEglProc>(sDlsymEglLib->GetProc(name));
++    }
++    return proc;
++}
++
++}  // namespace
++
+ // static
+ ResultOrError<Ref<DisplayEGL>> DisplayEGL::CreateFromDynamicLoading(
+     wgpu::BackendType backend,
+@@ -93,6 +115,12 @@
+         return DAWN_VALIDATION_ERROR("Couldn't get \"eglGetProcAddress\" from %s.", libName);
+     }
+ 
++    // Drivers lacking EGL_KHR_get_all_proc_addresses only return extension functions from
++    // eglGetProcAddress; dlsym the core EGL 1.x entry points from the same libEGL as a fallback.
++    sDriverGetProc = getProc;
++    sDlsymEglLib = &mLib;
++    getProc = &EGLGetProcOrDlsym;
++
+     return InitializeWithProcAndDisplay(getProc, EGL_NO_DISPLAY);
+ }
+ 

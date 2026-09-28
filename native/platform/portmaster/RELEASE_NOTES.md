@@ -48,6 +48,14 @@ no game data: you need your own dump of the disc (US, version 1.02, `GALE01`).
   (0 auto, 1 native, 2 half, 4 quarter).
 - **Opt-in draw-call merge** for stage geometry via `MELEE_FLIP_RESIDENT_RECORDS=1` (off by default; ~+13%
   on Fountain of Dreams on a Mali-G31).
+- **Starts on PowerVR GPUs (TrimUI Smart Pro on Knulli/Batocera).** The renderer failed to initialise the
+  GPU on drivers that do not expose every EGL entry point through `eglGetProcAddress` (PowerVR, some older
+  Mali), fell back to the software path and aborted. It now loads those core EGL functions directly from the
+  same driver library, so GPU init succeeds. Mali devices are unaffected.
+- **Cleaner reporting when the game hits an internal assertion.** A failed engine assertion used to be
+  masked as a segmentation fault at a tiny address (because a GameCube-only crash handler ran on hardware it
+  cannot drive here); it now prints the file and line and aborts cleanly, so the log identifies the real
+  fault. This changes how such crashes are *reported*, not whether they happen.
 
 ## Install
 

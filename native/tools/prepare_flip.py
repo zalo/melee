@@ -207,6 +207,9 @@ def main():
     # carries the Flip platform hunks, so no aurora patch is applied here any more.
     subprocess.run(['python3', str(ROOT / 'native/tools/bootstrap.py')], check=True)
     apply_patch(dawn, ROOT / 'native/platform/flip/dawn-gl-interop.patch')
+    # Fall back to dlsym for core EGL procs on drivers without EGL_KHR_get_all_proc_addresses
+    # (e.g. PowerVR on the TrimUI Smart Pro), where eglGetProcAddress returns null for them.
+    apply_patch(dawn, ROOT / 'native/platform/flip/dawn-egl-dlsym-fallback.patch')
     usr = sdk / 'aarch64-buildroot-linux-gnu/sysroot/usr'
     headers = Path(os.environ.get('FLIP_HOST_HEADERS', '/usr/include'))
     for name in ['EGL', 'GLES3', 'KHR', 'libdrm', 'alsa', 'gbm.h', 'xf86drm.h', 'xf86drmMode.h', 'libudev.h']:

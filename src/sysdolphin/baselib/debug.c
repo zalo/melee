@@ -77,11 +77,19 @@ void __assert(const char* str, u32 arg1, const char* arg2)
 
 void HSD_Panic(const char* arg0, u32 line, const char* arg2)
 {
+#ifndef MELEE_NATIVE
     if (panicCallback != NULL) {
         OSSaveContext(&HSD_Debug_804C2608.context);
         OSReport("%s in %s on line %d.\n", arg2, arg0, line);
         panicCallback(&HSD_Debug_804C2608.context);
     }
+#else
+    // The GC panic callback (dberror.c fn_HSDPanicHandler) drives VI/exception hardware and reads
+    // the saved OSContext in ways that fault on the native port, turning a clean assertion into a
+    // SIGSEGV (observed: a jobj.h JOBJ_USE_QUATERNION assert surfacing as signal 11 at 0xe34). Skip
+    // the callback and let OSPanic print the file/line and abort() cleanly with a backtrace.
+    OSReport("%s in %s on line %d.\n", arg2, arg0, line);
+#endif
     OSPanic(arg0, line, arg2);
 }
 
