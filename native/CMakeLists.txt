@@ -53,6 +53,7 @@ add_library(melee_game OBJECT ${GAME_SOURCES})
 target_include_directories(melee_game PRIVATE include "${MELEE_ROOT}/src" "${CMAKE_CURRENT_BINARY_DIR}/sdk")
 target_compile_definitions(melee_game PRIVATE TARGET_PC MELEE_NATIVE BUILD_VERSION=0 VERSION_GALE01)
 target_compile_options(melee_game PRIVATE -include "${CMAKE_CURRENT_SOURCE_DIR}/include/compat.h"
+  -g
   -fno-strict-aliasing -fgnu89-inline -ffp-contract=off -Wno-incompatible-pointer-types -Wno-int-conversion
   -Wno-deprecated-non-prototype -Wno-macro-redefined -Wno-pointer-sign
   ${MELEE_RETURN_WARNING})

@@ -1422,11 +1422,15 @@ s32 grZebes_801DAA08(void)
             HSD_JObjAddChild(parent_child, (&grZe_8049F170[selected])->x04);
 
             {
-                u8* dat = (0, (u8*) grDatFiles_801C6330(2)->unk4->unk8);
-                HSD_ShapeAnimJoint** sap =
-                    *(HSD_ShapeAnimJoint***) (dat + 0x74);
-                HSD_AnimJoint** ajp = *(HSD_AnimJoint***) (dat + 0x6C);
-                HSD_MatAnimJoint** mjp = *(HSD_MatAnimJoint***) (dat + 0x70);
+                /* The GC code read these three anim-joint arrays as hardcoded
+                 * byte offsets into unk8 (dat+0x6C/0x70/0x74 == &unk8[2].unk4/
+                 * .unk8/.unkC, GC element stride 0x34). On the 64-bit host the
+                 * pointers and stride widen, so use the named array element. */
+                struct UnkStageDat_x8_t* e =
+                    &grDatFiles_801C6330(2)->unk4->unk8[2];
+                HSD_ShapeAnimJoint** sap = e->unkC;
+                HSD_AnimJoint** ajp = e->unk4;
+                HSD_MatAnimJoint** mjp = e->unk8;
                 HSD_ShapeAnimJoint* sa;
                 HSD_MatAnimJoint* ma;
                 HSD_AnimJoint* aj;

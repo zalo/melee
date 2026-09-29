@@ -1747,9 +1747,18 @@ void grCastle_801D0520(Ground_GObj* gobj, intptr_t renderpass)
 
 static inline void grCastle_801D0550_sub(unkCastle* arg0, s32 i)
 {
+#ifdef MELEE_NATIVE
+    /* unkCastle overlays Ground with GC byte offsets; on the host use the
+     * native-correct castle10 fields (arg0 is the Ground gp). */
+    Ground* g = (Ground*) arg0;
+    g->u.castle10.state[i] = 1;
+    grMaterial_801C8CDC((HSD_GObj*) g->u.castle10.x10C[i]);
+    g->u.castle10.x10C[i] = 0;
+#else
     arg0->x134[i] = 1;
     grMaterial_801C8CDC(arg0->x10C[i]);
     arg0->x10C[i] = NULL;
+#endif
     Ground_801C53EC(0x53020U);
 }
 
@@ -1786,9 +1795,19 @@ void grCastle_801D0680(void* arg0, unkCastle* arg1)
 static void grCastle_801D06CC_sub(unkCastle* arg0, Ground_GObj* gobj, s32 i)
 {
     if (ftLib_IsFighter(gobj) || itGetKind(gobj) != It_PKind_Random) {
+#ifdef MELEE_NATIVE
+        /* unkCastle overlays Ground with hardcoded GC byte offsets (x10C/x134);
+         * on the 64-bit host those offsets are wrong. arg0 is the Ground gp, so
+         * use the native-correct castle10 fields (x10C == x10C, x134 == state). */
+        Ground* g = (Ground*) arg0;
+        g->u.castle10.state[i] = 1;
+        grMaterial_801C8CDC((HSD_GObj*) g->u.castle10.x10C[i]);
+        g->u.castle10.x10C[i] = 0;
+#else
         arg0->x134[i] = 1;
         grMaterial_801C8CDC(arg0->x10C[i]);
         arg0->x10C[i] = NULL;
+#endif
         Ground_801C53EC(0x53020U);
     }
 }
