@@ -595,7 +595,29 @@ void initSdl() {
     if (!SDL_GL_MakeCurrent(sdlWindow, sdlContext)) failSdl("Cannot make the SDL GL context current");
     display = eglGetCurrentDisplay();
     if (display == EGL_NO_DISPLAY) display = static_cast<EGLDisplay>(SDL_EGL_GetCurrentDisplay());
-    if (display == EGL_NO_DISPLAY) failSdl("SDL did not create an EGL display");
+    if (display == EGL_NO_DISPLAY) {
+        // The context came up (MakeCurrent succeeded) yet our libEGL sees no current display: SDL's
+        // GL context lives in a different libEGL than the one this binary (and Dawn) links, so its
+        // current-display TLS is invisible here. This has only been seen on dArkOS RE (R36S). Dump
+        // what SDL DID give us and which libEGL we resolved, so a tester log identifies the split.
+        std::fprintf(stderr, "[flip-display] GL context is up but no EGL display is current in our libEGL:\n");
+        std::fprintf(stderr, "[flip-display]   GL_VENDOR=%s GL_RENDERER=%s GL_VERSION=%s\n",
+                     reinterpret_cast<const char*>(glGetString(GL_VENDOR)),
+                     reinterpret_cast<const char*>(glGetString(GL_RENDERER)),
+                     reinterpret_cast<const char*>(glGetString(GL_VERSION)));
+        Dl_info info{};
+        if (dladdr(reinterpret_cast<void*>(&eglGetCurrentDisplay), &info) && info.dli_fname)
+            std::fprintf(stderr, "[flip-display]   our libEGL: %s\n", info.dli_fname);
+        // Does our libEGL reach the platform at all on its own? (fbdev-Mali answers EGL_DEFAULT_DISPLAY.)
+        if (EGLDisplay def = eglGetDisplay(EGL_DEFAULT_DISPLAY); def != EGL_NO_DISPLAY) {
+            EGLint dmaj = 0, dmin = 0;
+            std::fprintf(stderr, "[flip-display]   eglGetDisplay(EGL_DEFAULT_DISPLAY) in our libEGL: %s\n",
+                         eglInitialize(def, &dmaj, &dmin) ? "initializes" : "does not initialize");
+        } else {
+            std::fprintf(stderr, "[flip-display]   eglGetDisplay(EGL_DEFAULT_DISPLAY) in our libEGL: EGL_NO_DISPLAY\n");
+        }
+        failSdl("SDL did not create an EGL display");
+    }
     // The context's bound draw surface is SDL's window surface; use it directly (SDL_EGL_GetWindowSurface
     // is not always populated on KMSDRM).
     sdlSurface = eglGetCurrentSurface(EGL_DRAW);
