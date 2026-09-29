@@ -62,7 +62,7 @@
 /* 1DC260 */ static void grZebes_801DC260(void);
 /* 1DC408 */ static void grZebes_801DC408(Ground_GObj*);
 /* 1DC744 */ static void grZebes_801DC744(s32, u8);
-/* 1DC9DC */ static void grZebes_801DC9DC(s32 arg);
+/* 1DC9DC */ static void grZebes_801DC9DC(HSD_GObj* arg);
 /* 1DCCB8 */ static DynamicsDesc* grZebes_801DCCB8(enum_t arg);
 /* 1DCCC0 */ static bool grZebes_801DCCC0(Vec3* arg, int arg0, HSD_JObj* jobj);
 
@@ -346,7 +346,7 @@ void grZebes_801D8644(HSD_GObj* gobj)
         grMaterial_801C8D44(0, 0, gp, &pos, 0, NULL, fn_801DAC90, NULL);
     grMaterial_801C8E08(mat_gobj2);
     gp->u.zebes_acid.x100 = (grZePtr) mat_gobj2;
-    grZebes_801DC9DC((s32) gobj);
+    grZebes_801DC9DC(gobj);
     gp->u.zebes_acid.xFC = (grZePtr) grZakoGenerator_801CA394(
         (UNK_T) &grZe_803E1B90, 0xA, (UNK_T) grZebes_801DCB64, 1.0f);
     mpJointSetB10(0);
@@ -2317,7 +2317,7 @@ void grZebes_801DC744(s32 arg0, u8 arg1)
     }
 }
 
-void grZebes_801DC9DC(s32 arg0)
+void grZebes_801DC9DC(HSD_GObj* arg0)
 {
     int i;
     PAD_STACK(0x30);
@@ -2337,7 +2337,7 @@ void grZebes_801DC9DC(s32 arg0)
     grZebes_801DC744(3, 1);
 
     for (i = 0; i < 100; i++) {
-        grZebes_801DB3CC((HSD_GObj*) arg0);
+        grZebes_801DB3CC(arg0);
     }
 }
 
