@@ -1097,12 +1097,12 @@ struct grZebes_GroundVars5 {
     /* +24 gp+E8 */ s16 xE8;
     /* +26 gp+EA */ s16 xEA;
     /* +28 gp+EC */ u32 xEC;
-    /* +2C gp+F0 */ grZePtr xF0;
+    /* +2C gp+F0 */ u32 xF0;
     /* +30 gp+F4 */ s16 xF4;
     /* +32 gp+F6 */ s16 xF6;
     /* +34 gp+F8 */ u32 xF8;
-    /* +38 gp+FC */ grZePtr xFC;
-    /* +3C gp+100 */ grZePtr x100;
+    /* +38 gp+FC */ u32 xFC;
+    /* +3C gp+100 */ u32 x100;
 };
 
 struct grRCruise_Entry {
