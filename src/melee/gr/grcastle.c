@@ -1499,8 +1499,8 @@ static inline void grCastle_PickSatellite(Ground* gp, s32* wp)
             }
         }
         if (entity != NULL) {
-            sat_gp->u.castle7.xD4 =
-                (u32) Ground_801C3FA4(entity, (s32) targets.e[idx].jobj_idx);
+            sat_gp->u.castle7.xD4 = (GrCastlePtr) Ground_801C3FA4(
+                entity, (s32) targets.e[idx].jobj_idx);
             sat_gp->u.castle7.xC4 = 1;
         }
     }
