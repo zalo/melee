@@ -476,6 +476,16 @@ void HSD_SynthSFXDataUnlink(int sfx_id)
 
     while ((cur = *pcur) != NULL) {
 #ifdef MELEE_NATIVE
+        /* Defense in depth: bucket entries are heap-allocated MeleeSfxEntry
+         * pointers. A dangling/truncated entry left by a freed group would be a
+         * small bogus value (the reported crash faulted through ~0x15e4) and the
+         * ->id read plus the *pcur write below would be a wild store. No heap
+         * maps the low 64 KiB, so reject anything that cannot be a real pointer
+         * and cut the corrupted chain instead of dereferencing it. */
+        if ((uintptr_t) cur < 0x10000) {
+            *pcur = NULL;
+            break;
+        }
         if (((MeleeSfxEntry*)cur)->id == sfx_id) {
 #else
         if (((int*) cur)[1] == sfx_id) {
@@ -903,9 +913,21 @@ static inline void stopRange(size_t lo, size_t hi)
     for (i = 0; i < 0x40; i++) {
         struct HSD_SynthSFXNode* node = &hsd_SynthSFXNodes[i];
         if (hsd_SynthSFXNodes[i].x0 > 0) {
+#ifdef MELEE_NATIVE
+            /* size_t is 8 bytes on the 64-bit host; a raw *(size_t*) read here
+             * would grab 4 extra bytes past currentAddressLo (garbage in the
+             * high bits) and stop/free the WRONG voices, corrupting the SFX
+             * node/hash linkage. Read the 32-bit ARAM address explicitly, the
+             * same way HSD_SynthSFXNode's other reader does (see line ~1426). */
+            {
+                const AXPBADDR* a = &hsd_SynthSFXNodes[i].voice[0]->pb.addr;
+                addr = ((u32) a->currentAddressHi << 16) | a->currentAddressLo;
+            }
+#else
             addr = *(size_t*) &hsd_SynthSFXNodes[i]
                         .voice[0]
                         ->pb.addr.currentAddressHi;
+#endif
             if (addr >= lo && addr < hi) {
                 HSD_SynthSFXStopNode(&hsd_SynthSFXNodes[i]);
             }

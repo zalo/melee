@@ -316,7 +316,7 @@ void grZebes_801D8644(HSD_GObj* gobj)
     Vec3 pos;
     UNUSED u8 _[4];
 
-    gp->u.zebes5.xF0 = (u32) grZebes_801D8558(7);
+    gp->u.zebes5.xF0 = (grZePtr) grZebes_801D8558(7);
     Ground_InitMapColl(jobj, gp->map_id);
     grAnime_801C8138(gobj, gp->map_id, 0);
     child_jobj = Ground_801C3FA4(gobj, 0x1E);
@@ -345,9 +345,9 @@ void grZebes_801D8644(HSD_GObj* gobj)
     mat_gobj2 =
         grMaterial_801C8D44(0, 0, gp, &pos, 0, NULL, fn_801DAC90, NULL);
     grMaterial_801C8E08(mat_gobj2);
-    gp->u.zebes5.x100 = (u32) mat_gobj2;
+    gp->u.zebes5.x100 = (grZePtr) mat_gobj2;
     grZebes_801DC9DC((s32) gobj);
-    gp->u.zebes5.xFC = (u32) grZakoGenerator_801CA394(
+    gp->u.zebes5.xFC = (grZePtr) grZakoGenerator_801CA394(
         (UNK_T) &grZe_803E1B90, 0xA, (UNK_T) grZebes_801DCB64, 1.0f);
     mpJointSetB10(0);
     Ground_UpdateMapColl((Ground_GObj*) gobj);

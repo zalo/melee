@@ -1117,7 +1117,13 @@ void Fighter_ChangeMotionState(Fighter_GObj* gobj, FtMotionId msid,
     }
 
     if (((flags & Ft_MF_KeepAccessory) == 0) &&
+#ifdef MELEE_NATIVE
+        /* x20A0_accessory is a real HSD_JObj*; a (u32) truncated non-null check
+         * misses pointers whose low 32 bits are 0 and leaks the model tree. */
+        (fp->x20A0_accessory != NULL))
+#else
         ((u32) fp->x20A0_accessory != 0U))
+#endif
     {
         HSD_JObjRemoveAll(fp->x20A0_accessory);
         fp->x20A0_accessory = 0U;

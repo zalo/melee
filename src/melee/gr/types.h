@@ -10,6 +10,16 @@
 #include <melee/sc/forward.h>
 #include <sysdolphin/baselib/forward.h>
 
+#ifdef MELEE_NATIVE
+#include <stdint.h>
+/* Pointer-width carrier for GObj user-data slots that the GC code stored a
+ * 32-bit pointer into. u32 on the matching build (identical layout/codegen),
+ * uintptr_t on the 64-bit native host so real pointers are not truncated. */
+typedef uintptr_t grUserPtr;
+#else
+typedef u32 grUserPtr;
+#endif
+
 #include <placeholder.h>
 
 #include <dolphin/gx.h>
@@ -622,12 +632,12 @@ struct grVenom_GroundVars2 {
 };
 
 struct grArwing_GroundVars {
-    u32 xC4;
-    u32 xC8;
+    grUserPtr xC4;
+    grUserPtr xC8;
     u32 xCC;
-    u32 xD0;
+    grUserPtr xD0;
     s32 xD4;
-    s32 xD8;
+    grUserPtr xD8;
     f32 xDC;
     Vec3 xE0;
     f32 xEC;
@@ -1087,12 +1097,12 @@ struct grZebes_GroundVars5 {
     /* +24 gp+E8 */ s16 xE8;
     /* +26 gp+EA */ s16 xEA;
     /* +28 gp+EC */ u32 xEC;
-    /* +2C gp+F0 */ u32 xF0;
+    /* +2C gp+F0 */ grZePtr xF0;
     /* +30 gp+F4 */ s16 xF4;
     /* +32 gp+F6 */ s16 xF6;
     /* +34 gp+F8 */ u32 xF8;
-    /* +38 gp+FC */ u32 xFC;
-    /* +3C gp+100 */ u32 x100;
+    /* +38 gp+FC */ grZePtr xFC;
+    /* +3C gp+100 */ grZePtr x100;
 };
 
 struct grRCruise_Entry {
