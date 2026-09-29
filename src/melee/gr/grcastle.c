@@ -795,8 +795,17 @@ void grCastle_801CE260(Ground_GObj* gobj)
     gp->u.flatzone.xCA = yakumono_param->entries[gp->u.icemt.x2].x0;
 
     gp2 = GET_GROUND(gobj);
+#ifdef MELEE_NATIVE
+    /* The camera is read back via u.castle11.xD8 in grCastle_801CE578. On GC
+     * arwing.xD8 and castle11.xD8 are the same gp+0xD8 slot, but on the 64-bit
+     * host the two union members have different field offsets, so the writer and
+     * reader must use the SAME member. Route it through castle11.xD8. */
+    gp2->u.castle11.xD8 = (GrCastlePtr) Camera_80029044(2);
+    subject = (CmSubject*) gp2->u.castle11.xD8;
+#else
     gp2->u.arwing.xD8 = (grUserPtr) Camera_80029044(2);
     subject = (CmSubject*) gp2->u.arwing.xD8;
+#endif
     if (subject != NULL) {
         subject->target_ext.h.x = yakumono_param->x118;
         subject->target_ext.h.y = yakumono_param->x11C;

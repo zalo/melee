@@ -1165,8 +1165,12 @@ static inline void grZebes_801DA254_inline2(HSD_LObj* lobj, GXColor* color)
 void grZebes_801DA254(Ground_GObj* gobj, f32 level)
 {
     Ground* gp = GET_GROUND(gobj);
-    HSD_LObj* lobj = (HSD_LObj*) gp->u.zebes4.xDC;
-    gp->u.zebes4.xDC = (grZePtr) lobj;
+    /* The LObj cache slot is initialized as gp->u.zebes5.xDC (=0) by this
+     * stage's setup; on the 64-bit host zebes4.xDC and zebes5.xDC are different
+     * offsets, so reading zebes4.xDC here got uninitialized poison. Use the same
+     * member the caller/setup use (zebes5.xDC, typed HSD_LObj*). */
+    HSD_LObj* lobj = gp->u.zebes5.xDC;
+    gp->u.zebes5.xDC = lobj;
     if (lobj == NULL) {
         HSD_GObj* lgobj = HSD_GObjGXLinkHead[4];
         if (lgobj != NULL) {
@@ -1178,7 +1182,7 @@ void grZebes_801DA254(Ground_GObj* gobj, f32 level)
                 lobj = HSD_LObjGetNext(lobj);
             }
         }
-        gp->u.zebes4.xDC = (grZePtr) lobj;
+        gp->u.zebes5.xDC = lobj;
     }
 
     if (lobj != NULL) {
