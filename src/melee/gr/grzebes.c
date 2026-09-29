@@ -2370,7 +2370,17 @@ bool grZebes_801DCBFC(Ground_GObj* gobj, HSD_GObj* fobj, void* arg)
     ftLib_GetPrevPos(fobj, &prev);
     prev.y += intercept;
     if (pos.y < slope) {
+#ifdef MELEE_NATIVE
+        /* GC read the bury script/damage pointer at the yakumono param's
+         * HSD_GObj::user_data byte offset (0x2C). On the 64-bit host that field
+         * offset differs (it lands on a float), so read the archive script
+         * pointer at the fixed 0x2C offset via the native relocation helper
+         * (mirrors grShrineRoute_8020AE08's MeleeNativeScriptPointer use). */
+        *(void**) arg =
+            MeleeNativeScriptPointer((const u8*) yakumono_param + 0x2C);
+#else
         *(void**) arg = ((HSD_GObj*) yakumono_param)->user_data;
+#endif
         if (prev.y > slope) {
             Ground_801C43A4(&pos);
             Ground_801C53EC(0x61A82);
