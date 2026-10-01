@@ -6,13 +6,21 @@ no game data: you need your own dump of the disc (US, version 1.02, `GALE01`).
 
 ## Changes in this build
 
-- **New: "Melee Soak Test", a second entry in Ports for testers.** A CPU-controlled player plays through
-  Classic, Adventure, All-Star, Event matches, the Stadium modes, Training, VS and Special Melee for 30
-  minutes, with rumble off and on a copy of your save (records, unlocks and settings stay as they are).
-  At the end it writes `ports/melee/soak-report.txt.gz`: the log plus a short summary of the device, the
-  CFW, the matches played and the free memory each minute. Attach that file to a report. Start + Select
-  stops the test early and still writes the report. This build sends nothing anywhere; the file stays on
-  the card until you share it.
+- **"Melee Soak Test" now sends its report by itself and keeps the port up to date.** The second entry
+  in Ports lets a CPU-controlled player play through Classic, Adventure, All-Star, Event matches, the
+  Stadium modes, Training, VS and Special Melee for 30 minutes, with rumble off and on a copy of your save
+  (records, unlocks and settings stay as they are). Start + Select stops it early.
+  - At the end it writes `ports/melee/soak-report.txt.gz` (the log plus the device, CFW, kernel, the
+    matches played and the memory use each minute) and, when the device is online, posts that file to
+    `https://melee-reports.sels.tech`, the port's report collector. The screen shows the report's id;
+    quote it when you describe what you saw. Nothing else is sent, and the collector keeps the sender's
+    address only as a salted hash that limits how many reports one device can send per day.
+  - Before it starts it checks GitHub for a newer release of this port and installs it (the download is
+    verified by its SHA-256), so you always test the latest build. If the new build cannot start, the
+    previous one is put back.
+  - Without a network the test runs the same: no update, and the report stays on the card for you to
+    share. An empty file `ports/melee/soak/offline` keeps the test off the network for good.
+  - Only the soak test does any of this. Starting Melee normally never contacts anything.
 - **Fixes the crashes and hangs found by running every game mode unattended**, most of them places where
   the 64-bit build read or wrote a GameCube data layout wrongly:
   - Adventure: enemies now appear in the Mushroom Kingdom, the Underground Maze and on Icicle Mountain
@@ -169,4 +177,5 @@ during start-up.
 | File | Purpose |
 | --- | --- |
 | `melee.zip` | The PortMaster port ({{SIZE}} bytes, SHA-256 `{{SHA256}}`) |
+| `melee-version.txt` | This release's name and the zip's SHA-256, read by the soak test's updater |
 | `melee-portmaster-symbols.tar.gz` | Unstripped `melee.aarch64` matching this zip, for crash backtraces |

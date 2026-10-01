@@ -7,6 +7,7 @@ PortMaster-New expects:
     <output>/melee/            unzipped tree in the PortMaster-New ports/<name>/ layout
         port.json, Melee.sh, Melee Soak Test.sh, README.md, gameinfo.xml, screenshot.jpg (+ cover.jpg)
         melee/melee.aarch64, melee/melee.ini (gptokeyb2 config), melee/soak/ (soak test, see soak.sh),
+        melee/version.txt (release builds only: $MELEE_RELEASE_TAG, read by the soak test's updater),
         melee/licenses/LICENSE.<component>.txt, melee/assets/README.txt, melee/runtime/
     <output>/melee.zip         the two launchers + melee/ (+ port.json) at the zip root
 
@@ -51,12 +52,13 @@ SDL3_SHIM_NOTICE = ('SDL 3 built from https://github.com/bmdhacks/SDL branch sdl
                     'SDL 2 library at run time. Shipped as libs.aarch64/libSDL3.so.0. Its license (zlib) follows.\n\n')
 
 
-def assemble(bundle, output, port_dir=PORT_DIR, sdl3=None):
+def assemble(bundle, output, port_dir=PORT_DIR, sdl3=None, version=None):
     """Turn a package_flip.py bundle directory into the PortMaster tree and zip.
 
     Returns (tree, zip_path). `bundle` must contain melee_native and licenses/<component>.txt;
     anything else in it (lib/, launch.sh) is Flip-only and ignored. `sdl3` is the shim install prefix
-    (lib/libSDL3.so.0 + LICENSE.txt) to ship in melee/libs.aarch64/.
+    (lib/libSDL3.so.0 + LICENSE.txt) to ship in melee/libs.aarch64/. `version` is the release tag to
+    record in melee/version.txt; a build without one never updates itself.
     """
     bundle = Path(bundle)
     output = Path(output)
@@ -92,6 +94,8 @@ def assemble(bundle, output, port_dir=PORT_DIR, sdl3=None):
         shutil.copyfile(port_dir / launcher, tree / launcher)
         os.chmod(tree / launcher, 0o644)
     shutil.copytree(port_dir / 'soak', data / 'soak')
+    if version:
+        (data / 'version.txt').write_text(version + '\n')
     for name in METADATA:
         shutil.copy2(port_dir / name, tree / name)
     for name in OPTIONAL_METADATA:
@@ -141,7 +145,7 @@ def main():
         command = [sys.executable, str(ROOT / 'native/tools/package_flip.py'), '--build', str(args.build),
                    '--sdk', str(args.sdk), '--output', str(bundle)]
         subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
-        tree, zip_path = assemble(bundle, args.output, sdl3=args.sdl3)
+        tree, zip_path = assemble(bundle, args.output, sdl3=args.sdl3, version=os.environ.get('MELEE_RELEASE_TAG'))
     digest = hashlib.sha256(zip_path.read_bytes()).hexdigest()
     print(tree)
     print(f'{zip_path}  sha256={digest}  bytes={zip_path.stat().st_size}')

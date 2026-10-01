@@ -161,7 +161,7 @@ pm_finish() {{ printf finished > "{root}/finished"; }}
             (gamedir / 'assets/Melee (USA) (v1.02).RVZ').write_bytes(b'not a disc')
         text = (PORT_DIR / 'Melee.sh').read_text()
         text = text.replace('controlfolder="/roms/ports/PortMaster"', f'controlfolder="{control}"')
-        launcher = root / 'Melee.sh'
+        launcher = gamedir.parent / 'Melee.sh'
         launcher.write_text(text)
         game = gamedir / 'melee.aarch64'
         # Zip extraction drops the exec bit; the launcher must restore it.
@@ -177,7 +177,7 @@ exit 0
         if soak:
             # The soak launcher sits beside Melee.sh; its pauses are shortened through a fake sleep.
             launcher_name = package.SOAK_LAUNCHER
-            shutil.copyfile(PORT_DIR / launcher_name, root / launcher_name)
+            shutil.copyfile(PORT_DIR / launcher_name, gamedir.parent / launcher_name)
             shutil.copytree(PORT_DIR / 'soak', gamedir / 'soak')
             if save:
                 (gamedir / 'runtime/config/melee-native').mkdir(parents=True)
@@ -186,7 +186,13 @@ exit 0
             fake_bin.mkdir()
             (fake_bin / 'sleep').write_text('#!/bin/sh\nexec /bin/sleep 0.05\n')
             (fake_bin / 'sleep').chmod(0o755)
-            (fake_bin / 'curl').write_text(f'#!/bin/sh\nprintf "%s\\n" "$@" > "{root}/curl"\necho "ok abc123"\n')
+            # A download (-o) is served from <root>/release; anything else is a report being posted.
+            (fake_bin / 'curl').write_text(f'''#!/bin/sh
+printf '%s\\n' "$@" >> "{root}/curl"
+for url; do :; done
+while [ $# -gt 0 ]; do [ "$1" = -o ] && exec cp "{root}/release/$(basename "$url")" "$2"; shift; done
+echo "ok abc123"
+''')
             (fake_bin / 'curl').chmod(0o755)
             cfw_env['PATH'] = f"{fake_bin}:{os.environ['PATH']}"
         if before:
@@ -195,7 +201,7 @@ exit 0
         for name in ['SDL_VIDEODRIVER', 'SDL_AUDIODRIVER', 'SDL3SHIM_SDL2_VIDEODRIVER', 'SDL3SHIM_SDL2_AUDIODRIVER']:
             env.pop(name, None)
         env.update(cfw_env)
-        result = subprocess.run(['bash', str(root / launcher_name)], env=env, stdout=subprocess.DEVNULL,
+        result = subprocess.run(['bash', str(gamedir.parent / launcher_name)], env=env, stdout=subprocess.DEVNULL,
                                 stderr=subprocess.DEVNULL, timeout=30).returncode
         return root, gamedir, result
 
@@ -263,26 +269,103 @@ exit 0
         report = self.read_soak_report(gamedir)
         self.assertTrue(report.startswith('melee soak report v1\nresult: CRASHED (exit status 7)\n'), report[:200])
         self.assertIn('modes: classic,adventure,allstar', report)
+        self.assertIn('version: development build\n', report)
         self.assertIn('== log ==', report)
-        # No report address ships in soak/, so nothing is sent and the message names the file.
-        self.assertFalse((root / 'curl').exists())
-        self.assertIn('soak-report.txt.gz', (root / 'message').read_text())
+        # The report goes to the address that ships in soak/; the message shows the receiver's id.
+        sent = (root / 'curl').read_text()
+        self.assertIn('https://melee-reports.sels.tech/report\n', sent)
+        self.assertIn(f'@{gamedir}/soak-report.txt.gz\n', sent)
+        self.assertIn('id abc123', (root / 'message').read_text())
+        # A build without melee/version.txt never looks for an update.
+        self.assertNotIn('melee-version.txt', sent)
         self.assertFalse((gamedir / 'soak/running').exists())
         self.assertTrue((root / 'finished').exists())
 
-    def test_soak_time_limit_and_upload(self):
-        root, gamedir, result = self.run_launcher(mode='slow', soak=True, cfw_env={'MELEE_SOAK_MINUTES': '1'})
+    def test_soak_time_limit_and_offline_switch(self):
+        # melee/soak/offline keeps the test off the network: no update check, no report sent.
+        def offline(gamedir):
+            (gamedir / 'soak/offline').write_text('')
+            (gamedir / 'version.txt').write_text('portmaster-20260101-aaaaaaa\n')
+        root, gamedir, result = self.run_launcher(mode='slow', soak=True, before=offline,
+                                                  cfw_env={'MELEE_SOAK_MINUTES': '1'})
         self.assertIn('result: completed 1 minutes', self.read_soak_report(gamedir))
         self.assertFalse((root / 'curl').exists())
-        # With an address the report is posted and the receiver's id is shown.
-        (gamedir / 'soak/report-url.txt').write_text('https://reports.example/report\n')
-        script = f'''
-GAMEDIR="{gamedir}"; pm_message() {{ printf '%s\\n' "$1" > "{root}/message"; }}
-PATH="{root}/bin:$PATH"; source "{gamedir}/soak/soak.sh"; soak_finish_message done
-'''
-        subprocess.run(['bash', '-c', script], check=True, timeout=30)
-        self.assertIn('https://reports.example/report', (root / 'curl').read_text())
-        self.assertIn('id abc123', (root / 'message').read_text())
+        self.assertIn('soak-report.txt.gz - please share', (root / 'message').read_text())
+
+    OLD, NEW = 'portmaster-20261001-aaaaaaa', 'portmaster-20261002-bbbbbbb'
+
+    def release(self, root, gamedir, tag=NEW, game='exit 0', checksum=None):
+        """Lays out <root>/release as the newest GitHub release and marks the install as OLD."""
+        (gamedir / 'version.txt').write_text(self.OLD + '\n')
+        directory = root / 'release'
+        directory.mkdir()
+        with zipfile.ZipFile(directory / 'melee.zip', 'w') as archive:
+            archive.writestr('Melee.sh', (gamedir.parent / 'Melee.sh').read_text() + '# new launcher\n')
+            archive.writestr('Melee Soak Test.sh', (PORT_DIR / 'Melee Soak Test.sh').read_text())
+            archive.writestr('port.json', '{}')
+            archive.writestr('melee/melee.aarch64', f'#!/bin/sh\necho ran > "{root}/new-game"\n{game}\n')
+            archive.writestr('melee/version.txt', tag + '\n')
+            archive.writestr('melee/soak/soak.sh', (PORT_DIR / 'soak/soak.sh').read_text())
+        digest = hashlib.sha256((directory / 'melee.zip').read_bytes()).hexdigest()
+        (directory / 'melee-version.txt').write_text(f'{tag} {checksum or digest}\n')
+
+    def test_soak_installs_a_newer_release_first(self):
+        root, gamedir, result = self.run_launcher(soak=True, before=lambda gamedir: self.release(gamedir.parents[1], gamedir))
+        fetched = (root / 'curl').read_text()
+        self.assertIn('https://github.com/zalo/melee/releases/latest/download/melee-version.txt\n', fetched)
+        self.assertIn('https://github.com/zalo/melee/releases/latest/download/melee.zip\n', fetched)
+        # The new launcher and game replaced the old ones and ran; the old build is kept for a rollback.
+        self.assertTrue((gamedir.parent / 'Melee.sh').read_text().endswith('# new launcher\n'))
+        self.assertTrue((root / 'new-game').exists())
+        self.assertFalse((root / 'disc').exists())
+        self.assertEqual((gamedir / 'version.txt').read_text(), self.NEW + '\n')
+        self.assertEqual((gamedir / 'update/previous/melee/version.txt').read_text(), self.OLD + '\n')
+        self.assertFalse((gamedir.parent / 'Melee.sh').read_text() ==
+                         (gamedir / 'update/previous/Melee.sh').read_text())
+        # PortMaster's own port.json is not the updater's to place, and nothing is left half-written.
+        self.assertFalse((gamedir.parent / 'port.json').exists())
+        self.assertFalse(list(gamedir.parent.rglob('*.new')))
+        self.assertFalse((gamedir / 'update/new').exists())
+        report = self.read_soak_report(gamedir)
+        self.assertIn(f'version: {self.NEW}\n', report)
+        self.assertIn('result: the game exited by itself\n', report)
+        self.assertTrue((root / 'finished').exists())
+
+    def test_soak_restores_the_previous_build_when_an_update_cannot_start(self):
+        root, gamedir, result = self.run_launcher(
+            soak=True, before=lambda gamedir: self.release(gamedir.parents[1], gamedir, game='exit 9'))
+        self.assertTrue((root / 'new-game').exists())
+        self.assertEqual((gamedir / 'version.txt').read_text(), self.OLD + '\n')
+        self.assertFalse((gamedir.parent / 'Melee.sh').read_text().endswith('# new launcher\n'))
+        self.assertIn('printf', (gamedir / 'melee.aarch64').read_text())
+        self.assertEqual((gamedir / 'update/rejected').read_text(), self.NEW + '\n')
+        self.assertIn(f'result: CRASHED (exit status 9); update {self.NEW} did not start, previous build restored\n',
+                      self.read_soak_report(gamedir))
+
+    def test_soak_keeps_the_installed_build_when_an_update_is_not_usable(self):
+        cases = {
+            'checksum mismatch': dict(checksum='0' * 64),
+            'older release': dict(tag='portmaster-20260930-ccccccc'),
+            'same release': dict(tag=self.OLD),
+            'not a release tag': dict(tag='latest; rm -rf /'),
+        }
+        for name, arguments in cases.items():
+            with self.subTest(name):
+                root, gamedir, result = self.run_launcher(
+                    soak=True, before=lambda gamedir: self.release(gamedir.parents[1], gamedir, **arguments))
+                self.assertEqual((gamedir / 'version.txt').read_text(), self.OLD + '\n')
+                self.assertTrue((root / 'disc').exists())
+                self.assertFalse((root / 'new-game').exists())
+                self.assertFalse((gamedir / 'update/previous').exists())
+                self.assertIn(f'version: {self.OLD}\n', self.read_soak_report(gamedir))
+        # A release the device rejected before is not downloaded again.
+        def rejected(gamedir):
+            self.release(gamedir.parents[1], gamedir)
+            (gamedir / 'update').mkdir()
+            (gamedir / 'update/rejected').write_text(self.NEW + '\n')
+        root, gamedir, result = self.run_launcher(soak=True, before=rejected)
+        self.assertNotIn('melee.zip', (root / 'curl').read_text())
+        self.assertTrue((root / 'disc').exists())
 
     def test_soak_memory_readers(self):
         script = f'source "{PORT_DIR}/soak/soak.sh"; soak_avail_kb; soak_rss_kb $$'
@@ -329,12 +412,14 @@ class AssembleTests(unittest.TestCase):
             (shim / 'lib/libSDL3.so.0.5.0').write_bytes(b'\x7fELF shim')
             (shim / 'lib/libSDL3.so.0').symlink_to('libSDL3.so.0.5.0')
             (shim / 'LICENSE.txt').write_text('zlib license text')
-            tree, zip_path = package.assemble(bundle, root / 'out', sdl3=shim)
+            tree, zip_path = package.assemble(bundle, root / 'out', sdl3=shim, version='portmaster-20261001-abcdef0')
             self.assertEqual(tree, root / 'out/melee')
             for name in ['port.json', 'Melee.sh', 'Melee Soak Test.sh', 'README.md', 'gameinfo.xml', 'screenshot.jpg',
                          'melee/melee.aarch64', 'melee/melee.ini', 'melee/soak/soak.sh', 'melee/soak/puppet_menu1.txt',
+                         'melee/soak/report-url.txt', 'melee/soak/update-url.txt',
                          'melee/licenses/LICENSE.Aurora.txt', 'melee/assets/README.txt']:
                 self.assertTrue((tree / name).exists(), name)
+            self.assertEqual((tree / 'melee/version.txt').read_text(), 'portmaster-20261001-abcdef0\n')
             self.assertEqual((tree / 'melee/libs.aarch64/libSDL3.so.0').read_bytes(), b'\x7fELF shim')
             self.assertFalse((tree / 'melee/libs.aarch64/libSDL3.so.0').is_symlink())
             self.assertTrue(os.access(tree / 'melee/libs.aarch64/libSDL3.so.0', os.X_OK))

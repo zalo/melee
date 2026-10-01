@@ -84,15 +84,30 @@ matches, the Stadium modes, Training, VS and Special Melee for 30 minutes with r
 on a copy of the save (`melee/runtime/soak-config`), so records, unlocks and settings are untouched;
 start the game normally once first so that a save exists. Start + Select stops the test early.
 
-Either way it ends by writing `melee/soak-report.txt.gz`: `log.txt` plus the device, CFW, kernel,
-the matches played and the free memory each minute. Attach that file to a report. If the device
-froze or lost power, the next soak test saves the interrupted run as
-`melee/soak-report-unfinished.txt.gz` before it starts. Nothing is sent anywhere unless
-`melee/soak/report-url.txt` exists and holds an `https://` address, in which case the report is also
-posted there; without a network the test runs the same and only keeps the file.
+Either way it ends by writing `melee/soak-report.txt.gz`: `log.txt` plus the release, device, CFW,
+kernel, the matches played and the memory use each minute. If the device froze or lost power, the
+next soak test saves the interrupted run as `melee/soak-report-unfinished.txt.gz` before it starts.
+
+The soak test is the only part of the port that uses the network, and it works without one:
+
+- **Report.** When the device is online the report is posted to the address in
+  `melee/soak/report-url.txt` (`https://melee-reports.sels.tech/report`, the port's collector) and the
+  screen shows the id it was stored under. Offline, the message asks you to share the file yourself.
+  The collector stores the report and a salted hash of the sender's address (to limit reports per
+  device and day); only the port's maintainers can read reports back.
+- **Update.** A release build (`melee/version.txt` names its release) first asks
+  `melee/soak/update-url.txt` (the port's GitHub releases) whether a newer release exists. If so it
+  downloads `melee.zip`, checks its SHA-256, replaces the launchers and the `melee/` files (never
+  `assets/` or `runtime/`), keeps the replaced files in `melee/update/previous` and starts again on
+  the new build. A new build that crashes before its first match is rolled back and not fetched again.
+  The check gives up after a few seconds without a network.
+- **Off switch.** An empty file `melee/soak/offline` (or `MELEE_SOAK_OFFLINE=1`) disables both.
 
 `MELEE_SOAK_MINUTES` and `MELEE_TEST_MODES` (a comma-separated playlist such as
 `adventure,event:5,vs`) in the launcher environment change the length and the modes.
+
+Maintainers: the collector is the Cloudflare Worker in `native/tools/soak_report_worker`
+(`wrangler.toml` lists the deploy steps); `native/tools/soak_reports.py list|show|pull` queries it.
 
 ## Port Settings
 

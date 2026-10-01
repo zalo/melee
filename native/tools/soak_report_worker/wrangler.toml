@@ -1,0 +1,17 @@
+# Deploy:  npx wrangler deploy            (from this directory)
+# Schema:  npx wrangler d1 execute melee-soak-reports --remote --file schema.sql
+# Secrets: npx wrangler secret put QUERY_TOKEN   (bearer token for GET /reports)
+#          npx wrangler secret put CLIENT_SALT   (salt of the per-sender hash)
+name = "melee-soak-reports"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+workers_dev = false
+routes = [{ pattern = "melee-reports.sels.tech", custom_domain = true }]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "melee-soak-reports"
+database_id = "9deb68f5-9ec1-41fb-b668-9dbfe9231297"
+
+[observability]
+enabled = true

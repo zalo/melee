@@ -5,7 +5,8 @@ name: PortMaster package
 # glibc 2.30 hybrid toolchain, the patched Dawn, Rust) lives in build/flip-tools and is cached, and
 # ccache keeps the game and Aurora objects between runs; the first run builds Dawn and takes over an
 # hour, later runs a few minutes. A push to the `release` branch additionally publishes a GitHub
-# release with the zip, the symbols and rendered install notes.
+# release with the zip, the symbols, rendered install notes and melee-version.txt (tag and sha256 of
+# the zip), which the soak test's updater on a device reads from releases/latest/download.
 
 on:
   push:
@@ -26,8 +27,16 @@ jobs:
       BUILD_JOBS: 4
       DAWN_CACHE_VERSION: 2
       CCACHE_DIR: ${{ github.workspace }}/build/flip-tools/ccache
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v6
+
+      - name: Release tag
+        # Named once here so that the zip (melee/version.txt) and the release agree on it.
+        id: tag
+        if: github.event_name == 'push' && github.ref == 'refs/heads/release'
+        run: echo "tag=portmaster-$(date -u +%Y%m%d)-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - name: Install host tools and the development headers the SDK sysroot borrows
         run: |
@@ -102,6 +111,7 @@ jobs:
           CCACHE_COMPILERCHECK: "%compiler% --version"
           CCACHE_MAXSIZE: 2G
           CCACHE_BASEDIR: ${{ github.workspace }}
+          MELEE_RELEASE_TAG: ${{ steps.tag.outputs.tag }}
         run: |
           export RUSTUP_HOME="$FLIP_TOOLS/rustup" CARGO_HOME="$FLIP_TOOLS/cargo" PATH="$FLIP_TOOLS/cargo/bin:$PATH"
           export FLIP_TOOLCHAIN="$FLIP_TOOLS/aarch64--glibc--stable-2023.08-1" FLIP_DAWN_PREFIX="$FLIP_TOOLS/dawn-install-a35"
@@ -173,11 +183,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -eu
-          tag="portmaster-$(date -u +%Y%m%d)-${GITHUB_SHA::7}"
+          tag="${{ needs.package.outputs.tag }}"
+          echo "$tag $(sha256sum release/melee.zip | cut -d' ' -f1)" > release/melee-version.txt
           tar -czf release/melee-portmaster-symbols.tar.gz -C symbols .
           python3 native/tools/release_notes.py --zip release/melee.zip --tag "$tag" --commit "$GITHUB_SHA" \
             --date "$(date -u +%Y-%m-%d)" > release/notes.md
-          gh release create "$tag" release/melee.zip release/melee-portmaster-symbols.tar.gz \
+          gh release create "$tag" release/melee.zip release/melee-version.txt release/melee-portmaster-symbols.tar.gz \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest \
             --title "Melee (native) for PortMaster, $tag" --notes-file release/notes.md
           {

@@ -11,6 +11,8 @@
 #   MELEE_BUILD_DIR   build tree (default build/portmaster-a35)
 #   BUILD_JOBS        parallel jobs (default 6)
 #   PORTMASTER_OUTPUT output directory (default dist/portmaster)
+#   MELEE_RELEASE_TAG release name written to melee/version.txt (set by CI for a release; a build
+#                     without it never updates itself)
 set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
 tools="$root/build/flip-tools"
