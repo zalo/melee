@@ -27,6 +27,17 @@ typedef jmp_t jtbl_t[];
 #endif
 #endif
 
+/// An untyped 32-bit word in a struct that other structs overlay (the fighter
+/// motion vars). A pointer-sized #UNK_T is 8 bytes natively and would move
+/// every field after it away from the views that share its storage.
+#ifndef UNK_WORD_T
+#ifdef MELEE_NATIVE
+#define UNK_WORD_T unsigned int
+#else
+#define UNK_WORD_T UNK_T
+#endif
+#endif
+
 #define U32_TO_F32 4503599627370496.0
 #define S32_TO_F32 4503601774854144.0
 

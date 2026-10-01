@@ -44,6 +44,13 @@
 #include "inlines.h"
 #include <dolphin/mtx.h>
 
+#ifdef MELEE_NATIVE
+// The platform manager is read through both views of the union; they must agree where pointers widen.
+STATIC_ASSERT(offsetof(Ground, u.bigblue.xD4) == offsetof(Ground, u.bigblue.manager.platform_jobjs));
+STATIC_ASSERT(offsetof(Ground, u.bigblue.xE0) == offsetof(Ground, u.bigblue.manager.event_extra));
+STATIC_ASSERT(offsetof(Ground, u.bigblue.data) == offsetof(Ground, u.bigblue.manager.data));
+#endif
+
 typedef struct grBb_LineIds {
     s32 v[32];
 } grBb_LineIds;

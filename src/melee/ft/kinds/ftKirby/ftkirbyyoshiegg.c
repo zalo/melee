@@ -95,13 +95,13 @@ void ftKb_SpecialNYs_8010AC78(Fighter_GObj* victim, Fighter_GObj* gobj)
     ftKb_SpecialNYs_80109260(gobj, &fp->self_vel);
     fp->facing_dir = ftKb_SpecialNYs_80109290(gobj);
     fp->dmg.x182c_behavior = ftKb_SpecialNYs_8010929C(gobj);
-    fp->mv.ca.specialhi.vel.y = 0.0f;
+    fp->mv.co.yoshiegg.x8 = 0.0f;
     fp->mv.co.yoshiegg.x0 = gobj;
     fp->take_dmg_2_cb = fn_8010B16C;
     ftCommon_8007EFC0(fp, 1);
-    fp->mv.co.walk.fast_anim_frame = ftKb_SpecialNYs_801092BC(gobj);
-    fp->mv.co.common.x14 = fp->mv.co.walk.fast_anim_frame;
-    fp->mv.co.common.x4.z = ftKb_SpecialNYs_801092AC(gobj);
+    fp->mv.co.yoshiegg.x10 = ftKb_SpecialNYs_801092BC(gobj);
+    fp->mv.co.yoshiegg.x14 = fp->mv.co.yoshiegg.x10;
+    fp->mv.co.yoshiegg.xC = ftKb_SpecialNYs_801092AC(gobj);
     ftCommon_InitGrab(fp, 0, ftKb_SpecialNYs_801092CC(gobj));
     HSD_JObjGetScale(jobj, &fp->mv.co.yoshiegg.x18);
     fp->accessory4_cb = fn_8010AA64;
@@ -114,7 +114,7 @@ void ftCo_KirbyYoshiEgg_Anim(Fighter_GObj* gobj)
     PAD_STACK(16);
     temp_ret = ftKb_SpecialNYs_801092DC();
     fp->grab_timer -= temp_ret;
-    fp->mv.kb.specialhi.x4 = ftCommon_GrabMash(fp, ftKb_SpecialNYs_801092F4());
+    fp->mv.co.yoshiegg.x4 = ftCommon_GrabMash(fp, ftKb_SpecialNYs_801092F4());
     if (fp->grab_timer <= 0.0f) {
         Fighter* fp2;
         ftCo_DatAttrs_xBC_t* xBCp;
@@ -128,15 +128,15 @@ void ftCo_KirbyYoshiEgg_Anim(Fighter_GObj* gobj)
         ftCo_Fall_Enter_YoshiEgg_Kirby(gobj);
         return;
     }
-    if (fp->mv.kb.specialhi.x8.f) {
-        fp->mv.kb.specialhi.x8.f--;
-        if (fp->mv.kb.specialhi.x8.f <= 0.0f && fp->mv.kb.specialhi.x4 == 0) {
+    if (fp->mv.co.yoshiegg.x8) {
+        fp->mv.co.yoshiegg.x8--;
+        if (fp->mv.co.yoshiegg.x8 <= 0.0f && fp->mv.co.yoshiegg.x4 == 0) {
             ftAnim_SetAnimRate(gobj, 1.0f);
-            fp->mv.kb.specialhi.x8.f = 0.0f;
+            fp->mv.co.yoshiegg.x8 = 0.0f;
         }
     }
-    if (fp->mv.kb.specialhi.x8.f <= 0.0f && fp->mv.kb.specialhi.x4 != 0) {
-        fp->mv.kb.specialhi.x8.f = ftKb_SpecialNYs_8010930C();
+    if (fp->mv.co.yoshiegg.x8 <= 0.0f && fp->mv.co.yoshiegg.x4 != 0) {
+        fp->mv.co.yoshiegg.x8 = ftKb_SpecialNYs_8010930C();
         ftAnim_SetAnimRate(gobj, ftKb_SpecialNYs_80109324());
     }
 }

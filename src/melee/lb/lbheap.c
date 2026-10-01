@@ -155,6 +155,16 @@ void lbHeap_80015900(void)
     }
 
     main_heap = &lbHeap_80431FA0.heap_array[LbHeapKind_Hsd];
+#ifdef MELEE_NATIVE
+    /* The scene heap is recreated without freeing what was in it, so the converted copies of the
+     * archives it held have to be dropped here; otherwise each one stays until another archive
+     * happens to load at the same address (a Classic match holds 19-29 MB of them). */
+    if (main_heap->status == LbHeapStatus_Create) {
+        extern void MeleeNativeArchiveReleaseRange(void*, size_t);
+        MeleeNativeArchiveReleaseRange((void*) main_heap->start,
+                                       main_heap->size);
+    }
+#endif
     main_heap->id = HSD_CreateMainHeap((void*) arena_lo, (void*) arena_hi);
     main_heap->start = arena_lo;
     aram_heap = &lbHeap_80431FA0.heap_array[LbHeapKind_ARAM];
@@ -219,6 +229,10 @@ void lbHeap_80015CA8(int arg0, void* addr)
         HSD_Free(addr);
         HSD_SetHeap(cur_heap);
     } else {
+#ifdef MELEE_NATIVE
+        extern void MeleeNativeArchiveRelease(void*);
+        MeleeNativeArchiveRelease(addr);
+#endif
         lbMemFreeToHeap(p->handle, addr);
     }
     OSRestoreInterrupts(enabled);

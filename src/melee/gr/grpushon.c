@@ -304,7 +304,13 @@ void grPushOn_802187A8(Ground_GObj* gobj)
     Ground* gp = GET_GROUND(gobj);
     HSD_LObj* lobj;
 
+#ifdef MELEE_NATIVE
+    /* The GC expression below is link head 4 (the light GObj) only because next_gx sits at 0x10 with
+     * 4-byte pointers; on the 64-bit host the same cast reads head 3 and the "lights" are garbage. */
+    gp->u.pushon.gobj = HSD_GObjGXLinkHead[4];
+#else
     gp->u.pushon.gobj = ((HSD_GObj*) HSD_GObjGXLinkHead)->next_gx;
+#endif
     PAD_STACK(16);
     grPushOn_802190D0(gp->u.pushon.gobj);
     lobj = ((HSD_GObj*) gp->u.pushon.gobj)->hsd_obj;

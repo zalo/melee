@@ -20,6 +20,32 @@ extern "C" void MeleeNativeInputScene(int scene) {
     MeleeNativeMatrixScene(scene);
     if(std::getenv("MELEE_INPUT_SCRIPT")) std::fprintf(stderr,"[input-test] ready scene %d\n",scene);
 }
+extern "C" int MeleeNativePuppetLevel(int slot);
+extern "C" int MeleeNativePuppetStageClear(void);
+extern "C" int MeleeNativePuppetWalks(void);
+// With MELEE_TEST_P1_CPU the fighter plays itself (matrix_runtime.c), so once the script has entered a
+// 1-P mode all that is left for the pad is every screen that is not a match: splash, results,
+// continue, credits, and the menus back into the mode. A and START alternate there; the character
+// select only gets START (the mode remembers the character, and A would pick the token back up), and a
+// match or a loading screen gets nothing, since START would pause the match. The stage-clear score
+// screen is part of the match scene and is the one place there that wants START. Break the Targets is
+// the one match the pad plays: the stick is held left until the fighter has run off the stage.
+static void puppetAutopilot() {
+    static unsigned tick=0;
+    static int last_scene=-2;
+    if(ready_scene!=last_scene) {
+        last_scene=ready_scene;tick=0;
+        if(ready_scene>=0) std::fprintf(stderr,"[puppet] scene %d\n",ready_scene);
+    }
+    u16 buttons=0;
+    if(ready_scene>=0&&(ready_scene!=2||MeleeNativePuppetStageClear())) {
+        const unsigned phase=tick++%60;
+        if(phase>=30&&phase<36) buttons=PAD_BUTTON_START;
+        else if(phase<6&&ready_scene!=8) buttons=PAD_BUTTON_A;
+    }
+    const bool walk=ready_scene==2&&!MeleeNativePuppetStageClear()&&MeleeNativePuppetWalks();
+    MeleeNativeSetKeyboard(buttons,walk?-80:0,0,0,0);
+}
 // Opt-in integration-test input, sampled at the same VI boundary as real keys.
 // Each line is "frame_count keys" (e.g. "2 X", "20 W", "60 NONE").
 // Timing is in game retraces, independent of CUA/OS key injection latency.
@@ -100,11 +126,14 @@ static bool replayInput() {
             finished=false;found=true;break;
         }
         if(!found) {
-            if(!finished) std::fprintf(stderr,"[input-test] script finished; manual control restored\n");
+            if(!finished) std::fprintf(stderr,MeleeNativePuppetLevel(0)?"[input-test] script finished; puppet autopilot\n":"[input-test] script finished; manual control restored\n");
             finished=true;buttons=0;x=0;y=0;
         }
     }
-    if(finished) return false;
+    if(finished) {
+        if(!MeleeNativePuppetLevel(0)) return false;
+        puppetAutopilot();return true;
+    }
     if(wait_scene>=0) {
         MeleeNativeSetKeyboard(0,0,0,0,0);
         if(ready_scene==wait_scene) {remaining=0;wait_scene=-1;}
@@ -113,7 +142,24 @@ static bool replayInput() {
     }
     MeleeNativeSetKeyboard(buttons,x,y,cx,cy);--remaining;return true;
 }
+// Aurora reads each GameCube port from the pad holding that SDL player index, and SDL hands an index
+// out only to a joystick it already knows as a gamepad when the joystick is announced. The SDL2 shim
+// learns a pad's mapping from the CFW's SDL2 after announcing it, so a pad missing from
+// SDL_GAMECONTROLLERCONFIG opened as a gamepad but drove no port (the Flip's built-in pad on ROCKNIX,
+// where PortMaster's mapper stops before reaching it). Seat such a pad on the first free port.
+static void seatGamepad(SDL_JoystickID which) {
+    SDL_Gamepad* pad = SDL_GetGamepadFromID(which);
+    if (!pad || SDL_GetGamepadPlayerIndex(pad) >= 0) return;
+    for (int port = 0; port < 4; ++port) {
+        if (SDL_GetGamepadFromPlayerIndex(port)) continue;
+        SDL_SetGamepadPlayerIndex(pad, port);
+        const char* name = SDL_GetGamepadName(pad);
+        std::fprintf(stderr, "[input] '%s' had no SDL player index; seated on port %d\n", name ? name : "unknown", port + 1);
+        return;
+    }
+}
 extern "C" void MeleeNativeKeyboardEvent(const SDL_Event* event) {
+    if (event->type == SDL_EVENT_GAMEPAD_ADDED) seatGamepad(event->gdevice.which);
 #ifdef MELEE_MIYOO_FLIP
     if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
         auto* pad = SDL_GetGamepadFromID(event->gbutton.which);

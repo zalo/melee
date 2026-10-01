@@ -21,6 +21,7 @@ u32 OSGetPhysicalMemSize(void) { return 24*1024*1024; }
 void* HSD_AudioMalloc(size_t size) { return calloc(1,size); }
 __attribute__((noreturn)) void __assert(const char* file, u32 line, const char* message) { OSPanic(file,line,"%s",message); }
 BOOL DVDFastOpen(s32 entry,DVDFileInfo* file) { (void)entry;memset(file,0,sizeof(*file));return 1; }
+BOOL DVDClose(DVDFileInfo* file) { (void)file;return 1; }
 BOOL DVDReadAsyncPrio(DVDFileInfo* file,void* dest,s32 size,s32 offset,DVDCallback cb,s32 priority) {
     (void)dest;(void)size;(void)offset;(void)priority;
     CHECK(!dvd_done);dvd_done=cb;dvd_file=file;return 1;

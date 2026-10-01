@@ -57,6 +57,38 @@ no game data: you need your own dump of the disc (US, version 1.02, `GALE01`).
   cannot drive here); it now prints the file and line and aborts cleanly, so the log identifies the real
   fault. This changes how such crashes are *reported*, not whether they happen.
 
+- **Fixes the freezes on Mali handhelds (Miyoo Flip, RG351P).** The picture could stop mid-match or on a
+  loading screen with the game still running and the sound looping, until the device was restarted. The
+  vendor Mali driver postpones texture uploads made from a pixel buffer and then waits on a thread that is
+  itself waiting for the upload; the renderer now uploads through a mapped buffer the driver cannot defer,
+  and a second lock-order deadlock between the render thread and synchronous shader compilation is gone.
+- **Long sessions no longer run out of memory on 1 GB handhelds.** GPU and system memory grew with every
+  match until the system killed the game or froze, after 20 to 40 minutes: frames were sent to the GPU
+  twice whenever a shader was still compiling, the cached stage and fighter geometry of every earlier match
+  was kept, compiled shaders were kept without limit, small textures each reserved a whole texture slab,
+  and each chunk of streamed music and every finished match left its disc buffers and converted game files
+  behind. All of these are now released or bounded. In unattended testing a CPU-controlled player cleared
+  Classic mode six times in a row on the Miyoo Flip (41 minutes, at least 210 MB free throughout) and on the
+  RG35XX SP (45 minutes); the RG351P, which used to die after about 20 minutes, ran 45 minutes with 350 MB
+  to spare.
+- **Fixes a crash on Kongo Jungle when the barrel cannon catches a fighter**, and the same defect on Kongo
+  Jungle (N64), Battlefield, Princess Peach's Castle and Venom: a 64-bit pointer inside a 32-bit stage
+  parameter block shifted the fields after it, so a stage script could not be found (the log ended with
+  `Script branch has no live archive owner`).
+- **Fixes the controller doing nothing on the Miyoo Flip under ROCKNIX.** The built-in pad was opened but
+  not assigned to a player port, so Start and every other button were dead. A pad that arrives without a
+  player slot is now seated on the first free port.
+- **Fixes crashes and wrong behaviour in several fighters and stages** found by running Classic, Adventure
+  and the stadium modes unattended: Master Hand and Crazy Hand, Pikachu's Thunder, Jigglypuff's costumes
+  with a hat, Yoshi's and Kirby's egg, throws, the Super and Poison Mushroom size change, a fighter
+  teetering on certain ledges, the Arwings on Corneria and Venom, Race to the Finish, and the credits after
+  Classic mode.
+- **Saves survive a hard power-off.** After writing the memory card the game now also flushes the
+  directory entry, so switching the device off right after a match no longer leaves an empty or corrupt
+  save on FAT cards.
+- **Crash reports show the real fault address.** Under some CFWs a crash was logged with the game's own
+  process id in place of the faulting address.
+
 ## Install
 
 1. Download `melee.zip` below. Do not unpack it.

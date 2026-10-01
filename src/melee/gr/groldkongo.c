@@ -57,8 +57,17 @@ struct grOldKongo_YakumonoParam {
     s32 rrfix_barrel_attack;
     s32 rradd_barrel_attack;
     s32 x68;
+#ifdef MELEE_NATIVE
+    // Serialized 32-bit slot; resolved with GR_MATERIAL_SCRIPT.
+    u32 x6C;
+#else
     void* x6C;
+#endif
 };
+#ifdef MELEE_NATIVE
+// The block is read in place at its GameCube offsets (native/stage_numeric_layouts.hpp).
+STATIC_ASSERT(sizeof(struct grOldKongo_YakumonoParam) == 112);
+#endif
 
 /* 20F468 */ static void grOldKongo_8020F468(bool);
 /* 20F46C */ static void grOldKongo_8020F46C(void);

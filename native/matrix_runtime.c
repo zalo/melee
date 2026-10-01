@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sysdolphin/baselib/random.h>
+#include <melee_archive.h>
 
 static int setting(const char* name, int maximum, int current)
 {
@@ -81,6 +82,7 @@ void MeleeNativeTestPrepareCss(CSSData* css)
 #include <melee/pl/player.h>
 #include <melee/gr/stage.h>
 #include <melee/gr/ground.h>
+#include <melee/gm/gmvs.h>
 #include <melee/ft/types.h>
 #include <melee/it/itspawn.h>
 #include <sysdolphin/baselib/gobj.h>
@@ -175,6 +177,34 @@ int MeleeNativeSkipParticles(void)
     return !keep && Stage_80225194() == St_Kind_Izumi;
 }
 
+/* MELEE_TEST_P1_CPU=<1..9>: player 1's fighter takes its inputs from the CPU AI at that level. The
+ * slot stays human to the game mode (ftCo_IsCpuControlled is the only thing that changes), so 1-P
+ * modes keep their rules, scoring and continue screens. Once an input script has entered a mode, the
+ * script layer (keyboard_input.cpp) clears the screens between matches, which turns a whole Classic
+ * run into an unattended soak test. Returns 0 for every other slot and when unset. */
+int MeleeNativePuppetLevel(int slot)
+{
+    static int level = -1;
+    if (level < 0) level = setting("MELEE_TEST_P1_CPU", 9, 0);
+    return slot == 0 ? level : 0;
+}
+
+/* Break the Targets has no opponent, so the CPU AI stands still there until the two minute clock
+ * runs out. The puppet's fighter goes back to the pad for that stage and the script layer holds the
+ * stick left: it runs off the stage, the bonus stage ends as a failure and the run moves on. */
+int MeleeNativePuppetWalks(void)
+{
+    GrKind kind = Stage_8022519C(Stage_80225194());
+    return MeleeNativePuppetLevel(0) && kind >= Gr_Kind_TMario && kind <= Gr_Kind_TGanon;
+}
+
+/* The match scene also hosts the 1-P stage-clear score screen (state 2 of its state machine), which
+ * waits for START; in every other state of that scene START would pause the match. */
+int MeleeNativePuppetStageClear(void)
+{
+    return gmVs_GetSceneController()->state.unk_0 == 2;
+}
+
 static int matrix_scene = -1;
 static unsigned matrix_frames;
 static unsigned freeze_frames;
@@ -184,6 +214,14 @@ void MeleeNativeMatrixScene(int scene)
     matrix_frames = 0;
     freeze_frames = 0;
     if (scene == 2) MeleeNativeDumpStagePoints();
+    if (scene == 2 && MeleeNativePuppetLevel(0)) {
+        static unsigned matches;
+        size_t archives = 0, archive_bytes = 0;
+        MeleeNativeArchiveStats(&archives, &archive_bytes);
+        fprintf(stderr, "[puppet] match %u stage=%d character=%d stocks=%d level=%d archives=%zu/%zukB\n", ++matches,
+                Stage_80225194(), Player_GetPlayerCharacter(0), Player_GetStocks(0), MeleeNativePuppetLevel(0),
+                archives, archive_bytes / 1024);
+    }
     if (scene == 2 && getenv("MELEE_MATRIX_TEST")) {
         int expected = setting("MELEE_TEST_CHARACTER", 32, CKind_Fox);
         int actual = Player_GetPlayerCharacter(0);
@@ -254,27 +292,38 @@ static u32 hash_f32(u32 h, float f)
     memcpy(&bits, &f, sizeof bits);
     return hash_mix(h, bits);
 }
+/* Player_GetEntity returns player_slots[].player_entity, a stored pointer that goes stale when the
+ * fighter is freed on scene teardown. What it points at afterwards is whatever reuses the memory: a
+ * recycled gobj of another kind, or plain data once the next scene has laid out its heap - the Classic
+ * credits left a block there whose first halfword read as the fighter classifier and whose "user_data"
+ * was no pointer at all, which faulted. So a slot only counts while its gobj is on the scene's fighter list.
+ * Determinism-safe: in a live match every peer finds the fighter there, and peers leave the match in
+ * lockstep, so the placeholder branch is taken on the same frames on both sides. */
+static Fighter* live_fighter(int slot)
+{
+    HSD_GObj* gobj = Player_GetEntity(slot);
+    HSD_GObj* cur;
+    if (gobj == NULL || HSD_GObjPLinkHead == NULL) return NULL;
+    for (cur = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_FIGHTER]; cur != NULL; cur = cur->next) {
+        if (cur == gobj) {
+            Fighter* fp = cur->user_data;
+            return cur->classifier == HSD_GOBJ_CLASS_FIGHTER && fp != NULL && fp->gobj == cur ? fp : NULL;
+        }
+    }
+    return NULL;
+}
+
 u32 MeleeNativeStateHash(void)
 {
     u32 h = 2166136261u;
     int slot;
     h = hash_mix(h, *HSD_RandSeedPtr);
     for (slot = 0; slot < 4; slot++) {
-        HSD_GObj* gobj = Player_GetEntity(slot);
-        Fighter* fp;
-        /* Player_GetEntity returns player_slots[].player_entity, a stored pointer that goes stale when
-         * the fighter is freed on scene teardown (e.g. leaving a match by exiting training mode): the
-         * gobj is recycled within the fixed gobj pool - still mapped, so its classifier is safe to read -
-         * but is no longer a fighter, and its user_data no longer points at a live Fighter (a non-null
-         * poison/stale value slips past the old NULL check and faults when dereferenced). Only hash a
-         * slot that is currently a live fighter gobj. Determinism-safe: in a live match every peer sees
-         * a valid fighter here, and peers leave the match in lockstep, so the placeholder branch is taken
-         * on the same frames on both sides. */
-        if (gobj == NULL || gobj->classifier != HSD_GOBJ_CLASS_FIGHTER || gobj->user_data == NULL) {
+        Fighter* fp = live_fighter(slot);
+        if (fp == NULL) {
             h = hash_mix(h, 0xF0000000u | (u32) slot);
             continue;
         }
-        fp = gobj->user_data;
         h = hash_mix(h, (u32) fp->kind);
         h = hash_mix(h, (u32) fp->motion_id);
         h = hash_f32(h, fp->cur_pos.x);
@@ -336,9 +385,9 @@ void MeleeNativeMatrixTick(void)
         !getenv("MELEE_TEST_ITEM")) return;
     ++matrix_frames;
     if (matrix_frames % 180 != 90) return;
-    HSD_GObj* fighter = Player_GetEntity(0);
-    if (!fighter || !fighter->user_data) return;
-    Vec3 position = ((Fighter*) fighter->user_data)->cur_pos;
+    Fighter* fighter = live_fighter(0);
+    if (!fighter) return;
+    Vec3 position = fighter->cur_pos;
     position.y += 12;
     int kind = setting("MELEE_TEST_ITEM", 34, 0);
     bool spawned = it_8026D258(&position, kind);

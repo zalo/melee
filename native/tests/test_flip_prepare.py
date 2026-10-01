@@ -31,31 +31,43 @@ class PatchTests(unittest.TestCase):
             '@@ -1 +1 @@\n-original\n+patched\n')
 
     def test_archive_inside_parent_repository_is_patched_idempotently(self):
-        prepare.apply_patch(self.dependency, self.patch)
+        prepare.apply_patches(self.dependency, [self.patch])
         self.assertEqual(self.source.read_text(), 'patched\n')
         self.assertEqual(self.parent_source.read_text(), 'original\n')
-        prepare.apply_patch(self.dependency, self.patch)
+        prepare.apply_patches(self.dependency, [self.patch])
         self.assertEqual(self.source.read_text(), 'patched\n')
 
     def test_real_dependency_checkout_is_patched_idempotently(self):
         subprocess.run(['git', 'init', '-q', str(self.dependency)], check=True)
-        prepare.apply_patch(self.dependency, self.patch)
-        prepare.apply_patch(self.dependency, self.patch)
+        prepare.apply_patches(self.dependency, [self.patch])
+        prepare.apply_patches(self.dependency, [self.patch])
         self.assertEqual(self.source.read_text(), 'patched\n')
         self.assertEqual(self.parent_source.read_text(), 'original\n')
+
+    def test_later_patch_over_the_same_lines_keeps_the_stack_idempotent(self):
+        later = self.root / 'later.patch'
+        later.write_text(
+            'diff --git a/source.txt b/source.txt\n'
+            '--- a/source.txt\n+++ b/source.txt\n'
+            '@@ -1 +1 @@\n-patched\n+patched twice\n')
+        prepare.apply_patches(self.dependency, [self.patch])
+        prepare.apply_patches(self.dependency, [self.patch, later])
+        self.assertEqual(self.source.read_text(), 'patched twice\n')
+        prepare.apply_patches(self.dependency, [self.patch, later])
+        self.assertEqual(self.source.read_text(), 'patched twice\n')
 
     def test_parent_only_patch_is_rejected(self):
         (self.root / 'parent-only.txt').write_text('original\n')
         self.patch.write_text(self.patch.read_text().replace('source.txt', 'parent-only.txt'))
         with self.assertRaises(subprocess.CalledProcessError):
-            prepare.apply_patch(self.dependency, self.patch)
+            prepare.apply_patches(self.dependency, [self.patch])
         self.assertEqual((self.root / 'parent-only.txt').read_text(), 'original\n')
         self.assertEqual(self.source.read_text(), 'original\n')
 
     def test_conflicting_dependency_is_rejected(self):
         self.source.write_text('conflicting\n')
         with self.assertRaises(subprocess.CalledProcessError):
-            prepare.apply_patch(self.dependency, self.patch)
+            prepare.apply_patches(self.dependency, [self.patch])
         self.assertEqual(self.source.read_text(), 'conflicting\n')
         self.assertEqual(self.parent_source.read_text(), 'original\n')
 

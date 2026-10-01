@@ -106,6 +106,20 @@ static GrJoint grCn_803E1D38[] = {
     { 2, 15, 0 }, { 5, 16, 0 }, { 6, 17, 0 }, { 7, 18, 0 },
 };
 
+#ifdef MELEE_NATIVE
+#include <stddef.h>
+#include <Runtime/platform.h>
+// An Arwing article is written through one of these views and read through another (its slot index
+// selects into arwing_types/arwing_groups), so they must agree on the 64-bit host as they do on GC.
+STATIC_ASSERT(offsetof(Ground, u.arwing.xC4) == offsetof(Ground, u.starfox.xC4));
+STATIC_ASSERT(offsetof(Ground, u.arwing.xC8) == offsetof(Ground, u.corneria2.xC8));
+STATIC_ASSERT(offsetof(Ground, u.arwing.xC8) == offsetof(Ground, u.starfox.arwing_slot));
+STATIC_ASSERT(offsetof(Ground, u.arwing.xCC) == offsetof(Ground, u.starfox.xCC));
+STATIC_ASSERT(offsetof(Ground, u.corneria2.xDC) == offsetof(Ground, u.starfox.linked_gobj));
+STATIC_ASSERT(offsetof(Ground, u.corneria2.xE0) == offsetof(Ground, u.starfox.article_gobjs));
+STATIC_ASSERT(offsetof(Ground, u.corneria2.xF0) == offsetof(Ground, u.starfox.xF0));
+#endif
+
 static HSD_GObj* arwing_gobjs[3] = { 0 };
 static int arwing_types[3] = { 0 };
 static int arwing_groups[3] = { 0 };
@@ -816,7 +830,13 @@ void grCorneria_801DDDA8(HSD_GObj* gobj, Vec3* vec)
         jobj = Ground_801C3FA4(gobj, 4);
         lb_8000B1CC(jobj, NULL, &pos);
         idx = arwing_types[gp->u.arwing.xC8];
+#ifdef MELEE_NATIVE
+        /* gp2 is the Great Fox (a corneria-view object): its gp+0xDC is
+         * offset_x, which only the GC layout also finds at arwing.xDC. */
+        vec->x = gp2->u.corneria.offset_x + (-pos.z + lbl_803E2068[idx].x);
+#else
         vec->x = gp2->u.arwing.xDC + (-pos.z + lbl_803E2068[idx].x);
+#endif
         vec->y = pos.y + lbl_803E2068[idx].y;
         vec->z = pos.x + lbl_803E2068[idx].z;
     } else {

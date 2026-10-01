@@ -46,8 +46,14 @@ extern "C" void MeleeNativeSettingsLoad(const char* user_path);
 // Pi 5 report was a bare "Segmentation fault" at renderer start-up, which this would have located.)
 static void crash_handler(int signal, siginfo_t* info, void*) {
     static char text[256];
-    int n = std::snprintf(text, sizeof text, "[crash] signal %d (%s) at address %p\n", signal, strsignal(signal),
-                          info ? info->si_addr : nullptr);
+    // A handler installed after this one (the SDL2 parachute under the SDL3 shim) passes the signal on with
+    // raise(), and then si_addr overlays the sender's pid: an RG351P report read "at address 0x22c97", the
+    // game's own pid. Only a kernel-generated fault (si_code > 0) carries the faulting address.
+    int n = info && info->si_code > 0
+                ? std::snprintf(text, sizeof text, "[crash] signal %d (%s) at address %p\n", signal,
+                                strsignal(signal), info->si_addr)
+                : std::snprintf(text, sizeof text, "[crash] signal %d (%s), re-raised: fault address not known\n",
+                                signal, strsignal(signal));
     if (n > 0) (void)!write(2, text, static_cast<size_t>(n));
     if (FILE* maps = std::fopen("/proc/self/maps", "r")) {
         char line[512];

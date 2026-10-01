@@ -1350,14 +1350,7 @@ void efLib_Cb_ftKp_SpecialHi(EF_Effect* effect)
     } else {
         HSD_JObjSetFlagsAll(jobj_2, JOBJ_HIDDEN);
     }
-#ifdef MELEE_NATIVE
-    /* x10 is a void*-typed slot; use a pointer-width test so a real pointer is
-     * not truncated (a small-flag value is unaffected by the wider compare). */
-    if ((fighter->cmd_vars[2] & 1) &&
-        ((intptr_t) fighter->mv.co.common.x10 != 0)) {
-#else
     if ((fighter->cmd_vars[2] & 1) && ((s32) fighter->mv.co.common.x10 != 0)) {
-#endif
         rotate_z = -atan2f(fighter->coll_data.floor.normal.x,
                            fighter->coll_data.floor.normal.y);
         HSD_JObjSetRotationZ(jobj_1, rotate_z);

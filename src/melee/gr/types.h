@@ -631,13 +631,16 @@ struct grVenom_GroundVars2 {
 #endif
 };
 
+/// Corneria and Venom reach the same articles through this view and through
+/// the corneria2 / starfox / venom views, so every field has to stay 32-bit:
+/// widening one moves the arwing slot away from where the other views read it.
 struct grArwing_GroundVars {
-    grUserPtr xC4;
-    grUserPtr xC8;
+    u32 xC4;
+    u32 xC8;
     u32 xCC;
-    grUserPtr xD0;
+    u32 xD0;
     s32 xD4;
-    grUserPtr xD8;
+    s32 xD8;
     f32 xDC;
     Vec3 xE0;
     f32 xEC;
@@ -1548,7 +1551,10 @@ struct grBigBlue_GroundVars {
             /*  +8 gp+CC */ void* xCC;
             /*  +C gp+D0 */ f32 xD0;
             /* +10 gp+D4 */ HSD_JObj* xD4[3];
-            /* pad */ char pad_3[4];
+            /* Pointer-sized: this is manager.event_extra. As char[4] the
+             * 64-bit native build put data[] four bytes before manager.data,
+             * and storing event_extra overwrote data[0].index. */
+            /* +1C gp+E0 */ void* xE0;
             /* +20 gp+E4 */ struct grBigBlue_GroundData data[3];
         };
         struct grBigBlue_ManagerVars manager;
@@ -1681,6 +1687,13 @@ struct grCastle_GroundVars11 {
     /* +0C gp+D0 */ GrCastlePtr xD0;
     /* +10 gp+D4 */ GrCastlePtr xD4;
     /* +14 gp+D8 */ GrCastlePtr xD8;
+};
+
+/// Peach's Castle switch article: a material GObj and a camera subject. The GC
+/// code reached these two slots through the arwing view.
+struct grCastle_GroundVars12 {
+    /* +00 gp+C4 */ grUserPtr xC4;
+    /* +04 gp+C8 */ grUserPtr xC8;
 };
 
 struct grPura_GroundVars {
@@ -1936,6 +1949,7 @@ struct Ground {
         struct grCastle_GroundVars8 castle8;
         struct grCastle_GroundVars10 castle10;
         struct grCastle_GroundVars11 castle11;
+        struct grCastle_GroundVars12 castle12;
         struct grCorneria_GroundVars corneria;
         struct grCorneria_GroundVars2 corneria2;
         struct grGreatBay_GroundVars greatbay;

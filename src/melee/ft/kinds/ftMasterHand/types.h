@@ -105,10 +105,25 @@ struct ftMasterHand_SpecialAttrs {
     float x178;
 };
 
+/* The hands' motion vars are read through several of these views at once, and some fields (the sound
+ * handles, the laser items) outlive the motion state that set them. With 4-byte pointers every view
+ * agrees on where a field is; with 8-byte ones a pointer in one view shifted or overlapped the ints of
+ * another (the finger beam's sound handles landed on its first laser pointer). So on the 64-bit host
+ * the pointers live past the GC-sized block, at the same place in every view, and everything else
+ * keeps its GC offset. */
+#ifdef MELEE_NATIVE
+#define FTMH_MV_CALLBACK 0x80
+#define FTMH_MV_ITEMS 0x88
+#endif
+
 union ftMasterHand_MotionVars {
     struct ftMasterHand_Unk0Vars {
         float x0;
+#ifdef MELEE_NATIVE
+        int x4_gc;
+#else
         HSD_GObjEvent x4;
+#endif
         int x8;
         Vec3 xC;
         float x18;
@@ -132,6 +147,10 @@ union ftMasterHand_MotionVars {
         int x70;
         int x74;
         int x78;
+#ifdef MELEE_NATIVE
+        char pad_7C[FTMH_MV_CALLBACK - 0x7C];
+        HSD_GObjEvent x4;
+#endif
     } unk0;
 
     struct ftMasterHand_Unk4Vars {
@@ -146,7 +165,11 @@ union ftMasterHand_MotionVars {
     } unk13;
 
     struct ftMasterHand_FingerBeamVars {
+#ifdef MELEE_NATIVE
+        char pad_0[FTMH_MV_ITEMS];
+#else
         /*  +0 fp+2340 */ char pad_0[0x34];
+#endif
         /* +34 fp+2374 */ Item_GObj* x34;
         /* +38 fp+2378 */ Item_GObj* x38;
         /* +3C fp+237C */ Item_GObj* x3C;
@@ -154,7 +177,11 @@ union ftMasterHand_MotionVars {
     } fingerbeam;
 
     struct ftMasterHand_GrabVars {
+#ifdef MELEE_NATIVE
+        char pad_0[FTMH_MV_ITEMS];
+#else
         char pad_0[0x28];
+#endif
         Item_GObj* x28;
         Item_GObj* x2C;
         Item_GObj* x30;
@@ -166,6 +193,9 @@ union ftMasterHand_MotionVars {
         /* +28 fp+2368 */ int x28;
         /* +2C fp+236C */ int x2C;
         /* +30 fp+2370 */ int x30;
+#ifdef MELEE_NATIVE
+        char pad_34[FTMH_MV_ITEMS - 0x34];
+#endif
         /* +34 fp+2374 */ Item_GObj* x34;
         /* +38 fp+2378 */ Item_GObj* x38;
         /* +3C fp+237C */ Item_GObj* x3C;

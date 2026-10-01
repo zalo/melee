@@ -305,6 +305,18 @@ authors.
   EGL native-window surface source, swapchain GL storage reuse, native GL interop
   extension). That is what the `dawn-install-fast` prefix the cross build links was built
   from. The former `dawn-egl-native-window.patch` was byte-identical and was renamed.
+  Two more patches are applied on top, in this order (`prepare_flip.py` `apply_patches`):
+  `dawn-egl-dlsym-fallback.patch` (core EGL procs through `dlsym` where
+  `eglGetProcAddress` returns null, PowerVR) and `dawn-mali-deferred-upload.patch`.
+  The latter fixes the freeze without a crash on libmali (Miyoo Flip g29p1 4 of 5 Classic
+  starts, RG351P r13p0 1 of 3): Aurora uploads every texture from its staging buffer
+  (`CopyBufferToTexture`), Dawn bound that buffer as `GL_PIXEL_UNPACK_BUFFER`, and libmali
+  turns such an upload into a deferred job on a `mali-utility-wo` thread that waits for
+  frames only the context's own thread flushes; once that thread waited on the driver too
+  nothing moved again. Dawn now passes the texels through a read mapping of the buffer
+  when `GL_VENDOR` is `ARM` (`DAWN_GL_TEXTURE_UPLOAD=map|pbo` overrides), and its queue
+  uses plain EGL fences instead of native ones, whose first wait libmali does not time
+  out (`DAWN_GL_SYNC_TYPE=native|fence|reusable`).
 - **PortMaster packaging** (`native/platform/portmaster/`): `Melee.sh` launcher following
   the Dusklight port (control.txt/mod_CFW, `get_controls`, log tee, disc discovery in
   `melee/assets` for `.iso/.gcm/.ciso/.rvz`, XDG dirs under `melee/runtime`, one pipeline

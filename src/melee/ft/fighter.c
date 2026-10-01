@@ -127,6 +127,7 @@ struct Fighter_804D6524_t* Fighter_804D6524 = NULL;
 struct Fighter_ShakeTable_t* Fighter_SmashChargeShakeTable = NULL;
 struct Fighter_ShakeTable_t* Fighter_GrabMashShake = NULL;
 #ifdef MELEE_NATIVE
+int MeleeNativePuppetLevel(int slot);
 struct Fighter_ShakeTable_t* Fighter_804D6530 = NULL;
 #else
 Vec2** Fighter_804D6530 = NULL;
@@ -558,6 +559,14 @@ void Fighter_Spawn(Fighter_GObj* gobj)
         ftData_OnDeath[fp->kind](gobj);
     }
 
+#ifdef MELEE_NATIVE
+    if (Player_GetPlayerSlotType(fp->player_idx) == Gm_PKind_Human &&
+        MeleeNativePuppetLevel(fp->player_idx))
+    {
+        ftCo_800A101C(fp, Player_GetCpuType(fp->player_idx),
+                      MeleeNativePuppetLevel(fp->player_idx), 0);
+    } else
+#endif
     ftCo_800A101C(fp, Player_GetCpuType(fp->player_idx),
                   Player_GetCpuLevel(fp->player_idx), 0);
 

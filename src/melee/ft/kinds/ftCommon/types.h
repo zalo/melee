@@ -36,7 +36,7 @@ union ftCommon_MotionVars {
     struct {
         /* fp+2340 */ int x0;
         /* fp+2344 */ Vec3 x4;
-        /* fp+2350 */ UNK_T x10;
+        /* fp+2350 */ UNK_WORD_T x10;
         /* fp+2354 */ float x14;
         /* fp+2358 */ float x18;
         /* fp+235C */ float x1C;
@@ -160,14 +160,14 @@ union ftCommon_MotionVars {
         /* fp+235C */ int x1C;
         /* fp+2360 */ int x20;
         /* fp+2364 */ int x24;
-        /* fp+2368 */ UNK_T x28;
+        /* fp+2368 */ UNK_WORD_T x28;
         /* fp+236C */ float x2C;
     } guard;
     struct {
         /* fp+2340 */ bool x0; // itemget action is heavy type?
     } itemget;
     struct {
-        /* fp+2340 */ UNK_T x0;
+        /* fp+2340 */ UNK_WORD_T x0;
         /* fp+2344 */ int x4;
         /* fp+2348 */ int x8;
         /* fp+234C */ HSD_GObj* victim;
@@ -181,8 +181,8 @@ union ftCommon_MotionVars {
         /* fp+234C */ int xC;
         /* fp+2350 */ float x10;
         /* fp+2354 */ int x14;
-        /* fp+2358 */ UNK_T x18;
-        /* fp+235C */ UNK_T x1C;
+        /* fp+2358 */ UNK_WORD_T x18;
+        /* fp+235C */ UNK_WORD_T x1C;
         /* fp+2360 */ int x20;
     } itemthrow;
     struct {
@@ -273,7 +273,7 @@ union ftCommon_MotionVars {
     } yoshiegg;
     struct {
         /* fp+2340 */ bool x0;
-        /* fp+2344 */ UNK_T x4;
+        /* fp+2344 */ UNK_WORD_T x4;
         /* fp+2348 */ float x8;
         /* fp+234C */ float xC;
         /* fp+2350 */ float x10;
@@ -283,10 +283,10 @@ union ftCommon_MotionVars {
         /* fp+2348 */ Vec2 x8;
         /* fp+2350 */ Vec2 x10;
         /* fp+2358 */ bool x18;
-        /* fp+235C */ UNK_T x1C;
-        /* fp+2360 */ UNK_T x20;
-        /* fp+2364 */ UNK_T x24;
-        /* fp+2368 */ UNK_T x28;
+        /* fp+235C */ UNK_WORD_T x1C;
+        /* fp+2360 */ UNK_WORD_T x20;
+        /* fp+2364 */ UNK_WORD_T x24;
+        /* fp+2368 */ UNK_WORD_T x28;
         /* fp+236C */ Vec3 scale;
     } capturekirby;
     struct {
@@ -348,7 +348,7 @@ union ftCommon_MotionVars {
         /* fp+2348 */ float x8;
     } hammerkneebend;
     struct {
-        /* fp+2340 */ UNK_T x0;
+        /* fp+2340 */ UNK_WORD_T x0;
         /* fp+2344 */ float x4;
     } hammerlanding;
     struct {
@@ -374,17 +374,35 @@ union ftCommon_MotionVars {
         /* fp+2340 */ Item_GObj* x0;
         /* fp+2344 */ int x4;
     } capturelikelike;
+#ifdef MELEE_NATIVE
+    /* The mushroom states keep their scale endpoints in walk.middle_anim_frame
+     * and walk.fast_anim_frame (xC, x10) and the saved velocities in
+     * common.x14..x58. Two 8-byte callbacks at the front would cover the
+     * endpoints, so natively they follow the saved block. */
+    struct {
+        /* fp+2340 */ u8 pad_x0[8];
+        /* fp+2348 */ int x8;
+        /* fp+234C */ u8 pad_xC[0x68 - 0xC];
+        HSD_GObjEvent x0;
+        HSD_GObjEvent x4;
+    } mushroom;
+#else
     struct {
         /* fp+2340 */ HSD_GObjEvent x0;
         /* fp+2344 */ HSD_GObjEvent x4;
         /* fp+2348 */ int x8;
     } mushroom;
+#endif
     struct {
         /* fp+2340 */ int x0;
         /* fp+2344 */ int x4;
         /* fp+2348 */ Item_GObj* x8;
     } barrel;
     struct {
+#ifdef MELEE_NATIVE
+        /// Same slot as mushroom.x0.
+        u8 pad_x0[0x68];
+#endif
         /* fp+2340 */ HSD_GObjEvent x0;
     } unk_800D2890;
     struct {
@@ -419,7 +437,7 @@ union ftCommon_MotionVars {
     struct {
         /* fp+2340 */ bool unk_bool;
         /* fp+2344 */ float anim_timer;
-        /* fp+2348 */ UNK_T x8;
+        /* fp+2348 */ UNK_WORD_T x8;
         /* fp+234C */ u8 xC;
     } thrown;
     struct {

@@ -10,6 +10,7 @@ void* MeleeNativeScriptPointer(const void* field);
 void MeleeNativeArchiveExtern(void* key, const char* name, void* pointer);
 void MeleeNativeArchiveRelease(void* pointer);
 void MeleeNativeArchiveReleaseRange(void* pointer, size_t size);
+void MeleeNativeArchiveStats(size_t* count, size_t* bytes);
 #ifdef __cplusplus
 }
 #endif

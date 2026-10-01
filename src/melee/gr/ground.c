@@ -1,6 +1,9 @@
 #include "ground.h"
 
 #include <Runtime/platform.h>
+#ifdef MELEE_NATIVE
+#include <string.h>
+#endif
 
 #include <math.h>
 
@@ -304,6 +307,14 @@ static Ground* alloc_user_data_ground(void)
     if (gp == NULL) {
         OSReport("%s:%d: couldn t get user data(Ground)\n", __FILE__, 474);
     }
+#ifdef MELEE_NATIVE
+    /* The GC game never clears this block. Natively the stage unions have padding and widened slots
+     * the GC code never writes, so stale heap contents would make any view mismatch device-dependent
+     * (and a lockstep desync); zero is at least the same everywhere. */
+    else {
+        memset(gp, 0, sizeof(*gp));
+    }
+#endif
     return gp;
 }
 

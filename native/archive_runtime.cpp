@@ -48,6 +48,7 @@ struct Archive {
     static std::uint32_t be32(const std::byte* p) { return std::to_integer<unsigned>(p[0])<<24 | std::to_integer<unsigned>(p[1])<<16 | std::to_integer<unsigned>(p[2])<<8 | std::to_integer<unsigned>(p[3]); }
     Archive(const void* data, size_t size):source(std::vector<std::byte>((const std::byte*)data,(const std::byte*)data+size)),raw(data) {
         const auto bytes=static_cast<const std::byte*>(data);
+        footprint=size;
         boundaries={0,source.data_size()};
         for (std::uint32_t i=0;i<be32(bytes+8);++i) {
             auto field=be32(bytes+32+source.data_size()+i*4);
@@ -59,10 +60,11 @@ struct Archive {
         boundaries.erase(std::unique(boundaries.begin(),boundaries.end()),boundaries.end());
     }
     ~Archive() { for(void* p:vertex_buffers) MeleeNativeUnregisterVertexBuffer(p); for (void* p:allocations) std::free(p); }
+    size_t footprint=0;
     void* allocate(size_t size) {
         void* p=nullptr;
         if (posix_memalign(&p,32,size?size:1)) throw std::bad_alloc();
-        std::memset(p,0,size?size:1); allocations.push_back(p); return p;
+        std::memset(p,0,size?size:1); allocations.push_back(p); footprint+=size; return p;
     }
     void* rumble(std::uint32_t root) {
         auto bytes=source.data_size()-root;
@@ -444,7 +446,16 @@ struct Archive {
                             item_special_types[*target]=MeleeNativeItemSpecialType(source.u32(source_offset));
                         if(type==AT_ARTICLE&&field.file_offset==4) kind=item_special_types.at(source_offset);
                         if(type==AT_ITEM_DYNAMICS&&field.file_offset==4) elements=source.u32(source_offset);
-                        if(type==AT_FIGHTER_DYNAMICS&&field.file_offset==4) elements=source.u32(source_offset);
+                        if(type==AT_FIGHTER_DYNAMICS&&field.file_offset==4) {
+                            elements=source.u32(source_offset);
+                            // Jigglypuff's table counts one entry and holds five: ftCo_8009DC54 reads entries 1-4
+                            // for the bones of her headband and nightcap. Take every entry that is really there.
+                            auto described=[&](size_t i) {
+                                try {return source.pointer(*target+i*24+4).has_value();}
+                                catch(const std::exception&) {return false;}
+                            };
+                            while((elements+1)*24<=extent(*target)&&described(elements)) ++elements;
+                        }
                         if(type==AT_FIGHTER_DYNAMICS&&field.file_offset==16) elements=extent(*target)/4;
                         if(type==AT_FIGHTER_VIS&&field.file_offset==4) elements=source.u32(source_offset);
                         if(type==AT_FIGHTER_PART_ANIM&&field.file_offset==8) elements=extent(*target)/4;
@@ -764,4 +775,14 @@ extern "C" void MeleeNativeArchiveReleaseRange(void* pointer,size_t size) {
     auto contains=[&](const void* p){auto value=(uintptr_t)p,base=(uintptr_t)pointer;return value>=base&&value-base<size;};
     std::erase_if(archives,[&](const auto& item){return contains(item.first)||contains(item.second->raw);});
     std::erase_if(archive_storage,[&](const auto& item){return contains(item.first);});
+}
+// Live converted archives and the bytes they hold (source copy plus materialized objects), for leak checks.
+extern "C" void MeleeNativeArchiveStats(size_t* count,size_t* bytes) {
+    std::lock_guard lock(mutex);
+    std::vector<const Archive*> seen;
+    auto add=[&](const std::shared_ptr<Archive>& a){if(std::find(seen.begin(),seen.end(),a.get())==seen.end()) seen.push_back(a.get());};
+    for(auto& item:archives) add(item.second);
+    for(auto& item:archive_storage) add(item.second);
+    *count=seen.size(); *bytes=0;
+    for(auto a:seen) *bytes+=a->footprint;
 }

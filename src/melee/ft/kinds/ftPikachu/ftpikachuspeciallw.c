@@ -22,7 +22,9 @@
 #include <melee/it/kinds/itpikachuthunder.h>
 
 // Thunder owns a pointer followed by its state. The SpecialHi alias places
-// x4 inside that pointer on LP64.
+// x4 inside that pointer on LP64, so every access goes through THUNDER_VARS:
+// entering the move through the alias left the pointer at 0x100000000 (no bolt
+// was ever spawned) and the state stale (a non-zero one dereferenced it).
 #ifdef MELEE_NATIVE
 #define THUNDER_VARS(fp) ((fp)->mv.pk.speciallw)
 #else
@@ -142,8 +144,8 @@ void ftPk_SpecialLw_Enter(HSD_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
     fp->cmd_vars[0] = 0;
     fp->throw_flags = 0;
-    fp->mv.pk.specialhi.x4 = 1;
-    fp->mv.pk.specialhi.x0 = 0;
+    THUNDER_VARS(fp).x4 = 1;
+    THUNDER_VARS(fp).x0 = 0;
     Fighter_ChangeMotionState(gobj, 359, Ft_MF_None, 0.0f, 1.0f, 0.0f, 0);
     ftAnim_8006EBA4(gobj);
 }
@@ -153,8 +155,8 @@ void ftPk_SpecialAirLw_Enter(HSD_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
     fp->cmd_vars[0] = 0;
     fp->throw_flags = 0;
-    fp->mv.pk.specialhi.x4 = 1;
-    fp->mv.pk.specialhi.x0 = 0;
+    THUNDER_VARS(fp).x4 = 1;
+    THUNDER_VARS(fp).x0 = 0;
     Fighter_ChangeMotionState(gobj, 363, Ft_MF_None, 0.0f, 1.0f, 0.0f, 0);
     ftAnim_8006EBA4(gobj);
 }

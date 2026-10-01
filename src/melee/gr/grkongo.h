@@ -61,7 +61,12 @@ struct grKongo_YakumonoParam {
     f32 unk78;
     f32 unk7C;
     f32 unk80;
+#ifdef MELEE_NATIVE
+    // Serialized 32-bit slot; resolved with GR_MATERIAL_SCRIPT.
+    u32 unk84;
+#else
     void* unk84;
+#endif
     f32 unk88;
     f32 unk8C;
     f32 unk90;
@@ -76,6 +81,10 @@ struct grKongo_YakumonoParam {
     f32 unkB4;
     f32 unkB8;
 };
+#ifdef MELEE_NATIVE
+// The block is read in place at its GameCube offsets (native/stage_numeric_layouts.hpp).
+STATIC_ASSERT(sizeof(struct grKongo_YakumonoParam) == 188);
+#endif
 
 extern const grKg_SplineChoiceList grKg_803B7FD4;
 

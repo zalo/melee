@@ -374,6 +374,12 @@ void HSD_DevComDVDWakeUp(void)
                 HSD_DevComDVDWakeUp();
                 return;
             }
+#ifdef MELEE_NATIVE
+            /* An open file costs nothing on the GC, so the game reopens this one for every chunk and
+             * never closes it. Here each open is a disc reader holding the 2 MB sector group it last
+             * read; a Classic run left thousands of them and every group they had touched. */
+            DVDClose(&fileinfo);
+#endif
             DVDFastOpen(dvdDC->file, &fileinfo);
             if (dvdDC->type == 0x21) {
                 DVDReadAsyncPrio(&fileinfo, (void*) dvdDC->dest,

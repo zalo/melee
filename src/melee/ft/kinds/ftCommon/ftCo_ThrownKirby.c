@@ -157,7 +157,7 @@ static inline void inlineA0(Fighter_GObj* gobj)
         fp->self_vel.x =
             (fp->self_vel.x * (vel_mag - fp->mv.co.thrownkirby.x4)) / vel_mag;
         fp->self_vel.y =
-            (fp->self_vel.y * (vel_mag - fp->mv.ca.specialhi.vel.x)) / vel_mag;
+            (fp->self_vel.y * (vel_mag - fp->mv.co.thrownkirby.x4)) / vel_mag;
         if (fp->self_vel.y < 0) {
             fp->facing_dir = -1;
         } else {
@@ -264,8 +264,8 @@ void ftCo_800BE494(Fighter_GObj* gobj)
         Vec2 self_vel;
         ftKb_SpecialN_800F5874(&self_vel);
         fp->self_vel.y = self_vel.y;
-        if (fp->mv.ca.specialhi.vel.y) {
-            fp->self_vel.x = fp->mv.ca.specialhi.vel.y * self_vel.x;
+        if (fp->mv.co.thrownkirby.x8) {
+            fp->self_vel.x = fp->mv.co.thrownkirby.x8 * self_vel.x;
         } else {
             fp->self_vel.x = self_vel.x * (fp->self_vel.x < 0 ? -1 : +1);
         }

@@ -57,8 +57,17 @@ struct grVenom_YakumonoParam {
     f32 x2C;
     char x30[0x34 - 0x30];
     f32 x34;
+#ifdef MELEE_NATIVE
+    // Serialized 32-bit slot; resolved with GR_MATERIAL_SCRIPT.
+    u32 x38;
+#else
     void* x38;
+#endif
 };
+#ifdef MELEE_NATIVE
+// The block is read in place at its GameCube offsets (native/stage_numeric_layouts.hpp).
+STATIC_ASSERT(sizeof(struct grVenom_YakumonoParam) == 60);
+#endif
 
 static grVe_Data grVe_803E5348 = {
     {
@@ -1287,6 +1296,8 @@ void grVenom_802056B0(Ground_GObj* gobj)
 #endif
 #ifdef MELEE_NATIVE
     gp->u.venom.xE0_gobj = NULL;
+    /* This article's position is read through arwing.xE0, see grVenom_80205758. */
+    gp->u.arwing.xE0.x = gp->u.arwing.xE0.y = gp->u.arwing.xE0.z = 0.0F;
 #else
     gp->u.venom.xE0 = 0.0F;
 #endif
@@ -1563,7 +1574,13 @@ void grVenom_80205F30(Ground_GObj* gobj)
             if (gp->u.venom.linked_gobj != NULL) {
                 Ground* sub = gp->u.venom.linked_gobj->user_data;
                 if (sub != NULL) {
+#ifdef MELEE_NATIVE
+                    /* The linked Arwing reads this back as arwing.xE0 (a packed
+                     * Vec3); venom.xE0..xE8 are pointer-wide slots natively. */
+                    sub->u.arwing.xE0 = sp94;
+#else
                     *(Vec3*) &sub->u.venom.xE0 = sp94;
+#endif
                 }
             }
 

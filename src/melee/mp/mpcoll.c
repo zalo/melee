@@ -3559,6 +3559,19 @@ bool mpColl_80049EAC_LeftWall(CollData* coll)
     return false;
 }
 
+#ifdef MELEE_NATIVE
+/// mpLib_8004DD90_Floor returns -1 and leaves flags/normal unwritten when the edge vertex lies off the floor chain it
+/// walks. The edge-stop routines below stored that -1 as the fighter's floor and still reported "grounded", and the
+/// caller's next mpFloorGetRight(-1) asserted (Classic soak, teetering 15 s into a match). Keep the floor we stand on.
+static bool mpCollEdgeKeepFloor(CollData* coll, int line_id, Vec3* edge)
+{
+    OSReport("mpcoll: edge (%g,%g) is off the floor chain of line %d, pos (%g,%g); keeping that floor\n",
+             edge->x, edge->y, line_id, coll->cur_pos.x, coll->cur_pos.y);
+    coll->floor.index = line_id;
+    return true;
+}
+#endif
+
 bool mpColl_8004A45C_Floor(CollData* coll, int line_id)
 {
     u32 flags;
@@ -3619,6 +3632,11 @@ bool mpColl_8004A45C_Floor(CollData* coll, int line_id)
         coll->cur_pos.x = edge.x - coll->ecb.bottom.x;
         coll->cur_pos.y = edge.y - coll->ecb.bottom.y;
         coll->cur_pos.z = edge.z;
+#ifdef MELEE_NATIVE
+        if (floor_id == -1) {
+            return mpCollEdgeKeepFloor(coll, line_id, &edge);
+        }
+#endif
         coll->floor.index = floor_id;
         coll->floor.flags = flags;
         coll->floor.normal = normal;
@@ -3702,6 +3720,12 @@ bool mpColl_8004A678_Floor(CollData* coll, int line_id)
         coll->cur_pos.x = edge.x - coll->ecb.bottom.x;
         coll->cur_pos.y = edge.y - coll->ecb.bottom.y;
         coll->cur_pos.z = edge.z;
+#ifdef MELEE_NATIVE
+        if (floor_id == -1) {
+            coll->env_flags |= Collide_Edge;
+            return mpCollEdgeKeepFloor(coll, line_id, &edge);
+        }
+#endif
         coll->floor.index = floor_id;
         coll->floor.flags = flags;
         coll->floor.normal = normal;

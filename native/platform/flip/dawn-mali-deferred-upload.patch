@@ -1,0 +1,137 @@
+--- a/src/dawn/native/opengl/CommandBufferGL.cpp	2026-09-30 21:16:44.558792931 -0700
++++ b/src/dawn/native/opengl/CommandBufferGL.cpp	2026-09-30 21:16:44.559714503 -0700
+@@ -31,6 +31,7 @@
+ #include <atomic>
+ #include <chrono>
+ #include <cstdio>
++#include <cstdlib>
+ #include <cstring>
+ #include <map>
+ #include <mutex>
+@@ -70,6 +71,33 @@
+ 
+ namespace {
+ 
++// Whether CopyBufferToTexture hands glTexSubImage the texels through a read mapping of the source
++// buffer instead of binding it as GL_PIXEL_UNPACK_BUFFER.
++//
++// Arm's libmali turns an upload from a pixel unpack buffer into a deferred job on one of its
++// utility threads. That job first waits for the frames still using the destination texture, and
++// those are only flushed by the thread that owns the context: once that thread itself waits on the
++// driver (a fence, a full present queue, the driver's own frame throttle) the two never resolve
++// and the process freezes without crashing (Miyoo Flip, libmali g29p1; RG351P, r13p0). The
++// deferred job also reads the buffer after the caller was told the copy is complete, so a
++// MapAsync(Write), which maps unsynchronized, could overwrite texels that were not uploaded yet.
++// An upload from client memory is copied before glTexSubImage returns, which avoids both.
++// DAWN_GL_TEXTURE_UPLOAD=map|pbo overrides the per-driver default (map on libmali).
++bool UploadTexturesFromMappedBuffer(const OpenGLFunctions& gl) {
++    static const bool fromMapped = [&gl] {
++        const char* requested = std::getenv("DAWN_GL_TEXTURE_UPLOAD");
++        if (requested != nullptr && std::strcmp(requested, "map") == 0) {
++            return true;
++        }
++        if (requested != nullptr && std::strcmp(requested, "pbo") == 0) {
++            return false;
++        }
++        const char* vendor = reinterpret_cast<const char*>(gl.GetString(GL_VENDOR));
++        return vendor != nullptr && std::strcmp(vendor, "ARM") == 0;
++    }();
++    return fromMapped;
++}
++
+ GLenum ComponentSwizzle(wgpu::ComponentSwizzle swizzle) {
+     switch (swizzle) {
+         case wgpu::ComponentSwizzle::Zero:
+@@ -1006,8 +1034,6 @@
+                     DAWN_TRY(texture->EnsureSubresourceContentInitialized(gl, range));
+                 }
+ 
+-                DAWN_GL_TRY(gl, BindBuffer(GL_PIXEL_UNPACK_BUFFER, buffer->GetHandle()));
+-
+                 // TODO(crbug.com/424536624): Replace TexelCopyBufferLayout with BufferCopy
+                 const TypedTexelBlockInfo& blockInfo = GetBlockInfo(dst);
+                 TexelCopyBufferLayout dataLayout;
+@@ -1016,9 +1042,36 @@
+                     checked_cast<uint32_t>(blockInfo.ToBytes(src.blocksPerRow));
+                 dataLayout.rowsPerImage = dchecked_cast<uint32_t>(src.rowsPerImage);
+ 
+-                DAWN_TRY(DoTexSubImage(gl, dst, reinterpret_cast<void*>(src.offset), dataLayout,
+-                                       copy->copySize.ToExtent3D()));
+-                DAWN_GL_TRY(gl, BindBuffer(GL_PIXEL_UNPACK_BUFFER, 0));
++                const void* mapped = nullptr;
++                if (UploadTexturesFromMappedBuffer(gl) && src.offset < buffer->GetSize()) {
++                    // The last row of a copy may be shorter than bytesPerRow, so the mapping ends
++                    // at the buffer's end when the full rows would run past it.
++                    const Extent3D extent = copy->copySize.ToExtent3D();
++                    const uint64_t length =
++                        std::min(buffer->GetSize() - src.offset,
++                                 static_cast<uint64_t>(dataLayout.bytesPerRow) *
++                                     dataLayout.rowsPerImage * extent.depthOrArrayLayers);
++                    DAWN_GL_TRY(gl, BindBuffer(GL_COPY_READ_BUFFER, buffer->GetHandle()));
++                    mapped = DAWN_GL_TRY_IGNORE_ERRORS(
++                        gl, MapBufferRange(GL_COPY_READ_BUFFER,
++                                           checked_cast<GLintptr>(src.offset),
++                                           checked_cast<GLsizeiptr>(length), GL_MAP_READ_BIT));
++                }
++                if (mapped != nullptr) {
++                    MaybeError result =
++                        DoTexSubImage(gl, dst, mapped, dataLayout, copy->copySize.ToExtent3D());
++                    DAWN_GL_TRY(gl, UnmapBuffer(GL_COPY_READ_BUFFER));
++                    DAWN_GL_TRY(gl, BindBuffer(GL_COPY_READ_BUFFER, 0));
++                    DAWN_TRY(std::move(result));
++                } else {
++                    if (UploadTexturesFromMappedBuffer(gl)) {
++                        DAWN_GL_TRY(gl, BindBuffer(GL_COPY_READ_BUFFER, 0));
++                    }
++                    DAWN_GL_TRY(gl, BindBuffer(GL_PIXEL_UNPACK_BUFFER, buffer->GetHandle()));
++                    DAWN_TRY(DoTexSubImage(gl, dst, reinterpret_cast<void*>(src.offset),
++                                           dataLayout, copy->copySize.ToExtent3D()));
++                    DAWN_GL_TRY(gl, BindBuffer(GL_PIXEL_UNPACK_BUFFER, 0));
++                }
+ 
+                 buffer->TrackUsage();
+                 break;
+--- a/src/dawn/native/opengl/QueueGL.cpp	2026-09-30 21:16:44.557831735 -0700
++++ b/src/dawn/native/opengl/QueueGL.cpp	2026-09-30 21:16:44.559189596 -0700
+@@ -29,7 +29,9 @@
+ 
+ #include <chrono>
+ #include <cstdio>
++#include <cstdlib>
+ #include <cstring>
++#include <string_view>
+ #include <vector>
+ 
+ #include "dawn/platform/DawnPlatform.h"
+@@ -70,11 +72,28 @@
+ Queue::Queue(Device* device, const QueueDescriptor* descriptor) : QueueBase(device, descriptor) {
+     const auto& egl = device->GetEGL(false);
+ 
+-    if (egl.HasExt(EGLExt::NativeFenceSync)) {
++    // A plain fence is preferred over a native (Android sync fd) fence for the queue's own serial
++    // tracking: Arm's libmali (g29p1, ROCKNIX on the Miyoo Flip) implements eglClientWaitSync on a
++    // native fence as "wait until the frame holding the fence has been dispatched, then poll the fd
++    // with the timeout", and the first wait has no timeout. CheckAndUpdateCompletedSerials() polls
++    // with a zero timeout while holding the device and context locks, so a frame the driver had
++    // not dispatched yet blocked every other thread there instead of returning "not yet". Nothing
++    // in the queue needs the fd; GetOrCreateSharedFence() creates a native fence on demand when a
++    // SyncFD is asked for. DAWN_GL_SYNC_TYPE=native|fence|reusable overrides the choice.
++    const char* requested = std::getenv("DAWN_GL_SYNC_TYPE");
++    const std::string_view want = requested != nullptr ? requested : "";
++    const bool hasNative = egl.HasExt(EGLExt::NativeFenceSync);
++    const bool hasFence = egl.HasExt(EGLExt::FenceSync);
++    const bool hasReusable = egl.HasExt(EGLExt::ReusableSync);
++    if (want == "native" && hasNative) {
+         mEGLSyncType = EGL_SYNC_NATIVE_FENCE_ANDROID;
+-    } else if (egl.HasExt(EGLExt::FenceSync)) {
++    } else if (want == "reusable" && hasReusable) {
++        mEGLSyncType = EGL_SYNC_REUSABLE_KHR;
++    } else if (hasFence) {
+         mEGLSyncType = EGL_SYNC_FENCE;
+-    } else if (egl.HasExt(EGLExt::ReusableSync)) {
++    } else if (hasNative) {
++        mEGLSyncType = EGL_SYNC_NATIVE_FENCE_ANDROID;
++    } else if (hasReusable) {
+         mEGLSyncType = EGL_SYNC_REUSABLE_KHR;
+     } else {
+         DAWN_UNREACHABLE();

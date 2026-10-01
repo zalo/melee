@@ -41,9 +41,9 @@ def fetch_archive(filename, url, checksum, expected):
         raise RuntimeError(f'Archive did not produce {expected}')
 
 
-def apply_patch(directory, patch):
+def apply_patches(directory, patches):
     directory = Path(directory).resolve()
-    patch = Path(patch).resolve()
+    patches = [Path(patch).resolve() for patch in patches]
     # Dawn is an extracted archive, not a Git checkout. Without this boundary,
     # Git discovers the enclosing Melee repository and can silently skip every
     # patch path outside the dependency's prefix, even for --check.
@@ -52,10 +52,18 @@ def apply_patch(directory, patch):
                           'GIT_COMMON_DIR', 'GIT_PREFIX')}
     env['GIT_CEILING_DIRECTORIES'] = str(directory.parent)
     command = ['git', '-C', str(directory), 'apply']
-    if subprocess.run(command + ['--reverse', '--check', str(patch)], env=env, capture_output=True).returncode == 0:
-        return
-    subprocess.run(command + ['--check', str(patch)], env=env, check=True)
-    subprocess.run(command + [str(patch)], env=env, check=True)
+    # The patches are a stack: a later one may edit lines an earlier one added, after which the
+    # earlier one no longer reverses cleanly. So an already prepared tree is recognised by the
+    # last patch that still reverses, and only the ones after it are applied.
+    applied = 0
+    for index in range(len(patches), 0, -1):
+        if subprocess.run(command + ['--reverse', '--check', str(patches[index - 1])], env=env,
+                          capture_output=True).returncode == 0:
+            applied = index
+            break
+    for patch in patches[applied:]:
+        subprocess.run(command + ['--check', str(patch)], env=env, check=True)
+        subprocess.run(command + [str(patch)], env=env, check=True)
 
 
 # Device libraries for builds without a device (CI): Debian bookworm arm64 packages providing the
@@ -206,10 +214,16 @@ def main():
     # Aurora is the zalo/aurora-arm gles-direct-submission checkout (bootstrap.py); it already
     # carries the Flip platform hunks, so no aurora patch is applied here any more.
     subprocess.run(['python3', str(ROOT / 'native/tools/bootstrap.py')], check=True)
-    apply_patch(dawn, ROOT / 'native/platform/flip/dawn-gl-interop.patch')
-    # Fall back to dlsym for core EGL procs on drivers without EGL_KHR_get_all_proc_addresses
-    # (e.g. PowerVR on the TrimUI Smart Pro), where eglGetProcAddress returns null for them.
-    apply_patch(dawn, ROOT / 'native/platform/flip/dawn-egl-dlsym-fallback.patch')
+    apply_patches(dawn, [
+        ROOT / 'native/platform/flip/dawn-gl-interop.patch',
+        # Fall back to dlsym for core EGL procs on drivers without EGL_KHR_get_all_proc_addresses
+        # (e.g. PowerVR on the TrimUI Smart Pro), where eglGetProcAddress returns null for them.
+        ROOT / 'native/platform/flip/dawn-egl-dlsym-fallback.patch',
+        # Texture uploads from client memory and plain fences on Arm's libmali, whose deferred
+        # pixel-unpack-buffer uploads and untimed native-fence waits froze the game without a
+        # crash (Miyoo Flip, RG351P). Edits lines of the interop patch, so it goes after it.
+        ROOT / 'native/platform/flip/dawn-mali-deferred-upload.patch',
+    ])
     usr = sdk / 'aarch64-buildroot-linux-gnu/sysroot/usr'
     headers = Path(os.environ.get('FLIP_HOST_HEADERS', '/usr/include'))
     for name in ['EGL', 'GLES3', 'KHR', 'libdrm', 'alsa', 'gbm.h', 'xf86drm.h', 'xf86drmMode.h', 'libudev.h']:

@@ -152,7 +152,12 @@ struct grCastle_YakumonoParam {
     /* 0x05A */ u8 pad_x5A[2];
     /* 0x05C */ grCastleParams_Entry entries[9];
     /* 0x110 */ f32 x110;
+#ifdef MELEE_NATIVE
+    // Serialized 32-bit slot; resolved with GR_MATERIAL_SCRIPT.
+    /* 0x114 */ u32 x114;
+#else
     /* 0x114 */ void* x114;
+#endif
     /* 0x118 */ f32 x118;
     /* 0x11C */ f32 x11C;
     /* 0x120 */ f32 x120;
@@ -164,6 +169,10 @@ struct grCastle_YakumonoParam {
     /* 0x13C */ f32 x13C;
     /* 0x140 */ f32 x140;
 };
+#ifdef MELEE_NATIVE
+// The block is read in place at its GameCube offsets (native/stage_numeric_layouts.hpp).
+STATIC_ASSERT(sizeof(struct grCastle_YakumonoParam) == 324);
+#endif
 
 typedef struct grCastle_PlatSubObj {
     /* 0x00 */ HSD_JObj* jobj;
@@ -791,7 +800,14 @@ void grCastle_801CE260(Ground_GObj* gobj)
 
     gp->u.castle11.xC4.b0 = 0;
     gp->u.icemt.x2 = gp->map_id - 8;
+#ifdef MELEE_NATIVE
+    /* This article is a castle11 object; the arwing view only shares its
+     * offsets on GC. Natively arwing.xCC is not castle11.xCC, which would stay
+     * uninitialised and later be destroyed as a GObj in grCastle_801CE578. */
+    gp->u.castle11.xCC = 0;
+#else
     gp->u.arwing.xCC = 0;
+#endif
     gp->u.flatzone.xCA = yakumono_param->entries[gp->u.icemt.x2].x0;
 
     gp2 = GET_GROUND(gobj);
@@ -814,10 +830,18 @@ void grCastle_801CE260(Ground_GObj* gobj)
     }
 
     grMaterial_801C94D8(jobj);
+#ifdef MELEE_NATIVE
+    /* Read back (and destroyed) through castle11.xD0 in grCastle_801CE578. */
+    gp->u.castle11.xD0 = (GrCastlePtr) grMaterial_801C8CFC(
+        0, 3, gp, Ground_801C3FA4((HSD_GObj*) gobj, 0),
+        (void (*)(Item_GObj*, Ground*)) fn_801CE3A0, NULL, NULL);
+    it_80275414((Item_GObj*) gp->u.castle11.xD0);
+#else
     gp->u.arwing.xD0 = (grUserPtr) grMaterial_801C8CFC(
         0, 3, gp, Ground_801C3FA4((HSD_GObj*) gobj, 0),
         (void (*)(Item_GObj*, Ground*)) fn_801CE3A0, NULL, NULL);
     it_80275414((Item_GObj*) gp->u.arwing.xD0);
+#endif
     Ground_801C5440(gp, 0, 0x53025U);
 }
 
@@ -906,7 +930,7 @@ void grCastle_801CE578(Ground_GObj* gobj)
         if (grAnime_801C83D0(gobj, 0, 1)) {
             gp->u.castle11.xC8 = yakumono_param->x58;
             gp->u.castle11.xC4.b0 = 1;
-            grMaterial_801C9604(gobj, yakumono_param->x114, 0);
+            grMaterial_801C9604(gobj, GR_MATERIAL_SCRIPT(yakumono_param->x114), 0);
             if (gp->u.castle11.xCC != 0) {
                 Ground_801C4A08((HSD_GObj*) gp->u.castle11.xCC);
             }
@@ -1009,18 +1033,18 @@ void grCastle_801CE8E8(Ground_GObj* gobj)
     grAnime_801C8138((HSD_GObj*) gobj, gp->map_id, 0);
 
     gp2 = GET_GROUND(gobj);
-    gp2->u.arwing.xC8 = (grUserPtr) Camera_80029044(2);
-    subject = (CmSubject*) gp2->u.arwing.xC8;
+    gp2->u.castle12.xC8 = (grUserPtr) Camera_80029044(2);
+    subject = (CmSubject*) gp2->u.castle12.xC8;
     if (subject != NULL) {
         subject->target_ext.h.x = yakumono_param->x134;
         subject->target_ext.h.y = yakumono_param->x138;
         subject->target_ext.v.x = yakumono_param->x13C;
         subject->target_ext.v.y = yakumono_param->x140;
     }
-    gp->u.arwing.xC4 = (grUserPtr) grMaterial_801C8CFC(
+    gp->u.castle12.xC4 = (grUserPtr) grMaterial_801C8CFC(
         0, 4, gp, Ground_801C3FA4((HSD_GObj*) gobj, 0),
         (void (*)(Item_GObj*, Ground*)) fn_801CE9DC, NULL, NULL);
-    it_80275414((Item_GObj*) gp->u.arwing.xC4);
+    it_80275414((Item_GObj*) gp->u.castle12.xC4);
     Ground_801C5440(gp, 0, 0x53024U);
 }
 
@@ -1036,7 +1060,7 @@ void grCastle_801CE9E8(Ground_GObj* gobj)
     Vec3 pos;
     Ground* tmp;
     Ground* gp = GET_GROUND(gobj);
-    CmSubject* subject = (CmSubject*) gp->u.arwing.xC8;
+    CmSubject* subject = (CmSubject*) gp->u.castle12.xC8;
     PAD_STACK(8);
     if (subject != NULL) {
         lb_8000B1CC(Ground_801C3FA4(gobj, 0), NULL, &pos);
@@ -1044,17 +1068,17 @@ void grCastle_801CE9E8(Ground_GObj* gobj)
         subject->bone_pos = pos;
     }
     if (grAnime_801C83D0(gobj, 0, 1)) {
-        HSD_GObj* mat = (HSD_GObj*) (tmp = gp)->u.arwing.xC4;
+        HSD_GObj* mat = (HSD_GObj*) (tmp = gp)->u.castle12.xC4;
         if (mat != NULL) {
             grMaterial_801C8CDC(mat);
         }
-        gp->u.arwing.xC4 = 0;
+        gp->u.castle12.xC4 = 0;
         {
             Ground* gp2 = gobj->user_data;
-            CmSubject* subj2 = (CmSubject*) (tmp = gp2)->u.arwing.xC8;
+            CmSubject* subj2 = (CmSubject*) (tmp = gp2)->u.castle12.xC8;
             if (subj2 != NULL) {
                 Camera_800290D4(subj2);
-                gp2->u.arwing.xC8 = 0;
+                gp2->u.castle12.xC8 = 0;
             }
         }
         Ground_801C4A08(gobj);

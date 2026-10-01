@@ -1072,9 +1072,23 @@ bool ftCo_800A1F98(int x, float y)
     return false;
 }
 
+#ifdef MELEE_NATIVE
+int MeleeNativePuppetLevel(int slot);
+int MeleeNativePuppetWalks(void);
+#endif
+
 bool ftCo_IsCpuControlled(Fighter* fp)
 {
     if (Player_8003248C(fp->player_idx, fp->is_sub_fighter) != Gm_PKind_Cpu) {
+#ifdef MELEE_NATIVE
+        /* Test puppet: a human slot whose fighter is driven by the CPU AI.
+         * Only the input source changes; the game mode still sees a human.
+         * In Break the Targets the pad keeps the fighter (it is walked off
+         * the stage, see MeleeNativePuppetWalks). */
+        if (Player_GetPlayerSlotType(fp->player_idx) != Gm_PKind_Human ||
+            !MeleeNativePuppetLevel(fp->player_idx) ||
+            MeleeNativePuppetWalks())
+#endif
         return false;
     }
     if (fp->cpu.kind == 5) {
