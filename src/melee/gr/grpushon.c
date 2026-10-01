@@ -626,8 +626,12 @@ void fn_802190A0(void* user_data, int joint_id, CollData* coll, int coll_x50,
                  mpLib_GroundEnum ground_kind, float delta_y)
 {
     Ground* gp = user_data;
+#ifdef MELEE_NATIVE
+    if (coll->x34_flags.b1234 == 1 && (ground_kind - 1) <= 1U)
+#else
     if (((*(u8*) &coll->x34_flags >> 3U) & 0xF) == 1 &&
         (ground_kind - 1) <= 1U)
+#endif
     {
         gp->u.map.xC4_b0 = true;
     }

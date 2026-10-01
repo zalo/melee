@@ -129,6 +129,13 @@ struct Archive {
                 if(range.offset+range.bytes>size) throw std::runtime_error("Stage bytes outside block");
                 std::memcpy(result+range.offset,input.data(),range.bytes);
             }
+            if(layout.spawn_descs!=~0u) {
+                if(layout.spawn_descs>size) throw std::runtime_error("Stage spawn descriptors outside block");
+                for(unsigned i=layout.spawn_descs;i<size;i+=4) {
+                    auto kind=source.u16(offset+i);std::memcpy(result+i,&kind,2);
+                    std::memcpy(result+i+2,source.bytes(offset+i+2,2).data(),2);
+                }
+            }
             return result;
         }
         throw std::runtime_error("Missing native stage parameter layout");
@@ -442,6 +449,8 @@ struct Archive {
                                 item_special_types[*article]=MeleeNativeItemSpecialType(starts[table]+i);
                         }
                         if(type==AT_FIGHTER&&field.file_offset==4&&fighter_name=="ftDataGamewatch") kind=AT_GAMEWATCH_ATTR;
+                        if(type==AT_FIGHTER&&field.file_offset==4&&(fighter_name=="ftDataMars"||fighter_name=="ftDataEmblem")) kind=AT_MARS_ATTR;
+                        if(type==AT_FIGHTER&&field.file_offset==4&&(fighter_name=="ftDataLink"||fighter_name=="ftDataClink")) kind=AT_LINK_ATTR;
                         if(type==AT_GROUND_ITEM&&field.file_offset==4)
                             item_special_types[*target]=MeleeNativeItemSpecialType(source.u32(source_offset));
                         if(type==AT_ARTICLE&&field.file_offset==4) kind=item_special_types.at(source_offset);
@@ -730,8 +739,12 @@ extern "C" void* MeleeNativeScriptPointer(const void* field) {
             if(auto found=archive->stage_pointers.find(field);found!=archive->stage_pointers.end()) return found->second;
             auto base=reinterpret_cast<uintptr_t>(archive->script_arena);
             if(base&&value>=base&&value-base<archive->source.data_size()) {
-                auto target=archive->source.pointer(static_cast<unsigned>(value-base));
-                if(!target) throw std::runtime_error("Null script branch target");
+                auto field_offset=static_cast<unsigned>(value-base);
+                if(archive->source.external(field_offset)) throw std::runtime_error("External script branch target");
+                auto target=archive->source.pointer(field_offset);
+                // A branch to NULL ends the script (Pichu has one after a wait for the animation to loop).
+                if(!target)
+                    return nullptr;
                 return archive->materialize(AT_SCRIPT,*target);
             }
         }

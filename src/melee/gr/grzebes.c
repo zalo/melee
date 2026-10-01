@@ -575,6 +575,14 @@ void grZebes_801D881C(HSD_GObj* gobj)
         column_heights[4] = -9999.0f;
         column_heights[5] = -9999.0f;
 
+#ifdef MELEE_NATIVE
+        // A column that no bubble falls into keeps the value it has here.
+        // Left unset that was stack garbage, often a NaN, and became the
+        // collision vertex under whoever stood on that column.
+        for (i = 0; i < 6; i++) {
+            column_x[i] = (f32) i * column_width + state->positions[0].x;
+        }
+#endif
         grZebes_UpdateCollisionColumns(state, column_width, column_x,
                                        column_heights, &i, &vertex_idx);
 

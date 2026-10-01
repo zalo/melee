@@ -49,6 +49,22 @@ ItemStateTable it_803F73A8[] = {
     { -1, NULL, itSamusgrapple_UnkMotion8_Phys, NULL },
 };
 
+#ifdef MELEE_NATIVE
+// The command structs list their fields in the opposite order here.
+const itSamusGrapple_Hitbox it_803B8660 = {
+    { .opcode = 11, .bone = 139 },
+    { .size = 1200 },
+    { 0, 0 },
+    { .angle = 361,
+      .knockback_growth = 100,
+      .item_hit_interaction = 1,
+      .clank = 1 },
+    { .element = 8,
+      .hit_sfx_severity = 1,
+      .hit_sfx_kind = 2,
+      .hit_aerial = 1 },
+};
+#else
 const itSamusGrapple_Hitbox it_803B8660 = {
     { 11, 0, 0, 0, 139, 0, 0 },
     { 1200, 0 },
@@ -56,6 +72,7 @@ const itSamusGrapple_Hitbox it_803B8660 = {
     { 361, 100, 0, 1, 0, 0, 1, 0 },
     { 0, 8, 0, 1, 2, 1, 0 },
 };
+#endif
 
 const Vec3 it_803B8674 = { 0.0f, 0.0f, 0.0f };
 
@@ -183,8 +200,12 @@ void it_802B7160(Fighter_GObj* gobj, itSamusGrapple_HitboxData* data)
             hitbox->jobj = fp->parts[bone].joint;
         }
     }
+#ifdef MELEE_NATIVE
+    damage_arg = data->create_hitbox.create_hitbox_0.damage;
+#else
     damage_arg = *damage;
     damage_arg &= 0x3FF;
+#endif
     ftColl_8007ABD0(hitbox, damage_arg, gobj);
     hitbox->scale = data->create_hitbox.create_hitbox_1.size * 0.003906f;
     hitbox->b_offset.x =
@@ -212,7 +233,11 @@ void it_802B7160(Fighter_GObj* gobj, itSamusGrapple_HitboxData* data)
     hitbox->sfx_kind =
         ((struct spawn_hitbox_4*) (hitbox_flags - 3))->hit_sfx_kind;
     hitbox->x40_b2 = ((struct spawn_hitbox_4*) (hitbox_flags - 3))->hit_aerial;
+#ifdef MELEE_NATIVE
+    hitbox->x40_b3 = data->create_hitbox.create_hitbox_4.hit_grounded;
+#else
     hitbox->x40_b3 = hitbox_flags->hit_grounded;
+#endif
     hitbox->x42_b5 = 1;
     hitbox->x42_b7 = 1;
     hitbox->x41_b4 = 0;
@@ -221,7 +246,14 @@ void it_802B7160(Fighter_GObj* gobj, itSamusGrapple_HitboxData* data)
     hitbox->x42_b0 = 0;
     hitbox->x42_b4 = 0;
     hitbox->x41_b7 = 0;
+#ifdef MELEE_NATIVE
+    // The callers never fill the byte the original reads; take the table's
+    // own flag so the result does not depend on stack contents.
+    hitbox->hit_grabbed_victim_only =
+        data->create_hitbox.create_hitbox_0.only_hit_grabbed;
+#else
     hitbox->hit_grabbed_victim_only = data->x134_4;
+#endif
     hitbox->x42_b1 = 1;
     hitbox->x42_b2 = 0;
     hitbox->x43_b2 = 0;

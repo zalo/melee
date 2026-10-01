@@ -1,0 +1,11 @@
+# Mode playlist with a CPU-driven player 1 (MELEE_TEST_P1_CPU=9 MELEE_TEST_MODES=...): the script only
+# skips the opening movie and leaves the title screen. From the main menu on, the puppet
+# (native/puppet_runtime.c) enters the modes itself and clears every screen between matches.
+1800 SCENE_MOVIE
+900 NONE
+6 START
+600 SCENE_TITLE
+90 NONE
+6 START
+900 SCENE_MENU
+60 NONE

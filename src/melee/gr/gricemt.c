@@ -1,4 +1,12 @@
 #ifdef MELEE_NATIVE
+// The falling-platform states sit behind the gobj slots on the GameCube (gp+0x100, +0x108, +0x10E).
+// The slots are pointers here, so each state takes slots past the five that are ever filled.
+#define ICEMT_STATE(gp, offset, gamecube) \
+    ((s16*) &(gp)->u.icemt1.x34[(offset) == 0x100 ? 8 : (offset) == 0x108 ? 10 : 12])
+#else
+#define ICEMT_STATE(gp, offset, gamecube) (gamecube)
+#endif
+#ifdef MELEE_NATIVE
 #define ICEMT_SLOT(gp, i) ((gp)->u.icemt9.x18[i])
 #else
 #define ICEMT_SLOT(gp, i) ((gp)->u.icemt9.x18[0])
@@ -582,7 +590,11 @@ void grIceMt_801F7080(void)
         Ground_UpdateMapColl(gobj);
     }
     if (Stage_80225194() == 76) {
+#ifdef MELEE_NATIVE
+        grZakoGenerator_801CAE04(yakumono_param->xBC);
+#else
         grZakoGenerator_801CAE04(&yakumono_param->xBC);
+#endif
         if (rand_zero(yakumono_param->xB8)) {
             grZakoGenerator_801CAEB0(Ground_801C5840(), Ground_801C5940());
         }
@@ -982,10 +994,11 @@ void stageGObj2_OnInit(Ground_GObj* arg0)
     gp->u.icemt1.x0_b0 = false;
     sp14 = grIm_804DB58C;
     grIceMt_801F8CDC(arg0, (s16*) &sp14, 2, &gp->u.icemt1.x34[0]);
-    grIceMt_801F91EC(arg0, (s16*) ((u8*) gp + 0x100),
+    grIceMt_801F91EC(arg0, ICEMT_STATE(gp, 0x100, (s16*) ((u8*) gp + 0x100)),
                      grIceMt_801FA500(arg0, jobj), -1, 0x25, 0x109, 0x27E,
                      fn_801F9338);
-    grIceMt_801F91EC(arg0, &gp->u.icemt.x108[3], grIceMt_801FA500(arg0, jobj2),
+    grIceMt_801F91EC(arg0, ICEMT_STATE(gp, 0x10E, &gp->u.icemt.x108[3]),
+                     grIceMt_801FA500(arg0, jobj2),
                      -1, 38, 265, 638, fn_801F9448);
 }
 
@@ -997,8 +1010,8 @@ bool stageGObj2_Callback1(Ground_GObj* param1)
 void stageGObj2_GObjProc(Ground_GObj* param1)
 {
     Ground* gp = GET_GROUND(param1);
-    grIceMt_801F929C(param1, &gp->u.icemt1.x34[2]);
-    grIceMt_801F929C(param1, &gp->u.icemt.x108[3]);
+    grIceMt_801F929C(param1, ICEMT_STATE(gp, 0x100, &gp->u.icemt1.x34[2]));
+    grIceMt_801F929C(param1, ICEMT_STATE(gp, 0x10E, &gp->u.icemt.x108[3]));
     grIceMt_801F98A8(param1);
     Ground_UpdateMapColl(param1);
 }
@@ -1105,7 +1118,8 @@ void stageGObj4_OnInit(Ground_GObj* arg0)
     sp14.x4 = grIm_804DB59C;
     grIceMt_801F8CDC(arg0, (s16*) &sp14, 4, &gp->u.icemt1.x34[0]);
     r = grIceMt_801FA500(arg0, jobj3);
-    grIceMt_801F91EC(arg0, gp->u.icemt.x108, grIceMt_801FA500(arg0, jobj2), r,
+    grIceMt_801F91EC(arg0, ICEMT_STATE(gp, 0x108, gp->u.icemt.x108),
+                     grIceMt_801FA500(arg0, jobj2), r,
                      117, 265, 638, fn_801F9558);
 }
 
@@ -1117,7 +1131,7 @@ bool stageGObj4_Callback1(Ground_GObj* param1)
 void stageGObj4_GObjProc(Ground_GObj* gobj)
 {
     Ground* gp = gobj->user_data;
-    grIceMt_801F929C(gobj, &gp->u.icemt1.x34[4]);
+    grIceMt_801F929C(gobj, ICEMT_STATE(gp, 0x108, &gp->u.icemt1.x34[4]));
     grIceMt_801F98A8(gobj);
     Ground_UpdateMapColl(gobj);
 }
@@ -1289,7 +1303,11 @@ void fn_801F8C64(Item_GObj* gobj, Ground* u1, Vec3* u2, HSD_GObj* u3, f32 u4)
     Item* it = GET_ITEM(gobj);
     grMaterial_801C8E28(gobj);
 
+#ifdef MELEE_NATIVE
+    HSD_JObjSetFlagsAll(it->xDD4_itemVar.yaku.x4, JOBJ_HIDDEN);
+#else
     HSD_JObjSetFlagsAll(it->xDD4_itemVar.mato.x4, JOBJ_HIDDEN);
+#endif
     it_8026B294(gobj, &pos);
     efSync_Spawn(0x445, gobj, &pos);
     Ground_801C53EC(310);
@@ -1513,7 +1531,7 @@ void fn_801F9338(void* user_data, int joint_id, CollData* coll, int coll_x50,
     {
         HSD_GObj* gobj;
         Ground* gp = user_data;
-        s16* s = gp->u.icemt.x100;
+        s16* s = ICEMT_STATE(gp, 0x100, gp->u.icemt.x100);
         if ((s32) coll->x34_flags.b1234 == 1 && s[0] == 0) {
             gobj = Ground_GetMapGObj(2);
             s[0] = 1;
@@ -1539,7 +1557,7 @@ void fn_801F9448(void* user_data, int joint_id, CollData* coll, int coll_x50,
     {
         HSD_GObj* gobj;
         Ground* gp = user_data;
-        s16* s = &gp->u.icemt.x108[3];
+        s16* s = ICEMT_STATE(gp, 0x10E, &gp->u.icemt.x108[3]);
         if ((s32) coll->x34_flags.b1234 == 1 && s[0] == 0) {
             gobj = Ground_GetMapGObj(2);
             s[0] = 1;
@@ -1565,7 +1583,7 @@ void fn_801F9558(void* user_data, int joint_id, CollData* coll, int coll_x50,
     {
         HSD_GObj* gobj;
         Ground* gp = user_data;
-        s16* s = gp->u.icemt.x108;
+        s16* s = ICEMT_STATE(gp, 0x108, gp->u.icemt.x108);
         if ((s32) coll->x34_flags.b1234 == 1 && s[0] == 0) {
             gobj = Ground_GetMapGObj(4);
             s[0] = 1;
@@ -2052,7 +2070,11 @@ void onJointCollision(void* user_data, int joint_id, CollData* coll,
         if (gobj != NULL) {
             gp2 = gobj->user_data;
             if (gp2 != NULL) {
+#ifdef MELEE_NATIVE
+                gp2->u.icemt10.x14_b4 = 1;
+#else
                 ((UnkFlagStruct*) &gp2->u.icemt.x14)->b4 = 1;
+#endif
             }
         }
     }

@@ -3255,6 +3255,11 @@ float fn_80166A8C(register Vec3* src, register Vec3* dst)
     register float x = src->x;
     asm { psq_st x, Vec3.x(dst), 1, qr3 }
     return x;
+#else
+    // The quantized store writes the value as a saturated u16.
+    float x = src->x;
+    *(u16*) dst = x <= 0.0f ? 0 : x >= 65535.0f ? 65535 : (u16) x;
+    return x;
 #endif
 }
 

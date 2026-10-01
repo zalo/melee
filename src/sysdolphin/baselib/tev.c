@@ -54,7 +54,12 @@ static bool CompareRGB(GXColor* c0, GXColor* c1)
 {
     u32* d0 = (u32*) c0;
     u32* d1 = (u32*) c1;
+#ifdef MELEE_NATIVE
+    // Red is the low byte of the word here and alpha the high one.
+    return ((*d0 ^ *d1) & 0x00FFFFFF) != 0;
+#else
     return ((*d0 ^ *d1) & 0xFFFFFF00) != 0;
+#endif
 }
 
 static bool CompareRGBA(GXColor* c0, GXColor* c1)
@@ -68,7 +73,11 @@ static void CopyRGB(GXColor* dst, GXColor* src)
 {
     u32* d = (u32*) dst;
     u32* s = (u32*) src;
+#ifdef MELEE_NATIVE
+    *d = (*d & 0xff000000) | (*s & 0x00ffffff);
+#else
     *d = (*d & 0xff) | (*s & 0xffffff00);
+#endif
 }
 
 void HSD_SetupChannel(HSD_Chan* ch)

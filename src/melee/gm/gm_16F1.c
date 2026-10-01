@@ -1325,8 +1325,13 @@ int fn_801701C0(MatchEnd* rules, int arg1, int arg2)
         {
             int i;
             for (i = 0; i < 4; i++) {
+#ifdef MELEE_NATIVE
+                if (x58[i].pkind != Gm_PKind_NA && i != arg1 &&
+                    x58[i].x3_b7)
+#else
                 if (x58[i].pkind != Gm_PKind_NA && i != arg1 &&
                     (x58[i].x3 & 1))
+#endif
                 {
                     return 0;
                 }

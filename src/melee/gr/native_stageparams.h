@@ -56,10 +56,7 @@ struct grIceMt_YakumonoParam {
     s16* xB4;
     s16 xB8;
     s16 pad;
-    grZakoGenerator_SpawnDesc xBC;
-    float xC0;
-    float xC4;
-    float xC8;
-    float xCC;
+    // The spawn descriptors run to the end of the block.
+    grZakoGenerator_SpawnDesc xBC[32];
 };
 #endif

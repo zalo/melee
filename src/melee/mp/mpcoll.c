@@ -680,6 +680,23 @@ void mpCollInterpolateECB(CollData* coll, float time)
         fpclassify(coll->ecb.right.x) == FP_NAN ||
         fpclassify(coll->ecb.right.y) == FP_NAN)
     {
+#ifdef MELEE_NATIVE
+        extern int Stage_80225194(void);
+        OSReport("NaN ECB: stage=%d owner class=%d time=%g pos=(%g,%g) last=(%g,%g) floor=%d\n",
+                 Stage_80225194(), coll->x0_gobj != NULL ? (int) coll->x0_gobj->classifier : -1, time,
+                 coll->cur_pos.x, coll->cur_pos.y, coll->last_pos.x, coll->last_pos.y, (int) coll->floor.index);
+        OSReport("NaN ECB: prev top=(%g,%g) bottom=(%g,%g) left=(%g,%g) right=(%g,%g)\n",
+                 coll->prev_ecb.top.x, coll->prev_ecb.top.y, coll->prev_ecb.bottom.x, coll->prev_ecb.bottom.y,
+                 coll->prev_ecb.left.x, coll->prev_ecb.left.y, coll->prev_ecb.right.x, coll->prev_ecb.right.y);
+        OSReport("NaN ECB: desired top=(%g,%g) bottom=(%g,%g) left=(%g,%g) right=(%g,%g)\n",
+                 coll->desired_ecb.top.x, coll->desired_ecb.top.y, coll->desired_ecb.bottom.x,
+                 coll->desired_ecb.bottom.y, coll->desired_ecb.left.x, coll->desired_ecb.left.y,
+                 coll->desired_ecb.right.x, coll->desired_ecb.right.y);
+        if (coll->x0_gobj != NULL && coll->x0_gobj->classifier == HSD_GOBJ_CLASS_FIGHTER) {
+            extern void MeleeNativeReportFighter(HSD_GObj*);
+            MeleeNativeReportFighter(coll->x0_gobj);
+        }
+#endif
         HSD_ASSERTREPORT(1193, 0, "error\n");
     }
 }
@@ -955,12 +972,23 @@ bool mpColl_80043754(mpColl_Callback cb, CollData* coll, u32 flags)
     x = max_inline(x, y);
 
 #ifdef MELEE_NATIVE
-    if (!isfinite(x)) {
+    // A finite distance this large would be walked six units at a time.
+    if (!isfinite(x) || x > 45000.0F) {
+        OSReport("Invalid ECB delta: distance=%g item kind=%d\n", x,
+                 coll->x0_gobj != NULL && coll->x0_gobj->p_link == 9
+                     ? (int) itGetKind(coll->x0_gobj)
+                     : -1);
         OSReport("Invalid ECB delta: pos=(%g,%g,%g) last=(%g,%g,%g) old=(%g,%g,%g,%g) new=(%g,%g,%g,%g)\n",
             coll->cur_pos.x,coll->cur_pos.y,coll->cur_pos.z,
             coll->last_pos.x,coll->last_pos.y,coll->last_pos.z,
             coll->ecb.left.x,coll->ecb.right.x,coll->ecb.top.y,coll->ecb.bottom.y,
             coll->desired_ecb.left.x,coll->desired_ecb.right.x,coll->desired_ecb.top.y,coll->desired_ecb.bottom.y);
+        {
+            extern int Stage_80225194(void);
+            OSReport("Invalid ECB delta: stage=%d owner class=%d floor=%d flags=%x\n", Stage_80225194(),
+                coll->x0_gobj != NULL ? (int) coll->x0_gobj->classifier : -1,
+                (int) coll->floor.index, (unsigned) coll->floor.flags);
+        }
         if(coll->ecb_source.kind==ECBSource_JObj) {
             int j;
             for(j=0;j<6;j++) {

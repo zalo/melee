@@ -2013,10 +2013,19 @@ void Ground_801C36F4(int map_id, HSD_JObj* root, UNK_T joint)
     UnkStageDat* stage_dat;
     UnkArchiveStruct* archive;
     int entry_count;
+#ifdef MELEE_NATIVE
+    // Same records as Ground_801C34AC walks; the second member is a pointer.
+    struct {
+        void* joint;
+        s16* pairs;
+        s32 pair_count;
+    }* entry;
+#else
     struct {
         void* joint;
         u8 x4_pad[0x8];
     }* entry;
+#endif
     int i;
     u32 unused[4];
 

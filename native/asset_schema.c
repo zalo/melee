@@ -14,6 +14,8 @@
 #include <melee/it/kinds/types.h>
 #include <melee/ft/kinds/ftSamus/types.h>
 #include <melee/ft/kinds/ftGameWatch/types.h>
+#include <melee/ft/kinds/ftLink/types.h>
+#include <melee/ft/kinds/ftMars/types.h>
 #include <melee/it/kinds/itkinoko.h>
 #include <melee/gm/gmeventdata.h>
 #include <melee/ty/types.h>
@@ -145,6 +147,9 @@ S(kirbycopypartsd,KirbyHatStruct,28,KIRBY_COPY_PARTS,P(KirbyHatStruct,hat_dynami
 // Game & Watch: vis lookup and colour words read by ftKb_SpecialN_800F14B4, then chef and pan articles.
 S(kirbycopypartsgw,KirbyHatStruct,40,KIRBY_COPY_PARTS,P(KirbyHatStruct,hat_dynamics[3],24,AT_FIGHTER_VIS),P(KirbyHatStruct,hat_dynamics[4],28,AT_WORDS),P(KirbyHatStruct,hat_dynamics[5],32,AT_ARTICLE),P(KirbyHatStruct,hat_dynamics[6],36,AT_ARTICLE));
 S(gamewatchattr,ftGameWatchAttributes,148,U(ftGameWatchAttributes,x0_GAMEWATCH_WIDTH,0,1),B(ftGameWatchAttributes,x4_GAMEWATCH_COLOR,4,20),U(ftGameWatchAttributes,x18_GAMEWATCH_CHEF_LOOPFRAME,24,31));
+// Sword-trail alpha and colour bytes sit inside otherwise word-sized attributes.
+S(marsattr,MarsAttributes,152,U(MarsAttributes,x0,0,32),B(MarsAttributes,x78.x8,128,12),U(MarsAttributes,x78.x14,140,3));
+S(linkattr,ftLk_DatAttrs,220,U(ftLk_DatAttrs,x0,0,27),B(ftLk_DatAttrs,x64.x8,108,12),U(ftLk_DatAttrs,x64.x14,120,25));
 S(fighter,ftData,96,P(ftData,x0,0,AT_FIGHTER_ATTR),P(ftData,ext_attr,4,AT_ITEM_NUMBERS),P(ftData,x8,8,AT_FIGHTER_PARTS),P(ftData,xC,12,AT_FIGHTER_ANIMS),P(ftData,x10,16,AT_RAW),P(ftData,x14,20,AT_FIGHTER_ANIMS),P(ftData,x18,24,AT_RAW),P(ftData,x1C,28,AT_FIGHTER_PART_ANIM_TABLE),P(ftData,x20,32,AT_FIGHTER_GUARD),P(ftData,x24,36,AT_WORDS),P(ftData,x28,40,AT_WORDS),P(ftData,x2C,44,AT_FIGHTER_DYNAMICS),P(ftData,x30,48,AT_FIGHTER_HURT),P(ftData,x34,52,AT_WORDS),P(ftData,x38,56,AT_WORDS),P(ftData,x3C,60,AT_WORDS),P(ftData,x40,64,AT_WORDS),P(ftData,x44,68,AT_FIGHTER_LEDGE),P(ftData,x48_items,72,AT_FIGHTER_ITEMS),P(ftData,x4C_sfx,76,AT_FIGHTER_SFX),P(ftData,x50,80,AT_WORDS),P(ftData,x54,84,AT_WORDS),P(ftData,x58,88,AT_FIGHTER_IK),P(ftData,x5C,92,AT_JOINT));
 S(fighterattr,ftCo_DatAttrs,388,U(ftCo_DatAttrs,walk_accel_mul,0,96),B(ftCo_DatAttrs,weight_independent_throws_mask,384,1));
 S(fighterparts,struct ftData_x8,24,U(struct ftData_x8,x0.model_num,0,1),P(struct ftData_x8,x0.vis_table,4,AT_FIGHTER_VIS_TABLE),U(struct ftData_x8,x8.x8,8,1),P(struct ftData_x8,x8.xC,12,AT_HALF_TABLE),B(struct ftData_x8,x10,16,5));
@@ -162,7 +167,10 @@ S(fighterik,ftData_x58_t,28,B(ftData_x58_t,x0,0,4),U(ftData_x58_t,x4,4,1),B(ftDa
 S(figatree,FigaTree,20,U(FigaTree,type,0,3),P(FigaTree,nodes,12,AT_RAW),P(FigaTree,tracks,16,AT_FIGATRACKS));
 S(figatracks,FigaTrack,12,H(FigaTrack,length,0,2),B(FigaTrack,obj_type,4,3),P(FigaTrack,ad_head,8,AT_RAW));
 S(dynamicsdesc,DynamicsDesc,20,P(DynamicsDesc,data,0,AT_WORDS),U(DynamicsDesc,count,4,4));
-S(stageice,struct grIceMt_YakumonoParam,208,H(struct grIceMt_YakumonoParam,x0,0,3),U(struct grIceMt_YakumonoParam,x8,8,11),H(struct grIceMt_YakumonoParam,x34,52,4),U(struct grIceMt_YakumonoParam,x3C,60,23),H(struct grIceMt_YakumonoParam,ft_max_y,152,2),U(struct grIceMt_YakumonoParam,x9C,156,2),H(struct grIceMt_YakumonoParam,xA4,164,3),P(struct grIceMt_YakumonoParam,field_ixs,172,AT_HALVES),P(struct grIceMt_YakumonoParam,xB0,176,AT_HALVES),P(struct grIceMt_YakumonoParam,xB4,180,AT_HALVES),H(struct grIceMt_YakumonoParam,xB8,184,2),H(struct grIceMt_YakumonoParam,xBC.kind,188,1),B(struct grIceMt_YakumonoParam,xBC.x2,190,2),U(struct grIceMt_YakumonoParam,xC0,192,4));
+// The spawn descriptors {u16, u8, u8} run from +188 to the end of the block.
+#define ICE_SPAWN(i) H(struct grIceMt_YakumonoParam,xBC[i].kind,188+4*(i),1),B(struct grIceMt_YakumonoParam,xBC[i].x2,190+4*(i),2)
+#define ICE_SPAWN4(i) ICE_SPAWN(i),ICE_SPAWN(i+1),ICE_SPAWN(i+2),ICE_SPAWN(i+3)
+S(stageice,struct grIceMt_YakumonoParam,316,H(struct grIceMt_YakumonoParam,x0,0,3),U(struct grIceMt_YakumonoParam,x8,8,11),H(struct grIceMt_YakumonoParam,x34,52,4),U(struct grIceMt_YakumonoParam,x3C,60,23),H(struct grIceMt_YakumonoParam,ft_max_y,152,2),U(struct grIceMt_YakumonoParam,x9C,156,2),H(struct grIceMt_YakumonoParam,xA4,164,3),P(struct grIceMt_YakumonoParam,field_ixs,172,AT_HALVES),P(struct grIceMt_YakumonoParam,xB0,176,AT_HALVES),P(struct grIceMt_YakumonoParam,xB4,180,AT_HALVES),H(struct grIceMt_YakumonoParam,xB8,184,2),ICE_SPAWN4(0),ICE_SPAWN4(4),ICE_SPAWN4(8),ICE_SPAWN4(12),ICE_SPAWN4(16),ICE_SPAWN4(20),ICE_SPAWN4(24),ICE_SPAWN4(28));
 S(grounditem,struct GroundItemData,8,U(struct GroundItemData,unk0,0,1),P(struct GroundItemData,unk4,4,AT_ARTICLE));
 S(article,Article,24,P(Article,x0_common_attr,0,AT_ITEM_ATTR),P(Article,x4_specialAttributes,4,AT_ITEM_NUMBERS),P(Article,x8_hurtbones,8,AT_ITEM_HURT),P(Article,xC_itemStates,12,AT_ITEM_STATES),P(Article,x10_modelDesc,16,AT_ITEM_MODEL),P(Article,x14_dynamics,20,AT_ITEM_DYNAMICS));
 S(itemcommon,ItemCommonData,0x160,U(ItemCommonData,x0,0,18),B(ItemCommonData,x48_byte,0x48,4),U(ItemCommonData,x4C_float,0x4C,38),B(ItemCommonData,filler_1a,0xE4,4),U(ItemCommonData,xE8,0xE8,1),B(ItemCommonData,filler_1a_2,0xEC,4),U(ItemCommonData,xF0,0xF0,28));
@@ -225,12 +233,13 @@ S(fogadj,HSD_FogAdjDesc,68,H(HSD_FogAdjDesc,center,0,2),U(HSD_FogAdjDesc,mtx,4,1
 S(sobj,HSD_SObjDesc,8,P(HSD_SObjDesc,image,0,AT_IMAGE),P(HSD_SObjDesc,tlut,4,AT_TLUT));
 typedef struct { unsigned char count; float* values; } NativeRefractionData;
 S(refract,NativeRefractionData,8,B(NativeRefractionData,count,0,1),P(NativeRefractionData,values,4,AT_WORDS));
-S(event,struct gm_804D6900_t,40,B(struct gm_804D6900_t,kind,0,4),P(struct gm_804D6900_t,x4,4,AT_EVENT_EXTRA),P(struct gm_804D6900_t,evinit,8,AT_EVENT_INIT),P(struct gm_804D6900_t,evbonus,12,AT_EVENT_BONUS),P(struct gm_804D6900_t,evstage_table,16,AT_EVENT_STAGE),
-P(struct gm_804D6900_t,player_init[0],20,AT_EVENT_PLAYER),P(struct gm_804D6900_t,player_init[1],24,AT_EVENT_PLAYER),P(struct gm_804D6900_t,player_init[2],28,AT_EVENT_PLAYER),P(struct gm_804D6900_t,player_init[3],32,AT_EVENT_PLAYER),P(struct gm_804D6900_t,player_init[4],36,AT_EVENT_PLAYER));
+// Six player slots (Event 37 fills all of them) and six rounds (Event 49), whatever the level uses.
+S(event,struct gm_804D6900_t,44,B(struct gm_804D6900_t,kind,0,4),P(struct gm_804D6900_t,x4,4,AT_EVENT_EXTRA),P(struct gm_804D6900_t,evinit,8,AT_EVENT_INIT),P(struct gm_804D6900_t,evbonus,12,AT_EVENT_BONUS),P(struct gm_804D6900_t,evstage_table,16,AT_EVENT_STAGE),
+P(struct gm_804D6900_t,player_init[0],20,AT_EVENT_PLAYER),P(struct gm_804D6900_t,player_init[1],24,AT_EVENT_PLAYER),P(struct gm_804D6900_t,player_init[2],28,AT_EVENT_PLAYER),P(struct gm_804D6900_t,player_init[3],32,AT_EVENT_PLAYER),P(struct gm_804D6900_t,player_init[4],36,AT_EVENT_PLAYER),P(struct gm_804D6900_t,player_init[5],40,AT_EVENT_PLAYER));
 S(eventinit,struct gm_evinit,40,B(struct gm_evinit,is_teams,2,4),H(struct gm_evinit,stkind,6,1),U(struct gm_evinit,time_limit,8,1),B(struct gm_evinit,padC,12,4),U(struct gm_evinit,x18,24,4));
 S(eventbonus,struct gm_evbonus,24,B(struct gm_evbonus,c_kind,0,8),U(struct gm_evbonus,x8,8,3),B(struct gm_evbonus,flags,20,4));
 S(eventplayer,gm_801BAB40_src,28,B(gm_801BAB40_src,c_kind,0,12),H(gm_801BAB40_src,x12,12,2),U(gm_801BAB40_src,x18,16,3));
-S(eventstage,struct gm_evstage_table,36,B(struct gm_evstage_table,count,0,2),H(struct gm_evstage_table,stage,2,7),P(struct gm_evstage_table,entries[0],16,AT_EVENT_PLAYER),P(struct gm_evstage_table,entries[1],20,AT_EVENT_PLAYER),P(struct gm_evstage_table,entries[2],24,AT_EVENT_PLAYER),P(struct gm_evstage_table,entries[3],28,AT_EVENT_PLAYER),P(struct gm_evstage_table,entries[4],32,AT_EVENT_PLAYER));
+S(eventstage,struct gm_evstage_table,40,B(struct gm_evstage_table,count,0,2),H(struct gm_evstage_table,stage,2,7),P(struct gm_evstage_table,entries[0],16,AT_EVENT_PLAYER),P(struct gm_evstage_table,entries[1],20,AT_EVENT_PLAYER),P(struct gm_evstage_table,entries[2],24,AT_EVENT_PLAYER),P(struct gm_evstage_table,entries[3],28,AT_EVENT_PLAYER),P(struct gm_evstage_table,entries[4],32,AT_EVENT_PLAYER),P(struct gm_evstage_table,entries[5],36,AT_EVENT_PLAYER));
 S(eventtiming,struct gm_804D6900_x4_t,8,U(struct gm_804D6900_x4_t,x0,0,1),U(struct gm_804D6900_x4_t,x4,4,1));
 S(eventextra,struct gm_804D6900_x4_t,8,U(struct gm_804D6900_x4_t,x0,0,1),P(struct gm_804D6900_x4_t,x4,4,AT_EVENT_PLAYER));
 void MeleeNativeEventFlags(void* data,unsigned flags,unsigned hi,unsigned lo) {
@@ -256,7 +265,7 @@ const MeleeAssetSchema* MeleeNativeAssetSchema(unsigned type) {
     CASE(AT_KIRBY_COPY_HAT,kirbycopyhat); CASE(AT_KIRBY_COPY_HAT_AAD,kirbycopyhataad); CASE(AT_KIRBY_COPY_HAT_AD,kirbycopyhatad);
     CASE(AT_KIRBY_COPY_HAT_JD,kirbycopyhatjd); CASE(AT_KIRBY_COPY_HAT_AJ,kirbycopyhataj); CASE(AT_KIRBY_COPY_HAT_D,kirbycopyhatd);
     CASE(AT_KIRBY_COPY_PARTS,kirbycopyparts); CASE(AT_KIRBY_COPY_PARTS_AA,kirbycopypartsaa); CASE(AT_KIRBY_COPY_PARTS_AD,kirbycopypartsad);
-    CASE(AT_KIRBY_COPY_PARTS_D,kirbycopypartsd); CASE(AT_KIRBY_COPY_PARTS_GW,kirbycopypartsgw); CASE(AT_GAMEWATCH_ATTR,gamewatchattr);
+    CASE(AT_KIRBY_COPY_PARTS_D,kirbycopypartsd); CASE(AT_KIRBY_COPY_PARTS_GW,kirbycopypartsgw); CASE(AT_GAMEWATCH_ATTR,gamewatchattr); CASE(AT_MARS_ATTR,marsattr); CASE(AT_LINK_ATTR,linkattr);
     CASE(AT_PURIN_PARTS,purinparts);
     CASE(AT_SAMUS_BEAM,samusbeam);
     CASE(AT_FIGHTER_VIS,fightervis); CASE(AT_PART_VIS,partvis); CASE(AT_FIGHTER_ANIMS,fighteranims);

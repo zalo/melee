@@ -63,8 +63,15 @@ void MeleeNativeTestStage(VsModeData* vs)
         vs->start.rules.stkind = setting("MELEE_TEST_STAGE", 328, vs->start.rules.stkind);
 }
 
+/* puppet_runtime.c: a mode playlist (MELEE_TEST_MODES) seats its own players. */
+int MeleeNativePuppetPrepareVsCss(CSSData* css);
+int MeleeNativePuppetDirects(void);
+void MeleeNativePuppetTick(void);
+void MeleeNativePuppetScene(void);
+
 void MeleeNativeTestPrepareCss(CSSData* css)
 {
+    if (MeleeNativePuppetPrepareVsCss(css)) return;
     if (!getenv("MELEE_MATRIX_TEST")) return;
     css->vs.start.players[0].ckind = setting("MELEE_TEST_CHARACTER", 32, CKind_Fox);
     if (css->vs.start.players[0].ckind == CKind_Seak)
@@ -83,6 +90,7 @@ void MeleeNativeTestPrepareCss(CSSData* css)
 #include <melee/gr/stage.h>
 #include <melee/gr/ground.h>
 #include <melee/gm/gmvs.h>
+#include <melee/gm/gm_1A3F.h>
 #include <melee/ft/types.h>
 #include <melee/it/itspawn.h>
 #include <sysdolphin/baselib/gobj.h>
@@ -177,6 +185,15 @@ int MeleeNativeSkipParticles(void)
     return !keep && Stage_80225194() == St_Kind_Izumi;
 }
 
+/* MELEE_TEST_NO_RUMBLE=1: the game's rumble logic runs as usual but never reaches the motor, so an
+ * unattended soak does not vibrate the device for hours. */
+int MeleeNativeMotorMuted(void)
+{
+    static int muted = -1;
+    if (muted < 0) muted = setting("MELEE_TEST_NO_RUMBLE", 1, 0);
+    return muted;
+}
+
 /* MELEE_TEST_P1_CPU=<1..9>: player 1's fighter takes its inputs from the CPU AI at that level. The
  * slot stays human to the game mode (ftCo_IsCpuControlled is the only thing that changes), so 1-P
  * modes keep their rules, scoring and continue screens. Once an input script has entered a mode, the
@@ -187,15 +204,6 @@ int MeleeNativePuppetLevel(int slot)
     static int level = -1;
     if (level < 0) level = setting("MELEE_TEST_P1_CPU", 9, 0);
     return slot == 0 ? level : 0;
-}
-
-/* Break the Targets has no opponent, so the CPU AI stands still there until the two minute clock
- * runs out. The puppet's fighter goes back to the pad for that stage and the script layer holds the
- * stick left: it runs off the stage, the bonus stage ends as a failure and the run moves on. */
-int MeleeNativePuppetWalks(void)
-{
-    GrKind kind = Stage_8022519C(Stage_80225194());
-    return MeleeNativePuppetLevel(0) && kind >= Gr_Kind_TMario && kind <= Gr_Kind_TGanon;
 }
 
 /* The match scene also hosts the 1-P stage-clear score screen (state 2 of its state machine), which
@@ -213,14 +221,16 @@ void MeleeNativeMatrixScene(int scene)
     matrix_scene = scene;
     matrix_frames = 0;
     freeze_frames = 0;
+    MeleeNativePuppetScene();
     if (scene == 2) MeleeNativeDumpStagePoints();
-    if (scene == 2 && MeleeNativePuppetLevel(0)) {
+    /* Training runs its match in its own scene (4). */
+    if ((scene == 2 || scene == 4) && MeleeNativePuppetLevel(0)) {
         static unsigned matches;
         size_t archives = 0, archive_bytes = 0;
         MeleeNativeArchiveStats(&archives, &archive_bytes);
-        fprintf(stderr, "[puppet] match %u stage=%d character=%d stocks=%d level=%d archives=%zu/%zukB\n", ++matches,
-                Stage_80225194(), Player_GetPlayerCharacter(0), Player_GetStocks(0), MeleeNativePuppetLevel(0),
-                archives, archive_bytes / 1024);
+        fprintf(stderr, "[puppet] match %u stage=%d character=%d stocks=%d level=%d archives=%zu/%zukB mode=%d\n",
+                ++matches, Stage_80225194(), Player_GetPlayerCharacter(0), Player_GetStocks(0),
+                MeleeNativePuppetLevel(0), archives, archive_bytes / 1024, gm_GetCurrentGameMode());
     }
     if (scene == 2 && getenv("MELEE_MATRIX_TEST")) {
         int expected = setting("MELEE_TEST_CHARACTER", 32, CKind_Fox);
@@ -312,6 +322,7 @@ static Fighter* live_fighter(int slot)
     }
     return NULL;
 }
+Fighter* MeleeNativeLiveFighter(int slot) { return live_fighter(slot); }
 
 u32 MeleeNativeStateHash(void)
 {
@@ -381,6 +392,7 @@ void MeleeNativeMatrixTick(void)
      * frame, before the digest is taken. */
     if (MeleeNativeAudioTick) MeleeNativeAudioTick();
     state_hash_tick();
+    MeleeNativePuppetTick();
     if (!getenv("MELEE_MATRIX_TEST") || matrix_scene != 2 ||
         !getenv("MELEE_TEST_ITEM")) return;
     ++matrix_frames;
@@ -403,5 +415,6 @@ void MeleeNativeTestPrepareSss(SSSData* sss)
 
 int MeleeNativeMatrixUnlocks(void)
 {
-    return getenv("MELEE_MATRIX_TEST") != NULL;
+    /* A mode playlist cycles through the whole cast whatever the save has unlocked. */
+    return getenv("MELEE_MATRIX_TEST") != NULL || MeleeNativePuppetDirects();
 }

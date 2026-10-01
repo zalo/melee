@@ -39,6 +39,13 @@ typedef struct itAnimlistCmdUnk {
     u16 x2;
 } itAnimlistCmdUnk;
 
+#ifdef MELEE_NATIVE
+// Command words are host-order here, so the two halves of a word are taken by
+// value rather than by address.
+#define IT_CMD_HI(cmd) ((u16) (*(const u32*) (cmd)->u >> 16))
+#define IT_CMD_LO(cmd) ((u16) *(const u32*) (cmd)->u)
+#endif
+
 void it_80278F2C(Item_GObj* item_gobj, CommandInfo* cmd)
 {
     Vec3 sp20;
@@ -48,6 +55,23 @@ void it_80278F2C(Item_GObj* item_gobj, CommandInfo* cmd)
     s32 arg6;
     PAD_STACK(4);
 
+#ifdef MELEE_NATIVE
+    arg2 = IT_CMD_HI(cmd);
+    arg2 = arg2 & 0x3FF;
+    ++cmd->u;
+    arg6 = (f32) IT_CMD_LO(cmd);
+    ef_id = IT_CMD_HI(cmd);
+    ++cmd->u;
+    sp20.x = 0.003906f * (s16) IT_CMD_HI(cmd);
+    sp20.y = 0.003906f * (s16) IT_CMD_LO(cmd);
+    ++cmd->u;
+    sp20.z = 0.003906f * (s16) IT_CMD_HI(cmd);
+    sp14.x = 0.003906f * (s16) IT_CMD_LO(cmd);
+    ++cmd->u;
+    sp14.y = 0.003906f * (s16) IT_CMD_HI(cmd);
+    sp14.z = 0.003906f * (s16) IT_CMD_LO(cmd);
+    ++cmd->u;
+#else
     arg2 = ((u16*) cmd->u)[0];
     arg2 = arg2 & 0x3FF;
     ++cmd->u;
@@ -63,6 +87,7 @@ void it_80278F2C(Item_GObj* item_gobj, CommandInfo* cmd)
     sp14.y = 0.003906f * ((s16*) cmd->u)[0];
     sp14.z = 0.003906f * ((s16*) cmd->u)[1];
     ++cmd->u;
+#endif
     it_80278800(item_gobj, ef_id, arg2, &sp20, &sp14, 0, arg6);
 }
 
@@ -174,7 +199,11 @@ void it_80279544(Item_GObj* item_gobj, CommandInfo* cmd)
 {
     Item* item = item_gobj->user_data;
     HitCapsule* hit = &item->x5D4_hitboxes[cmd->u->set_hitbox_damage.idx].hit;
+#ifdef MELEE_NATIVE
+    u32 val = IT_CMD_LO(cmd) & 0x1FFF;
+#else
     u32 val = ((u16*) cmd->u)[1] & 0x1FFF;
+#endif
     PAD_STACK(8);
     it_80272460(hit, (u32) (item->xC3C * ((f32) val * item->xC40)), item_gobj);
     ++cmd->u;
@@ -236,7 +265,11 @@ void it_8027978C(Item_GObj* item_gobj, CommandInfo* cmd)
 {
     Item* item = item_gobj->user_data;
     itAnimlistCmdUnk* ptr = (itAnimlistCmdUnk*) cmd->u;
+#ifdef MELEE_NATIVE
+    s32 opcode = (*(const u32*) cmd->u >> 18) & 0xFF;
+#else
     s32 opcode = ptr->opcode;
+#endif
     u32 arg1;
     u8 arg2;
     u8 arg3;
@@ -248,8 +281,13 @@ void it_8027978C(Item_GObj* item_gobj, CommandInfo* cmd)
     case 2:
         arg1 = *(u32*) cmd->u;
         ++cmd->u;
+#ifdef MELEE_NATIVE
+        arg2 = (u8) (IT_CMD_LO(cmd) >> 8);
+        arg3 = (u8) IT_CMD_LO(cmd);
+#else
         arg2 = ((u8*) cmd->u)[2];
         arg3 = ((u8*) cmd->u)[3];
+#endif
         switch (opcode) {
         case 0:
             Item_8026AE84(item, arg1, arg2, arg3);

@@ -677,6 +677,14 @@ bool HSD_AudioSFXSetPan(int vid, u8 pan)
         return false;
     }
     enabled = OSDisableInterrupts();
+#ifdef MELEE_NATIVE
+    // The mixer thread can retire the voice between the check above and the
+    // lock.
+    if (v->unk != vid || !(v->flags & SMSTATE_MASK)) {
+        OSRestoreInterrupts(enabled);
+        return false;
+    }
+#endif
     if (v->vID != -1) {
         HSD_SynthSFXSetPan(v->vID, MIN(pan, 0xFF));
     } else {
@@ -704,6 +712,14 @@ bool HSD_AudioSFXSetVolumeEx(s32 vid, u8 volume)
         return false;
     }
     enabled = OSDisableInterrupts();
+#ifdef MELEE_NATIVE
+    // The mixer thread can retire the voice between the check above and the
+    // lock.
+    if (v->unk != vid || !(v->flags & SMSTATE_MASK)) {
+        OSRestoreInterrupts(enabled);
+        return false;
+    }
+#endif
     voice_id = v->vID;
     if (voice_id != -1) {
         HSD_SynthSFXSetVolumeFade(voice_id, CLAMP(0, volume, 0xFF), 1);
@@ -775,6 +791,14 @@ bool HSD_AudioSFXSetMix(s32 vid, s32 aux_bus, u8 send_level)
     }
     clamped = CLAMP(0, send_level, 0xFF);
     enabled = OSDisableInterrupts();
+#ifdef MELEE_NATIVE
+    // The mixer thread can retire the voice between the check above and the
+    // lock.
+    if (v->unk != vid || !(v->flags & SMSTATE_MASK)) {
+        OSRestoreInterrupts(enabled);
+        return false;
+    }
+#endif
     if (v->vID != -1) {
         v->x24[aux_bus] = clamped;
         left_vol = (f32) (v->x26 * v->x24[0]) / 65535.0F;
@@ -1276,6 +1300,14 @@ static bool PStreamPauseCh(int vid)
         return false;
     }
     enabled = OSDisableInterrupts();
+#ifdef MELEE_NATIVE
+    // The mixer thread can retire the voice between the check above and the
+    // lock.
+    if (v->unk != vid || !(v->flags & SMSTATE_MASK)) {
+        OSRestoreInterrupts(enabled);
+        return false;
+    }
+#endif
     if (v->vID != -1) {
         HSD_SynthSFXPause(v->vID);
     } else {
@@ -1322,6 +1354,14 @@ static bool PStreamResumeCh(int vid)
         return false;
     }
     enabled = OSDisableInterrupts();
+#ifdef MELEE_NATIVE
+    // The mixer thread can retire the voice between the check above and the
+    // lock.
+    if (v->unk != vid || !(v->flags & SMSTATE_MASK)) {
+        OSRestoreInterrupts(enabled);
+        return false;
+    }
+#endif
     if (v->vID != -1) {
         HSD_SynthSFXResume(v->vID);
     } else {

@@ -21,30 +21,15 @@ extern "C" void MeleeNativeInputScene(int scene) {
     if(std::getenv("MELEE_INPUT_SCRIPT")) std::fprintf(stderr,"[input-test] ready scene %d\n",scene);
 }
 extern "C" int MeleeNativePuppetLevel(int slot);
-extern "C" int MeleeNativePuppetStageClear(void);
-extern "C" int MeleeNativePuppetWalks(void);
-// With MELEE_TEST_P1_CPU the fighter plays itself (matrix_runtime.c), so once the script has entered a
-// 1-P mode all that is left for the pad is every screen that is not a match: splash, results,
-// continue, credits, and the menus back into the mode. A and START alternate there; the character
-// select only gets START (the mode remembers the character, and A would pick the token back up), and a
-// match or a loading screen gets nothing, since START would pause the match. The stage-clear score
-// screen is part of the match scene and is the one place there that wants START. Break the Targets is
-// the one match the pad plays: the stick is held left until the fighter has run off the stage.
+extern "C" void MeleeNativePuppetPad(int scene, u16* buttons, s8* x, s8* y);
+// With MELEE_TEST_P1_CPU the fighter plays itself (matrix_runtime.c), so once the script is done the
+// pad belongs to the puppet (puppet_runtime.c): it clears every screen that is not a match, walks the
+// stages the CPU AI cannot play and, with MELEE_TEST_MODES, enters one game mode after another.
 static void puppetAutopilot() {
-    static unsigned tick=0;
-    static int last_scene=-2;
-    if(ready_scene!=last_scene) {
-        last_scene=ready_scene;tick=0;
-        if(ready_scene>=0) std::fprintf(stderr,"[puppet] scene %d\n",ready_scene);
-    }
     u16 buttons=0;
-    if(ready_scene>=0&&(ready_scene!=2||MeleeNativePuppetStageClear())) {
-        const unsigned phase=tick++%60;
-        if(phase>=30&&phase<36) buttons=PAD_BUTTON_START;
-        else if(phase<6&&ready_scene!=8) buttons=PAD_BUTTON_A;
-    }
-    const bool walk=ready_scene==2&&!MeleeNativePuppetStageClear()&&MeleeNativePuppetWalks();
-    MeleeNativeSetKeyboard(buttons,walk?-80:0,0,0,0);
+    s8 x=0,y=0;
+    MeleeNativePuppetPad(ready_scene,&buttons,&x,&y);
+    MeleeNativeSetKeyboard(buttons,x,y,0,0);
 }
 // Opt-in integration-test input, sampled at the same VI boundary as real keys.
 // Each line is "frame_count keys" (e.g. "2 X", "20 W", "60 NONE").

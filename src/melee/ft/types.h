@@ -1000,6 +1000,25 @@ struct MotionState {
     union {
         /// @todo Try to match without this being a @c union.
         u32 _;
+#ifdef MELEE_NATIVE
+        // The tables write this word with shifts, so its top byte and top
+        // bits come last here.
+        struct {
+            u8 xB;
+            u8 xA;
+            struct {
+                u8 x9_b7 : 1;
+                u8 x9_b6 : 1;
+                u8 x9_b5 : 1;
+                u8 x9_b4 : 1;
+                u8 x9_b3 : 1;
+                u8 x9_b2 : 1;
+                u8 x9_b1 : 1;
+                u8 x9_b0 : 1;
+            };
+            u8 move_id : 8;
+        };
+#else
         struct {
             u8 move_id : 8;
             struct {
@@ -1015,6 +1034,7 @@ struct MotionState {
             u8 xA;
             u8 xB;
         };
+#endif
     };
 
     HSD_GObjEvent anim_cb;
@@ -1039,6 +1059,27 @@ struct Fighter_DemoStrings {
 
 /// @todo Rename this and its members; investigate using it elsewhere.
 /* fp+2070 */ union Struct2070 {
+#ifdef MELEE_NATIVE
+    // The word comes from the motion-state flag constants, so its top byte and
+    // top bits come last here.
+    struct {
+        u8 x2073;
+        u8 count_specials : 1;
+        u8 count_x1A0 : 1;
+        u8 count_aerials : 1;
+        u8 count_thrown_items : 1;
+        u8 count_x1A4 : 1;
+        u8 x2072_b2 : 1;
+        u8 x2072_b1 : 1;
+        u8 x2072_b0 : 1;
+        u8 x2071_b7 : 1;
+        u8 x2071_b6 : 1;
+        u8 x2071_b5 : 1;
+        u8 x2071_b4 : 1;
+        u8 x2071_b0_3 : 4;
+        s8 x2070;
+    };
+#else
     /* fp+2070 */ struct {
         /* fp+2070 */ s8 x2070;
         /* fp+2071:0 */ u8 x2071_b0_3 : 4;
@@ -1056,6 +1097,7 @@ struct Fighter_DemoStrings {
         /* fp+2072:7 */ u8 count_specials : 1;
         /* fp+2073 */ u8 x2073;
     };
+#endif
     /* fp+2070 */ int x2070_int;
 };
 

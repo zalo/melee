@@ -17,6 +17,7 @@
 #include <melee/ft/ftlib.h>
 #include <melee/gm/gm_1601.h>
 #include <melee/it/it_26B1.h>
+#include <melee/it/types.h>
 #include <melee/lb/lb_00B0.h>
 #include <melee/lb/lbvector.h>
 #include <melee/mp/mplib.h>
@@ -568,10 +569,18 @@ void grKinokoRoute_802084B4(HSD_GObj* gobj)
 {
     HSD_GObj* gobj2;
     Vec3 sp_vec;
+#ifdef MELEE_NATIVE
+    // gobj is the block's item; 0xDD8 is where its jobj is on the GameCube.
+    struct {
+        HSD_JObj* jobj;
+    } view, *gp = &view;
+    view.jobj = ((Item*) gobj->user_data)->xDD4_itemVar.yaku.x4;
+#else
     struct {
         char pad[0xDD8];
         HSD_JObj* jobj;
     }* gp = gobj->user_data;
+#endif
 
     HSD_JObjSetFlagsAll(gp->jobj, JOBJ_HIDDEN);
 
@@ -579,7 +588,12 @@ void grKinokoRoute_802084B4(HSD_GObj* gobj)
     if (gobj2 != NULL) {
         void* gp2 = gobj2->user_data;
         if (gp2 != NULL) {
+#ifdef MELEE_NATIVE
+            // 0xC4 is where the ground's variables start on the GameCube.
+            ((Ground*) gp2)->u.kinokoroute2.flags_0 = 1;
+#else
             ((UnkFlagStruct*) ((u8*) gp2 + 0xC4))->b0 = 1;
+#endif
         }
     }
 

@@ -172,8 +172,13 @@ void grTIceClimber_80221208(Item_GObj* gobj, Ground* u1, Vec3* u2,
     Vec3 pos;
     Item* it = GET_ITEM(gobj);
 
+#ifdef MELEE_NATIVE
+    HSD_JObjSetFlagsAll(it->xDD4_itemVar.yaku.x4, JOBJ_HIDDEN);
+    lb_8000B1CC(it->xDD4_itemVar.yaku.x4, NULL, &pos);
+#else
     HSD_JObjSetFlagsAll(it->xDD4_itemVar.mato.x4, JOBJ_HIDDEN);
     lb_8000B1CC(it->xDD4_itemVar.mato.x4, NULL, &pos);
+#endif
     efSync_Spawn(0x445, gobj, &pos);
     Camera_RequestQuake(QuakeKind_Small, NULL);
     Ground_801C53EC(310);

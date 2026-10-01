@@ -309,7 +309,12 @@ static void HSD_SynthSFXHeaderLoadCallback(int result, uintptr_t args,
         if (getenv("MELEE_TRACE_ASSETS"))
             OSReport("[sfx-load] bank=%d entry=%d used=%u capacity=%u requested=%u\n", bankID, HSD_Synth_804C2A60[0].entrynum, hsd_SynthSFXBank[bankID] - hsd_SynthSFXBankHead[bankID], hsd_SynthSFXBankHead[bankID + 1] - hsd_SynthSFXBankHead[bankID], hsd_SynthSFXLoadBuf[1]);
         if (hsd_SynthSFXBankHead[bankID + 1] - hsd_SynthSFXBank[bankID] < hsd_SynthSFXLoadBuf[1])
+        {
+            AXVPB* group;
             OSReport("[sfx-bank] bank=%d entry=%d head=%u used-end=%u end=%u requested=%u\n", bankID, HSD_Synth_804C2A60[0].entrynum, hsd_SynthSFXBankHead[bankID], hsd_SynthSFXBank[bankID], hsd_SynthSFXBankHead[bankID + 1], hsd_SynthSFXLoadBuf[1]);
+            for (group = HSD_Synth_804C2AE0[bankID]; group != NULL; group = group->next)
+                OSReport("[sfx-bank]   group entry=%d at=%u size=%u\n", (int) (intptr_t) group->prev, (u32) (uintptr_t) group->callback, (u32) group->userContext);
+        }
 #endif
         HSD_ASSERTREPORT(0xCD,
                          hsd_SynthSFXBankHead[bankID + 1] -
@@ -457,6 +462,11 @@ static void HSD_SynthSFXGroupDataUnlink(AXVPB* vpb)
 void HSD_SynthSFXUnloadBank(int bank_id)
 {
     AXVPB** head;
+#ifdef MELEE_NATIVE
+    // The mixer and the load completions run on other threads here and walk
+    // these lists under the interrupt lock; a group must not vanish under them.
+    bool enabled = OSDisableInterrupts();
+#endif
     HSD_SynthSFXStopRange(bank_id);
     head = &HSD_Synth_804C2AE0[bank_id];
     while (*head != NULL) {
@@ -467,6 +477,9 @@ void HSD_SynthSFXUnloadBank(int bank_id)
         HSD_AudioFree(cur);
     }
     hsd_SynthSFXBank[bank_id] = hsd_SynthSFXBankHead[bank_id];
+#ifdef MELEE_NATIVE
+    OSRestoreInterrupts(enabled);
+#endif
 }
 
 void HSD_SynthSFXDataUnlink(int sfx_id)
@@ -502,6 +515,10 @@ void HSD_SynthSFXGroupDataRemove(int sfx_id)
     AXVPB* cur;
     AXVPB** pcur;
     int i;
+#ifdef MELEE_NATIVE
+    // See HSD_SynthSFXUnloadBank.
+    bool enabled = OSDisableInterrupts();
+#endif
 
     for (i = 0; i < 0x20; i++) {
         pcur = &HSD_Synth_804C2AE0[i];
@@ -512,11 +529,17 @@ void HSD_SynthSFXGroupDataRemove(int sfx_id)
                 HSD_SynthSFXGroupDataUnlink(cur);
                 *pcur = cur->next;
                 HSD_AudioFree(cur);
+#ifdef MELEE_NATIVE
+                OSRestoreInterrupts(enabled);
+#endif
                 return;
             }
             pcur = &cur->next;
         }
     }
+#ifdef MELEE_NATIVE
+    OSRestoreInterrupts(enabled);
+#endif
 }
 
 static void HSD_SynthSFXGroupDataReaddressCallback(int result, uintptr_t args,
@@ -595,6 +618,10 @@ void HSD_SynthSFXBankDeflag(int bank_id)
 {
     AXVPB* vpb;
     intptr_t offset;
+#ifdef MELEE_NATIVE
+    // See HSD_SynthSFXUnloadBank; a completion also advances the bank end.
+    bool enabled = OSDisableInterrupts();
+#endif
 
     HSD_SynthSFXStopRange(bank_id);
     vpb = HSD_Synth_804C2AE0[bank_id];
@@ -608,6 +635,7 @@ void HSD_SynthSFXBankDeflag(int bank_id)
     }
 #ifdef MELEE_NATIVE
     hsd_SynthSFXBank[bank_id] = offset;
+    OSRestoreInterrupts(enabled);
 #else
     HSD_Synth_804C2AE0[bank_id + 0x80 / 4] = (void*) offset;
 #endif

@@ -23,10 +23,24 @@ struct gm_8016A22C_header {
 typedef void (*GmEventPlayerInitCallback)(s32 slot, u8 remaining_count);
 
 struct lbl_8046B488_event_player_init_cb_t {
+#ifdef MELEE_NATIVE
+    char pad_0[offsetof(struct lbl_8046B488_t, x1BC)];
+#else
     char pad_0[0x1BC];
+#endif
     GmEventPlayerInitCallback event_player_init_cb;
 };
 ASSERT_SIZE(struct lbl_8046B488_event_player_init_cb_t, 0x1C0);
+#ifdef MELEE_NATIVE
+STATIC_ASSERT(offsetof(struct lbl_8046B488_event_player_init_cb_t,
+                       event_player_init_cb) ==
+              offsetof(struct lbl_8046B488_t, x1BC));
+/* Offset of the x1C0 list, for the code that reaches it from the struct's
+ * first byte; everything before it is what a new team clears. */
+#define GM_SPAWN_LIST_OFFSET offsetof(struct lbl_8046B488_t, x1C0)
+#else
+#define GM_SPAWN_LIST_OFFSET 0x1C0
+#endif
 
 struct lbl_8046B488_t* gm_1601_GetUnkData(void)
 {
@@ -299,9 +313,9 @@ void fn_80169A84(u8 arg0, s8* arg1, s8* arg2)
             s8* q;
             u8 tmp;
             q = &lbl_8046B488.x0 + HSD_Randi(0x1B);
-            tmp = q[0x1C0];
+            tmp = q[GM_SPAWN_LIST_OFFSET];
             i += 1;
-            q[0x1C0] = (u8) *p;
+            q[GM_SPAWN_LIST_OFFSET] = (u8) *p;
             *p = tmp;
             p += 1;
         } while (i < CKind_Playable_Count);
@@ -329,7 +343,9 @@ void fn_80169A84(u8 arg0, s8* arg1, s8* arg2)
             p = arg1;
             arg1 = arg2;
             while (*arg1 != -2) {
-                while ((result = (q = &lbl_8046B488.x0 + idx)[0x1C0]) == -1) {
+                while ((result = (q = &lbl_8046B488.x0 +
+                                       idx)[GM_SPAWN_LIST_OFFSET]) == -1)
+                {
                     idx = (idx + 1) % 27;
                 }
                 result = Player_800325C8(result, 0);
@@ -607,7 +623,7 @@ void gm_8016A22C(s8 k0, s8 k1, s8 k2, u8 a3, u8 a4, u8 a5, int mode, int a7,
     struct gm_8016A22C_header* header;
     u8 x7_tmp;
 
-    memzero(gp, 0x1C0);
+    memzero(gp, GM_SPAWN_LIST_OFFSET);
 
     lbl_8046B488.x0 = k0;
     lbl_8046B488.x1 = k1;

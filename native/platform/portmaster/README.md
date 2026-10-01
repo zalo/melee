@@ -76,6 +76,24 @@ Pick fighters and a stage as usual. A status line along the top shows the connec
 lost connection turns it red, and the game continues offline from there. The match runs at the pace
 of the slower device. The same options are in Options > Port Settings > Online Play.
 
+## Soak test
+
+**Melee Soak Test**, the second entry this port adds to Ports, checks stability without anyone
+holding the device. A CPU-controlled player plays through Classic, Adventure, All-Star, Event
+matches, the Stadium modes, Training, VS and Special Melee for 30 minutes with rumble off. It plays
+on a copy of the save (`melee/runtime/soak-config`), so records, unlocks and settings are untouched;
+start the game normally once first so that a save exists. Start + Select stops the test early.
+
+Either way it ends by writing `melee/soak-report.txt.gz`: `log.txt` plus the device, CFW, kernel,
+the matches played and the free memory each minute. Attach that file to a report. If the device
+froze or lost power, the next soak test saves the interrupted run as
+`melee/soak-report-unfinished.txt.gz` before it starts. Nothing is sent anywhere unless
+`melee/soak/report-url.txt` exists and holds an `https://` address, in which case the report is also
+posted there; without a network the test runs the same and only keeps the file.
+
+`MELEE_SOAK_MINUTES` and `MELEE_TEST_MODES` (a comma-separated playlist such as
+`adventure,event:5,vs`) in the launcher environment change the length and the modes.
+
 ## Port Settings
 
 Main menu > **Options** > the fourth, unlabelled-on-disc row (it reads **Port Settings** here)

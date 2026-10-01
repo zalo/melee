@@ -149,16 +149,28 @@ void OSCancelAlarm(OSAlarm* alarm) {
     int enabled = OSDisableInterrupts(); unlink_alarm(alarm);
     alarm->handler = NULL; OSRestoreInterrupts(enabled);
 }
+/* Alarm clock. MELEE_TEST_SPEED=<2..16> (test runs, see vi_runtime.cpp) makes it run that many times
+ * faster: the game's pad polls, one per logic frame, come from a 60 Hz alarm. */
+static OSTime alarm_now(void) {
+    static int speed;
+    if (!speed) {
+        const char* value = getenv("MELEE_TEST_SPEED");
+        speed = value ? atoi(value) : 1;
+        if (speed < 1) speed = 1;
+        if (speed > 16) speed = 16;
+    }
+    return OSGetTime() * speed;
+}
 void OSSetAlarm(OSAlarm* alarm, OSTime delay, OSAlarmHandler handler) {
     int enabled = OSDisableInterrupts(); unlink_alarm(alarm);
     alarm->handler = handler; alarm->period = 0;
-    alarm->fire = OSGetTime() + (delay > 0 ? delay : 0);
+    alarm->fire = alarm_now() + (delay > 0 ? delay : 0);
     alarm->next = alarms; alarms = alarm; OSRestoreInterrupts(enabled);
 }
 void OSSetPeriodicAlarm(OSAlarm* alarm, OSTime start, OSTime period, OSAlarmHandler handler) {
     if (period <= 0) OSPanic(__FILE__, __LINE__, "Invalid alarm period");
     int enabled = OSDisableInterrupts(); unlink_alarm(alarm);
-    OSTime now = OSGetTime();
+    OSTime now = alarm_now();
     alarm->handler = handler; alarm->start = start; alarm->period = period;
     alarm->fire = start >= now ? start : start + ((now - start) / period + 1) * period;
     alarm->next = alarms; alarms = alarm; OSRestoreInterrupts(enabled);
@@ -167,7 +179,7 @@ void MeleeNativePumpAlarms(void) {
     int enabled = OSDisableInterrupts();
     // Callbacks may cancel/rearm any alarm, so select again after every call.
     for (;;) {
-        OSTime now = OSGetTime(); OSAlarm* due = NULL;
+        OSTime now = alarm_now(); OSAlarm* due = NULL;
         for (OSAlarm* p = alarms; p; p = p->next)
             if (p->fire <= now && (!due || p->fire < due->fire)) due = p;
         if (!due) break;

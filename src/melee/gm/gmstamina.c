@@ -66,6 +66,12 @@ void gm_801B91C8(GameModeState* state)
     css->match_type = 2;
     css->ko_counts = 0;
     css->vs = *vs;
+#ifdef MELEE_NATIVE
+    {
+        void MeleeNativeTestPrepareCss(CSSData*);
+        MeleeNativeTestPrepareCss(css);
+    }
+#endif
     lbDvd_SetupVsPreloadCache();
 }
 
@@ -89,7 +95,15 @@ void gm_801B927C(GameModeState* state)
         *vs = sss->vs;
 
         lbAudioAx_80026F2C(0x18);
+#ifdef MELEE_NATIVE
+        /* The forced stage is -1 after an ordinary pick. As a stage index that
+         * is the entry before stage_id_map on the GameCube (an arbitrary sound
+         * bank mask) and 48 GB past it on a 64-bit target; load the bank of
+         * the stage that was picked. */
+        lbAudioAx_8002702C(8, lbAudioAx_80026EBC(vs->start.rules.stkind));
+#else
         lbAudioAx_8002702C(8, lbAudioAx_80026EBC(sss->force_stage_id));
+#endif
         lbAudioAx_80027168();
         return;
     }

@@ -13,6 +13,8 @@ struct StageNumericLayout {
     std::initializer_list<StageNumericRange> bytes;
     std::initializer_list<unsigned> scripts;
     std::initializer_list<unsigned> data_pointers;
+    // Offset of a grZakoGenerator_SpawnDesc array {u16, u8, u8} running to the end of the block.
+    unsigned spawn_descs = ~0u;
 };
 inline const StageNumericLayout stage_numeric_layouts[] = {
     {"GrdFzeroAdver1_CMPR_image",80,{},{},{0,4},{8,12}},
@@ -56,10 +58,10 @@ inline const StageNumericLayout stage_numeric_layouts[] = {
     {"GrdFiguregetBG3_C8_image",0,{},{}},
     {"GrdBigblueArch2_CMPR_image",0,{},{}},
     {"GrdZebesRPipe1far_CMPR_image",0,{},{}},
-    // grkinokoroute.c: int, grZakoGenerator_SpawnDesc at +4.
-    {"GrdDonkeyFloor1_C8_image",0,{{4,2}},{{6,2}}},
+    // grkinokoroute.c: int, grZakoGenerator_SpawnDesc array at +4.
+    {"GrdDonkeyFloor1_C8_image",0,{},{},{},{},4},
     // grshrineroute.c: four material scripts, a DynamicsDesc at +0x10, spawn_desc at +0x28.
-    {"GrdKinokoRWood3_CMPR_image",0,{{0x28,2}},{{0x2a,2}},{0,4,8,12},{16}},
+    {"GrdKinokoRWood3_CMPR_image",0,{},{},{0,4,8,12},{16},0x28},
     // grpushon.c: DynamicsDesc slots, then 30 {s32,s16,s16} entries and lookup pairs.
     {"GrdPushonBlue_RGB565_image",532,{{0x20,4},{0x28,4},{0x30,4},{0x38,4},{0x40,4},{0x48,4},{0x50,4},{0x58,4},{0x60,4},{0x68,4},
         {0x70,4},{0x78,4},{0x80,4},{0x88,4},{0x90,4},{0x98,4},{0xa0,4},{0xa8,4},{0xb0,4},{0xb8,4},

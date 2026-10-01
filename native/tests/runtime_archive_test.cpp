@@ -35,18 +35,20 @@ static void checkExternalBindings() {
 }
 static void checkScriptAddressSpace() {
     const char name[]="ALDYakuAll";
-    std::vector<std::byte> bytes(32+20+8+8+sizeof(name));
-    put(bytes,0,bytes.size());put(bytes,4,20);put(bytes,8,2);put(bytes,12,1);
+    std::vector<std::byte> bytes(32+28+8+8+sizeof(name));
+    put(bytes,0,bytes.size());put(bytes,4,28);put(bytes,8,2);put(bytes,12,1);
     put(bytes,32,4);put(bytes,36,0x1C000000);put(bytes,40,16);
     put(bytes,44,0x04000003);put(bytes,48,0x04000007);
-    put(bytes,52,0);put(bytes,56,8);
-    std::memcpy(bytes.data()+68,name,sizeof(name));
+    put(bytes,52,0x1C000000); // A branch to NULL: the word after it has no relocation.
+    put(bytes,60,0);put(bytes,64,8);
+    std::memcpy(bytes.data()+76,name,sizeof(name));
     int key;
     assert(MeleeNativeArchiveCreate(&key,bytes.data(),bytes.size())==0);
     auto root=static_cast<unsigned**>(MeleeNativeArchivePublic(&key,name));
     auto script=root[0];
     assert(script[0]==0x1C000000&&script[2]==0x04000003);
     assert(MeleeNativeScriptPointer(script+1)==script+3);
+    assert(script[4]==0x1C000000&&!MeleeNativeScriptPointer(script+5));
     assert(script[3]==0x04000007);
     auto second=bytes;put(second,48,0x04000009);
     assert(MeleeNativeArchiveCreate(&key,second.data(),second.size())==0);

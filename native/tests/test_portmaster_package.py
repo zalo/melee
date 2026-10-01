@@ -35,7 +35,7 @@ class PortJsonTests(unittest.TestCase):
     def test_required_fields(self):
         self.assertEqual(self.port['version'], 4)
         self.assertEqual(self.port['name'], 'melee.zip')
-        self.assertEqual(self.port['items'], ['Melee.sh', 'melee'])
+        self.assertEqual(self.port['items'], ['Melee.sh', 'Melee Soak Test.sh', 'melee'])
         self.assertEqual(self.port['items_opt'], [])
         attr = self.port['attr']
         self.assertEqual(attr['title'], 'Super Smash Bros. Melee (native)')
@@ -130,7 +130,7 @@ class LauncherTextTests(unittest.TestCase):
 class LauncherBehaviourTests(unittest.TestCase):
     """Run Melee.sh against a fake PortMaster control folder and sysfs."""
 
-    def run_launcher(self, mode='normal', disc=True, cfw_env=(), cfw_name='testcfw'):
+    def run_launcher(self, mode='normal', disc=True, cfw_env=(), cfw_name='testcfw', soak=False, save=True):
         cfw_env = dict(cfw_env)
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -167,14 +167,31 @@ pm_finish() {{ printf finished > "{root}/finished"; }}
 printf '%s\\n' "$1" > "{root}/disc"
 printf '%s\\n' "$LD_LIBRARY_PATH" "$XDG_CONFIG_HOME" "$XDG_STATE_HOME" "$XDG_CACHE_HOME" "$SDL_GAMECONTROLLERCONFIG" "$SDL_VIDEODRIVER" "$SDL_AUDIODRIVER" "${{SDL3SHIM_SDL2_VIDEODRIVER:-unset}}" "${{SDL3SHIM_SDL2_AUDIODRIVER:-unset}}" > "{root}/env"
 [ "$GAME_MODE" = fail ] && exit 7
+[ "$GAME_MODE" = slow ] && /bin/sleep 2
 exit 0
 ''')
         game.chmod(0o644)
+        launcher_name = 'Melee.sh'
+        if soak:
+            # The soak launcher sits beside Melee.sh; its pauses are shortened through a fake sleep.
+            launcher_name = package.SOAK_LAUNCHER
+            shutil.copyfile(PORT_DIR / launcher_name, root / launcher_name)
+            shutil.copytree(PORT_DIR / 'soak', gamedir / 'soak')
+            if save:
+                (gamedir / 'runtime/config/melee-native').mkdir(parents=True)
+                (gamedir / 'runtime/config/melee-native/save').write_text('real save')
+            fake_bin = root / 'bin'
+            fake_bin.mkdir()
+            (fake_bin / 'sleep').write_text('#!/bin/sh\nexec /bin/sleep 0.05\n')
+            (fake_bin / 'sleep').chmod(0o755)
+            (fake_bin / 'curl').write_text(f'#!/bin/sh\nprintf "%s\\n" "$@" > "{root}/curl"\necho "ok abc123"\n')
+            (fake_bin / 'curl').chmod(0o755)
+            cfw_env['PATH'] = f"{fake_bin}:{os.environ['PATH']}"
         env = dict(os.environ, GAME_MODE=mode, GPTOKEYB_LOG=str(root / 'gptokeyb.log'), HOME=str(root))
         for name in ['SDL_VIDEODRIVER', 'SDL_AUDIODRIVER', 'SDL3SHIM_SDL2_VIDEODRIVER', 'SDL3SHIM_SDL2_AUDIODRIVER']:
             env.pop(name, None)
         env.update(cfw_env)
-        result = subprocess.run(['bash', str(launcher)], env=env, stdout=subprocess.DEVNULL,
+        result = subprocess.run(['bash', str(root / launcher_name)], env=env, stdout=subprocess.DEVNULL,
                                 stderr=subprocess.DEVNULL, timeout=30).returncode
         return root, gamedir, result
 
@@ -229,6 +246,47 @@ exit 0
         self.assertTrue((root / 'disc').exists())
         self.assertTrue((root / 'finished').exists())
 
+    def read_soak_report(self, gamedir):
+        import gzip
+        return gzip.decompress((gamedir / 'soak-report.txt.gz').read_bytes()).decode()
+
+    def test_soak_runs_on_a_save_copy_and_writes_a_report(self):
+        root, gamedir, result = self.run_launcher(mode='fail', soak=True)
+        env = (root / 'env').read_text().splitlines()
+        # The puppet's save is a copy; the real one is neither used nor changed.
+        self.assertEqual(env[1], str(gamedir / 'runtime/soak-config'))
+        self.assertEqual((gamedir / 'runtime/soak-config/melee-native/save').read_text(), 'real save')
+        self.assertEqual((gamedir / 'runtime/config/melee-native/save').read_text(), 'real save')
+        report = self.read_soak_report(gamedir)
+        self.assertTrue(report.startswith('melee soak report v1\nresult: CRASHED (exit status 7)\n'), report[:200])
+        self.assertIn('modes: classic,adventure,allstar', report)
+        self.assertIn('== log ==', report)
+        # No report address ships in soak/, so nothing is sent and the message names the file.
+        self.assertFalse((root / 'curl').exists())
+        self.assertIn('soak-report.txt.gz', (root / 'message').read_text())
+        self.assertFalse((gamedir / 'soak/running').exists())
+        self.assertTrue((root / 'finished').exists())
+
+    def test_soak_time_limit_and_upload(self):
+        root, gamedir, result = self.run_launcher(mode='slow', soak=True, cfw_env={'MELEE_SOAK_MINUTES': '1'})
+        self.assertIn('result: completed 1 minutes', self.read_soak_report(gamedir))
+        self.assertFalse((root / 'curl').exists())
+        # With an address the report is posted and the receiver's id is shown.
+        (gamedir / 'soak/report-url.txt').write_text('https://reports.example/report\n')
+        script = f'''
+GAMEDIR="{gamedir}"; pm_message() {{ printf '%s\\n' "$1" > "{root}/message"; }}
+PATH="{root}/bin:$PATH"; source "{gamedir}/soak/soak.sh"; soak_finish_message done
+'''
+        subprocess.run(['bash', '-c', script], check=True, timeout=30)
+        self.assertIn('https://reports.example/report', (root / 'curl').read_text())
+        self.assertIn('id abc123', (root / 'message').read_text())
+
+    def test_soak_needs_an_existing_save(self):
+        root, gamedir, result = self.run_launcher(soak=True, save=False)
+        self.assertEqual(result, 1)
+        self.assertIn('normally once', (root / 'message').read_text())
+        self.assertFalse((root / 'disc').exists())
+
 
 class AssembleTests(unittest.TestCase):
     def test_layout_and_zip_from_fake_bundle(self):
@@ -249,8 +307,8 @@ class AssembleTests(unittest.TestCase):
             (shim / 'LICENSE.txt').write_text('zlib license text')
             tree, zip_path = package.assemble(bundle, root / 'out', sdl3=shim)
             self.assertEqual(tree, root / 'out/melee')
-            for name in ['port.json', 'Melee.sh', 'README.md', 'gameinfo.xml', 'screenshot.jpg',
-                         'melee/melee.aarch64', 'melee/melee.ini',
+            for name in ['port.json', 'Melee.sh', 'Melee Soak Test.sh', 'README.md', 'gameinfo.xml', 'screenshot.jpg',
+                         'melee/melee.aarch64', 'melee/melee.ini', 'melee/soak/soak.sh', 'melee/soak/puppet_menu1.txt',
                          'melee/licenses/LICENSE.Aurora.txt', 'melee/assets/README.txt']:
                 self.assertTrue((tree / name).exists(), name)
             self.assertEqual((tree / 'melee/libs.aarch64/libSDL3.so.0').read_bytes(), b'\x7fELF shim')
@@ -268,7 +326,8 @@ class AssembleTests(unittest.TestCase):
             self.assertTrue(os.access(tree / 'melee/melee.aarch64', os.X_OK))
             with zipfile.ZipFile(zip_path) as archive:
                 names = set(archive.namelist())
-                for name in ['Melee.sh', 'port.json', 'melee/melee.aarch64', 'melee/melee.ini', 'melee/libs.aarch64/libSDL3.so.0',
+                for name in ['Melee.sh', 'Melee Soak Test.sh', 'port.json', 'melee/melee.aarch64', 'melee/melee.ini',
+                             'melee/soak/soak.sh', 'melee/soak/puppet_menu1.txt', 'melee/libs.aarch64/libSDL3.so.0',
                              'melee/licenses/LICENSE.Aurora.txt', 'melee/licenses/LICENSE.SDL3-sdl2-backend.txt',
                              'melee/assets/README.txt', 'melee/runtime/']:
                     self.assertIn(name, names, name)
@@ -276,7 +335,7 @@ class AssembleTests(unittest.TestCase):
                 self.assertEqual([n for n in names if n.startswith('melee/libs.aarch64/') and not n.endswith('/')],
                                  ['melee/libs.aarch64/libSDL3.so.0'])
                 self.assertEqual((archive.getinfo('melee/libs.aarch64/libSDL3.so.0').external_attr >> 16) & 0o777, 0o755)
-                self.assertFalse([n for n in names if not (n.startswith('melee/') or n in ('Melee.sh', 'port.json'))])
+                self.assertFalse([n for n in names if not (n.startswith('melee/') or n in ('Melee.sh', 'Melee Soak Test.sh', 'port.json'))])
                 self.assertEqual((archive.getinfo('melee/melee.aarch64').external_attr >> 16) & 0o777, 0o755)
                 self.assertTrue(is_aarch64_elf(archive.read('melee/melee.aarch64')[:20]))
             with self.assertRaises(FileExistsError):
@@ -391,7 +450,7 @@ class BuiltZipTests(unittest.TestCase):
                 self.assertRegex(name, r'^melee/licenses/LICENSE\.[^/]+\.txt$')
             self.assertFalse([n for n in names if n.lower().endswith(('.iso', '.gcm', '.ciso', '.rvz', '.img'))])
             self.assertFalse([n for n in names if 'mali' in n.lower() or 'libegl' in n.lower() or 'libgles' in n.lower()])
-            self.assertFalse([n for n in names if not (n.startswith('melee/') or n in ('Melee.sh', 'port.json'))])
+            self.assertFalse([n for n in names if not (n.startswith('melee/') or n in ('Melee.sh', 'Melee Soak Test.sh', 'port.json'))])
             binary = archive.read('melee/melee.aarch64')
             self.assertTrue(is_aarch64_elf(binary[:20]))
             # SDL3 is linked dynamically and the shipped libSDL3.so.0 is the SDL2-backend shim, so every

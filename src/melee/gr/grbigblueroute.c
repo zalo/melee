@@ -502,9 +502,17 @@ void grBigBlueRoute_8020C238(Ground_GObj* gobj)
         }
     }
 
+#ifdef MELEE_NATIVE
+    // RouteEntry ends in a pointer: 31 of them no longer fit in 0x554 bytes.
+    gp->u.car.car_info =
+        HSD_MemAlloc(sizeof(union grBigBlueRoute_RouteStorage));
+    HSD_ASSERT(0x2A2, gp->u.car.car_info);
+    memzero(gp->u.car.car_info, sizeof(union grBigBlueRoute_RouteStorage));
+#else
     gp->u.car.car_info = HSD_MemAlloc(0x554);
     HSD_ASSERT(0x2A2, gp->u.car.car_info);
     memzero(gp->u.car.car_info, 0x554);
+#endif
 
     gp->u.car.x10A = 0;
     gp->u.car.x108 = 0;

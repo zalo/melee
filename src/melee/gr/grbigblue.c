@@ -1643,7 +1643,7 @@ void grBigBlue_801E8D64(Ground_GObj* gobj)
 
     *(f32*) ((u8*) gp + BB_PLATFORM_OFFSET(0xD8)) = 0.0F;
     *(s32*) ((u8*) gp + BB_PLATFORM_OFFSET(0xC8)) = (s32) (yakumono_param->xD8);
-    *(u8*) ((u8*) gp + 0xC4) = 2;
+    *(u8*) ((u8*) gp + BB_PLATFORM_OFFSET(0xC4)) = 2;
 
     grAnime_801C8138(gobj, gp->map_id, 0);
 

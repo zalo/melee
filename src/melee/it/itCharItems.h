@@ -832,8 +832,15 @@ typedef struct itZeldaDinFireExplodeAttributes {
 
 typedef struct itUnk4_ItemVars {
     /*  +0 ip+DD4 */ u8 pad[0x18];
+#ifdef MELEE_NATIVE
+    // Same bits the coin code sets through its UnkFlagStruct view.
+    /*  +18 ip+DEC */ u8 xDEC_b2_7 : 6;
+    /*  +18 ip+DEC */ u8 xDEC_b1 : 1;
+    /*  +18 ip+DEC */ u8 xDEC_b0 : 1;
+#else
     /*  +18 ip+DEC */ u8 xDEC_b0 : 1;
     /*  +18 ip+DEC */ u8 xDEC_b1 : 1;
+#endif
     /*  +1C ip+DF0 */ Fighter_x1614_t xDF0;
 } itUnk4_ItemVars;
 

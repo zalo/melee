@@ -1416,6 +1416,13 @@ void it_80272460(HitCapsule* hitbox, u32 damage, Item_GObj* arg_item_gobj)
     Fighter* owner;
 
     dmg = damage;
+#ifdef MELEE_NATIVE
+    // Callers pass float damage; a negative one converts to 0 on the
+    // GameCube (and on ARM) but wraps to ~2^32 on x86.
+    if ((s32) dmg < 0) {
+        dmg = 0;
+    }
+#endif
     arg_item = GET_ITEM(arg_item_gobj);
     owner_gobj = arg_item->owner;
     if (ftLib_IsFighter(owner_gobj)) {
@@ -1424,6 +1431,11 @@ void it_80272460(HitCapsule* hitbox, u32 damage, Item_GObj* arg_item_gobj)
             dmg = 0.999f + ftCo_CalcYScaledKnockback(dmg, owner->x34_scale.y,
                                                      Fighter_804D6524->x4);
         }
+#ifdef MELEE_NATIVE
+        if ((s32) dmg < 0) {
+            dmg = 0;
+        }
+#endif
         hitbox->unk_count = dmg;
         hitbox->damage =
             ft_80089228(owner, arg_item->xD88_attackID,

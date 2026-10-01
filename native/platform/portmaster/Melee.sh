@@ -56,6 +56,13 @@ fi
 # and flashing the stage black; force it off. A device that needs it can set the var itself.
 export AURORA_GLES_DRAW_BARRIER="${AURORA_GLES_DRAW_BARRIER:-0}"
 
+# "Melee Soak Test.sh" sets MELEE_SOAK: a CPU plays through the modes on a copy of the save and a
+# report is written at the end (soak/soak.sh).
+if [ -n "${MELEE_SOAK:-}" ]; then
+  source "$GAMEDIR/soak/soak.sh"
+  soak_begin
+fi
+
 # gptokeyb2 only provides the Start+Select exit hotkey; the game reads the pad through SDL (melee.ini maps no keys).
 $GPTOKEYB2 "melee.aarch64" -c "$GAMEDIR/melee.ini" >/dev/null 2>&1 &
 pm_platform_helper "$GAMEDIR/melee.aarch64" >/dev/null
@@ -74,8 +81,10 @@ fi
 
 $ESUDO kill -9 $(pidof gptokeyb2) 2>/dev/null
 
+if [ -n "${MELEE_SOAK:-}" ]; then
+  soak_end $status
 # Any abnormal exit that is not the exit hotkey (137 SIGKILL / 143 SIGTERM): nudge to share the log.
-if [ $status -ne 0 ] && [ $status -ne 137 ] && [ $status -ne 143 ]; then
+elif [ $status -ne 0 ] && [ $status -ne 137 ] && [ $status -ne 143 ]; then
   pm_message "Melee exited unexpectedly. Please share melee/log.txt."
   sleep 10
 fi

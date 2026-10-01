@@ -15,6 +15,7 @@
 #include <dolphin/ar.h>
 #include <dolphin/ax.h>
 #include <dolphin/axfx.h>
+#include <dolphin/os.h>
 #include <melee/cm/camera.h>
 #include <melee/ft/ftlib.h>
 #include <melee/gm/gm_1601.h>
@@ -1943,6 +1944,21 @@ static void fn_800269AC(void)
 
     if (HSD_SynthSFXGetPendingLoadCount() != 0) {
         for (i = 0; i < 55; i++) {
+#ifdef MELEE_NATIVE
+            // Completions run on a worker thread here. The interrupt lock
+            // keeps this load from finishing between the check and the
+            // cancel, which left its group in the bank with nothing tracking
+            // it until the bank overflowed.
+            bool enabled = OSDisableInterrupts();
+            if (s32_arr_803BB5D0[i][1] != 5 && lbl_80433A64[i] != -1 &&
+                lbl_80433984[i] == -1)
+            {
+                HSD_SynthSFXCancelLoad(lbl_80433A64[i]);
+                lbl_80433A64[i] = -1;
+                lbl_80433984[i] = -1;
+            }
+            OSRestoreInterrupts(enabled);
+#else
             if (s32_arr_803BB5D0[i][1] != 5 && lbl_80433A64[i] != -1 &&
                 lbl_80433984[i] == -1)
             {
@@ -1956,6 +1972,7 @@ static void fn_800269AC(void)
                 lbl_80433A64[i] = -1;
                 lbl_80433984[i] = -1;
             }
+#endif
         }
 
         if (HSD_SynthSFXGetPendingLoadCount() != 0) {

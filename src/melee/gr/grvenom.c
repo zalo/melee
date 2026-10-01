@@ -961,7 +961,13 @@ void grVenom_80204B88(Ground_GObj* gobj)
     GXColor color_neutral1;
     GXColor color_neutral2;
 
+#ifdef MELEE_NATIVE
+    // The tests below look at flags 2 and 6.
+    env_flags = (gp->u.venom2.xE0_state.b2 << 5) |
+                (gp->u.venom2.xE0_state.b6 << 1);
+#else
     env_flags = *(u8*) &gp->u.venom2.xE0_state.xE0_state_pad;
+#endif
 
     if ((env_flags >> 5) & 1) {
         if (gp->u.venom2.xE0_state.xE0_state_pad.state != 1) {

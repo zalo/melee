@@ -20,7 +20,13 @@ extern "C" void MeleeNativeRenderCheckScene(int scene) { current_scene = scene; 
 
 // Numeric coverage by default; an explicit path enables a diagnostic PPM.
 extern "C" void MeleeNativeCheckFrame() {
-    if ((!std::getenv("MELEE_MATRIX_TEST") && !std::getenv("MELEE_RENDER_CHECK")) || current_scene != 2) return;
+    // MELEE_CAPTURE_SCENES=all checks every scene, not only matches (menus, cutscenes, result screens).
+    static const bool all_scenes = [] {
+        const char* value = std::getenv("MELEE_CAPTURE_SCENES");
+        return value && std::string(value) == "all";
+    }();
+    if ((!std::getenv("MELEE_MATRIX_TEST") && !std::getenv("MELEE_RENDER_CHECK")) ||
+        (current_scene != 2 && !all_scenes)) return;
     static const bool once = [] {
         const char* value = std::getenv("MELEE_FLIP_CAPTURE_ONCE");
         return value && std::atoi(value) != 0;

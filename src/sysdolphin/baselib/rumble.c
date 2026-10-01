@@ -9,6 +9,10 @@
 
 HSD_RumbleData HSD_Rumble_804C22E0[4];
 
+#ifdef MELEE_NATIVE
+int MeleeNativeMotorMuted(void);
+#endif
+
 void HSD_PadRumbleOn(u8 no)
 {
     bool intrEnabled = OSDisableInterrupts();
@@ -241,6 +245,9 @@ void HSD_PadRumbleInterpret(void)
             }
         }
         if (r30->status != r30->last_status) {
+#ifdef MELEE_NATIVE
+            if (!MeleeNativeMotorMuted())
+#endif
             switch (r30->status) {
             case 0:
                 PADControlMotor(i, 2);

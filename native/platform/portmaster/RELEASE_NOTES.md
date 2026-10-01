@@ -6,6 +6,27 @@ no game data: you need your own dump of the disc (US, version 1.02, `GALE01`).
 
 ## Changes in this build
 
+- **New: "Melee Soak Test", a second entry in Ports for testers.** A CPU-controlled player plays through
+  Classic, Adventure, All-Star, Event matches, the Stadium modes, Training, VS and Special Melee for 30
+  minutes, with rumble off and on a copy of your save (records, unlocks and settings stay as they are).
+  At the end it writes `ports/melee/soak-report.txt.gz`: the log plus a short summary of the device, the
+  CFW, the matches played and the free memory each minute. Attach that file to a report. Start + Select
+  stops the test early and still writes the report. This build sends nothing anywhere; the file stays on
+  the card until you share it.
+- **Fixes the crashes and hangs found by running every game mode unattended**, most of them places where
+  the 64-bit build read or wrote a GameCube data layout wrongly:
+  - Adventure: enemies now appear in the Mushroom Kingdom, the Underground Maze and on Icicle Mountain
+    (they were missing), and the Topi, the polar bear, a block hit from below and the falling platforms on
+    Icicle Mountain no longer crash. An enemy dropping a trophy overflowed a list on the stack.
+  - F-Zero Grand Prix (the route table), the acid on Brinstar (a collision test that produced an invalid
+    position) and Event matches that use more than four player slots (Events 37 and 49).
+  - Stamina Mode, which stopped at its sound-bank load, and the Tournament menus.
+  - Pichu falling asleep ended the game with `Null script branch target`; Samus's Grapple Beam and Kirby's
+    aerial jumps read the wrong attributes; a thrown item could leave at the wrong angle; an item hitbox
+    with a very large damage value hit an assertion.
+  - Sound: a full voice bank and two races between the game and the mixer thread.
+- **Small corrections**: the sword-trail colours of Marth, Roy, Link and Young Link, the bonus list on the
+  results screen and the Rumble settings menu.
 - **Fixes the Start button (and other buttons) on ROCKNIX and CFWs that route the pad through gptokeyb.**
   On devices where the frontend hands the game gptokeyb's virtual controller instead of the physical pad
   (notably ROCKNIX on the RG351 series), the controller had no button mapping, so Start did nothing and the

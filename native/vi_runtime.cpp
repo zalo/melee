@@ -56,7 +56,13 @@ auto measurement_start = Clock::now();
 auto previous_present = Clock::now();
 std::vector<double> present_intervals;
 auto next_retrace = Clock::now();
-constexpr auto frame_period = vi_pacing::kPeriod;
+// MELEE_TEST_SPEED=<2..16> (test runs): retraces arrive that many times faster than 60 Hz, so an
+// unattended soak plays a whole mode in a fraction of the time on a host that can render that fast.
+const auto frame_period = [] {
+    const char* v = std::getenv("MELEE_TEST_SPEED");
+    const long n = v ? std::strtol(v, nullptr, 10) : 1;
+    return vi_pacing::kPeriod / (n < 1 ? 1 : n > 16 ? 16 : n);
+}();
 // Catch-up: retraces (pad polls) delivered per wait when the game thread is late, so the game keeps
 // real time and drops displayed frames instead of slowing down. MELEE_VI_CATCHUP=N caps the burst
 // (default 3); 0 or 1 turns it off.

@@ -36,6 +36,15 @@ void ftBossLib_8015BD20(HSD_GObj* gobj)
 void ftBossLib_8015BD24(s32 arg0, float* arg1, float arg2, s32 arg3, s32 arg4,
                         s32 arg5)
 {
+#ifdef MELEE_NATIVE
+    /* The hands reach this with CPU level 0 (boss slots). PowerPC's divw does
+     * not trap on a zero divisor and leaves 0 for a non-negative dividend;
+     * x86 raises SIGFPE. */
+    if (arg0 == 0) {
+        *arg1 = ((arg3 < 0 ? -1 : 0) + HSD_Randi(arg4 - arg5) + arg5) / arg2;
+        return;
+    }
+#endif
     *arg1 = ((arg3 / arg0) + HSD_Randi(arg4 - arg5) + arg5) / arg2;
 }
 

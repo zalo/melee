@@ -615,6 +615,10 @@ typedef struct itUnkAttributes {
 } itUnkAttributes;
 
 typedef struct {
+#ifdef MELEE_NATIVE
+    // The spawn joint sits after the header shared with itZako_ItemVars.
+    u8 zako_header[0x20];
+#endif
     HSD_JObj* x0;
     HSD_JObj* x4;
 } itMato_ItemVars;
@@ -1341,7 +1345,14 @@ typedef struct itPokemonSpawn_DatAttrs {
 ASSERT_SIZE(itPokemonSpawn_DatAttrs, 0x2BC);
 
 typedef struct itZako_ItemVars {
+#ifdef MELEE_NATIVE
+    // Every enemy's own variables overlay this header by offset, so idx and
+    // what follows stay where the GameCube has them. A pointer does not fit in
+    // front of idx; the target keeps the spawn joint in its own variables.
+    /* ip+DD4 */ u32 jobj_slot;
+#else
     /* ip+DD4 */ HSD_JObj* jobj;
+#endif
     /* ip+DD8 */ s32 idx;
     /* ip+DDC */ Vec3 x8;
     /* ip+DE8 */ S32Vec3 x14;

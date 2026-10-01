@@ -89,7 +89,13 @@ struct ftKb_DatAttrs {
     /*  +28 */ u32 jumpaerial_number_of_jumps;
     /*  +2C */ u32 jumpaerial_first_jump_action_state;
     /*  +30 */ u32 jumpaerial_final_jump_action_state;
+#ifdef MELEE_NATIVE
+    // Attribute words are host-order here; the value is the word's high half.
+    /*  +34 */ s16 jumpaerial_unk_low;
+    /*  +36 */ s16 jumpaerial_unk;
+#else
     /*  +34 */ s16 jumpaerial_unk;
+#endif
 
     // Neutral B (no hat)
     /*  +38 */ float specialn_x_offset_inhaled;

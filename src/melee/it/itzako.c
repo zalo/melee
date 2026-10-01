@@ -88,7 +88,14 @@ Item_GObj* it_8027B5B0(ItemKind kind, Vec3* pos, HSD_JObj* jobj, Vec3* vel,
     }
     if (gobj != NULL) {
         ip = GET_ITEM(gobj);
+#ifdef MELEE_NATIVE
+        // Only the target reads the joint back.
+        if (kind == It_Kind_Mato) {
+            ip->xDD4_itemVar.mato.x0 = jobj;
+        }
+#else
         ip->xDD4_itemVar.zako.jobj = jobj;
+#endif
         ip->xDD4_itemVar.zako.idx = -1;
         ip->xDD4_itemVar.zako.x14.z = 0;
         ip->x378_itemColl.x34_flags.b1234 = 3;
@@ -101,7 +108,14 @@ void it_8027B730(Item_GObj* item_gobj)
     Item* item;
 
     item = item_gobj->user_data;
+#ifdef MELEE_NATIVE
+    item->xDD4_itemVar.zako.jobj_slot = 0;
+    if (item->kind == It_Kind_Mato) {
+        item->xDD4_itemVar.mato.x0 = NULL;
+    }
+#else
     item->xDD4_itemVar.zako.jobj = 0;
+#endif
     item->xDD4_itemVar.zako.idx = -1;
     item->xDD4_itemVar.zako.x8.z = 0.0f;
     item->xDD4_itemVar.zako.x8.x = 0.0f;
@@ -644,7 +658,12 @@ Item_GObj* it_8027CC88(Item_GObj* item_gobj_arg)
     Item* var_item;
     u32 pad[20];
     Vec3 sp44;
+#ifdef MELEE_NATIVE
+    // The two lookups below can return ten trophies each.
+    s32 sp1C[20];
+#else
     s32 sp1C[10];
+#endif
     u32 pad2[4];
 
     item_gobj_var = NULL;

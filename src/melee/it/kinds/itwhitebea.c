@@ -286,7 +286,13 @@ void it_802E3784(Item_GObj* gobj, Item_GObj* ref_gobj)
 void it_802E37A4(Item_GObj* gobj)
 {
     if (gobj != NULL) {
+#ifdef MELEE_NATIVE
+        // gobj is the bear; its link is whitebea.x20, which only shares
+        // an offset with freeze.x20 on the GameCube.
+        GET_ITEM(gobj)->xDD4_itemVar.whitebea.x20 = NULL;
+#else
         GET_ITEM(gobj)->xDD4_itemVar.freeze.x20 = NULL;
+#endif
     }
 }
 

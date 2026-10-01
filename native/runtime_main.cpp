@@ -218,6 +218,8 @@ int main(int argc, char** argv) {
     config.cachePath = cache_path.c_str();
 #endif
     config.vsync = true;
+    // Fast-forwarded test runs (MELEE_TEST_SPEED, vi_runtime.cpp) cannot wait for the display.
+    if (const char* speed = std::getenv("MELEE_TEST_SPEED"); speed && std::atoi(speed) > 1) config.vsync = false;
     config.windowWidth = 960;
     config.windowHeight = 720;
 #ifdef MELEE_MIYOO_FLIP

@@ -1165,7 +1165,11 @@ void fn_8003CC84(int player)
                 if (ft_800898C0(temp_r29) != 0) {
                     setFlag(player, 0x8B);
                 }
+#ifdef MELEE_NATIVE
+                if (temp_r31->xDD0.bit7) {
+#else
                 if (temp_r31->xDD0.xDD0_value & 1) {
+#endif
                     setFlag(player, 0x8A);
                 }
                 if (ft_80087988(temp_r29) != 0) {

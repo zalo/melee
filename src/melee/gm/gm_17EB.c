@@ -20,7 +20,12 @@ typedef struct AllstarStageEntry {
 ASSERT_SIZE(AllstarStageEntry, 0x1A);
 
 typedef struct {
+#ifdef MELEE_NATIVE
+    // bN is the bit the results code tests with (byte >> N) & 1.
+    u8 b0 : 1, b1 : 1, b2 : 1, b3 : 1, b4 : 1, b5 : 1, b6 : 1, b7 : 1;
+#else
     u8 b7 : 1, b6 : 1, b5 : 1, b4 : 1, b3 : 1, b2 : 1, b1 : 1, b0 : 1;
+#endif
 } u8_bits;
 
 #ifdef MELEE_NATIVE

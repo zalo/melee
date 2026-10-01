@@ -533,7 +533,12 @@ void fn_8019F9C4(u32 arg0)
     node = child == NULL ? NULL : child->child;
 
     for (i = 10; i < 20; i++) {
+#ifdef MELEE_NATIVE
+        // Slot 10 is x28's first joint on the GameCube; GM_19EF_JOBJ_SLOT reads it back.
+        GM_19EF_JOBJ_SLOT(i - 9) = node;
+#else
         lbl_80479A98.jobj_slots[i] = node;
+#endif
         if (node->next != NULL) {
             node = node->next;
         }

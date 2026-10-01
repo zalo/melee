@@ -9,8 +9,14 @@ typedef union {
     struct {
         u8 idx; ///< SelectableCharacterKind or a nametag slot id
         char pad1[7];
+#ifdef MELEE_NATIVE
+        // x8 is the high half of `value` and xC the low half.
+        s32 xC;
+        s32 x8;
+#else
         s32 x8;
         s32 xC;
+#endif
     };
     struct {
         f64 d0;

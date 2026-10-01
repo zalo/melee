@@ -522,10 +522,22 @@ typedef union TmPlayerAnimFrameTable {
 } TmPlayerAnimFrameTable;
 ASSERT_SIZE(TmPlayerAnimFrameTable, sizeof(s32) * 9);
 
+#ifdef MELEE_NATIVE
+// The same frames, written per state so the halfword order does not matter.
+TmPlayerAnimFrameTable const lbl_803B7CE0 = { .states = {
+    { 0, 30, 0 },
+    { 50, 59, 0 },
+    { 60, 70, 1 },
+    { 90, 100, 0 },
+    { 110, 130, 0 },
+    { 150, 160, 0 },
+} };
+#else
 TmPlayerAnimFrameTable const lbl_803B7CE0 = {
     { 0x0000001E, 0x00000032, 0x003B0000, 0x003C0046, 0x0001005A, 0x00640000,
       0x006E0082, 0x00000096, 0x00A00000 }
 };
+#endif
 
 void fn_80196FFC(HSD_GObj* gobj)
 {
@@ -1568,7 +1580,12 @@ void fn_8019A158(void)
             if (i == state.slot) {
                 bracket->slots[state.slot].x4C = 0;
             } else {
+#ifdef MELEE_NATIVE
+                // The cursor steps one 0x2C-byte slot at a time on the GameCube.
+                bracket->slots[i].x4C = 3;
+#else
                 cursor[0x4C] = 3;
+#endif
             }
             cursor += 0x2C;
         }
@@ -1576,8 +1593,13 @@ void fn_8019A158(void)
         bracket = fn_8019A158_GetBracketEntry(bracket_idx);
         cursor = (u8*) bracket;
         for (i = 0; i < 4; i++) {
-            if (cursor[0x4E] == 3) {
-                cursor[0x4C] = 3;
+#ifdef MELEE_NATIVE
+#define FN_8019A158_SLOT(off, field) (bracket->slots[i].field)
+#else
+#define FN_8019A158_SLOT(off, field) (cursor[off])
+#endif
+            if (FN_8019A158_SLOT(0x4E, x4E) == 3) {
+                FN_8019A158_SLOT(0x4C, x4C) = 3;
             } else {
                 MatchEndStanding* standing;
                 u8 v;
@@ -1585,7 +1607,7 @@ void fn_8019A158(void)
                 standing = &((MatchEndStanding*) *x48_ptr)[i];
                 v = standing->is_small_loser;
                 standing->is_big_loser = v;
-                cursor[0x4C] = v;
+                FN_8019A158_SLOT(0x4C, x4C) = v;
                 if ((*x48_ptr)->player_standings[i].is_small_loser == 0) {
                     sel = i;
                 }
@@ -1665,8 +1687,15 @@ void fn_8019A158(void)
 
         cursor = (u8*) &lbl_80473AB8[bracket_idx] + sel * 0x2C;
         {
+#ifdef MELEE_NATIVE
+            // The name buffer follows a pointer, so it is not at 0x4E here.
+            u8 model_idx = lbl_80473AB8[bracket_idx].slots[sel].x50;
+            fn_8018F00C(((struct Lbl804799D8_t*) base_ptr)->x4E,
+                        td1->x37[model_idx].x9);
+#else
             u8 model_idx = cursor[0x50];
             fn_8018F00C(base_ptr->x4E, td1->x37[model_idx].x9);
+#endif
         }
     }
 }
@@ -2029,11 +2058,21 @@ void fn_8019AF50(s32* arg0, u32 arg1, u32 arg2)
             s32 n;
 
             for (n = 4; n != 0; n--) {
+#ifdef MELEE_NATIVE
+                // The cursor steps one 0x2C-byte slot at a time on the GameCube.
+                if (lbl_80473AB8[bracketIdx].slots[j].x30 != 0 &&
+                    lbl_80473AB8[bracketIdx].slots[j].x4C == 0)
+                {
+                    lbl_804D6680[1] = lbl_80473AB8[bracketIdx].slots[j].x4D;
+                    break;
+                }
+#else
                 if (bp[0x30] != 0 && bp[0x4C] == 0) {
                     lbl_804D6680[1] =
                         (&lbl_80473AB8[bracketIdx].slots[0].x4D)[j * 0x2C];
                     break;
                 }
+#endif
                 bp += 0x2C;
                 j++;
             }
@@ -2064,8 +2103,14 @@ void fn_8019AF50(s32* arg0, u32 arg1, u32 arg2)
                 u8* base = (u8*) &lbl_804799D8;
                 u8* dest = (u8*) &sp_buf;
                 for (i = 0; i < count; i++) {
+#ifdef MELEE_NATIVE
+                    // The name buffer follows a pointer, so it is not at 0x4E here.
+                    dest[0] = lbl_804799D8.x4E[2 * i];
+                    dest[1] = lbl_804799D8.x4E[2 * i + 1];
+#else
                     dest[0] = base[0x4E];
                     dest[1] = base[0x4F];
+#endif
                     base += 2;
                     dest += 2;
                 }

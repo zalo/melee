@@ -5,10 +5,10 @@ Reuses package_flip.py for the stripped binary and the license set, then lays th
 PortMaster-New expects:
 
     <output>/melee/            unzipped tree in the PortMaster-New ports/<name>/ layout
-        port.json, Melee.sh, README.md, gameinfo.xml, screenshot.jpg (+ cover.jpg)
-        melee/melee.aarch64, melee/melee.ini (gptokeyb2 config),
+        port.json, Melee.sh, Melee Soak Test.sh, README.md, gameinfo.xml, screenshot.jpg (+ cover.jpg)
+        melee/melee.aarch64, melee/melee.ini (gptokeyb2 config), melee/soak/ (soak test, see soak.sh),
         melee/licenses/LICENSE.<component>.txt, melee/assets/README.txt, melee/runtime/
-    <output>/melee.zip         Melee.sh + melee/ (+ port.json) at the zip root
+    <output>/melee.zip         the two launchers + melee/ (+ port.json) at the zip root
 
 No disc image, GPU driver or other system library is ever included; the C++ runtime is linked
 statically into melee.aarch64. With --sdl3 the SDL3-over-SDL2 shim (native/tools/build_sdl3_shim.sh)
@@ -29,6 +29,8 @@ ROOT = Path(__file__).resolve().parents[2]
 PORT_DIR = ROOT / 'native/platform/portmaster'
 PORT_NAME = 'melee'
 LAUNCHER = 'Melee.sh'
+# The soak launcher only sets MELEE_SOAK and runs Melee.sh; melee/soak/ holds what that mode needs.
+SOAK_LAUNCHER = 'Melee Soak Test.sh'
 BINARY = 'melee.aarch64'
 GPTK_CONFIG = 'melee.ini'
 METADATA = ['port.json', 'README.md', 'gameinfo.xml', 'screenshot.jpg']
@@ -86,8 +88,10 @@ def assemble(bundle, output, port_dir=PORT_DIR, sdl3=None):
         (data / 'licenses/LICENSE.hidapi.txt').unlink(missing_ok=True)
 
     # PortMaster convention: the launcher is committed 644; the CFW sets the exec bit.
-    shutil.copyfile(port_dir / LAUNCHER, tree / LAUNCHER)
-    os.chmod(tree / LAUNCHER, 0o644)
+    for launcher in (LAUNCHER, SOAK_LAUNCHER):
+        shutil.copyfile(port_dir / launcher, tree / launcher)
+        os.chmod(tree / launcher, 0o644)
+    shutil.copytree(port_dir / 'soak', data / 'soak')
     for name in METADATA:
         shutil.copy2(port_dir / name, tree / name)
     for name in OPTIONAL_METADATA:
@@ -100,6 +104,7 @@ def assemble(bundle, output, port_dir=PORT_DIR, sdl3=None):
     zip_path = output / f'{PORT_NAME}.zip'
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as archive:
         add_to_zip(archive, tree / LAUNCHER, LAUNCHER)
+        add_to_zip(archive, tree / SOAK_LAUNCHER, SOAK_LAUNCHER)
         add_to_zip(archive, tree / 'port.json', 'port.json')
         for path in sorted(data.rglob('*')):
             add_to_zip(archive, path, path.relative_to(tree).as_posix())

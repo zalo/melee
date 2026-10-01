@@ -1815,8 +1815,12 @@ void fn_8018E618(int arg0, f32 farg0, int arg1)
         }
     }
     GObj_SetupGXLinkMax(gobj, HSD_GObj_803910D8, 1);
+#ifdef MELEE_NATIVE
+    gobj->gxlink_prios = 0x10;
+#else
     ((u32*) &gobj->gxlink_prios)[1] = 0x10;
     ((u32*) &gobj->gxlink_prios)[0] = 0;
+#endif
 
     gmTournament_InitBracket(arg0, farg0, arg1);
 }
@@ -2191,7 +2195,12 @@ s32 fn_8018F508(s32* out_index)
     }
 
     for (i = 0; i < 4; i++) {
+#ifdef MELEE_NATIVE
+        // The cursor steps one 0x2C-byte slot at a time on the GameCube.
+        if (((BracketEntry*) base_ptr)->slots[i].x4E != 3) {
+#else
         if (slot_ptr[0x4E] != 3) {
+#endif
             if (out_index != NULL) {
                 *out_index = i;
             }
@@ -2366,21 +2375,28 @@ void fn_8018FA24(void)
     player_count = 0;
 
     for (player_idx = 0; player_idx < 4; player_idx++) {
-        dst[0x4B6] = ptr[0x30];
-        dst[0x4B7] = ptr[0x50];
-        *(u16*) (dst + 0x4BE) = *(u16*) (tmdata + 0x40 + ptr[0x50] * 0x12);
-        dst[0x4BC] = ptr[0x51];
-        dst[0x4BD] = ptr[0x52];
-        dst[0x4B9] = ptr[0x4D];
+#ifdef MELEE_NATIVE
+        // The cursor steps one 0x2C-byte slot of entry i at a time on the GameCube.
+#define FN_8018FA24_SLOT(off, field) (lbl_80473AB8[i].slots[player_idx].field)
+#else
+#define FN_8018FA24_SLOT(off, field) (ptr[off])
+#endif
+        dst[0x4B6] = FN_8018FA24_SLOT(0x30, x30);
+        dst[0x4B7] = FN_8018FA24_SLOT(0x50, x50);
+        *(u16*) (dst + 0x4BE) =
+            *(u16*) (tmdata + 0x40 + FN_8018FA24_SLOT(0x50, x50) * 0x12);
+        dst[0x4BC] = FN_8018FA24_SLOT(0x51, x51);
+        dst[0x4BD] = FN_8018FA24_SLOT(0x52, x52);
+        dst[0x4B9] = FN_8018FA24_SLOT(0x4D, x4D);
         Player_SetPlayerCharacter(player_idx, fn_8018FA24_inline0(dst[0x4B9]));
-        dst[0x4B8] = ptr[0x4E];
+        dst[0x4B8] = FN_8018FA24_SLOT(0x4E, x4E);
         if (dst[0x4B8] != 3) {
             player_count += 1;
         }
         Player_SetSlottype(player_idx, dst[0x4B8]);
-        dst[0x4BB] = ptr[0x4F];
+        dst[0x4BB] = FN_8018FA24_SLOT(0x4F, x4F);
         Player_SetCostumeId(player_idx, dst[0x4BB]);
-        dst[0x4BC] = ptr[0x51];
+        dst[0x4BC] = FN_8018FA24_SLOT(0x51, x51);
         ptr += 0x2C;
         dst += 0xA;
     }

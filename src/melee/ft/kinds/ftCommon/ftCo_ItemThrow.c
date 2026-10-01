@@ -481,7 +481,12 @@ void ftCo_80095D5C(Fighter* fp, Vec3* arg1)
     array_element = (u8*) co_attrs;
     vel *= vel_mul * *(float*) (array_element - 0x468);
     if (cmd_var0 != 0) {
+#ifdef MELEE_NATIVE
+        // The angle is the signed low 12 bits of the value.
+        int int_angle = (s32) (cmd_var0 << 20) >> 20;
+#else
         int int_angle = ((ftCo_ItemThrowCmd*) fp->cmd_vars)->angle;
+#endif
         if (int_angle == 361) {
             angle = *(float*) (array_element - 0x464);
         } else {

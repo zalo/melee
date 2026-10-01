@@ -93,7 +93,7 @@ struct gm_804D6900_t {
     /* 0x08 */ struct gm_evinit* evinit;
     /* 0x0C */ struct gm_evbonus* evbonus;
     /* 0x10 */ struct gm_evstage_table* evstage_table;
-    /* 0x14 */ struct gm_801BAB40_src* player_init[5];
+    /* 0x14 */ struct gm_801BAB40_src* player_init[GM_MAX_PLAYERS];
 };
 
 #endif

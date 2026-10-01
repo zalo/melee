@@ -1166,7 +1166,15 @@ struct lbl_8046B488_t {
     /* 0x1B2 */ u8 x1B2;
     /* 0x1AE */ s8 x1B3[0x1B8 - 0x1B3];
     /* 0x1B8 */ GmRouteCallback x1B8;
+#ifdef MELEE_NATIVE
+    /* The event player-init callback (gm_8016A404), which gm_16A2.c reaches
+     * through a view struct. A native pointer does not fit the 4-byte slot:
+     * the view put it on top of x1C0, and code addressing that list by its
+     * raw offset wrote character ids into it. */
+    void (*x1BC)(s32 slot, u8 remaining_count);
+#else
     /* 0x1BC */ char pad_1BC[0x1C0 - 0x1BC];
+#endif
     /* 0x1C0 */ s8 x1C0[0x1B];
     /* 0x1DB */ char pad_1DB[0x1E0 - 0x1DB];
 }; /* size = 0x1E0 */

@@ -138,6 +138,11 @@ void gm_SetupCpuPlayer(PlayerInitData* arg0, u8 ckind, u8 color, u8 stocks,
 void gm_801B06B0(CSSData* css_data, u8 type, s8 c_kind, s8 stocks, s8 color,
                  u8 arg5, u8 level, u8 slot)
 {
+#ifdef MELEE_NATIVE
+    /* Unattended mode runs pick the character here (native/puppet_runtime.c). */
+    int MeleeNativePuppetCharacter(int ckind);
+    c_kind = MeleeNativePuppetCharacter(c_kind);
+#endif
     gm_InitVsMode(&css_data->vs);
     css_data->match_type = type;
     css_data->unk_0x0 = slot + 1;
@@ -178,6 +183,11 @@ void gm_801B07B4(CSSData* css_data, s8 c_kind, s8 stocks, s8 color, u8 arg4,
 {
     s32 var_r0;
 
+#ifdef MELEE_NATIVE
+    /* Training's opponent, which the mode leaves empty until one is picked. */
+    int MeleeNativePuppetCharacter(int ckind);
+    c_kind = MeleeNativePuppetCharacter(c_kind);
+#endif
     if (arg6 == 0) {
         var_r0 = 1;
     } else {
