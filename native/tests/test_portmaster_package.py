@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Validate the PortMaster port files, the launcher, and (when built) the zip."""
+import gzip
 import hashlib
 import importlib.util
 import json
@@ -130,7 +131,8 @@ class LauncherTextTests(unittest.TestCase):
 class LauncherBehaviourTests(unittest.TestCase):
     """Run Melee.sh against a fake PortMaster control folder and sysfs."""
 
-    def run_launcher(self, mode='normal', disc=True, cfw_env=(), cfw_name='testcfw', soak=False, save=True):
+    def run_launcher(self, mode='normal', disc=True, cfw_env=(), cfw_name='testcfw', soak=False, save=True,
+                     before=None):
         cfw_env = dict(cfw_env)
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -187,6 +189,8 @@ exit 0
             (fake_bin / 'curl').write_text(f'#!/bin/sh\nprintf "%s\\n" "$@" > "{root}/curl"\necho "ok abc123"\n')
             (fake_bin / 'curl').chmod(0o755)
             cfw_env['PATH'] = f"{fake_bin}:{os.environ['PATH']}"
+        if before:
+            before(gamedir)
         env = dict(os.environ, GAME_MODE=mode, GPTOKEYB_LOG=str(root / 'gptokeyb.log'), HOME=str(root))
         for name in ['SDL_VIDEODRIVER', 'SDL_AUDIODRIVER', 'SDL3SHIM_SDL2_VIDEODRIVER', 'SDL3SHIM_SDL2_AUDIODRIVER']:
             env.pop(name, None)
@@ -247,7 +251,6 @@ exit 0
         self.assertTrue((root / 'finished').exists())
 
     def read_soak_report(self, gamedir):
-        import gzip
         return gzip.decompress((gamedir / 'soak-report.txt.gz').read_bytes()).decode()
 
     def test_soak_runs_on_a_save_copy_and_writes_a_report(self):
@@ -280,6 +283,27 @@ PATH="{root}/bin:$PATH"; source "{gamedir}/soak/soak.sh"; soak_finish_message do
         subprocess.run(['bash', '-c', script], check=True, timeout=30)
         self.assertIn('https://reports.example/report', (root / 'curl').read_text())
         self.assertIn('id abc123', (root / 'message').read_text())
+
+    def test_soak_memory_readers(self):
+        script = f'source "{PORT_DIR}/soak/soak.sh"; soak_avail_kb; soak_rss_kb $$'
+        values = subprocess.run(['bash', '-c', script], check=True, capture_output=True, text=True,
+                                timeout=30).stdout.split()
+        self.assertEqual(len(values), 2)
+        self.assertTrue(all(value.isdigit() and int(value) > 0 for value in values), values)
+
+    def test_soak_reports_a_run_that_never_finished(self):
+        def interrupted(gamedir):
+            # What a freeze or a power loss leaves behind: the marker and the log of that run.
+            (gamedir / 'soak/running').write_text('adventure\n')
+            (gamedir / 'log.txt').write_text('[puppet] match 7 stage=73 character=2 mode=2\n')
+        root, gamedir, result = self.run_launcher(soak=True, before=interrupted)
+        with gzip.open(gamedir / 'soak-report-unfinished.txt.gz', 'rt') as stream:
+            unfinished = stream.read()
+        self.assertIn('result: did not finish', unfinished)
+        self.assertIn('modes: adventure\n', unfinished)
+        self.assertIn('last: [puppet] match 7 stage=73', unfinished)
+        # The run that follows gets its own report.
+        self.assertIn('result: the game exited by itself', self.read_soak_report(gamedir))
 
     def test_soak_needs_an_existing_save(self):
         root, gamedir, result = self.run_launcher(soak=True, save=False)

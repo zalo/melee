@@ -12,7 +12,9 @@ SOAK_MINUTES="${MELEE_SOAK_MINUTES:-30}"
 # A swap-less handheld that runs out of memory hangs instead of failing; stop the game before that.
 SOAK_MIN_AVAIL_KB="${MELEE_SOAK_MIN_AVAIL_KB:-40000}"
 
-soak_avail_kb() { sed -n 's/^MemAvailable: *\([0-9]*\).*/\1/p' /proc/meminfo; }
+soak_avail_kb() { sed -n 's/^MemAvailable:[^0-9]*\([0-9]*\).*/\1/p' /proc/meminfo; }
+# $1 = pid. /proc/<pid>/status puts a tab between the name and the number.
+soak_rss_kb() { sed -n 's/^VmRSS:[^0-9]*\([0-9]*\).*/\1/p' "/proc/$1/status" 2>/dev/null; }
 
 soak_stop_game() {
   pid=$(pidof melee.aarch64) || return
@@ -32,7 +34,7 @@ soak_watchdog() {
     pid=$(pidof melee.aarch64) || continue
     avail=$(soak_avail_kb)
     if [ $((t % 60)) -eq 0 ]; then
-      echo "t=${t}s rss=$(sed -n 's/^VmRSS: *\([0-9]*\).*/\1/p' /proc/$pid/status 2>/dev/null)kB avail=${avail}kB" >> "$SOAK_DIR/mem.txt"
+      echo "t=${t}s rss=$(soak_rss_kb $pid)kB avail=${avail}kB" >> "$SOAK_DIR/mem.txt"
     fi
     if [ -n "$avail" ] && [ "$avail" -lt "$SOAK_MIN_AVAIL_KB" ]; then
       echo "stopped after ${t}s: low memory (${avail} kB available)" > "$SOAK_DIR/result"
