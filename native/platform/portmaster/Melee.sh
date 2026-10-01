@@ -13,9 +13,10 @@ else
 fi
 
 # The soak test of release portmaster-20261001-9a27a20 updates by starting the new launcher from
-# inside the old one. PortMaster's funcs.txt skips itself when its exported guard is already set,
-# which would leave this run without get_controls, pm_message and pm_finish.
-[ -n "${MELEE_SOAK_UPDATED:-}" ] && unset PM_FUNCS_VERSION
+# inside the old one. PortMaster's funcs.txt and device_info.txt skip themselves when their exported
+# guards are already set, which would leave this run without get_controls, pm_message and pm_finish
+# and with a default screen size.
+[ -n "${MELEE_SOAK_UPDATED:-}" ] && unset PM_FUNCS_VERSION DEVICE_INFO_VERSION
 source $controlfolder/control.txt
 [ -f "${controlfolder}/mod_${CFW_NAME}.txt" ] && source "${controlfolder}/mod_${CFW_NAME}.txt"
 get_controls
@@ -76,7 +77,8 @@ fi
 
 # gptokeyb2 only provides the Start+Select exit hotkey; the game reads the pad through SDL (melee.ini maps no keys).
 $GPTOKEYB2 "melee.aarch64" -c "$GAMEDIR/melee.ini" >/dev/null 2>&1 &
-pm_platform_helper "$GAMEDIR/melee.aarch64" >/dev/null
+# Older PortMaster builds have no pm_platform_helper (AmberELEC ships 2024.12.31, which lacks it).
+type pm_platform_helper >/dev/null 2>&1 && pm_platform_helper "$GAMEDIR/melee.aarch64" >/dev/null
 
 ./melee.aarch64 "${discs[0]}"
 status=$?
