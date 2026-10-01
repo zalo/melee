@@ -1,4 +1,6 @@
-# Soak test, sourced by Melee.sh when it is started through "Melee Soak Test.sh".
+# Soak test, sourced by Melee.sh when it is started through "Melee Soak Test.sh". That launcher runs
+# Melee.sh twice: once with MELEE_SOAK=update (soak_prepare, below), then with MELEE_SOAK=1 for the
+# test itself (soak_begin before the game, soak_end after it).
 #
 # A CPU-controlled player 1 plays through the game's modes for MELEE_SOAK_MINUTES (default 30) with
 # rumble off, on a copy of the save so the real one is untouched. Afterwards log.txt and a short
@@ -55,10 +57,9 @@ soak_install_tree() {
   done
 }
 
-# Installs the latest release when it is newer than this one, then starts the launcher again. Every
-# failure (no network, no tools, bad download, full card) leaves the installed build as it is.
+# Installs the latest release when it is newer than this one. Every failure (no network, no tools,
+# bad download, full card) leaves the installed build as it is.
 soak_update() {
-  [ -z "${MELEE_SOAK_UPDATED:-}" ] || return
   base=$(soak_address update-url.txt)
   case "$base" in https://*) ;; *) return ;; esac
   # Only release builds carry a version; a development build is never replaced.
@@ -95,8 +96,6 @@ soak_update() {
   echo "$tag" > "$GAMEDIR/update/fresh"
   pm_message "Soak test: updated $installed -> $tag."
   sleep 3
-  export MELEE_SOAK_UPDATED=1
-  exec bash "$(dirname "$GAMEDIR")/Melee.sh"
 }
 
 # After an update, a game that dies before its first match is the update's fault: restore the build
@@ -194,6 +193,26 @@ soak_finish_message() {
   sleep 12
 }
 
+# A marker left behind means the last soak never reached its end (freeze, power loss, system kill):
+# report it from that run's log, $1.
+soak_report_unfinished() {
+  if [ -f "$SOAK_DIR/running" ] && grep -q '^\[puppet\] ' "$1" 2>/dev/null; then
+    MELEE_TEST_MODES=$(cat "$SOAK_DIR/running") soak_write_report "did not finish (freeze, power loss or killed by the system)" "$1"
+    soak_send_report >/dev/null
+    cp -f "$SOAK_REPORT.gz" "$GAMEDIR/soak-report-unfinished.txt.gz" 2>/dev/null
+  fi
+  rm -f "$SOAK_DIR/running"
+}
+
+# The MELEE_SOAK=update pass, called before Melee.sh rotates its log. It is a process of its own so
+# that the test starts on the launcher and files installed here, from the frontend's environment
+# rather than one PortMaster's control.txt has already been through.
+soak_prepare() {
+  mkdir -p "$SOAK_DIR"
+  soak_report_unfinished "$GAMEDIR/log.txt"
+  soak_update
+}
+
 soak_begin() {
   if [ ! -d "$GAMEDIR/runtime/config/melee-native" ]; then
     pm_message "Soak test: start the game normally once first so it can create its save."
@@ -201,14 +220,8 @@ soak_begin() {
     exit 1
   fi
   mkdir -p "$SOAK_DIR"
-  # A marker left behind means the last soak never reached its end (freeze, power loss, system kill).
-  if [ -f "$SOAK_DIR/running" ] && grep -q '^\[puppet\] ' "$GAMEDIR/log.prev.txt" 2>/dev/null; then
-    MELEE_TEST_MODES=$(cat "$SOAK_DIR/running") soak_write_report "did not finish (freeze, power loss or killed by the system)" "$GAMEDIR/log.prev.txt"
-    soak_send_report >/dev/null
-    cp -f "$SOAK_REPORT.gz" "$GAMEDIR/soak-report-unfinished.txt.gz" 2>/dev/null
-  fi
-  rm -f "$SOAK_DIR/running" "$SOAK_DIR/result" "$SOAK_DIR/mem.txt"
-  soak_update
+  soak_report_unfinished "$GAMEDIR/log.prev.txt"
+  rm -f "$SOAK_DIR/result" "$SOAK_DIR/mem.txt"
 
   # The puppet plays on a copy of the save: records, unlocks and settings of the real one stay as they are.
   rm -rf "$GAMEDIR/runtime/soak-config"

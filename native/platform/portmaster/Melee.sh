@@ -12,6 +12,10 @@ else
   controlfolder="/roms/ports/PortMaster"
 fi
 
+# The soak test of release portmaster-20261001-9a27a20 updates by starting the new launcher from
+# inside the old one. PortMaster's funcs.txt skips itself when its exported guard is already set,
+# which would leave this run without get_controls, pm_message and pm_finish.
+[ -n "${MELEE_SOAK_UPDATED:-}" ] && unset PM_FUNCS_VERSION
 source $controlfolder/control.txt
 [ -f "${controlfolder}/mod_${CFW_NAME}.txt" ] && source "${controlfolder}/mod_${CFW_NAME}.txt"
 get_controls
@@ -19,6 +23,15 @@ get_controls
 # Variables
 GAMEDIR="/$directory/ports/melee"
 cd "$GAMEDIR" || exit 1
+
+# "Melee Soak Test.sh" runs this launcher twice. The first pass (MELEE_SOAK=update) only reports a
+# soak that never finished and installs a newer release; the second (MELEE_SOAK=1) is the test: a CPU
+# plays through the modes on a copy of the save and a report is written at the end (soak/soak.sh).
+if [ "${MELEE_SOAK:-}" = update ]; then
+  source "$GAMEDIR/soak/soak.sh"
+  soak_prepare
+  exit 0
+fi
 
 # Keep the previous launch's log; warm-boot diagnostics are read from it.
 cp -f "$GAMEDIR/log.txt" "$GAMEDIR/log.prev.txt" 2>/dev/null
@@ -56,8 +69,6 @@ fi
 # and flashing the stage black; force it off. A device that needs it can set the var itself.
 export AURORA_GLES_DRAW_BARRIER="${AURORA_GLES_DRAW_BARRIER:-0}"
 
-# "Melee Soak Test.sh" sets MELEE_SOAK: a CPU plays through the modes on a copy of the save and a
-# report is written at the end (soak/soak.sh).
 if [ -n "${MELEE_SOAK:-}" ]; then
   source "$GAMEDIR/soak/soak.sh"
   soak_begin

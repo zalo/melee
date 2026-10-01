@@ -12,6 +12,7 @@
  *       character select; MELEE_TEST_CHARACTER is the first one.
  *   MELEE_TEST_EVENT=<0..50>             first event of the "event" mode (default 0, Event 1).
  *   MELEE_TEST_EVENT_REPEAT=1            plays that one event again and again instead of moving on.
+ *   MELEE_TEST_VS_PLAYERS=<2..4>         players of every versus match (default: 2, 3, 4 in turn).
  *   MELEE_TEST_MATCH_SECONDS=<n>         overrides the per-mode time after which a match that has not
  *       ended is left with the pause menu's L+R+A+START.
  *   MELEE_TEST_ROUTE_SECONDS=<n>         time the puppet gets to walk a side-scrolling stage before
@@ -166,12 +167,15 @@ int MeleeNativePuppetCharacter(int ckind)
     return MeleeNativePuppetDirects() ? next_character() : ckind;
 }
 
-/* Versus character selects: player 1 against one level 9 CPU. */
+/* Versus character selects: player 1 against one, two, then three level 9 CPUs. */
 int MeleeNativePuppetPrepareVsCss(CSSData* css)
 {
-    int i;
+    static int forced = -1, visits;
+    int i, players;
     if (!MeleeNativePuppetDirects()) return 0;
-    for (i = 0; i < 2; ++i) {
+    if (forced < 0) forced = env_int("MELEE_TEST_VS_PLAYERS", 2, 4, 0);
+    players = forced ? forced : 2 + visits++ % 3;
+    for (i = 0; i < players; ++i) {
         css->vs.start.players[i].ckind = next_character();
         css->vs.start.players[i].color = 0;
         css->vs.start.players[i].slot_type = i == 0 ? Gm_PKind_Human : Gm_PKind_Cpu;

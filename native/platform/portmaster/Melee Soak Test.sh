@@ -4,5 +4,11 @@
 # the port's report collector. A release build first updates itself to the newest release. Both are
 # skipped without a network or with a file melee/soak/offline. See melee/soak/soak.sh.
 # Start+Select stops it at any time.
-export MELEE_SOAK=1
-exec bash "$(dirname "$0")/Melee.sh"
+#
+# The braces make bash read all of this before running it: the update pass may replace this file.
+{
+  launcher="$(dirname "$0")/Melee.sh"
+  MELEE_SOAK=update bash "$launcher"
+  export MELEE_SOAK=1
+  exec bash "$launcher"
+}

@@ -262,6 +262,11 @@ if(MELEE_MIYOO_FLIP)
   # provides the symbols at run time. The stubs are link-only and never shipped.
   # Without a device (CI: prepare_flip.py --no-device) the sysroot holds Debian's glvnd
   # libEGL.so.1/libGLESv2.so.2 instead, which carry the standard sonames and are linked directly.
+  # GLES is linked before EGL so it comes first in the run-time lookup order: where libGLESv2.so.2 is
+  # the whole vendor driver (libmali) the binary takes its EGL from that same library, and from
+  # libEGL.so.1 only where GLES and EGL are separate (Mesa). dArkOS points its SDL2 at libEGL.so
+  # (SDL_VIDEO_EGL_DRIVER); on an R36S whose libEGL.so.1 had become a non-Mali library, EGL taken
+  # from libEGL.so.1 could not see the context SDL had made current in libmali.
   find_library(MELEE_SDK_MALI mali)
   if(MELEE_SDK_MALI)
     execute_process(COMMAND "${CMAKE_NM}" -D --defined-only "${MELEE_SDK_MALI}" OUTPUT_VARIABLE mali_symbols COMMAND_ERROR_IS_FATAL ANY)
@@ -282,12 +287,12 @@ if(MELEE_MIYOO_FLIP)
     add_library(melee_gles_stub SHARED "${CMAKE_CURRENT_BINARY_DIR}/gl-stubs/gles.c")
     set_target_properties(melee_egl_stub PROPERTIES OUTPUT_NAME EGL SOVERSION 1 LIBRARY_OUTPUT_DIRECTORY gl-stubs)
     set_target_properties(melee_gles_stub PROPERTIES OUTPUT_NAME GLESv2 SOVERSION 2 LIBRARY_OUTPUT_DIRECTORY gl-stubs)
-    set(MELEE_GL_LINK melee_egl_stub melee_gles_stub)
+    set(MELEE_GL_LINK melee_gles_stub melee_egl_stub)
   else()
     find_library(MELEE_SYSROOT_EGL EGL REQUIRED)
     find_library(MELEE_SYSROOT_GLES GLESv2 REQUIRED)
     message(STATUS "No libmali in the sysroot; linking ${MELEE_SYSROOT_EGL} and ${MELEE_SYSROOT_GLES} directly")
-    set(MELEE_GL_LINK "${MELEE_SYSROOT_EGL}" "${MELEE_SYSROOT_GLES}")
+    set(MELEE_GL_LINK "${MELEE_SYSROOT_GLES}" "${MELEE_SYSROOT_EGL}")
   endif()
 endif()
 

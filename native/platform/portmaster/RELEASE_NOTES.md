@@ -6,6 +6,19 @@ no game data: you need your own dump of the disc (US, version 1.02, `GALE01`).
 
 ## Changes in this build
 
+- **Fixes the crash on the results screen after a four-player match** (`Memory Empty`, `sislib.c:86` in
+  the log). The memory set aside for a screen's text was sized for the GameCube's 32-bit structures;
+  the statistics of four players no longer fitted. Two- and three-player matches were not affected.
+- **Fixes `SDL did not create an EGL display` at launch on R36S-class devices** (ArkOS and dArkOS
+  builds, Mali-G31). On those systems SDL2 is pointed at `libEGL.so`, the Mali driver, while the
+  `libEGL.so.1` the game asked for can be a different library that knows nothing about the display SDL
+  opened. The game now takes EGL from the same driver that provides OpenGL ES whenever that driver
+  contains both. If the message still appears, the log now also names the GLES library and SDL's driver
+  settings; please share it.
+- **"Melee Soak Test"**: VS and Special Melee matches are now played with two, three and four players in
+  turn (the crash above needed four), and the test's self-update no longer loses PortMaster's helper
+  functions on the launch right after an update (`pm_message: command not found`, wrong screen size in
+  the report).
 - **"Melee Soak Test" now sends its report by itself and keeps the port up to date.** The second entry
   in Ports lets a CPU-controlled player play through Classic, Adventure, All-Star, Event matches, the
   Stadium modes, Training, VS and Special Melee for 30 minutes, with rumble off and on a copy of your save

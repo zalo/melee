@@ -132,7 +132,7 @@ class LauncherBehaviourTests(unittest.TestCase):
     """Run Melee.sh against a fake PortMaster control folder and sysfs."""
 
     def run_launcher(self, mode='normal', disc=True, cfw_env=(), cfw_name='testcfw', soak=False, save=True,
-                     before=None):
+                     before=None, start=None):
         cfw_env = dict(cfw_env)
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -148,6 +148,10 @@ DEVICE_ARCH=aarch64
 CFW_NAME={cfw_name}
 GPTOKEYB="{root}/gptokeyb-classic"
 GPTOKEYB2="{root}/gptokeyb"
+# PortMaster's funcs.txt guards itself with an exported variable, as here: a launcher started from
+# inside another launcher finds none of the functions below unless it clears the guard.
+if [ -n "$PM_FUNCS_VERSION" ]; then return; fi
+export PM_FUNCS_VERSION=2
 get_controls() {{ sdl_controllerconfig="fake-map"; }}
 pm_message() {{ printf '%s\\n' "$1" > "{root}/message"; }}
 pm_platform_helper() {{ printf '%s\\n' "$1" > "{root}/helper"; }}
@@ -173,11 +177,10 @@ printf '%s\\n' "$LD_LIBRARY_PATH" "$XDG_CONFIG_HOME" "$XDG_STATE_HOME" "$XDG_CAC
 exit 0
 ''')
         game.chmod(0o644)
-        launcher_name = 'Melee.sh'
+        launcher_name = start or (package.SOAK_LAUNCHER if soak else 'Melee.sh')
         if soak:
             # The soak launcher sits beside Melee.sh; its pauses are shortened through a fake sleep.
-            launcher_name = package.SOAK_LAUNCHER
-            shutil.copyfile(PORT_DIR / launcher_name, gamedir.parent / launcher_name)
+            shutil.copyfile(PORT_DIR / package.SOAK_LAUNCHER, gamedir.parent / package.SOAK_LAUNCHER)
             shutil.copytree(PORT_DIR / 'soak', gamedir / 'soak')
             if save:
                 (gamedir / 'runtime/config/melee-native').mkdir(parents=True)
@@ -329,6 +332,16 @@ echo "ok abc123"
         report = self.read_soak_report(gamedir)
         self.assertIn(f'version: {self.NEW}\n', report)
         self.assertIn('result: the game exited by itself\n', report)
+        self.assertTrue((root / 'finished').exists())
+
+    def test_soak_started_by_the_first_updater(self):
+        # Release 9a27a20 updates from inside its launcher: it starts the new Melee.sh directly, in an
+        # environment PortMaster's control.txt has already been through.
+        root, gamedir, result = self.run_launcher(
+            soak=True, start='Melee.sh',
+            cfw_env={'MELEE_SOAK': '1', 'MELEE_SOAK_UPDATED': '1', 'PM_FUNCS_VERSION': '2'})
+        self.assertTrue((root / 'disc').exists())
+        self.assertIn('result: the game exited by itself', self.read_soak_report(gamedir))
         self.assertTrue((root / 'finished').exists())
 
     def test_soak_restores_the_previous_build_when_an_update_cannot_start(self):
@@ -574,9 +587,12 @@ class BuiltZipTests(unittest.TestCase):
                     elf.write(binary)
                     elf.flush()
                     dynamic = subprocess.run(['readelf', '-d', elf.name], capture_output=True, text=True, check=True).stdout
-                needed = set(re.findall(r'Shared library: \[([^\]]+)\]', dynamic))
+                order = re.findall(r'Shared library: \[([^\]]+)\]', dynamic)
+                needed = set(order)
                 self.assertIn('libSDL3.so.0', needed)
-                self.assertIn('libEGL.so.1', needed)
+                # GLES comes first: where it is the whole vendor driver (libmali) the binary's EGL is
+                # that library's, the one holding SDL's context, whatever libEGL.so.1 is on the device.
+                self.assertLess(order.index('libGLESv2.so.2'), order.index('libEGL.so.1'), order)
                 self.assertFalse(needed & {'libdrm.so.2', 'libgbm.so.1', 'libwayland-client.so.0', 'libwayland-egl.so.1',
                                            'libSDL2-2.0.so.0', 'libstdc++.so.6', 'libmali.so.1'}, needed)
                 # Math is linked statically: the CFWs' libm versions differ in the last bit of

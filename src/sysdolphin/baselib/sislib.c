@@ -465,6 +465,12 @@ void HSD_SisLib_803A6048(size_t size)
 {
     int i;
 
+#ifdef MELEE_NATIVE
+    // The callers' sizes are the console's, where a block header is 12 bytes and HSD_Text 160. With
+    // 64-bit pointers they are 24 and 192, and the results screen of a four-player match (120 texts)
+    // no longer fits its 0xC000. No block more than doubles.
+    size *= sizeof(SisBlock) / 12;
+#endif
     HSD_SisLib_804D7968 = size;
     used_head = NULL;
     HSD_SisLib_804D796C = free_head = HSD_MemAlloc(HSD_SisLib_804D7968);

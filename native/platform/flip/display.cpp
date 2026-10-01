@@ -596,10 +596,11 @@ void initSdl() {
     display = eglGetCurrentDisplay();
     if (display == EGL_NO_DISPLAY) display = static_cast<EGLDisplay>(SDL_EGL_GetCurrentDisplay());
     if (display == EGL_NO_DISPLAY) {
-        // The context came up (MakeCurrent succeeded) yet our libEGL sees no current display: SDL's
-        // GL context lives in a different libEGL than the one this binary (and Dawn) links, so its
-        // current-display TLS is invisible here. This has only been seen on dArkOS RE (R36S). Dump
-        // what SDL DID give us and which libEGL we resolved, so a tester log identifies the split.
+        // The context came up (MakeCurrent succeeded) yet our EGL sees no current display: SDL's GL
+        // context lives in a different EGL library than the one this binary (and Dawn) resolved, so
+        // its current-display TLS is invisible here. Seen on dArkOS (R36S), whose SDL2 is pointed at
+        // libEGL.so while libEGL.so.1 was not libmali; the link order now covers that case (see
+        // MELEE_GL_LINK in CMakeLists.txt). Dump what SDL did give us and what we resolved.
         std::fprintf(stderr, "[flip-display] GL context is up but no EGL display is current in our libEGL:\n");
         std::fprintf(stderr, "[flip-display]   GL_VENDOR=%s GL_RENDERER=%s GL_VERSION=%s\n",
                      reinterpret_cast<const char*>(glGetString(GL_VENDOR)),
@@ -608,6 +609,10 @@ void initSdl() {
         Dl_info info{};
         if (dladdr(reinterpret_cast<void*>(&eglGetCurrentDisplay), &info) && info.dli_fname)
             std::fprintf(stderr, "[flip-display]   our libEGL: %s\n", info.dli_fname);
+        if (dladdr(reinterpret_cast<void*>(&glGetString), &info) && info.dli_fname)
+            std::fprintf(stderr, "[flip-display]   our libGLESv2: %s\n", info.dli_fname);
+        for (const char* name : {"SDL_VIDEO_EGL_DRIVER", "SDL_VIDEO_GL_DRIVER"})
+            if (const char* value = std::getenv(name)) std::fprintf(stderr, "[flip-display]   %s=%s\n", name, value);
         // Does our libEGL reach the platform at all on its own? (fbdev-Mali answers EGL_DEFAULT_DISPLAY.)
         if (EGLDisplay def = eglGetDisplay(EGL_DEFAULT_DISPLAY); def != EGL_NO_DISPLAY) {
             EGLint dmaj = 0, dmin = 0;
