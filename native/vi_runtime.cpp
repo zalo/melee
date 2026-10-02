@@ -15,6 +15,7 @@
 #include <algorithm>
 
 uint64_t last_drain_ns, last_fifo_ns, last_render_ns, last_pipe_ns, last_pipe_count;
+extern "C" void MeleeNativeQuit(void);
 extern "C" uint64_t aurora_render_stats_fifo_wait_ns(void);
 extern "C" uint64_t aurora_render_stats_fifo_process_ns(void);
 extern "C" uint64_t aurora_render_stats_render_worker_busy_ns(void);
@@ -221,7 +222,7 @@ void VIWaitForRetrace(void) {
     for (;;) {
         for (auto event = aurora_update(); event && event->type != AURORA_NONE; ++event) {
             if (event->type == AURORA_SDL_EVENT) MeleeNativeKeyboardEvent(&event->sdl);
-            if (event->type == AURORA_EXIT) { aurora_shutdown(); std::exit(0); }
+            if (event->type == AURORA_EXIT) MeleeNativeQuit();
         }
         MeleeNativePumpAlarms();
         MeleeNativePumpCards();

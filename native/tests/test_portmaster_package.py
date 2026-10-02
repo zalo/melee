@@ -174,6 +174,7 @@ printf '%s\\n' "$1" > "{root}/disc"
 printf '%s\\n' "$LD_LIBRARY_PATH" "$XDG_CONFIG_HOME" "$XDG_STATE_HOME" "$XDG_CACHE_HOME" "$SDL_GAMECONTROLLERCONFIG" "$SDL_VIDEODRIVER" "$SDL_AUDIODRIVER" "${{SDL3SHIM_SDL2_VIDEODRIVER:-unset}}" "${{SDL3SHIM_SDL2_AUDIODRIVER:-unset}}" > "{root}/env"
 [ "$GAME_MODE" = fail ] && exit 7
 [ "$GAME_MODE" = slow ] && /bin/sleep 2
+[ "$GAME_MODE" = quit ] && echo "[exit] quit requested" >&2
 exit 0
 ''')
         game.chmod(0o644)
@@ -294,6 +295,11 @@ echo "ok abc123"
         self.assertIn('result: completed 1 minutes', self.read_soak_report(gamedir))
         self.assertFalse((root / 'curl').exists())
         self.assertIn('soak-report.txt.gz - please share', (root / 'message').read_text())
+
+    def test_soak_stopped_from_inside_the_game(self):
+        # Start+Select also reaches the game, which then leaves by itself with status 0.
+        root, gamedir, result = self.run_launcher(mode='quit', soak=True)
+        self.assertIn('result: stopped by the exit hotkey\n', self.read_soak_report(gamedir))
 
     OLD, NEW = 'portmaster-20261001-aaaaaaa', 'portmaster-20261002-bbbbbbb'
 

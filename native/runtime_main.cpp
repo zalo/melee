@@ -37,6 +37,19 @@ static void reset_game(int type) {
     std::perror("Native restart failed"); std::abort();
 }
 
+// The player asked to leave (Start+Select, a closed window). The process ends here, the way it does when
+// the launcher's exit hotkey or the test harness stops it with a signal, which is the exit every device
+// is tested with. Tearing the renderer down first crashed on testers' handhelds (Knulli on the H700,
+// dArkOS on the RK3566): SDL_Quit takes the GL context and the driver away from under the present
+// worker, and soak tests that had only been stopped were filed as crashes.
+extern "C" void MeleeNativeQuit(void) {
+    std::fputs("[exit] quit requested\n", stderr);
+#ifdef __linux__
+    clear_unclean_marker();
+#endif
+    std::fflush(nullptr);
+    _exit(0);
+}
 extern "C" int melee_game_main(void);
 extern "C" void MeleeNativeSettingsLoad(const char* user_path);
 
@@ -44,7 +57,7 @@ extern "C" void MeleeNativeSettingsLoad(const char* user_path);
 // A crash lands in log.txt with enough to symbolize it against the release's unstripped binary: the
 // signal, the faulting address, the executable's load base and the raw return addresses. (A tester's
 // Pi 5 report was a bare "Segmentation fault" at renderer start-up, which this would have located.)
-static void crash_handler(int signal, siginfo_t* info, void*) {
+static void crash_handler(int signal, siginfo_t* info, void* context) {
     static char text[256];
     // A handler installed after this one (the SDL2 parachute under the SDL3 shim) passes the signal on with
     // raise(), and then si_addr overlays the sender's pid: an RG351P report read "at address 0x22c97", the
@@ -55,20 +68,44 @@ static void crash_handler(int signal, siginfo_t* info, void*) {
                 : std::snprintf(text, sizeof text, "[crash] signal %d (%s), re-raised: fault address not known\n",
                                 signal, strsignal(signal));
     if (n > 0) (void)!write(2, text, static_cast<size_t>(n));
+    // The registers come first and name their own mappings: two testers' reports ended at the "exe map"
+    // line because the unwinder itself faulted (a jump into a library that had been unloaded), which
+    // left nothing to locate the crash with.
+    unsigned long pc = 0, lr = 0;
+#ifdef __aarch64__
+    if (context) {
+        const auto& machine = static_cast<ucontext_t*>(context)->uc_mcontext;
+        pc = machine.pc;
+        lr = machine.regs[30];
+        n = std::snprintf(text, sizeof text, "[crash] pc %#lx lr %#lx sp %#lx\n", pc, lr,
+                          static_cast<unsigned long>(machine.sp));
+        if (n > 0) (void)!write(2, text, static_cast<size_t>(n));
+    }
+#else
+    (void)context;
+#endif
     if (FILE* maps = std::fopen("/proc/self/maps", "r")) {
         char line[512];
+        bool exe = false;
         while (std::fgets(line, sizeof line, maps)) {
-            if (std::strstr(line, "melee") && (std::strstr(line, " r--p ") || std::strstr(line, " r-xp "))) {
-                (void)!write(2, "[crash] exe map: ", 17);
-                (void)!write(2, line, std::strlen(line));
-                break;
+            unsigned long start = 0, end = 0;
+            std::sscanf(line, "%lx-%lx", &start, &end);
+            const char* label = nullptr;
+            if (pc >= start && pc < end) label = "[crash] pc map: ";
+            else if (lr >= start && lr < end) label = "[crash] lr map: ";
+            else if (!exe && std::strstr(line, "melee") && (std::strstr(line, " r--p ") || std::strstr(line, " r-xp "))) {
+                label = "[crash] exe map: ";
+                exe = true;
             }
+            if (!label) continue;
+            (void)!write(2, label, std::strlen(label));
+            (void)!write(2, line, std::strlen(line));
         }
         std::fclose(maps);
     }
+    (void)!write(2, "[crash] stack:\n", 15);
     void* frames[48];
     const int count = backtrace(frames, 48);
-    (void)!write(2, "[crash] stack:\n", 15);
     backtrace_symbols_fd(frames, count, 2);
     // Default action, so the launcher sees the signal exit.
     struct sigaction dfl{};

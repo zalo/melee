@@ -244,7 +244,8 @@ soak_end() {
   kill $soak_watchdog_pid 2>/dev/null
   if [ -f "$SOAK_DIR/result" ]; then
     result=$(cat "$SOAK_DIR/result")
-  elif [ "$1" -eq 137 ] || [ "$1" -eq 143 ]; then
+  # Start+Select reaches the game twice: gptokeyb2 kills it, and the game sees the buttons and leaves.
+  elif [ "$1" -eq 137 ] || [ "$1" -eq 143 ] || grep -q '^\[exit\] quit requested' "$GAMEDIR/log.txt" 2>/dev/null; then
     result="stopped by the exit hotkey"
   elif [ "$1" -eq 0 ]; then
     result="the game exited by itself"

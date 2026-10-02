@@ -21,6 +21,7 @@ extern "C" void MeleeNativeInputScene(int scene) {
     if(std::getenv("MELEE_INPUT_SCRIPT")) std::fprintf(stderr,"[input-test] ready scene %d\n",scene);
 }
 extern "C" int MeleeNativePuppetLevel(int slot);
+extern "C" int MeleeNativePuppetDirects(void);
 extern "C" void MeleeNativePuppetPad(int scene, u16* buttons, s8* x, s8* y);
 // With MELEE_TEST_P1_CPU the fighter plays itself (matrix_runtime.c), so once the script is done the
 // pad belongs to the puppet (puppet_runtime.c): it clears every screen that is not a match, walks the
@@ -48,6 +49,19 @@ static bool replayInput() {
         initialized=true;
         if(!script) {std::fprintf(stderr,"Cannot open input script: %s\n",path);std::abort();}
     }
+    // With a mode playlist the script only has the opening movie and the title screen to get past: the
+    // puppet enters the modes from the main menu and clears every other screen by itself. So a script
+    // that lost its place hands over instead of failing. (Testers' soak tests died here: the notice of
+    // something earned in an earlier run comes up between the title screen and the menu, and a tester
+    // pressing buttons skips screens the script is still waiting for.)
+    static const bool directed=MeleeNativePuppetDirects();
+    const bool opening=ready_scene<0||ready_scene==0||ready_scene==28||ready_scene==40||ready_scene==42;
+    static bool handed_over=false;
+    if(directed&&!handed_over&&!opening) {
+        std::fprintf(stderr,"[input-test] scene %d; puppet autopilot\n",ready_scene);
+        handed_over=true;
+    }
+    if(handed_over) {puppetAutopilot();return true;}
     if(!remaining) {
         if(finished) {
             // Editors may replace the file atomically when appending a segment.
@@ -76,6 +90,8 @@ static bool replayInput() {
             else if(key=="SCENE_SSS") wait_scene=9;
             else if(key=="SCENE_MOVIE") wait_scene=28;
             else if(key=="SCENE_DEBUG_MENU") wait_scene=7;
+            // Leaves the way Start+Select does, so a test can cover the exit.
+            else if(key=="QUIT") {SDL_Event quit{};quit.type=SDL_EVENT_QUIT;SDL_PushEvent(&quit);}
             else {
                 size_t start=0;
                 do {
@@ -122,7 +138,11 @@ static bool replayInput() {
     if(wait_scene>=0) {
         MeleeNativeSetKeyboard(0,0,0,0,0);
         if(ready_scene==wait_scene) {remaining=0;wait_scene=-1;}
-        else if(--remaining==0) {std::fprintf(stderr,"[input-test] timed out waiting for scene %d, current %d\n",wait_scene,ready_scene);std::abort();}
+        else if(--remaining==0) {
+            std::fprintf(stderr,"[input-test] timed out waiting for scene %d, current %d\n",wait_scene,ready_scene);
+            if(!directed) std::abort();
+            handed_over=true;
+        }
         return true;
     }
     MeleeNativeSetKeyboard(buttons,x,y,cx,cy);--remaining;return true;
