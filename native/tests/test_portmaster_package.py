@@ -535,6 +535,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
                 rust_licenses.write_notices(build, licenses, cargo_home=root / 'cargo')
 
 
+class WorkflowTests(unittest.TestCase):
+    """The newest build stays downloadable from releases/latest/download/<fixed name>: the notes, the
+    README and the soak updater on every installed device all use those links."""
+    def test_release_job_publishes_the_latest_release_under_fixed_names(self):
+        workflow = (NATIVE.parent / '.github/workflows/portmaster.yml').read_text()
+        create = workflow[workflow.index('gh release create'):]
+        create = create[:create.index('--notes-file')]
+        for asset in ['release/melee.zip', 'release/melee-version.txt', 'release/melee-portmaster-symbols.tar.gz']:
+            self.assertIn(asset, create)
+        self.assertIn('--latest', create)
+        self.assertNotIn('--prerelease', create)
+        self.assertNotIn('--draft', create)
+        self.assertEqual((PORT_DIR / 'soak/update-url.txt').read_text().strip(),
+                         'https://github.com/zalo/melee/releases/latest/download')
+
+
 @unittest.skipUnless(ZIP.exists(), 'no built melee.zip (set MELEE_PORTMASTER_ZIP)')
 class ReleaseNotesTests(unittest.TestCase):
     """The release job renders RELEASE_NOTES.md around the built zip; every placeholder must resolve."""
@@ -554,6 +570,7 @@ class ReleaseNotesTests(unittest.TestCase):
         self.assertIn('[zalo/melee `abcdef012`](https://github.com/zalo/melee/commit/abcdef0123456789abcdef0123456789abcdef01)', text)
         self.assertIn(hashlib.sha256(b'PK\x05\x06' + bytes(18)).hexdigest(), text)
         self.assertIn('autoinstall', text)
+        self.assertIn('https://github.com/zalo/melee/releases/latest/download/melee.zip', text)
         self.assertIn('melee/assets', text)
         self.assertIn('log.txt', text)
 

@@ -2,6 +2,7 @@ Instructions to install the Testing Zip:
 Drop melee.zip into your PortMaster autoinstall folder and run PortMaster.
 or
 run via ssh: harbourmaster install "zip url from discord"
+Newest melee.zip, same link for every release: https://github.com/zalo/melee/releases/latest/download/melee.zip
 
 Game Information
 Title: Super Smash Bros. Melee (native)

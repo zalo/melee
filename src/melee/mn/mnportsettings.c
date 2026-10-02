@@ -118,6 +118,8 @@ static const struct PortRow rows[] = {
       &MeleeNativeSettingsData.debug_menu, onoff, Act_None, NULL, 0, 0 },
     { "Debug Overlays", PortRow_Toggle, &MeleeNativeSettingsData.debug_overlays,
       onoff, Act_None, NULL, 0, 0 },
+    { "Show Frame Rate", PortRow_Toggle, &MeleeNativeSettingsData.show_fps,
+      onoff, Act_None, NULL, 0, 0 },
     { "Unlock All Characters and Stages", PortRow_Action, NULL, NULL,
       Act_UnlockAll, NULL, 0, 0 },
     { "Online Play", PortRow_Action, NULL, NULL, Act_OpenOnline, NULL, 0, 0 },

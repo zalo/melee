@@ -2,7 +2,7 @@
 /* Port settings that outlive one launch: a small key = value file in the user directory
  * (next to console-settings.txt), edited from the developer menu's "Port Settings" screen.
  * Melee.sh environment variables override the file for one launch (MELEE_DEBUG_OVERLAYS,
- * MELEE_DEBUG_LEVEL); the menu then shows and saves the overridden value. */
+ * MELEE_DEBUG_LEVEL, MELEE_SHOW_FPS); the menu then shows and saves the overridden value. */
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -21,6 +21,8 @@ typedef struct MeleeNativeSettings {
      * and saved so a settings file from a newer build survives, values are unused. */
     int online_enabled;
     int online_input_delay;
+    /* 1 draws the frame rate in the top right corner (see MeleeNativeFpsOverlay in vi_runtime.cpp). */
+    int show_fps;
 } MeleeNativeSettings;
 
 extern MeleeNativeSettings MeleeNativeSettingsData;
@@ -38,6 +40,7 @@ int MeleeNativeSettingsSaveFile(const char* path);
 int MeleeNativeDebugMenu(void);
 int MeleeNativeDebugOverlays(void);
 int MeleeNativeDebugLevel(void);
+int MeleeNativeShowFps(void);
 
 #ifdef __cplusplus
 }

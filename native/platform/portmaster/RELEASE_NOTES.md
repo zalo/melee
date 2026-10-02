@@ -6,6 +6,10 @@ no game data: you need your own dump of the disc (US, version 1.02, `GALE01`).
 
 ## Changes in this build
 
+- **The frame rate can be shown on screen.** Main menu > Options > Port Settings > **Show Frame Rate**
+  puts it in the top right corner (frames drawn a second, refreshed twice a second) and remembers the
+  choice. When the game itself falls behind real time, the speed it is running at is shown beside it.
+  `MELEE_SHOW_FPS=1` in `Melee.sh` turns it on for one run.
 - **Leaving with Start + Select no longer ends in a crash** (`signal 11` after `Device was destroyed` in
   the log; reported on Knulli on the RG34XX-SP and dArkOS on the RG353V). The game shut the renderer
   down piece by piece on the way out and crashed in the middle of it on those devices. It now simply
@@ -147,7 +151,10 @@ no game data: you need your own dump of the disc (US, version 1.02, `GALE01`).
 
 ## Install
 
-1. Download `melee.zip` below. Do not unpack it.
+1. Download `melee.zip` below. Do not unpack it. (The newest release is always at
+   <https://github.com/zalo/melee/releases/latest>, and its zip at
+   <https://github.com/zalo/melee/releases/latest/download/melee.zip>; those two links do not change
+   from release to release.)
 2. Copy it to `ports/PortMaster/autoinstall/` on the card the CFW uses for ports (`roms/ports` on
    AmberELEC, ArkOS and ROCKNIX; `ROMS/ports` on muOS; the `ports` share on Knulli and Batocera), then
    start PortMaster once: it installs the zip and removes it from `autoinstall`. Unpacking the zip

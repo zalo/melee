@@ -219,6 +219,10 @@ authors.
   `native/tools/release_notes.py` from `native/platform/portmaster/RELEASE_NOTES.md` (install through
   `ports/PortMaster/autoinstall/`, disc image, controls, what to attach to a report, SHA-256).
   Release = `git push zalo <commit>:release`; testers get the notes and zip from the Releases page.
+  Every release is created with `--latest` and the same asset names, so the newest zip is always
+  `https://github.com/zalo/melee/releases/latest/download/melee.zip` (and `melee-version.txt` beside
+  it, which the soak updater reads; `WorkflowTests` in `native/tests/test_portmaster_package.py`
+  holds the workflow to that).
 - Caches: `portmaster-sdk-*` (SDK, glibc 2.30 hybrid, wayland-arm64, sdl3-shim-install; key = prepare
   scripts), `portmaster-dawn-<DAWN_CACHE_VERSION>-*` (dawn-install-a35, rustup, cargo; key = Dawn patch
   + toolchain files; a prefix-only restore now deletes dawn-install-a35 so Dawn is rebuilt with the new
@@ -335,6 +339,11 @@ authors.
   connector's preferred mode (then the current CRTC mode, then the first mode) and renders
   at the mode size: 640x480 on the Flip, the mode size elsewhere. `MeleeFlipDisplaySize()`
   feeds `AuroraConfig.windowWidth/Height`. No rotation.
+- **Frame-rate display (2026-10-01)**: `show_fps` in `settings.cfg` (Port Settings > Show Frame Rate,
+  `MELEE_SHOW_FPS` for one launch). `FpsOverlay` in `native/vi_runtime.cpp` counts presented frames
+  over half-second windows and draws `NN fps` on ImGui's foreground list (top right, sized relative
+  to a 480-line screen like the online lobby) just before `aurora_end_frame()`; when the logic rate
+  over the last two seconds is under 95 % of the retrace rate it appends `speed NN%`. The `[perf]` lines are unchanged.
 - **Developer menu, Port Settings and debug overlays (2026-09-18, first item of
   `native/FEATURE_FEASIBILITY.md`)**: Y on the title screen opens the game's own developer
   menu on every native build (`gmtitle.c`, `gmtitlemode.c`, `gmopeningmode.c`; retail ignores

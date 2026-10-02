@@ -10,7 +10,9 @@ follows.
 This is a native AArch64 build of *Super Smash Bros. Melee* (US 1.02) that runs on the device's
 own OpenGL ES driver. It includes no game data. You need your own dump of a Super Smash Bros.
 Melee disc (US, version 1.02, `GALE01`). Port source:
-[zalo/melee, branch `portmaster`](https://github.com/zalo/melee/tree/portmaster).
+[zalo/melee, branch `portmaster`](https://github.com/zalo/melee/tree/portmaster). The newest build is
+always at <https://github.com/zalo/melee/releases/latest/download/melee.zip> (release notes:
+<https://github.com/zalo/melee/releases/latest>); `melee/version.txt` names the one installed.
 
 Mali-G52 devices (RK3566: Miyoo Flip, RGB30, RG353) need libmali g2p0 (stock Miyoo Flip firmware,
 spruceOS) or g29p1 (ROCKNIX 20260901 and newer, dArkOS). g13p0 (Knulli) and g24p0 (ROCKNIX
@@ -47,7 +49,7 @@ pipeline cache in `melee/runtime/cache`.
 When a device cannot draw 60 frames a second, single-player still runs at full speed: it simulates
 every frame and draws fewer of them, as the GameCube does under load, so a 20 FPS picture is not a
 slow-motion match. `log.txt` shows both rates on its `[perf]` lines (`presented_fps` and
-`logic_fps`). Exporting `MELEE_VI_CATCHUP=0` in `Melee.sh` restores the old behaviour, one game
+`logic_fps`), and Port Settings > Show Frame Rate (below) puts the drawn rate on screen. Exporting `MELEE_VI_CATCHUP=0` in `Melee.sh` restores the old behaviour, one game
 frame per drawn frame. Online play keeps that one-to-one pacing so both consoles stay in step, so an
 online match runs at the slower device's frame rate.
 
@@ -119,6 +121,7 @@ and returns. Values live in `melee/runtime/config/melee-native/settings.cfg`.
 | --- | --- |
 | Debug Menu, Y on title | On: Y on the title screen opens the game's developer menu (below). Off by default. |
 | Debug Overlays | On: matches gain the development tools below while gameplay stays retail. |
+| Show Frame Rate | On: the frames drawn a second in the top right corner, refreshed twice a second. When the game itself runs slower than real time, its speed follows (`41 fps, speed 85%`). |
 | Unlock All Characters and Stages | Sets every character and stage unlock (and the game's own "special message" bonuses) in the current save and writes the memory card. On the next visit to the main menu the game hands out the trophies it awards for those unlocks, one pop-up each; press A through them once. |
 | Online Play | Reserved for the online-play configuration screen; shows "Coming soon". |
 
@@ -145,7 +148,7 @@ D-pad):
 | Y (hold) + left stick left/right | Camera info and free camera (C-stick moves it) |
 
 The launcher environment can force any of these for one run: `MELEE_DEBUG_MENU=1`,
-`MELEE_DEBUG_OVERLAYS=1`, `MELEE_DEBUG_LEVEL=3`.
+`MELEE_DEBUG_OVERLAYS=1`, `MELEE_DEBUG_LEVEL=3`, `MELEE_SHOW_FPS=1`.
 
 ## Building
 

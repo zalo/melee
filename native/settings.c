@@ -5,8 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-static const MeleeNativeSettings defaults = { 0, 0, 0, 0, 2 };
-MeleeNativeSettings MeleeNativeSettingsData = { 0, 0, 0, 0, 2 };
+static const MeleeNativeSettings defaults = { 0, 0, 0, 0, 2, 0 };
+MeleeNativeSettings MeleeNativeSettingsData = { 0, 0, 0, 0, 2, 0 };
 
 /* The file keeps lines it does not understand (future keys, hand-written comments), so a
  * newer build's settings survive a round trip through an older one. */
@@ -29,6 +29,7 @@ static struct key* keys(void) {
         { "debug_level", &MeleeNativeSettingsData.debug_level, 0, 4 },
         { "online_enabled", &MeleeNativeSettingsData.online_enabled, 0, 1 },
         { "online_input_delay", &MeleeNativeSettingsData.online_input_delay, 0, 15 },
+        { "show_fps", &MeleeNativeSettingsData.show_fps, 0, 1 },
         { NULL, NULL, 0, 0 },
     };
     return table;
@@ -111,6 +112,7 @@ void MeleeNativeSettingsApplyEnvironment(void) {
     override_from("MELEE_DEBUG_MENU", &MeleeNativeSettingsData.debug_menu, 0, 1);
     override_from("MELEE_DEBUG_OVERLAYS", &MeleeNativeSettingsData.debug_overlays, 0, 1);
     override_from("MELEE_DEBUG_LEVEL", &MeleeNativeSettingsData.debug_level, 0, 4);
+    override_from("MELEE_SHOW_FPS", &MeleeNativeSettingsData.show_fps, 0, 1);
 }
 
 void MeleeNativeSettingsLoad(const char* user_path) {
@@ -121,8 +123,8 @@ void MeleeNativeSettingsLoad(const char* user_path) {
         fprintf(stderr, "[settings] no %s; using defaults\n", settings_path);
     }
     MeleeNativeSettingsApplyEnvironment();
-    fprintf(stderr, "[settings] debug_menu=%d debug_overlays=%d debug_level=%d\n", MeleeNativeSettingsData.debug_menu,
-            MeleeNativeSettingsData.debug_overlays, MeleeNativeSettingsData.debug_level);
+    fprintf(stderr, "[settings] debug_menu=%d debug_overlays=%d debug_level=%d show_fps=%d\n", MeleeNativeSettingsData.debug_menu,
+            MeleeNativeSettingsData.debug_overlays, MeleeNativeSettingsData.debug_level, MeleeNativeSettingsData.show_fps);
 }
 
 int MeleeNativeSettingsSaveFile(const char* path) {
@@ -151,3 +153,4 @@ int MeleeNativeSettingsSave(void) {
 int MeleeNativeDebugMenu(void) { return MeleeNativeSettingsData.debug_menu; }
 int MeleeNativeDebugOverlays(void) { return MeleeNativeSettingsData.debug_overlays; }
 int MeleeNativeDebugLevel(void) { return MeleeNativeSettingsData.debug_level; }
+int MeleeNativeShowFps(void) { return MeleeNativeSettingsData.show_fps; }

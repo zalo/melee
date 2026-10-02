@@ -1,6 +1,7 @@
 #include "os_runtime.h"
 #include "vi_pacing.h"
 #include "include/melee_netplay.h"
+#include "include/melee_settings.h"
 #include <aurora/aurora.h>
 #include <aurora/event.h>
 #include <dolphin/vi.h>
@@ -9,6 +10,7 @@
 #include <chrono>
 #include <thread>
 #include <cstdlib>
+#include <cfloat>
 #include <cstdio>
 #include <unistd.h>
 #include <vector>
@@ -97,6 +99,56 @@ const bool breakdown = [] {
 double sum_game_ms, sum_end_ms, sum_sleep_ms, sum_begin_ms;
 auto segment_start = Clock::now(); // time VIWaitForRetrace last returned to the game
 double ms(Clock::duration d) { return std::chrono::duration<double, std::milli>(d).count(); }
+// Frame-rate display (Port Settings > Show Frame Rate, or MELEE_SHOW_FPS=1): frames presented a second
+// over the last half second, top right. With catch-up the game can run at full speed while fewer
+// frames are drawn, so when the game itself falls behind real time its speed is shown beside it.
+// The speed is taken over the last two seconds: game updates arrive in bursts between presents, and a
+// half-second count of them is a frame or two off either way, which would flicker the figure at 100%.
+struct FpsOverlay {
+    static constexpr int kSpeedWindows = 4;
+    Clock::time_point start = Clock::now();
+    unsigned frames = 0;
+    unsigned logic_at_start = 0;
+    unsigned logic[kSpeedWindows] = {};
+    double seconds[kSpeedWindows] = {};
+    int window = 0;
+    char text[40] = "";
+    void presented(Clock::time_point now) {
+        ++frames;
+        const double elapsed = std::chrono::duration<double>(now - start).count();
+        if (elapsed < 0.5) return;
+        if (elapsed > 1.5) {
+            // Nothing was presented for a while (a loading screen): not a frame rate, start over.
+            for (int i = 0; i < kSpeedWindows; ++i) { logic[i] = 0; seconds[i] = 0.0; }
+            start = now; frames = 0; logic_at_start = melee_native_logic_frames;
+            return;
+        }
+        logic[window] = melee_native_logic_frames - logic_at_start;
+        seconds[window] = elapsed;
+        window = (window + 1) % kSpeedWindows;
+        unsigned updates = 0;
+        double span = 0.0;
+        for (int i = 0; i < kSpeedWindows; ++i) { updates += logic[i]; span += seconds[i]; }
+        const double target = 1.0 / std::chrono::duration<double>(frame_period).count();
+        const double speed = span > 0.0 ? updates / span / target : 1.0;
+        if (speed < 0.95) std::snprintf(text, sizeof(text), "%.0f fps, speed %.0f%%", frames / elapsed, speed * 100.0);
+        else std::snprintf(text, sizeof(text), "%.0f fps", frames / elapsed);
+        start = now; frames = 0; logic_at_start = melee_native_logic_frames;
+    }
+    void draw() const {
+        if (!text[0]) return;
+        // Sized like the online lobby: relative to a 480-line screen, so it reads the same on a 1080p panel.
+        auto* list = ImGui::GetForegroundDrawList();
+        const ImVec2 display = ImGui::GetIO().DisplaySize;
+        const float scale = display.y / 480.0f, font_size = 16.0f * scale;
+        ImFont* font = ImGui::GetFont();
+        const ImVec2 size = font->CalcTextSizeA(font_size, FLT_MAX, 0.0f, text);
+        const ImVec2 origin(display.x - size.x - 8.0f * scale, 6.0f * scale);
+        list->AddRectFilled(ImVec2(origin.x - 4.0f * scale, origin.y - 2.0f * scale),
+                            ImVec2(origin.x + size.x + 4.0f * scale, origin.y + size.y + 2.0f * scale), IM_COL32(0, 0, 0, 170));
+        list->AddText(font, font_size, origin, IM_COL32(230, 230, 230, 255), text);
+    }
+} fps_overlay;
 }
 extern "C" {
 void MeleeNativeGameFrame(void) { ++measured_game_frames; }
@@ -142,6 +194,7 @@ void VIWaitForRetrace(void) {
                                 IM_COL32(0, 0, 0, 170));
             list->AddText(origin, MeleeNativeNetplayOverlayIsWarning() ? IM_COL32(255, 96, 96, 255) : IM_COL32(230, 230, 230, 255), status);
         }
+        if (MeleeNativeShowFps()) fps_overlay.draw();
         aurora_end_frame(); frame_active = false;
         if (breakdown) sum_end_ms += ms(Clock::now() - entered);
         MeleeNativeCheckFrame();
@@ -151,6 +204,7 @@ void VIWaitForRetrace(void) {
         const auto measured_now = Clock::now();
         present_intervals.push_back(std::chrono::duration<double, std::milli>(measured_now - previous_present).count());
         previous_present = measured_now;
+        fps_overlay.presented(measured_now);
         const double seconds = std::chrono::duration<double>(measured_now - measurement_start).count();
         if (seconds >= 5.0) {
             // The GL driver probe fell back to per-draw texture barriers (a driver that drops draws): the game

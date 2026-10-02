@@ -88,9 +88,20 @@ int main(void) {
     MeleeNativeSettingsLoad(dir);
     CHECK(MeleeNativeDebugMenu() == 0);
     unsetenv("MELEE_DEBUG_MENU");
+
+    /* The frame-rate display: off by default, kept by the file, forced either way by the launcher. */
+    unsetenv("MELEE_SHOW_FPS");
+    write_file("show_fps = 1\n");
+    MeleeNativeSettingsLoad(dir);
+    CHECK(MeleeNativeShowFps() == 1);
+    setenv("MELEE_SHOW_FPS", "0", 1);
+    MeleeNativeSettingsLoad(dir);
+    CHECK(MeleeNativeShowFps() == 0);
+    unsetenv("MELEE_SHOW_FPS");
     write_file("");
     MeleeNativeSettingsLoad(dir);
     CHECK(MeleeNativeDebugMenu() == 0 && MeleeNativeSettingsData.online_input_delay == 2);
+    CHECK(MeleeNativeShowFps() == 0);
     CHECK(MeleeNativeSettingsSave() == 0);
     CHECK(strstr(read_file(), "debug_menu = 0\n"));
 
