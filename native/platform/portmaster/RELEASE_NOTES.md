@@ -8,15 +8,18 @@ no game data: you need your own dump of the disc (US, version 1.02, `GALE01`).
 
 - **Leaving with Start + Select no longer ends in a crash** (`signal 11` after `Device was destroyed` in
   the log; reported on Knulli on the RG34XX-SP and dArkOS on the RG353V). The game shut the renderer
-  down piece by piece on the way out and the Mali driver fell over in the middle of it. It now simply
+  down piece by piece on the way out and crashed in the middle of it on those devices. It now simply
   ends. Nothing was lost in those crashes: the save is written when the game changes it, not on exit.
+  If you had this crash, please tell us whether it is gone.
 - **"Melee Soak Test" no longer reports a crash that was not one.** Two things stopped the test with
-  `timed out waiting for scene` and `exit code 134`: a notice of something earned in an earlier run,
+  `timed out waiting for scene` and `exit status 134`: a notice of something earned in an earlier run,
   which comes up between the title screen and the menu, and a button pressed while the test was
   starting. The CPU player now takes over from wherever the game is. A test left with Start + Select
   is reported as stopped, not as crashed.
 - **Crash logs say where the crash was** even when the stack cannot be walked: the `[crash]` lines now
   include the program counter and return address and the libraries they are in.
+- **The launcher no longer logs `pm_platform_helper: command not found`** on older PortMaster versions
+  (AmberELEC ships 2024.12.31, which has no such function).
 - **Fixes the crash on the results screen after a four-player match** (`Memory Empty`, `sislib.c:86` in
   the log). The memory set aside for a screen's text was sized for the GameCube's 32-bit structures;
   the statistics of four players no longer fitted. Two- and three-player matches were not affected.
