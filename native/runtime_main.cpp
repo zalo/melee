@@ -16,6 +16,7 @@
 #include "include/melee_netplay.h"
 #ifdef MELEE_MIYOO_FLIP
 #include "platform/flip/display.h"
+#include <fcntl.h>
 #endif
 
 static std::string executable_path, disc_path;
@@ -183,6 +184,38 @@ static std::string pipelineCachePath(const std::string& root) {
 }
 #endif
 
+#ifdef MELEE_MIYOO_FLIP
+// On the Mesa releases that crash reading a cached program back (mesa_quirks.h; a tester's Pi 5 on
+// Batocera 43, Mesa 25.3.6, died on the first pipeline of every launch after its first), the driver
+// has to run without its shader cache. Mesa reads MESA_SHADER_CACHE_DISABLE when the display is
+// initialized, and the version is known only once a context is up, so the game starts itself again
+// with the variable set. Program binaries, which Mesa goes on offering without its disk cache, are
+// withheld from Dawn in display.cpp. Shaders are then compiled on every launch on those releases.
+static void avoidMesaShaderCacheCrash(char** argv) {
+    const char* version = MeleeFlipGlVersion();
+    if (!MeleeFlipMesaShaderCacheCrashes()) return;
+    const char* disabled = std::getenv("MESA_SHADER_CACHE_DISABLE");
+    if (disabled && (!std::strcmp(disabled, "true") || !std::strcmp(disabled, "1"))) {
+        std::fprintf(stderr, "[cache] %s crashes loading cached shader programs; the driver's shader cache is off\n", version);
+        return;
+    }
+    std::fprintf(stderr, "[cache] %s crashes loading cached shader programs; restarting with MESA_SHADER_CACHE_DISABLE=true\n", version);
+    setenv("MESA_SHADER_CACHE_DISABLE", "true", 1);
+    clear_unclean_marker(); // a deliberate restart is a clean exit
+    std::fflush(nullptr);
+    // The display and input devices this process opened must not follow it into the new image.
+    std::error_code ec;
+    for (const auto& entry : std::filesystem::directory_iterator("/proc/self/fd", ec)) {
+        const int fd = std::atoi(entry.path().filename().c_str());
+        if (fd > 2) fcntl(fd, F_SETFD, FD_CLOEXEC);
+    }
+    execv(argv[0], argv);
+    execv("/proc/self/exe", argv);
+    std::perror("[cache] restart failed");
+    write_marker("init");
+}
+#endif
+
 static void log_message(AuroraLogLevel level, const char* module, const char* text, unsigned int length) {
     std::fprintf(stderr, "[%s] %.*s\n", module, static_cast<int>(length), text);
     if (level == LOG_FATAL) {
@@ -267,6 +300,7 @@ int main(int argc, char** argv) {
     config.allowJoystickBackgroundEvents = true;
     // Render at the panel's mode size: 640x480 on the Flip, the mode size elsewhere.
     MeleeFlipInitDisplay();
+    avoidMesaShaderCacheCrash(argv);
     {
         unsigned width = 640, height = 480;
         MeleeFlipDisplaySize(&width, &height);

@@ -6,6 +6,17 @@ no game data: you need your own dump of the disc (US, version 1.02, `GALE01`).
 
 ## Changes in this build
 
+- **Fixes the crash at start-up on systems with Mesa 25.3 to 26.1.3** (reported from a Raspberry Pi 5 on
+  Batocera 43, report `777957ff`: `signal 11` at address `0xffffffffffffffff` inside `libgallium`, right
+  after `Using dawn cache` in the log, on every launch after the first). Those Mesa releases crash when
+  they load a compiled shader program back from a cache, their own or the game's, if the program has
+  the kind of uniform array this game's shaders have. It is a driver bug, fixed in Mesa 26.1.4 and
+  26.2. On the affected releases the game now starts itself again once, with the driver's shader cache
+  switched off (`restarting with MESA_SHADER_CACHE_DISABLE=true` in the log). Shaders are then compiled
+  on every launch there, so the first seconds of a stage can stutter more than elsewhere. Verified with
+  Mesa 25.3.3 on an emulated system (the crash reproduces there with the previous build and is gone
+  with this one), and the restart itself on a Pi 5 and an RG351P, but not yet on the Batocera 43 Pi 5
+  that reported it: if you had this crash, please tell us whether it is gone.
 - **The frame rate can be shown on screen.** Main menu > Options > Port Settings > **Show Frame Rate**
   puts it in the top right corner (frames drawn a second, refreshed twice a second) and remembers the
   choice. When the game itself falls behind real time, the speed it is running at is shown beside it.

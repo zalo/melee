@@ -1,4 +1,5 @@
 #include "platform_launcher.h"
+#include "platform/flip/mesa_quirks.h"
 #include <cassert>
 #include <cstdlib>
 #include <filesystem>
@@ -24,4 +25,17 @@ int main() {
     assert(std::filesystem::is_directory(config + "/melee-native"));
     assert(std::filesystem::is_directory(cache + "/melee-native"));
     std::filesystem::remove_all(root);
+    // Mesa releases that crash reading a cached program back: 25.3.0 up to 26.1.3.
+    assert(MeleeMesaShaderCacheCrashes("OpenGL ES 3.1 Mesa 25.3.6"));   // the tester's Pi 5 on Batocera 43
+    assert(MeleeMesaShaderCacheCrashes("OpenGL ES 3.2 Mesa 25.3.3-1"));
+    assert(MeleeMesaShaderCacheCrashes("OpenGL ES 3.1 Mesa 26.0.8"));
+    assert(MeleeMesaShaderCacheCrashes("OpenGL ES 3.1 Mesa 26.1.3"));
+    assert(MeleeMesaShaderCacheCrashes("OpenGL ES 3.1 Mesa 26.1.0-devel (git-0123abc)"));
+    assert(!MeleeMesaShaderCacheCrashes("OpenGL ES 3.1 Mesa 26.1.4"));
+    assert(!MeleeMesaShaderCacheCrashes("OpenGL ES 3.1 Mesa 26.2.2"));
+    assert(!MeleeMesaShaderCacheCrashes("OpenGL ES 3.1 Mesa 25.2.8"));
+    assert(!MeleeMesaShaderCacheCrashes("OpenGL ES 3.1 Mesa 22.3.6"));
+    assert(!MeleeMesaShaderCacheCrashes("OpenGL ES 3.2 v1.g29p1-01eac0,rk_so_ver:5"));
+    assert(!MeleeMesaShaderCacheCrashes(""));
+    assert(!MeleeMesaShaderCacheCrashes(nullptr));
 }

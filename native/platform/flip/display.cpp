@@ -1,4 +1,5 @@
 #include "display.h"
+#include "mesa_quirks.h"
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <GLES3/gl31.h>
@@ -158,6 +159,7 @@ SDL_Window* dawnHiddenWindow = nullptr;
 void* dawnWlWindow = nullptr;
 void (*wlEglWindowDestroy)(void*) = nullptr;
 gbm_surface* dawnWindow = nullptr;      // scratch native window Dawn's swapchain wraps (never presented).
+char glVersion[128];                    // GL_VERSION of SDL's context, for MeleeFlipGlVersion().
 
 int fd = -1;
 gbm_device* device;
@@ -411,6 +413,17 @@ void name parameters { \
     pointer arguments; \
     if (profiling && submittingFrame) { stateMs += elapsed(start); ++counter; } \
 }
+// The Mesa releases of mesa_quirks.h crash in glProgramBinary. Dawn asks how many program binary
+// formats there are before it stores or loads a linked program, so there it is told there are none.
+// MELEE_TEST_MESA_CACHE_QUIRK applies the workaround on any driver, to test it on a device.
+bool mesaShaderCacheCrashes() {
+    return MeleeMesaShaderCacheCrashes(glVersion) || std::getenv("MELEE_TEST_MESA_CACHE_QUIRK");
+}
+PFNGLGETINTEGERVPROC realGetIntegerv;
+void getIntegervNoProgramBinaries(GLenum name, GLint* data) {
+    if (name == GL_NUM_PROGRAM_BINARY_FORMATS) *data = 0;
+    else realGetIntegerv(name, data);
+}
 void useProgramVisible(GLuint program) {
     const auto start=profiling&&submittingFrame?ProfileClock::now():ProfileClock::time_point{};
     if(cacheGlState&&cachedProgram==program) ++skippedStateCount;
@@ -625,6 +638,8 @@ void initSdl() {
     }
     // The context's bound draw surface is SDL's window surface; use it directly (SDL_EGL_GetWindowSurface
     // is not always populated on KMSDRM).
+    if (const auto* version = reinterpret_cast<const char*>(glGetString(GL_VERSION)))
+        std::snprintf(glVersion, sizeof glVersion, "%s", version);
     sdlSurface = eglGetCurrentSurface(EGL_DRAW);
     if (sdlSurface == EGL_NO_SURFACE) sdlSurface = static_cast<EGLSurface>(SDL_EGL_GetWindowSurface(sdlWindow));
     if (sdlSurface == EGL_NO_SURFACE) failSdl("SDL did not create a window EGL surface");
@@ -690,6 +705,8 @@ void initSdl() {
 }
 
 bool MeleeFlipSdlDisplaySelected() { return backend == DisplayBackend::Sdl; }
+const char* MeleeFlipGlVersion() { return glVersion; }
+bool MeleeFlipMesaShaderCacheCrashes() { return mesaShaderCacheCrashes(); }
 
 void MeleeFlipInitDisplay() {
     if (backend == DisplayBackend::Sdl) { initSdl(); return; }
@@ -814,6 +831,9 @@ extern "C" __eglMustCastToProperFunctionPointerType MeleeFlipEGLProc(const char*
     if (profiling) {
         FLIP_INTERCEPT_GL("glReadPixels", realReadPixels, readPixelsProfiled, PFNGLREADPIXELSPROC)
         FLIP_INTERCEPT_GL("glMapBufferRange", realMapBufferRange, mapBufferRangeProfiled, PFNGLMAPBUFFERRANGEPROC)
+    }
+    if (mesaShaderCacheCrashes()) {
+        FLIP_INTERCEPT_GL("glGetIntegerv", realGetIntegerv, getIntegervNoProgramBinaries, PFNGLGETINTEGERVPROC)
     }
     FLIP_INTERCEPT_GL("glUseProgram", realUseProgram, useProgramVisible, PFNGLUSEPROGRAMPROC)
     FLIP_INTERCEPT_GL("glBindBufferRange", realBindBufferRange, bindBufferRangeVisible, PFNGLBINDBUFFERRANGEPROC)
