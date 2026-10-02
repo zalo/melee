@@ -18,7 +18,7 @@ The first matches stutter while shaders compile; please report FPS from the seco
 and attach ports/melee/log.txt to every report.
 Port options: main menu > Options > Port Settings (the fourth row). "Unlock All Characters and
 Stages" saves at once; the game then shows its trophy pop-ups once on the next menu visit.
-"Debug Overlays" turns on Melee's own hitbox/hurtbox bubbles in matches (R2 + left stick up),
+"Debug Overlays" turns on Melee's own hitbox/hurtbox bubbles in matches (R2 + D-pad up),
 "Debug Menu" lets Y on the title screen open the developer menu. Both default to off.
 
 | Button | Action |

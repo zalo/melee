@@ -120,7 +120,7 @@ and returns. Values live in `melee/runtime/config/melee-native/settings.cfg`.
 | Row | Effect |
 | --- | --- |
 | Debug Menu, Y on title | On: Y on the title screen opens the game's developer menu (below). Off by default. |
-| Debug Overlays | On: matches gain the development tools below while gameplay stays retail. |
+| Debug Overlays | On: matches gain the development tools under [Debug overlay chords](#debug-overlay-chords) while gameplay stays retail. Off by default. |
 | Show Frame Rate | On: the frames drawn a second in the top right corner, refreshed twice a second. When the game itself runs slower than real time, its speed follows (`41 fps, speed 85%`). |
 | Unlock All Characters and Stages | Sets every character and stage unlock (and the game's own "special message" bonuses) in the current save and writes the memory card. On the next visit to the main menu the game hands out the trophies it awards for those unlocks, one pop-up each; press A through them once. |
 | Online Play | Reserved for the online-play configuration screen; shows "Coming soon". |
@@ -134,18 +134,23 @@ retail game ignores Y there). Its first row, **Port Settings**, mirrors the scre
 | --- | --- |
 | DbLevel (next launch) | Forces a development debug level at the next launch (Debug-Rom is the full development build: stale-move decay off, self-destruct chords, live asserts). Leave on Retail unless you know the debug build. |
 
-With Debug Overlays on, in any VS-style match (handheld buttons; the left stick is the GameCube
-D-pad):
+## Debug overlay chords
+
+With Debug Overlays on, every VS-style match listens for the game's development chords (handheld
+buttons below). They are on the D-pad, so a taunt with X, Y or R2 held sets one off: if a match
+suddenly freezes, loses its HUD or shows boxes and text, that is what happened. Repeat the same
+chord until it is gone (some tools cycle through several steps), and leave the setting off for
+normal play.
 
 | Chord | Tool |
 | --- | --- |
-| R2 + left stick up | Cycle the collision-bubble view for every fighter (three steps; the second draws hurtboxes and hitboxes in place of the models) |
-| R2 + left stick left | Cycle extra ranges (ledge grab, throws, item pickup, coin pickup) |
-| Y (hold) + left stick down | Toggle the action-state / animation info panel |
-| X (hold) + left stick down | Cycle the HUD off and on |
-| X (hold) + left stick up | Debug pause (the retail Start pause keeps working) |
+| R2 + D-pad up | Cycle the collision-bubble view for every fighter (three steps; the second draws hurtboxes and hitboxes in place of the models) |
+| R2 + D-pad left | Cycle extra ranges (ledge grab, throws, item pickup, coin pickup) |
+| Y (hold) + D-pad down | Toggle the action-state / animation info panel |
+| X (hold) + D-pad down | Cycle the HUD off and on |
+| X (hold) + D-pad up | Debug pause, and again to resume (the retail Start pause keeps working) |
 | R1 (Z) while debug-paused | Advance one frame |
-| Y (hold) + left stick left/right | Camera info and free camera (C-stick moves it) |
+| Y (hold) + D-pad left/right | Camera info and free camera (C-stick moves it) |
 
 The launcher environment can force any of these for one run: `MELEE_DEBUG_MENU=1`,
 `MELEE_DEBUG_OVERLAYS=1`, `MELEE_DEBUG_LEVEL=3`, `MELEE_SHOW_FPS=1`.
