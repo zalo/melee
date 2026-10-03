@@ -223,6 +223,10 @@ def main():
         # pixel-unpack-buffer uploads and untimed native-fence waits froze the game without a
         # crash (Miyoo Flip, RG351P). Edits lines of the interop patch, so it goes after it.
         ROOT / 'native/platform/flip/dawn-mali-deferred-upload.patch',
+        # An EGL extension the driver lists without its entry points counts as absent instead of
+        # failing the whole backend (PowerVR on the TrimUI Smart Pro's stock OS: EGL_KHR_image_base
+        # without eglCreateImageKHR).
+        ROOT / 'native/platform/flip/dawn-egl-optional-ext-procs.patch',
     ])
     usr = sdk / 'aarch64-buildroot-linux-gnu/sysroot/usr'
     headers = Path(os.environ.get('FLIP_HOST_HEADERS', '/usr/include'))

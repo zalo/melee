@@ -8,6 +8,7 @@
 #include "platform_launcher.h"
 #include <dolphin/dvd.h>
 #include <cstring>
+#include <string_view>
 #include <filesystem>
 #include <csignal>
 #include <sys/stat.h>
@@ -221,8 +222,24 @@ static void avoidMesaShaderCacheCrash(char** argv) {
 }
 #endif
 
+// No graphics backend started. Aurora then settles for the one that draws nothing, on which the game
+// aborted a little later with nothing in the log saying why (a TrimUI Smart Pro on its stock OS, soak
+// report 5c135d7e). Say what is wrong and leave; the drivers' own reasons are in the lines above.
+[[noreturn]] static void no_graphics_driver() {
+    std::fputs("[launch] No usable graphics driver: neither OpenGL ES nor Vulkan could be started on this system, so Melee cannot run here\n", stderr);
+#ifdef __linux__
+    clear_unclean_marker();
+#endif
+    std::fflush(nullptr);
+    _exit(1);
+}
+
 static void log_message(AuroraLogLevel level, const char* module, const char* text, unsigned int length) {
     std::fprintf(stderr, "[%s] %.*s\n", module, static_cast<int>(length), text);
+    // Aurora tries that backend last and announces it (webgpu::initialize, "Attempting to initialize
+    // {}"); stopping here is ahead of the asserts it can hit while still starting up.
+    if (!std::strcmp(module, "aurora::gpu") && std::string_view(text, length) == "Attempting to initialize Null")
+        no_graphics_driver();
     if (level == LOG_FATAL) {
         void* frames[40];
         backtrace_symbols_fd(frames, backtrace(frames, 40), 2);
@@ -366,6 +383,7 @@ int main(int argc, char** argv) {
     config.mem1Size = MEM1_DEFAULT_SIZE;
     config.mem2Size = ARAM_DEFAULT_SIZE;
     const auto info = aurora_initialize(argc, argv, &config);
+    if (info.backend == BACKEND_NULL) no_graphics_driver();
     if (std::getenv("MELEE_MATRIX_TEST")) {
         if (const auto* test = std::getenv("MELEE_TEST_CASE")) {
             const std::string title = std::string("Melee test: ") + test;

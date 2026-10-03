@@ -6,6 +6,21 @@ no game data: you need your own dump of the disc (US, version 1.02, `GALE01`).
 
 ## Changes in this build
 
+- **TrimUI Smart Pro: the graphics driver's missing functions no longer stop the game from starting**
+  (stock OS, report `5c135d7e`: `Couldn't get proc eglCreateImageKHR` in the log, then an abort a few
+  seconds later; and on Knulli `Couldn't get proc eglChooseConfig`). The PowerVR driver there lists a
+  feature whose functions it does not provide, and answers for only some of the others when asked the
+  usual way. The game now does without the feature and takes the other functions straight from the
+  driver's library. The fix for the Knulli case in an earlier build never took effect: it was made in
+  a part of the renderer this port does not use. Nobody here has the device, so both cases were only
+  reproduced and checked with a stand-in for the driver on an emulated system: please tell us whether
+  the game starts now. The driver may still lack something else the renderer needs; the log now has a
+  line starting `[flip-display] EGL` that shows it. On the devices we do have nothing changes: this
+  build ran the soak test's playlist for an hour each on the Miyoo Flip, RG351P and RG35XX SP and two
+  half-hour runs on a Raspberry Pi 5 without a crash.
+- **A system without a usable graphics driver now says so.** When neither OpenGL ES nor Vulkan can be
+  started, the launcher shows "This system's graphics driver cannot run Melee" and the log ends with
+  `No usable graphics driver`, instead of the game aborting a moment later with nothing to explain it.
 - **Fixes the broken graphics on systems with Mesa 25.3 to 26.1.3** (fighters drawn as huge spiky
   polygons, textures missing or scrambled; found and reported by the tester with the Raspberry Pi 5 on
   Batocera 43, Mesa 25.3.6, once the previous build no longer crashed there). It is the same driver bug
@@ -131,7 +146,8 @@ no game data: you need your own dump of the disc (US, version 1.02, `GALE01`).
 - **Starts on PowerVR GPUs (TrimUI Smart Pro on Knulli/Batocera).** The renderer failed to initialise the
   GPU on drivers that do not expose every EGL entry point through `eglGetProcAddress` (PowerVR, some older
   Mali), fell back to the software path and aborted. It now loads those core EGL functions directly from the
-  same driver library, so GPU init succeeds. Mali devices are unaffected.
+  same driver library. (This did not take effect on the device; see the TrimUI Smart Pro entry at the top.)
+  Mali devices are unaffected.
 - **Cleaner reporting when the game hits an internal assertion.** A failed engine assertion used to be
   masked as a segmentation fault at a tiny address (because a GameCube-only crash handler ran on hardware it
   cannot drive here); it now prints the file and line and aborts cleanly, so the log identifies the real

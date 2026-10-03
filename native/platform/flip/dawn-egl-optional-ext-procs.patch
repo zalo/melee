@@ -1,0 +1,115 @@
+--- a/src/dawn/native/opengl/EGLFunctions.cpp
++++ b/src/dawn/native/opengl/EGLFunctions.cpp
+@@ -33,6 +33,7 @@
+ #include "absl/container/flat_hash_set.h"
+ #include "absl/strings/str_split.h"
+ #include "src/dawn/native/opengl/UtilsEGL.h"
++#include "src/utils/log.h"
+ 
+ namespace dawn::native::opengl {
+ 
+@@ -114,6 +115,14 @@
+ 
+ #define GET_PROC(name) GET_PROC_WITH_NAME(name, "egl" #name)
+ 
++// For the entry points of an extension: evaluates to whether the driver has the proc. Some drivers
++// list an extension without providing its entry points (PowerVR on the TrimUI Smart Pro's stock OS
++// advertises EGL_KHR_image_base, but neither eglGetProcAddress nor libEGL has eglCreateImageKHR).
++// LoadDisplayProcs then treats the extension as absent, so that only what needs the extension is
++// lost instead of the whole backend.
++#define TRY_GET_PROC_WITH_NAME(member, name) \
++    ((member = reinterpret_cast<decltype(member)>(GetProcAddress(name))) != nullptr)
++
+ MaybeError EGLFunctions::LoadClientProcs(EGLGetProcProc getProc) {
+     // Load EGL 1.0
+     GetProcAddress = getProc;
+@@ -181,6 +190,20 @@
+         }
+     }
+ 
++    // Marks an extension whose entry points the driver lacks as absent.
++    auto DropExtension = [this](EGLExt dropped, const char* reason) {
++        if (!mExtensions[dropped]) {
++            return;
++        }
++        for (const ExtensionInfo& ext : kExtensionInfos) {
++            if (ext.index == dropped) {
++                dawn::WarningLog() << "EGL: ignoring " << ext.name << " (" << reason << ")";
++                break;
++            }
++        }
++        mExtensions.reset(dropped);
++    };
++
+     // EGL 1.1
+     if (mMinorVersion >= 1) {
+         GET_PROC(BindTexImage);
+@@ -220,13 +243,16 @@
+     } else {
+         // Load display extensions that would otherwise be promoted to EGL 1.5.
+ 
+-        if (HasExt(EGLExt::ImageBase)) {
+-            GET_PROC_WITH_NAME(CreateImage, "eglCreateImageKHR");
+-            GET_PROC_WITH_NAME(DestroyImage, "eglDestroyImageKHR");
++        if (HasExt(EGLExt::ImageBase) &&
++            !(TRY_GET_PROC_WITH_NAME(CreateImage, "eglCreateImageKHR") &&
++              TRY_GET_PROC_WITH_NAME(DestroyImage, "eglDestroyImageKHR"))) {
++            DropExtension(EGLExt::ImageBase, "the driver has no eglCreateImageKHR");
++            // Importing a native buffer creates an EGLImage.
++            DropExtension(EGLExt::ImageNativeBuffer, "needs EGL_KHR_image_base");
+         }
+ 
+-        if (HasExt(EGLExt::WaitSync)) {
+-            GET_PROC_WITH_NAME(WaitSync, "eglWaitSyncKHR");
++        if (HasExt(EGLExt::WaitSync) && !TRY_GET_PROC_WITH_NAME(WaitSync, "eglWaitSyncKHR")) {
++            DropExtension(EGLExt::WaitSync, "the driver has no eglWaitSyncKHR");
+         }
+     }
+ 
+@@ -237,23 +263,35 @@
+ 
+     // Other extensions
+ 
+-    if (HasExt(EGLExt::FenceSync)) {
+-        GET_PROC_WITH_NAME(ClientWaitSyncKHR, "eglClientWaitSyncKHR");
+-        GET_PROC_WITH_NAME(CreateSyncKHR, "eglCreateSyncKHR");
+-        GET_PROC_WITH_NAME(DestroySyncKHR, "eglDestroySyncKHR");
+-        GET_PROC_WITH_NAME(GetSyncAttribKHR, "eglGetSyncAttribKHR");
++    if (HasExt(EGLExt::FenceSync) &&
++        !(TRY_GET_PROC_WITH_NAME(ClientWaitSyncKHR, "eglClientWaitSyncKHR") &&
++          TRY_GET_PROC_WITH_NAME(CreateSyncKHR, "eglCreateSyncKHR") &&
++          TRY_GET_PROC_WITH_NAME(DestroySyncKHR, "eglDestroySyncKHR") &&
++          TRY_GET_PROC_WITH_NAME(GetSyncAttribKHR, "eglGetSyncAttribKHR"))) {
++        DropExtension(EGLExt::FenceSync, "the driver lacks its eglCreateSyncKHR family");
++        // Native fences are created and waited on with the same entry points.
++        DropExtension(EGLExt::NativeFenceSync, "needs EGL_KHR_fence_sync");
++    }
++
++    // Below EGL 1.5 every sync object is created and waited on through the entry points loaded
++    // for EGL_KHR_fence_sync (UtilsEGL.cpp), reusable ones included.
++    if (mMinorVersion < 5 && !HasExt(EGLExt::FenceSync)) {
++        DropExtension(EGLExt::ReusableSync, "needs EGL_KHR_fence_sync below EGL 1.5");
+     }
+ 
+-    if (HasExt(EGLExt::ReusableSync)) {
+-        GET_PROC_WITH_NAME(SignalSync, "eglSignalSyncKHR");
++    if (HasExt(EGLExt::ReusableSync) && !TRY_GET_PROC_WITH_NAME(SignalSync, "eglSignalSyncKHR")) {
++        DropExtension(EGLExt::ReusableSync, "the driver has no eglSignalSyncKHR");
+     }
+ 
+-    if (HasExt(EGLExt::GetNativeClientBuffer)) {
+-        GET_PROC_WITH_NAME(GetNativeClientBuffer, "eglGetNativeClientBufferANDROID");
++    if (HasExt(EGLExt::GetNativeClientBuffer) &&
++        !TRY_GET_PROC_WITH_NAME(GetNativeClientBuffer, "eglGetNativeClientBufferANDROID")) {
++        DropExtension(EGLExt::GetNativeClientBuffer,
++                      "the driver has no eglGetNativeClientBufferANDROID");
+     }
+ 
+-    if (HasExt(EGLExt::NativeFenceSync)) {
+-        GET_PROC_WITH_NAME(DupNativeFenceFD, "eglDupNativeFenceFDANDROID");
++    if (HasExt(EGLExt::NativeFenceSync) &&
++        !TRY_GET_PROC_WITH_NAME(DupNativeFenceFD, "eglDupNativeFenceFDANDROID")) {
++        DropExtension(EGLExt::NativeFenceSync, "the driver has no eglDupNativeFenceFDANDROID");
+     }
+ 
+     return {};

@@ -309,10 +309,26 @@ authors.
   EGL native-window surface source, swapchain GL storage reuse, native GL interop
   extension). That is what the `dawn-install-fast` prefix the cross build links was built
   from. The former `dawn-egl-native-window.patch` was byte-identical and was renamed.
-  Two more patches are applied on top, in this order (`prepare_flip.py` `apply_patches`):
-  `dawn-egl-dlsym-fallback.patch` (core EGL procs through `dlsym` where
-  `eglGetProcAddress` returns null, PowerVR) and `dawn-mali-deferred-upload.patch`.
-  The latter fixes the freeze without a crash on libmali (Miyoo Flip g29p1 4 of 5 Classic
+  Three more patches are applied on top, in this order (`prepare_flip.py` `apply_patches`):
+  `dawn-egl-dlsym-fallback.patch`, `dawn-mali-deferred-upload.patch` and
+  `dawn-egl-optional-ext-procs.patch`.
+  The first (core EGL procs through `dlsym` where `eglGetProcAddress` returns null, PowerVR)
+  only covers the path on which Dawn loads libEGL itself (`CreateFromDynamicLoading`). This
+  build never takes it: Aurora hands Dawn `MeleeFlipEGLProc` and the display SDL opened
+  (`CreateFromProcAndDisplay`), so until `MeleeFlipEGLProc` got the same `dlsym` fallback
+  (`driverProc` in `display.cpp`) the patch changed nothing on the TrimUI Smart Pro.
+  The third makes an EGL extension that the driver lists without its entry points count as
+  absent instead of failing the whole backend (PowerVR on the TrimUI Smart Pro's stock OS:
+  `EGL_KHR_image_base` without `eglCreateImageKHR`, soak report `5c135d7e`); below EGL 1.5 a
+  missing `eglCreateSyncKHR` family also takes `EGL_KHR_reusable_sync` with it, since Dawn
+  creates and waits on every sync object through those entry points. What Dawn then still
+  refuses a display for is `EGL_EXT_create_context_robustness` and having neither sync
+  extension; the log's `[flip-display] EGL <version> (<vendor>): <extensions>` line shows
+  both. When no backend starts the game says `No usable graphics driver` and exits with
+  status 1 instead of going on with Aurora's Null backend. Both PowerVR cases and the exit
+  were only reproduced with an `LD_PRELOAD` stand-in for the driver's `eglGetProcAddress`
+  under qemu, not on the device.
+  The second fixes the freeze without a crash on libmali (Miyoo Flip g29p1 4 of 5 Classic
   starts, RG351P r13p0 1 of 3): Aurora uploads every texture from its staging buffer
   (`CopyBufferToTexture`), Dawn bound that buffer as `GL_PIXEL_UNPACK_BUFFER`, and libmali
   turns such an upload into a deferred job on a `mali-utility-wo` thread that waits for

@@ -98,7 +98,11 @@ if [ -n "${MELEE_SOAK:-}" ]; then
   soak_end $status
 # Any abnormal exit that is not the exit hotkey (137 SIGKILL / 143 SIGTERM): nudge to share the log.
 elif [ $status -ne 0 ] && [ $status -ne 137 ] && [ $status -ne 143 ]; then
-  pm_message "Melee exited unexpectedly. Please share melee/log.txt."
+  if grep -q "No usable graphics driver" "$GAMEDIR/log.txt"; then
+    pm_message "This system's graphics driver cannot run Melee. Please share melee/log.txt."
+  else
+    pm_message "Melee exited unexpectedly. Please share melee/log.txt."
+  fi
   sleep 10
 fi
 

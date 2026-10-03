@@ -67,7 +67,7 @@ jobs:
             build/flip-tools/rustup
             build/flip-tools/cargo
           # DAWN_CACHE_VERSION: bump when DAWN_REV in prepare_flip.py changes.
-          key: portmaster-dawn-${{ env.DAWN_CACHE_VERSION }}-${{ hashFiles('native/platform/flip/dawn-gl-interop.patch', 'native/platform/flip/dawn-egl-dlsym-fallback.patch', 'native/platform/flip/dawn-mali-deferred-upload.patch', 'native/platform/flip/toolchain-a35.cmake', 'native/platform/flip/cc', 'native/platform/flip/cxx') }}
+          key: portmaster-dawn-${{ env.DAWN_CACHE_VERSION }}-${{ hashFiles('native/platform/flip/dawn-gl-interop.patch', 'native/platform/flip/dawn-egl-dlsym-fallback.patch', 'native/platform/flip/dawn-mali-deferred-upload.patch', 'native/platform/flip/dawn-egl-optional-ext-procs.patch', 'native/platform/flip/toolchain-a35.cmake', 'native/platform/flip/cc', 'native/platform/flip/cxx') }}
           restore-keys: |
             portmaster-dawn-${{ env.DAWN_CACHE_VERSION }}-
             portmaster-tools-

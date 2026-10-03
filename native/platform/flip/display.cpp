@@ -640,6 +640,14 @@ void initSdl() {
     // is not always populated on KMSDRM).
     if (const auto* version = reinterpret_cast<const char*>(glGetString(GL_VERSION)))
         std::snprintf(glVersion, sizeof glVersion, "%s", version);
+    // For reports from drivers nobody here has: Dawn refuses a display without some of these.
+    {
+        const char* eglVersion = eglQueryString(display, EGL_VERSION);
+        const char* eglVendor = eglQueryString(display, EGL_VENDOR);
+        const char* eglExtensions = eglQueryString(display, EGL_EXTENSIONS);
+        std::fprintf(stderr, "[flip-display] EGL %s (%s): %s\n", eglVersion ? eglVersion : "?",
+                     eglVendor ? eglVendor : "?", eglExtensions ? eglExtensions : "?");
+    }
     sdlSurface = eglGetCurrentSurface(EGL_DRAW);
     if (sdlSurface == EGL_NO_SURFACE) sdlSurface = static_cast<EGLSurface>(SDL_EGL_GetWindowSurface(sdlWindow));
     if (sdlSurface == EGL_NO_SURFACE) failSdl("SDL did not create a window EGL surface");
@@ -688,7 +696,9 @@ void initSdl() {
     // SDL3's KMSDRM swap adds DRM_MODE_PAGE_FLIP_ASYNC whenever SDL's swap interval is 0 and the
     // kernel advertises DRM_CAP_ASYNC_PAGE_FLIP; the RG351P's Rockchip 4.4 kernel advertises it but
     // rejects the flip ("Could not queue pageflip: -22"). SDL records the interval here, not from the
-    // worker's raw eglSwapInterval. MELEE_FLIP_SWAP_INTERVAL overrides.
+    // worker's raw eglSwapInterval. MELEE_FLIP_SWAP_INTERVAL overrides the value, but it is no frame
+    // rate cap: under the SDL2 shim only 0 and 1 mean anything (SDL2's KMSDRM driver refuses any
+    // other interval, its Wayland driver quietly treats everything above 1 as 1).
     {
         const char* interval = std::getenv("MELEE_FLIP_SWAP_INTERVAL");
         if (!SDL_GL_SetSwapInterval(interval ? std::atoi(interval) : 1))
@@ -804,21 +814,31 @@ extern "C" int MeleeFlipMakeCurrentSdl(void* context) {
     std::fprintf(stderr, "[flip-display] SDL_GL_MakeCurrent on the present worker failed: %s\n", SDL_GetError());
     return 0;
 }
+// eglGetProcAddress only has to know extension functions on a driver without
+// EGL_KHR_get_all_proc_addresses, and PowerVR on the TrimUI Smart Pro returned nothing for
+// eglChooseConfig (Knulli) and for eglCreateImageKHR (stock OS, soak report 5c135d7e). A function the
+// driver's libraries export is taken from them instead. (dawn-egl-dlsym-fallback.patch does the same
+// inside Dawn, but on the path where Dawn loads libEGL itself, which this build never takes.)
+static __eglMustCastToProperFunctionPointerType driverProc(const char* name) {
+    auto proc = eglGetProcAddress(name);
+    if (!proc) proc = reinterpret_cast<__eglMustCastToProperFunctionPointerType>(dlsym(RTLD_DEFAULT, name));
+    return proc;
+}
 extern "C" __eglMustCastToProperFunctionPointerType MeleeFlipEGLProc(const char* name) {
-    const auto proc = eglGetProcAddress(name);
+    const auto proc = driverProc(name);
     if (!std::strcmp(name,"eglSwapBuffers") && std::getenv("MELEE_FLIP_EGL_INTERVAL_ZERO")) {
         realSwapBuffers=reinterpret_cast<PFNEGLSWAPBUFFERSPROC>(proc);
         return reinterpret_cast<__eglMustCastToProperFunctionPointerType>(swapBuffersUnpaced);
     }
     if (!std::strcmp(name, "glDrawArraysInstanced")) {
         drawArrays = reinterpret_cast<PFNGLDRAWARRAYSINSTANCEDPROC>(proc);
-        memoryBarrier = reinterpret_cast<PFNGLMEMORYBARRIERPROC>(eglGetProcAddress("glMemoryBarrier"));
+        memoryBarrier = reinterpret_cast<PFNGLMEMORYBARRIERPROC>(driverProc("glMemoryBarrier"));
         if (!drawArrays || !memoryBarrier) fail("Required GLES draw functions unavailable");
         return reinterpret_cast<__eglMustCastToProperFunctionPointerType>(drawArraysVisible);
     }
     if (!std::strcmp(name, "glDrawElementsInstanced")) {
         drawElements = reinterpret_cast<PFNGLDRAWELEMENTSINSTANCEDPROC>(proc);
-        memoryBarrier = reinterpret_cast<PFNGLMEMORYBARRIERPROC>(eglGetProcAddress("glMemoryBarrier"));
+        memoryBarrier = reinterpret_cast<PFNGLMEMORYBARRIERPROC>(driverProc("glMemoryBarrier"));
         if (!drawElements || !memoryBarrier) fail("Required GLES indexed draw functions unavailable");
         return reinterpret_cast<__eglMustCastToProperFunctionPointerType>(drawElementsVisible);
     }
