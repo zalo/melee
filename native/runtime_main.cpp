@@ -185,21 +185,26 @@ static std::string pipelineCachePath(const std::string& root) {
 #endif
 
 #ifdef MELEE_MIYOO_FLIP
-// On the Mesa releases that crash reading a cached program back (mesa_quirks.h; a tester's Pi 5 on
-// Batocera 43, Mesa 25.3.6, died on the first pipeline of every launch after its first), the driver
-// has to run without its shader cache. Mesa reads MESA_SHADER_CACHE_DISABLE when the display is
-// initialized, and the version is known only once a context is up, so the game starts itself again
-// with the variable set. Program binaries, which Mesa goes on offering without its disk cache, are
-// withheld from Dawn in display.cpp. Shaders are then compiled on every launch on those releases.
+// On the Mesa releases of mesa_quirks.h (a tester's Pi 5 on Batocera 43, Mesa 25.3.6) the driver has
+// to run with two settings. disable_uniform_array_resize keeps the linker from trimming the shaders'
+// array of immediates, which is what makes those releases ignore every value written to it (fighters
+// drawn as huge spikes, textures missing). MESA_SHADER_CACHE_DISABLE turns the driver's shader cache
+// off, which crashed the first pipeline of every launch after the first. Mesa reads both when the
+// display is initialized, and the version is known only once a context is up, so the game starts
+// itself again with them set. Program binaries, which Mesa goes on offering without its disk cache,
+// are withheld from Dawn in display.cpp. Shaders are then compiled on every launch on those releases.
 static void avoidMesaShaderCacheCrash(char** argv) {
     const char* version = MeleeFlipGlVersion();
     if (!MeleeFlipMesaShaderCacheCrashes()) return;
     const char* disabled = std::getenv("MESA_SHADER_CACHE_DISABLE");
-    if (disabled && (!std::strcmp(disabled, "true") || !std::strcmp(disabled, "1"))) {
-        std::fprintf(stderr, "[cache] %s crashes loading cached shader programs; the driver's shader cache is off\n", version);
+    const char* untrimmed = std::getenv("disable_uniform_array_resize");
+    if (disabled && (!std::strcmp(disabled, "true") || !std::strcmp(disabled, "1")) && untrimmed &&
+        !std::strcmp(untrimmed, "true")) {
+        std::fprintf(stderr, "[cache] %s loses shader uniforms and crashes loading cached shader programs; uniform array trimming and the driver's shader cache are off\n", version);
         return;
     }
-    std::fprintf(stderr, "[cache] %s crashes loading cached shader programs; restarting with MESA_SHADER_CACHE_DISABLE=true\n", version);
+    std::fprintf(stderr, "[cache] %s loses shader uniforms and crashes loading cached shader programs; restarting with disable_uniform_array_resize=true MESA_SHADER_CACHE_DISABLE=true\n", version);
+    setenv("disable_uniform_array_resize", "true", 1);
     setenv("MESA_SHADER_CACHE_DISABLE", "true", 1);
     clear_unclean_marker(); // a deliberate restart is a clean exit
     std::fflush(nullptr);
