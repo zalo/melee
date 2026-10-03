@@ -49,6 +49,30 @@ execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/too
   "${CMAKE_CURRENT_BINARY_DIR}/sdk" "${MELEE_AURORA_DIR}" COMMAND_ERROR_IS_FATAL ANY)
 file(GLOB_RECURSE GAME_SOURCES CONFIGURE_DEPENDS
   "${MELEE_ROOT}/src/melee/*.c" "${MELEE_ROOT}/src/sysdolphin/*.c")
+# The game's text routines read Shift-JIS and the sources spell such strings as UTF-8 text, which the GameCube
+# build converts before compiling. The files that have them are compiled from a copy with the bytes escaped.
+set(MELEE_SJIS_TOOL "${CMAKE_CURRENT_SOURCE_DIR}/tools/sjis_literals.py")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${MELEE_SJIS_TOOL}")
+execute_process(COMMAND "${Python3_EXECUTABLE}" "${MELEE_SJIS_TOOL}" --list
+  "${MELEE_ROOT}/src/melee" "${MELEE_ROOT}/src/sysdolphin"
+  OUTPUT_VARIABLE MELEE_SJIS_SOURCES OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+string(REPLACE "\n" ";" MELEE_SJIS_SOURCES "${MELEE_SJIS_SOURCES}")
+foreach(source IN LISTS MELEE_SJIS_SOURCES)
+  list(FIND GAME_SOURCES "${source}" index)
+  if(index EQUAL -1)
+    message(FATAL_ERROR "${source} has Shift-JIS literals but is not a game source")
+  endif()
+  file(RELATIVE_PATH relative "${MELEE_ROOT}" "${source}")
+  set(converted "${CMAKE_CURRENT_BINARY_DIR}/sjis/${relative}")
+  get_filename_component(source_directory "${source}" DIRECTORY)
+  add_custom_command(OUTPUT "${converted}"
+    COMMAND "${Python3_EXECUTABLE}" "${MELEE_SJIS_TOOL}" "${source}" "${converted}"
+    DEPENDS "${source}" "${MELEE_SJIS_TOOL}" VERBATIM)
+  list(REMOVE_AT GAME_SOURCES ${index})
+  list(APPEND GAME_SOURCES "${converted}")
+  # The copy's quoted includes are found beside the original.
+  set_source_files_properties("${converted}" PROPERTIES INCLUDE_DIRECTORIES "${source_directory}")
+endforeach()
 add_library(melee_game OBJECT ${GAME_SOURCES})
 target_include_directories(melee_game PRIVATE include "${MELEE_ROOT}/src" "${CMAKE_CURRENT_BINARY_DIR}/sdk")
 target_compile_definitions(melee_game PRIVATE TARGET_PC MELEE_NATIVE BUILD_VERSION=0 VERSION_GALE01)

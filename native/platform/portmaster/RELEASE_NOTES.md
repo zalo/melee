@@ -6,6 +6,26 @@ no game data: you need your own dump of the disc (US, version 1.02, `GALE01`).
 
 ## Changes in this build
 
+- **Memory no longer climbs for as long as the game runs on the RG35XX and RG34XX family** (Allwinner
+  H700 with the stock Mali driver, version r20p0; seen in soak reports `6cdec219`, an RG35XX Pro on
+  Knulli, and `4b5e0568`, an RG34XX-SP on muOS, as memory use that kept rising through the half
+  hour). That driver keeps a table for each buffer the game draws from and doubles it again and again
+  when the same buffer is used for a long time; on our RG35XX SP it took 200 MB over an hour of play,
+  enough to end a long session on a 1 GB device. The game now replaces those buffers regularly (every
+  256 frames), so the tables stay small. On the RG35XX SP an hour of the soak test's playlist now
+  holds steady at about 250 MB (430 to 450 MB before) at the same frame rate. Hour-long runs on the
+  Miyoo Flip and RG351P and a half hour on a Raspberry Pi 5, whose drivers never had the problem,
+  show no change. We have not seen it on a tester's device yet: a soak report from an RG35XX or
+  RG34XX with this build would confirm it.
+- **Names and labels the game writes itself are back.** The name under each player's panel at
+  character select was empty; Name Entry showed the same letter on every key and nothing for what was
+  typed or saved; the Event Match list had no "Lv." numbers and no high-score placeholder. All of
+  these are text the game builds from Japanese-style full-width characters, which this port compiled
+  in the wrong encoding, in every release so far. Checked on screen at character select (also on the
+  Miyoo Flip and RG351P), in Name Entry and in the Event Match list. The same correction applies to a
+  few labels we did not look at one by one ("HIT" in the credits, "Player Defeated" on Pokémon
+  Stadium's screen, the Japanese-language disc messages). A name entered with an earlier build still
+  shows as an empty slot in the list: enter it again.
 - **TrimUI Smart Pro: the graphics driver's missing functions no longer stop the game from starting**
   (stock OS, report `5c135d7e`: `Couldn't get proc eglCreateImageKHR` in the log, then an abort a few
   seconds later; and on Knulli `Couldn't get proc eglChooseConfig`). The PowerVR driver there lists a

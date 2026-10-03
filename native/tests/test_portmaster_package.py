@@ -590,6 +590,40 @@ class ReleaseNotesTests(unittest.TestCase):
                 self.notes.render('{{NOPE}}', fake, 't', 'c', 'd')
 
 
+class ShiftJisLiteralTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        spec = importlib.util.spec_from_file_location('sjis_literals', NATIVE / 'tools/sjis_literals.py')
+        cls.sjis = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.sjis)
+
+    def test_only_literals_change(self):
+        source = '// ｎｏｔｅ "Ａ"\nchar* a = "Ｍ1"; /* "あ" */ char b = \'\\\'\'; char* c = "\\"－" "x";\n'
+        text, replaced = self.sjis.convert(source, 'sample.c')
+        self.assertEqual(text, '// ｎｏｔｅ "Ａ"\nchar* a = "\\202\\1541"; /* "あ" */ char b = \'\\\'\'; '
+                               'char* c = "\\"\\201\\174" "x";\n')
+        self.assertEqual(replaced, 2)
+
+    def test_a_character_outside_the_code_page_is_an_error(self):
+        with self.assertRaises(SystemExit) as raised:
+            self.sjis.convert('int a;\nchar* b = "€";\n', 'sample.c')
+        self.assertIn('sample.c:2', str(raised.exception))
+
+    def test_converted_file_reports_the_original_lines(self):
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp) / 'name.c'
+            source.write_text('char* a = "　";\n', encoding='utf-8')
+            output = Path(temp) / 'out/sjis/name.c'
+            self.assertEqual(self.sjis.main([str(source), str(output)]), 0)
+            self.assertEqual(output.read_text(encoding='utf-8'), f'#line 1 "{source}"\nchar* a = "\\201\\100";\n')
+
+    def test_game_sources_with_such_literals_are_found(self):
+        listed = subprocess.run(['python3', str(NATIVE / 'tools/sjis_literals.py'), '--list', str(NATIVE.parent / 'src/melee')],
+                                capture_output=True, text=True, check=True).stdout.split()
+        self.assertIn(str(NATIVE.parent / 'src/melee/gm/gm_1601.c'), listed)
+        self.assertIn(str(NATIVE.parent / 'src/melee/mn/mnnamenew.c'), listed)
+
+
 class BuiltZipTests(unittest.TestCase):
     def test_zip_layout_and_binary(self):
         with zipfile.ZipFile(ZIP) as archive:
@@ -634,6 +668,11 @@ class BuiltZipTests(unittest.TestCase):
                     elf.flush()
                     dynsyms = subprocess.run(['readelf', '--dyn-syms', '-W', elf.name], capture_output=True, text=True, check=True).stdout
                 self.assertFalse(re.findall(r' UND (sinf|cosf|atan2f|sqrtf)@', dynsyms))
+            # The game's text routines read Shift-JIS: a name compiled as the UTF-8 the sources are written in
+            # draws nothing (blank name plates at character select).
+            for text in ['Ｍａｒｉｏ', 'Ｐｌａｙｅｒ', 'ピカチュウ']:
+                self.assertIn(text.encode('cp932'), binary, text)
+                self.assertNotIn(text.encode('utf-8'), binary, text)
             shim = archive.read('melee/libs.aarch64/libSDL3.so.0')
             self.assertTrue(is_aarch64_elf(shim[:20]))
             for needle in [b'SDL3SHIM_SDL2_LIB', b'SDL3SHIM_SDL2_VIDEODRIVER', b'libSDL2-2.0.so.0']:
