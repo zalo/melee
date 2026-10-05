@@ -64,7 +64,7 @@ void it_8026D62C(Item_GObj* gobj, HSD_GObjEvent arg1)
         arg1(gobj);
         return;
     }
-    if ((it_80277544(gobj) != 0) && !ip->xDCD_flag.b3) {
+    if ((it_80277544(gobj) != 0) && !ip->xDCD_flag.x0.b3) {
         Item_8026ADC0(gobj);
     }
 }
@@ -285,13 +285,9 @@ bool it_8026DC24(Item_GObj* gobj)
     if (ABS(ip->x40_vel.y) <= 0.00001f) {
         ip->x40_vel.y = 0.0f;
     }
-    if (ABS(ip->x40_vel.x) <= attr->x5c) {
-        if ((ABS(ip->x40_vel.y) <= attr->x5c)) {
-            goto block_18a8;
-        }
-    }
-    if (ip->xDCD_flag.b4 || !attr->x58) {
-    block_18a8:
+    if ((ABS(ip->x40_vel.x) <= attr->x5c && ABS(ip->x40_vel.y) <= attr->x5c) ||
+        ip->xDCD_flag.x0.b4 || !attr->x58)
+    {
         itResetVelocity(ip);
         return true;
     }
@@ -304,7 +300,7 @@ bool it_8026DD5C(Item_GObj* gobj)
 
     ip->xD50_landNum = 0;
     it_802762B0(ip);
-    if (!it_80277040(gobj) || ip->xDCD_flag.b3) {
+    if (!it_80277040(gobj) || ip->xDCD_flag.x0.b3) {
         it_80274740(gobj);
         it_80276CEC(gobj);
     } else {

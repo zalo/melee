@@ -159,16 +159,8 @@ StageData grGr_StageData = {
     0,
 };
 
-#ifdef MUST_MATCH
-static void order_data(void)
-{
-    (void) "%s:%d: couldn t get gobj(id=%d)\n";
-}
-#endif
-
 static u8 grGr_8049F9E0[0x20];
 
-static inline int randrange(int min, int max);
 static inline int randrange(int min, int max)
 {
     int diff;
@@ -187,7 +179,6 @@ static inline int randrange(int min, int max)
     return rng;
 }
 
-static inline struct grGreens_BlockVars* getBlock(Ground* gp, int i, int j);
 static inline struct grGreens_BlockVars* getBlock(Ground* gp, int i, int j)
 {
     return &gp->u.greens.x8_blocks[i][j];
@@ -247,7 +238,7 @@ Ground_GObj* grGreens_80213524(int id)
             HSD_GObj_SetupProc(gobj, cbs->gobj_proc, 4);
         }
     } else {
-        OSReport((char*) grGr_callbacks + 0xCC, "grgreens.c", 281, id);
+        OSReport("%s:%d: couldn t get gobj(id=%d)\n", __FILE__, 281, id);
     }
     return gobj;
 }
@@ -360,7 +351,7 @@ void grGreens_802139C0(Ground_GObj* arg) {}
 void grGreens_802139C4(Ground_GObj* gobj)
 {
     Ground* gp = gobj->user_data;
-    ftCo_800C06E8(gobj, 9, fn_80213B1C);
+    ftCo_800C06E8(gobj, 9, grGreens_80213B1C);
     gp->u.greens.x0_flags.whole_thing = 0;
     gp->u.greens.x4 = NULL;
     gp->u.greens.x8_blocks = NULL;
@@ -402,8 +393,8 @@ bool grGreens_80213AB4(Vec* vec, f32 maxX, f32 minX, f32 maxY, f32 minY)
     return false;
 }
 
-bool fn_80213B1C(Ground_GObj* ground_gobj, Fighter_GObj* fighter_gobj,
-                 Vec* vec)
+bool grGreens_80213B1C(Ground_GObj* ground_gobj, Fighter_GObj* fighter_gobj,
+                       Vec* vec)
 {
     Vec vec2;
     PAD_STACK(4);
@@ -724,7 +715,7 @@ void grGreens_80214654(Ground_GObj* arg)
 void fn_80214658(Ground_GObj* gobj)
 {
     Ground* gp = GET_GROUND(gobj);
-    gp->u.greens.x0_flags.b0 = 0;
+    gp->u.greens.x0_flags.x0.b0 = 0;
     grGr_804D6AAD = 0;
 }
 
@@ -747,7 +738,7 @@ void grGreens_80214674(Ground_GObj* gobj)
     Ground_801C10B8(new_var, fn_80214658);
     gp->u.greens.xC = randrange(yakumono_param->x0_blockTimerMin,
                                 yakumono_param->x4_blockTimerMax);
-    gp->u.greens.x0_flags.b0 = 1;
+    gp->u.greens.x0_flags.x0.b0 = 1;
     grGr_804D6AAD = 1;
 }
 
@@ -760,11 +751,11 @@ void grGreens_8021479C(Ground_GObj* gobj)
 {
     Ground* gp = GET_GROUND(gobj);
     PAD_STACK(4);
-    if (!gp->u.greens.x0_flags.b0) {
+    if (!gp->u.greens.x0_flags.x0.b0) {
         grGreens_802166C4(gobj);
     }
     Ground_UpdateMapColl(gobj);
-    if (!gp->u.greens.x0_flags.b0) {
+    if (!gp->u.greens.x0_flags.x0.b0) {
         grGreens_80216C20(gobj);
     }
     lb_800115F4();
@@ -1499,11 +1490,13 @@ void grGreens_802166C4(Ground_GObj* gobj)
     }
 }
 
+struct grGreens_80216C20_local {
+    int x18;
+};
+
 void grGreens_80216C20(Ground_GObj* gobj)
 {
-    struct {
-        int x18;
-    } local;
+    struct grGreens_80216C20_local local;
     Ground* gp = GET_GROUND(gobj);
     int i;
     int j;
@@ -1559,7 +1552,7 @@ void fn_80216DE4(void* user_data, int joint_id, CollData* coll, int coll_x50,
     }
 }
 
-DynamicsDesc* grGreens_80216E64(enum_t arg)
+lbColl_80008D30_arg1* grGreens_80216E64(enum_t arg)
 {
     return NULL;
 }

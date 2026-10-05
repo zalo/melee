@@ -268,6 +268,15 @@ static inline struct WarnCmnData* mnDataDel_GetWarnData(void)
     return mnDataDel_804D6C68->user_data;
 }
 
+union mnDataDel_AnimateWarning_cursor {
+    struct mnDataDel_AnimateWarning_cursor_fields {
+        u8 pad[12];
+        HSD_JObj* yes;
+        HSD_JObj* no;
+    } fields;
+    HSD_JObj* slots[5];
+};
+
 /// @brief animates the warning modal
 static inline void mnDataDel_AnimateWarning(HSD_JObj* root, HSD_GObj* gobj,
                                             struct WarnCmnData* data,
@@ -308,14 +317,7 @@ static inline void mnDataDel_AnimateWarning(HSD_JObj* root, HSD_GObj* gobj,
                 HSD_SisLib_803A6368(text, sis_id);
             }
         } else {
-            union {
-                struct {
-                    u8 pad[12];
-                    HSD_JObj* yes;
-                    HSD_JObj* no;
-                } fields;
-                HSD_JObj* slots[5];
-            } cursor;
+            union mnDataDel_AnimateWarning_cursor cursor;
             cursor_idx = data->cursor_idx;
             lb_80011E24(root, &cursor.slots[3], WARN_JOINT_CURSOR_YES, -1);
             lb_80011E24(root, &cursor.slots[4], WARN_JOINT_CURSOR_NO, -1);
@@ -901,7 +903,7 @@ void mnDataDel_8024FE4C(u8 arg0)
     StaticModelDesc* assets;
     struct MnDataDelGObjUserData* user_data;
     u8* cursor;
-    PAD_STACK(0x14);
+    PAD_STACK(12);
 
     assets = &mnDataDel_804A0918;
     gobj = GObj_Create(6U, 7U, 0x80U);
@@ -918,12 +920,9 @@ void mnDataDel_8024FE4C(u8 arg0)
     user_data->x0 = arg0;
     user_data->x1 = 0;
     user_data->x2 = 0;
-    user_data->x3[0] = 0;
-    user_data->x3[1] = 0;
-    user_data->x3[2] = 0;
-    user_data->x3[3] = 0;
-    user_data->x3[4] = 0;
-    user_data->x3[5] = 0;
+    for (i = 0; i < 6; i++) {
+        user_data->x3[i] = 0;
+    }
     user_data->xC = NULL;
     GObj_InitUserData(gobj, 0U, HSD_Free, user_data);
     i = (enabled = 0);
@@ -995,7 +994,7 @@ void mnDataDel_80250170(void)
     mnDataDel_804D6C6C = NULL;
     archive = mn_804D6BB8;
     lbArchive_LoadSections(
-        archive, (void**) &assets[0].joint, "MenMainConDl_Top_joint",
+        archive, &assets[0].joint, "MenMainConDl_Top_joint",
         &assets[0].animjoint, "MenMainConDl_Top_animjoint",
         &assets[0].matanim_joint, "MenMainConDl_Top_matanim_joint",
         &assets[0].shapeanim_joint, "MenMainConDl_Top_shapeanim_joint",

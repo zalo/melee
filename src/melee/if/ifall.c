@@ -217,7 +217,7 @@ static inline void loadScene(SceneDesc** scene)
 {
     HSD_Archive** archive = ifAll_GetArchive();
     lbArchive_80016F80(archive, "IfAll");
-    lbArchive_LoadSections(*archive, scene, "ScInfDmg_scene_data", 0);
+    lbArchive_LoadSections(*archive, scene, "ScInfDmg_scene_data", NULL);
 }
 
 void ifAll_802F390C(void)

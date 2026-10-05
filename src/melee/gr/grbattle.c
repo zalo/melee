@@ -72,7 +72,7 @@ STATIC_ASSERT(sizeof(struct grBattle_YakumonoParam) == 8);
 /* 21A3B4 */ static bool grBattle_BG_Callback1(Ground_GObj* gobj);
 /* 21A3BC */ static void grBattle_BG_Callback2(Ground_GObj* gobj);
 /* 21A60C */ static void grBattle_BG_Callback3(Ground_GObj* gobj);
-/* 21A610 */ static DynamicsDesc* grBattle_OnTouchLine(enum_t);
+/* 21A610 */ static lbColl_80008D30_arg1* grBattle_OnTouchLine(enum_t);
 /* 21A618 */ static bool grBattle_OnCheckShadowRender(Vec3*, int, HSD_JObj*);
 
 /* 4D6AC8 */ static GXBool isDemoFight;
@@ -435,7 +435,7 @@ void grBattle_BG_Callback2(Ground_GObj* gobj)
 
 void grBattle_BG_Callback3(Ground_GObj* gobj) {}
 
-DynamicsDesc* grBattle_OnTouchLine(enum_t arg0)
+lbColl_80008D30_arg1* grBattle_OnTouchLine(enum_t arg0)
 {
     return NULL;
 }

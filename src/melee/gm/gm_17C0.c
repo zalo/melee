@@ -274,14 +274,12 @@ void gm_8017C838(void)
     s8* var_r31;
     UnkAdventureData* temp_r30;
 
-    PAD_STACK(8);
-
     temp_r30 = gm_GetAdventureData();
     temp_r3 = gmVs_GetSceneController();
     var_r31 = sp10;
-    sp10[0] = Ft_Kind_None;
-    sp10[1] = Ft_Kind_None;
-    sp10[2] = Ft_Kind_None;
+    for (i = 0; i < 3; i++) {
+        sp10[i] = Ft_Kind_None;
+    }
     switch (temp_r3->start.stkind) {
     case 0x3B:
         sp10[0] = Ft_Kind_Yoshi;
@@ -896,13 +894,15 @@ bool gm_8017D7AC(MatchExitInfo* arg0, Unk1PData* arg1, u8 arg2)
     return 1;
 }
 
+struct pick_random_ckind_scan {
+    s32 count;
+    u8* cursor;
+};
+
 static inline s32 pick_random_ckind(u8* arr, const u8* used_ckinds,
                                     const u8* preset_ckinds)
 {
-    struct {
-        s32 count;
-        u8* cursor;
-    } scan;
+    struct pick_random_ckind_scan scan;
     u8 temp;
     s32 j;
     s32 i;

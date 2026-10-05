@@ -40,7 +40,7 @@ struct staffInfo_t {
 };
 ASSERT_SIZE(struct staffInfo_t, 0x948);
 
-/* 4D67F8 */ static struct {
+/* 4D67F8 */ static struct gmstaffroll_staffInfo_t {
     HSD_Text* win[2];
     int x8;
 }* staffInfo;
@@ -116,7 +116,7 @@ typedef struct {
 
 typedef struct {
     /* 0x00 */ f32 x_positions[4];
-    /* 0x10 */ struct {
+    /* 0x10 */ struct StaffRollExtraData_sfx_cues {
         s32 frame;
         s32 sfx;
     } sfx_cues[45]; ///< terminated by a 0x7FFFFFFF frame
@@ -125,7 +125,7 @@ ASSERT_SIZE(StaffRollExtraData, 0x178);
 
 typedef struct StaffRollPtclNode {
     /* 0x00 */ struct StaffRollPtclNode* x0;
-    /* 0x04 */ union {
+    /* 0x04 */ union StaffRollPtclNode_x4 {
         struct StaffRollPtclNode* ptr;
         s32 color;
     } x4;
@@ -441,7 +441,7 @@ void fn_801AA7F8(HSD_GObj* gobj)
     }
 }
 
-enum {
+enum Gm_GObj_GXLink {
     Gm_GObj_GXLink_PlyCursor = 9
 };
 void fn_801AA854(HSD_GObj* gobj, intptr_t code)
@@ -1225,7 +1225,7 @@ void gm_Scene_StaffRoll_OnEnter(void* unused)
     int i;
     HSD_GObj* gobj;
     HSD_GObj* final_gobj;
-    PAD_STACK(0x10);
+    PAD_STACK(8);
 
     efLib_Init();
     efAsync_LoadSync(0);
@@ -1335,12 +1335,9 @@ void gm_Scene_StaffRoll_OnEnter(void* unused)
         lbBgFlash_800209F4();
         gm_804D6804.x0 = gm_804D6804.x4 = 0.0F;
         memzero(staffInfo, sizeof(struct staffInfo_t));
-        gm_80480D58[0] = 0;
-        gm_80480D58[1] = 0;
-        gm_80480D58[2] = 0;
-        gm_80480D58[3] = 0;
-        gm_80480D58[4] = 0;
-        gm_80480D58[5] = 0;
+        for (i = 0; i < 6; i++) {
+            gm_80480D58[i] = 0;
+        }
         gm_804D680C = NULL;
         gm_804D6810 = 0;
         gm_804D6814 = 0;

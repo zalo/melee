@@ -608,7 +608,7 @@ void ifMagnify_802FC870(void)
     ifMagnify_802FC7C0(&ifMagnify_804A1DE0);
     archive = ifAll_GetArchive();
     lbArchive_LoadSections(*archive, &ifMagnify_804A1DE0.model_desc,
-                           ifMagnify_804D57E8, 0);
+                           ifMagnify_804D57E8, NULL);
     for (i = 0; i < 6; i++) {
         ifMagnify_802FC3C0(i);
     }

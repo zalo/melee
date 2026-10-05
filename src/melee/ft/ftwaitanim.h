@@ -4,14 +4,14 @@
 #include <melee/ft/forward.h>
 
 typedef struct WaitStruct {
-    union {
+    union WaitStruct_u {
 #ifndef MELEE_NATIVE
-        struct {
+        struct WaitStruct_u_p {
             int* x;
             int* y;
         } p;
 #endif
-        struct {
+        struct WaitStruct_u_i {
             int x;
             int y;
         } i;

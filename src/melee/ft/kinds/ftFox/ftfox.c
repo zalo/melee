@@ -431,12 +431,13 @@ Fighter_DemoStrings ftFx_Init_DemoMotionFilenames = {
     "ftDemoViWaitMotionFileFox",
 };
 
-Fighter_CostumeStrings ftFx_Init_CostumeStrings[] = {
-    { ftFx_Init_803C7C00, ftFx_Init_803C7C0C, ftFx_Init_803C7C24 },
-    { ftFx_Init_803C7C44, ftFx_Init_803C7C50, ftFx_Init_803C7C68 },
-    { ftFx_Init_803C7C88, ftFx_Init_803C7C94, ftFx_Init_803C7CAC },
-    { ftFx_Init_803C7CCC, ftFx_Init_803C7CD8, ftFx_Init_803C7CF0 },
-};
+Fighter_CostumeStrings
+    ftFx_Init_CostumeStrings[ARRAY_SIZE(ftFx_CostumeList)] = {
+        { ftFx_Init_803C7C00, ftFx_Init_803C7C0C, ftFx_Init_803C7C24 },
+        { ftFx_Init_803C7C44, ftFx_Init_803C7C50, ftFx_Init_803C7C68 },
+        { ftFx_Init_803C7C88, ftFx_Init_803C7C94, ftFx_Init_803C7CAC },
+        { ftFx_Init_803C7CCC, ftFx_Init_803C7CD8, ftFx_Init_803C7CF0 },
+    };
 
 bool ftFx_Init_800E5534(HSD_GObj* gobj)
 {
@@ -449,7 +450,7 @@ void ftFx_Init_OnDeath(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
 
-    fp->u.fx.x222C_blasterGObj = 0;
+    fp->u.fx.x222C_blasterGObj = NULL;
     ftParts_80074A4C(gobj, 0, 0);
 }
 
@@ -460,22 +461,22 @@ void ftFx_Init_800E5588(HSD_GObj* gobj)
 
 void ftFx_Init_OnItemPickup(HSD_GObj* gobj, bool flag)
 {
-    Fighter_OnItemPickup(gobj, flag, 1, 1);
+    Fighter_OnItemPickup(gobj, flag, true, true);
 }
 
 void ftFx_Init_OnItemInvisible(HSD_GObj* gobj)
 {
-    Fighter_OnItemInvisible(gobj, 1);
+    Fighter_OnItemInvisible(gobj, true);
 }
 
 void ftFx_Init_OnItemVisible(HSD_GObj* gobj)
 {
-    Fighter_OnItemVisible(gobj, 1);
+    Fighter_OnItemVisible(gobj, true);
 }
 
 void ftFx_Init_OnItemDrop(HSD_GObj* gobj, bool flag)
 {
-    Fighter_OnItemDrop(gobj, flag, 1, 1);
+    Fighter_OnItemDrop(gobj, flag, true, true);
 }
 
 void ftFx_Init_OnLoadForFalco(Fighter* fp)
@@ -486,7 +487,7 @@ void ftFx_Init_OnLoadForFalco(Fighter* fp)
 void ftFx_Init_OnLoad(HSD_GObj* gobj)
 {
     Fighter* fp = gobj->user_data;
-    void** item_list = fp->ft_data->x48_items;
+    union ftData_Item* item_list = fp->ft_data->x48_items;
 
     fp->can_walljump = true;
 
@@ -494,9 +495,11 @@ void ftFx_Init_OnLoad(HSD_GObj* gobj)
 
     {
         ftFox_DatAttrs* fox_attr = fp->dat_attrs;
-        it_8026B3F8(item_list[0], fox_attr->x1C_FOX_BLASTER_SHOT_ITKIND);
-        it_8026B3F8(item_list[1], fox_attr->x20_FOX_BLASTER_GUN_ITKIND);
-        it_8026B3F8(item_list[2], It_Kind_Fox_Illusion);
+        it_8026B3F8(item_list[0].article,
+                    fox_attr->x1C_FOX_BLASTER_SHOT_ITKIND);
+        it_8026B3F8(item_list[1].article,
+                    fox_attr->x20_FOX_BLASTER_GUN_ITKIND);
+        it_8026B3F8(item_list[2].article, It_Kind_Fox_Illusion);
     }
 }
 

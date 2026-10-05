@@ -15,11 +15,6 @@
 #include <melee/mp/mpcoll.h>
 #include <sysdolphin/baselib/jobj.h>
 
-typedef struct {
-    float x0;
-    float x4;
-    itECB x8;
-} itMsBomb_Attrs;
 ASSERT_SIZE(itMsBomb_Attrs, 24);
 
 ItemStateTable ItemStateTable_MsBomb[] = {
@@ -71,7 +66,7 @@ void it_8028FF8C(Item_GObj* gobj)
     itMsBomb_Attrs* attrs;
     Item* ip = GET_ITEM(gobj);
     HSD_JObj* jobj = GET_JOBJ(gobj);
-    attrs = ip->xC4_article_data->x4_specialAttributes;
+    attrs = &ip->xC4_article_data->x4_specialAttributes->ms_bomb;
     Item_80268E5C(gobj, 1, ITEM_ANIM_UPDATE);
     HSD_JObjSetRotationX(jobj, attrs->x0);
 }
@@ -102,12 +97,13 @@ void itMSBomb_Logic19_Dropped(Item_GObj* gobj)
 void itMSBomb_Logic19_Thrown(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itMsBomb_Attrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    itMsBomb_Attrs* attrs =
+        &ip->xC4_article_data->x4_specialAttributes->ms_bomb;
     itECB ecb;
     Item_80268E5C(gobj, 3, 6);
     ip->xBFC = ecb = attrs->x8;
     it_80275D5C(gobj, &ecb);
-    ip->xDCE_flag.b7 = 0;
+    ip->xDCE_flag.x0.b7 = 0;
 }
 
 void itMsbomb_UnkMotion3_Phys(Item_GObj* gobj)
@@ -124,9 +120,10 @@ bool itMsbomb_UnkMotion3_Coll(Item_GObj* gobj)
 void it_80290238(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itMsBomb_Attrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    itMsBomb_Attrs* attrs =
+        &ip->xC4_article_data->x4_specialAttributes->ms_bomb;
     PAD_STACK(0x18);
-    ip->xDCE_flag.b3 = 1;
+    ip->xDCE_flag.x0.b3 = 1;
     if (it_802763B8(gobj) != 1) {
         if (it_802763E0(gobj) == 2) {
             ip->pos.y += ip->scl * (attrs->x8.top - attrs->x8.bottom);
@@ -191,7 +188,7 @@ void it_8029047C(Item_GObj* gobj)
     Item_80268E5C(gobj, 5, 0x11);
     it_802762BC(ip);
     it_80290314_inline(gobj);
-    ip->xDCE_flag.b3 = 0;
+    ip->xDCE_flag.x0.b3 = 0;
 }
 
 void itMsbomb_UnkMotion5_Phys(Item_GObj* gobj)

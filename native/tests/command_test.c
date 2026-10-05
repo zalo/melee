@@ -3,21 +3,21 @@
 #include <melee/ft/types.h>
 #include <melee/pl/types.h>
 #include <melee/gm/types.h>
-#include <melee/gm/gmresultplayer.static.h>
+#include <melee/gm/gmresultplayer.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #define CHECK(x) do { if(!(x)) {fprintf(stderr,"Command test failed: %s\n",#x);abort();} } while(0)
 _Static_assert(offsetof(ftCommonData,x6BC)==0x6BC,"Entry duration in common parameters");
-_Static_assert(offsetof(ftCommonData,x6DC_colorsByPlayer)==0x6DC,"Common parameter color offsets");
+_Static_assert(offsetof(ftCommonData,sub_colors)==0x6DC,"Common parameter color offsets");
 _Static_assert(offsetof(ftCommonData,metal_armor)==0x6F0,"Common parameter numeric tail");
 _Static_assert(offsetof(ftCommonData,x808)==0x808,"Common parameter final vector");
 _Static_assert(sizeof(union CmdUnion)==4,"Serialized commands must stay four bytes");
 _Static_assert(offsetof(struct S_UNK_YOSHI2,x8_end_index)==sizeof(TempS),"Yoshi second visibility group");
 _Static_assert(offsetof(struct S_UNK_YOSHI2,xC_start_index)==sizeof(TempS)+offsetof(TempS,x4),"Yoshi second visibility indices");
 _Static_assert(sizeof(union ColorOverlay_x8_t)==4,"Color script cells must stay four bytes");
-_Static_assert(offsetof(CommandInfo,u)==offsetof(ColorOverlay,x8_ptr1),"Shared script cursor");
+_Static_assert(offsetof(CommandInfo,x8.u)==offsetof(ColorOverlay,x8_ptr1),"Shared script cursor");
 _Static_assert(offsetof(CommandInfo,loop_count)==offsetof(ColorOverlay,xC_loop),"Shared loop count");
 _Static_assert(offsetof(CommandInfo,event_return)==offsetof(ColorOverlay,event_return),"Shared return stack");
 _Static_assert(offsetof(struct ftData_80085FD4_ret,x8)==offsetof(struct Fighter_WaitAnimData,x8),"Animation size alias");
@@ -36,17 +36,17 @@ int main(void) {
     CHECK(plActionStatsHighCounter(&stats, 0x70)==&stats.x598[4]);
     CHECK(offsetof(struct MatchPlayerData,x1C)==0x1C);
     UnkFlagStruct draw_flags = {.byte=1};
-    CHECK(draw_flags.b7&&!draw_flags.b0);
-    draw_flags.byte=128; CHECK(draw_flags.b0&&!draw_flags.b7);
+    CHECK(draw_flags.x0.b7&&!draw_flags.x0.b0);
+    draw_flags.byte=128; CHECK(draw_flags.x0.b0&&!draw_flags.x0.b7);
     static Fighter fighter;
-    fighter.x594_s32=0x40000000;
-    CHECK(fighter.x594_b1_loop&&!fighter.x594_b0&&!fighter.x594_b3);
-    fighter.x594_s32=0x10000000;
-    CHECK(fighter.x594_b3&&!fighter.x594_b4);
-    fighter.x594_s32=0x003FFE3F;
-    CHECK(fighter.x594_bits==8191&&fighter.x597_bits==63);
-    fighter.x594_s32=0x1C0;
-    CHECK(fighter.x596_bits.x7==7);
+    fighter.x594.x594_s32=0x40000000;
+    CHECK(fighter.x594.x0.x594_b1_loop&&!fighter.x594.x0.x594_b0&&!fighter.x594.x0.x594_b3);
+    fighter.x594.x594_s32=0x10000000;
+    CHECK(fighter.x594.x0.x594_b3&&!fighter.x594.x0.x594_b4);
+    fighter.x594.x594_s32=0x003FFE3F;
+    CHECK(fighter.x594.x0_1.x594_bits==8191&&fighter.x594.x0_1.x597_bits==63);
+    fighter.x594.x594_s32=0x1C0;
+    CHECK(fighter.x594.x0.x596_bits.x7==7);
     union CmdUnion command;
     u32 bits=(9U<<26)|(0xA5U<<18)|0x23456U;
     memcpy(&command,&bits,4);
@@ -62,23 +62,23 @@ int main(void) {
     bits=0x12345678;memcpy(&color,&bits,4);
     CHECK(color.light_color.r==0x12&&color.light_color.g==0x34&&color.light_color.b==0x56&&color.light_color.a==0x78);
     union CmdUnion script[5]={{0}};
-    CommandInfo info={0};info.u=script;
+    CommandInfo info={0};info.x8.u=script;
     script[0].Command_03.value=2;
-    Command_03(&info);CHECK(info.u==&script[1]&&info.loop_count==2);
-    info.u=&script[2];Command_04(&info);CHECK(info.u==&script[1]&&info.loop_count==2);
-    info.u=&script[2];Command_04(&info);CHECK(info.u==&script[3]&&info.loop_count==0);
+    Command_03(&info);CHECK(info.x8.u==&script[1]&&info.loop_count==2);
+    info.x8.u=&script[2];Command_04(&info);CHECK(info.x8.u==&script[1]&&info.loop_count==2);
+    info.x8.u=&script[2];Command_04(&info);CHECK(info.x8.u==&script[3]&&info.loop_count==0);
     ColorOverlay overlay={0};
     overlay.x28_colanim.i=1234;
     CommandInfo* shared=(CommandInfo*)&overlay;
-    for (int depth=0;depth<3;++depth) { shared->u=script; Command_03(shared); }
+    for (int depth=0;depth<3;++depth) { shared->x8.u=script; Command_03(shared); }
     CHECK(shared->loop_count==6);
-    for (int depth=0;depth<3;++depth) { shared->u=&script[2]; Command_04(shared); shared->u=&script[2]; Command_04(shared); }
+    for (int depth=0;depth<3;++depth) { shared->x8.u=&script[2]; Command_04(shared); shared->x8.u=&script[2]; Command_04(shared); }
     CHECK(shared->loop_count==0&&overlay.x28_colanim.i==1234);
-    info.u=script;branch=&script[4];Command_05(&info);
-    CHECK(info.u==branch&&info.loop_count==1);
-    Command_06(&info);CHECK(info.u==&script[2]&&info.loop_count==0);
-    info.u=script;Command_07(&info);CHECK(info.u==branch);
-    info.u=script;script[0].Command_09.param_1=77;script[0].Command_09.param_2=900;
-    Command_09(&info);CHECK(flash_a==77&&flash_b==900&&info.u==&script[1]);
+    info.x8.u=script;branch=&script[4];Command_05(&info);
+    CHECK(info.x8.u==branch&&info.loop_count==1);
+    Command_06(&info);CHECK(info.x8.u==&script[2]&&info.loop_count==0);
+    info.x8.u=script;Command_07(&info);CHECK(info.x8.u==branch);
+    info.x8.u=script;script[0].Command_09.param_1=77;script[0].Command_09.param_2=900;
+    Command_09(&info);CHECK(flash_a==77&&flash_b==900&&info.x8.u==&script[1]);
     puts("PASS: command cell ABI, signed fields, colors, loops, calls and jumps");
 }

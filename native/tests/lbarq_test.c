@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+int MeleeNativeDeterministicIO(void) { return 0; }
 
 static unsigned char aram[4096];
 OSTime OSGetTime(void) { return 0; }

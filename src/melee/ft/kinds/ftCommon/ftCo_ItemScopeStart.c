@@ -14,11 +14,17 @@ typedef struct {
     void* x1A58; // 0x1A58
     u8 pad_2340[0x2340 - 0x1A5C];
     f32 x2340; // 0x2340
-    f32 x2344; // 0x2344
+    s32 x2344; // 0x2344
     s32 x2348; // 0x2348
     u8 x234C;  // 0x234C
 } FighterOverlay;
 #endif
+
+typedef struct {
+    u8 pad[0x2340];
+    f32 timer; // 0x2340
+    s32 flag;  // 0x2344
+} ItemScopeVars;
 
 FtMotionId fn_800D769C(Fighter* ft, FtMotionId msid)
 {
@@ -41,11 +47,6 @@ void ft_800D76B8(Fighter_GObj* gobj)
     }
 
     {
-        typedef struct {
-            u8 x0[0x2340];
-            f32 x2340;
-            s32 x2344;
-        } ItemScopeVars;
 #ifdef MELEE_NATIVE
         __typeof__(fp->mv.co.scope)* vars = &fp->mv.co.scope;
 #else
@@ -53,13 +54,8 @@ void ft_800D76B8(Fighter_GObj* gobj)
 #endif
 
         ftAnim_8006EBA4(gobj);
-#ifdef MELEE_NATIVE
         vars->timer = 0.0F;
         vars->flag = 0;
-#else
-        vars->x2340 = 0.0F;
-        vars->x2344 = 0;
-#endif
     }
 
     ftCommon_8007E79C(fp->gobj, 1);
@@ -79,11 +75,6 @@ void ft_800D7770(Fighter_GObj* gobj)
     }
 
     {
-        typedef struct {
-            u8 x0[0x2340];
-            f32 x2340;
-            s32 x2344;
-        } ItemScopeVars;
 #ifdef MELEE_NATIVE
         __typeof__(fp->mv.co.scope)* vars = &fp->mv.co.scope;
 #else
@@ -92,13 +83,8 @@ void ft_800D7770(Fighter_GObj* gobj)
 
         ftAnim_8006EBA4(gobj);
         ftCommon_ClampAirDrift(fp);
-#ifdef MELEE_NATIVE
         vars->timer = 0.0F;
         vars->flag = 0;
-#else
-        vars->x2340 = 0.0F;
-        vars->x2344 = 0;
-#endif
     }
 
     ftCommon_8007E79C(fp->gobj, 1);
@@ -175,15 +161,10 @@ void fn_800D79B4(HSD_GObj* gobj, void (*cb_ground)(HSD_GObj*),
 
     // Define an overlay struct to force direct offset access (prevents address
     // caching in r26/r27)
-    typedef struct {
-        u8 pad[0x2340];
-        f32 timer; // 0x2340
-        s32 flag;  // 0x2344
-    } FighterOverlay;
 #ifdef MELEE_NATIVE
     __typeof__(fp->mv.co.scope)* fp_ovl = &fp->mv.co.scope;
 #else
-    FighterOverlay* fp_ovl = (FighterOverlay*) fp;
+    ItemScopeVars* fp_ovl = (ItemScopeVars*) fp;
 #endif
 
     // Use this specific cast to generate the correct 'lfs' instruction for the

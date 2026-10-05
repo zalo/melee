@@ -4,7 +4,6 @@
 
 #include <melee/it/forward.h>
 
-#include <math.h>
 #include <placeholder.h>
 
 #include "inlines.h"
@@ -27,8 +26,7 @@
 #include <sysdolphin/baselib/gobj.h>
 #include <sysdolphin/baselib/random.h>
 
-#define GET_ATTRS(ip)                                                         \
-    ((itLikelikeAttributes*) ip->xC4_article_data->x4_specialAttributes)
+#define GET_ATTRS(ip) (&ip->xC4_article_data->x4_specialAttributes->likelike)
 
 const Vec3 zero_vec = { 0.0f, 0.0f, 0.0f };
 
@@ -330,7 +328,7 @@ void itLikelike_UnkMotion1_Phys(Item_GObj* gobj)
     PAD_STACK(8);
 
     ip = GET_ITEM(gobj);
-    attr = (article = ip->xC4_article_data)->x4_specialAttributes;
+    attr = &(article = ip->xC4_article_data)->x4_specialAttributes->likelike;
 
     temp_r3 = ip->xDD4_itemVar.likelike.x44;
     if (temp_r3 == 0) {
@@ -683,7 +681,7 @@ void it_802DAD18(HSD_GObj* gobj)
     PAD_STACK(0x20);
 
     HSD_JObjSetRotationZ(GET_JOBJ(gobj), M_PI);
-    ip->xDCE_flag.b7 = 1;
+    ip->xDCE_flag.x0.b7 = 1;
     Item_80268E5C(gobj, 3, ITEM_ANIM_UPDATE);
 }
 
@@ -865,7 +863,7 @@ void it_802DB358(Item_GObj* gobj)
 {
     Item* ip = gobj->user_data;
     ip->xDD4_itemVar.likelike.x50 = ip->grab_victim;
-    ip->xDD0_flag.b5 = false;
+    ip->xDD0_flag.x0.b5 = false;
     it_80274ECC(gobj, true);
 }
 

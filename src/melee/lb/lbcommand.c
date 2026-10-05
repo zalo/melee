@@ -16,29 +16,29 @@ void (*lbCommand_803B9840[16])(CommandInfo*) = {
 /// Reset
 void Command_00(CommandInfo* info)
 {
-    info->u = NULL;
+    info->x8.u = NULL;
 }
 
 /// SynchronousTimer
 void Command_01(CommandInfo* info)
 {
-    info->timer += info->u->Command_00.value;
+    info->timer += info->x8.u->Command_00.value;
     NEXT_CMD(info);
 }
 
 /// AsynchronousTimer
 void Command_02(CommandInfo* info)
 {
-    info->timer = info->u->Command_02.value - info->frame_count;
+    info->timer = info->x8.u->Command_02.value - info->frame_count;
     NEXT_CMD(info);
 }
 
 /// SetLoop
 void Command_03(CommandInfo* info)
 {
-    info->event_return[info->loop_count++] = info->u + 1;
+    info->event_return[info->loop_count++] = info->x8.u + 1;
     info->event_return[info->loop_count++] =
-        (union CmdUnion*) info->u->Command_03.value;
+        (union CmdUnion*) info->x8.u->Command_03.value;
     NEXT_CMD(info);
 }
 
@@ -49,7 +49,7 @@ void Command_04(CommandInfo* info)
     uintptr_t remaining = (uintptr_t) info->event_return[info->loop_count - 1] - 1;
     info->event_return[info->loop_count - 1] = (union CmdUnion*) remaining;
     if (remaining) {
-        info->u = info->event_return[info->loop_count - 2];
+        info->x8.u = info->event_return[info->loop_count - 2];
         return;
     }
 #else
@@ -57,7 +57,7 @@ void Command_04(CommandInfo* info)
     ptr[info->loop_count + 3] -= 1;
 
     if ((s32) info->event_return[info->loop_count - 1]) {
-        info->ptr[0] = &info->ptr[info->loop_count][0];
+        info->x8.ptr[0] = &info->x8.ptr[info->loop_count][0];
         return;
     }
 #endif
@@ -69,18 +69,18 @@ void Command_04(CommandInfo* info)
 void Command_05(CommandInfo* info)
 {
     NEXT_CMD(info);
-    info->event_return[info->loop_count++] = info->u + 1;
+    info->event_return[info->loop_count++] = info->x8.u + 1;
 #ifdef MELEE_NATIVE
-    info->u = MeleeNativeScriptPointer(info->u);
+    info->x8.u = MeleeNativeScriptPointer(info->x8.u);
 #else
-    info->u = info->u->Command_05.ptr;
+    info->x8.u = info->x8.u->Command_05.ptr;
 #endif
 }
 
 /// Return
 void Command_06(CommandInfo* info)
 {
-    info->u = info->event_return[info->loop_count -= 1];
+    info->x8.u = info->event_return[info->loop_count -= 1];
 }
 
 /// Goto
@@ -88,9 +88,9 @@ void Command_07(CommandInfo* info)
 {
     NEXT_CMD(info);
 #ifdef MELEE_NATIVE
-    info->u = MeleeNativeScriptPointer(info->u);
+    info->x8.u = MeleeNativeScriptPointer(info->x8.u);
 #else
-    info->u = info->u->Command_07.ptr;
+    info->x8.u = info->x8.u->Command_07.ptr;
 #endif
 }
 
@@ -103,8 +103,8 @@ void Command_08(CommandInfo* info)
 
 void Command_09(CommandInfo* info)
 {
-    lbBgFlash_80021C48(info->u->Command_09.param_1,
-                       info->u->Command_09.param_2);
+    lbBgFlash_80021C48(info->x8.u->Command_09.param_1,
+                       info->x8.u->Command_09.param_2);
     NEXT_CMD(info);
 }
 

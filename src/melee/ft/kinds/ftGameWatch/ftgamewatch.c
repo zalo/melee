@@ -480,12 +480,13 @@ Fighter_DemoStrings ftGw_Init_DemoMotionFilenames = {
     "ftDemoViWaitMotionFileGamewatch",
 };
 
-Fighter_CostumeStrings ftGw_Init_CostumeStrings[] = {
-    { ftGw_Init_803D2904, ftGw_Init_803D2910, NULL },
-    { ftGw_Init_803D2904, ftGw_Init_803D2910, NULL },
-    { ftGw_Init_803D2904, ftGw_Init_803D2910, NULL },
-    { ftGw_Init_803D2904, ftGw_Init_803D2910, NULL },
-};
+Fighter_CostumeStrings
+    ftGw_Init_CostumeStrings[ARRAY_SIZE(ftGw_CostumeList)] = {
+        { ftGw_Init_803D2904, ftGw_Init_803D2910, NULL },
+        { ftGw_Init_803D2904, ftGw_Init_803D2910, NULL },
+        { ftGw_Init_803D2904, ftGw_Init_803D2910, NULL },
+        { ftGw_Init_803D2904, ftGw_Init_803D2910, NULL },
+    };
 
 void ftGw_Init_OnDeath(HSD_GObj* gobj)
 {
@@ -522,7 +523,7 @@ void ftGw_Init_OnDeath(HSD_GObj* gobj)
 void ftGw_Init_OnLoad(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    void** items = fp->ft_data->x48_items;
+    union ftData_Item* items = fp->ft_data->x48_items;
 
     fp->x2222_b6 = false;
     fp->x2223_b1 = true;
@@ -536,18 +537,18 @@ void ftGw_Init_OnLoad(HSD_GObj* gobj)
         fp->x34_scale.z = da->x0_GAMEWATCH_WIDTH;
         fp->x610_color_rgba[1] = da->x14_GAMEWATCH_OUTLINE;
         ftMaterial_800BFB4C(gobj, &da->x4_GAMEWATCH_COLOR[fp->costume_id]);
-        fp->x5AC.xC[4] = items[10];
+        fp->x5AC.xC[4] = items[10].visibility;
 
-        it_8026B3F8(items[0], It_Kind_GameWatch_Greenhouse);
-        it_8026B3F8(items[1], It_Kind_GameWatch_Manhole);
-        it_8026B3F8(items[2], It_Kind_GameWatch_Fire);
-        it_8026B3F8(items[3], It_Kind_GameWatch_Parachute);
-        it_8026B3F8(items[4], It_Kind_GameWatch_Turtle);
-        it_8026B3F8(items[5], It_Kind_GameWatch_Breath);
-        it_8026B3F8(items[6], It_Kind_GameWatch_Judge);
-        it_8026B3F8(items[7], It_Kind_GameWatch_Panic);
-        it_8026B3F8(items[8], It_Kind_GameWatch_Chef);
-        it_8026B3F8(items[9], It_Kind_GameWatch_Rescue);
+        it_8026B3F8(items[0].article, It_Kind_GameWatch_Greenhouse);
+        it_8026B3F8(items[1].article, It_Kind_GameWatch_Manhole);
+        it_8026B3F8(items[2].article, It_Kind_GameWatch_Fire);
+        it_8026B3F8(items[3].article, It_Kind_GameWatch_Parachute);
+        it_8026B3F8(items[4].article, It_Kind_GameWatch_Turtle);
+        it_8026B3F8(items[5].article, It_Kind_GameWatch_Breath);
+        it_8026B3F8(items[6].article, It_Kind_GameWatch_Judge);
+        it_8026B3F8(items[7].article, It_Kind_GameWatch_Panic);
+        it_8026B3F8(items[8].article, It_Kind_GameWatch_Chef);
+        it_8026B3F8(items[9].article, It_Kind_GameWatch_Rescue);
     }
 }
 
@@ -582,12 +583,12 @@ void ftGw_Init_8014A538(HSD_GObj* gobj)
 
 void ftGw_Init_OnItemPickup(HSD_GObj* gobj, bool flag)
 {
-    Fighter_OnItemPickup(gobj, flag, 1, 1);
+    Fighter_OnItemPickup(gobj, flag, true, true);
 }
 
 void ftGw_Init_OnItemInvisible(HSD_GObj* gobj)
 {
-    Fighter_OnItemInvisible(gobj, 1);
+    Fighter_OnItemInvisible(gobj, true);
 }
 
 /// 0x8014A6E0
@@ -595,14 +596,14 @@ void ftGw_Init_OnItemInvisible(HSD_GObj* gobj)
 /// up item's hand held animation)
 void ftGw_Init_OnItemVisible(HSD_GObj* gobj)
 {
-    Fighter_OnItemVisible(gobj, 1);
+    Fighter_OnItemVisible(gobj, true);
 }
 
 /// 0x8014A728
 /// OnDropItem callback
 void ftGw_Init_OnItemDrop(HSD_GObj* gobj, bool dropItemFlag)
 {
-    Fighter_OnItemDrop(gobj, dropItemFlag, 1, 1);
+    Fighter_OnItemDrop(gobj, dropItemFlag, true, true);
 }
 
 /// 0x8014A77C
@@ -612,7 +613,7 @@ void ftGw_Init_UnkMotionStates4(HSD_GObj* gobj)
     Fighter* fp = GET_FIGHTER(gobj);
 
     if (fp->u.gw.x2238_panicCharge >= ftGw_Panic_Full) {
-        ftCo_800BFFD0(fp, 5, 0);
+        ftCo_800BFFD0(fp, 5, false);
     }
 }
 

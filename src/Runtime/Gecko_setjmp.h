@@ -4,6 +4,8 @@
 #ifdef MELEE_NATIVE
 #include <setjmp.h>
 #else
+#define setjmp(env) __setjmp(&(env))
+#define longjmp(env, val) __longjmp(&(env), val)
 typedef struct jmp_buf {
     unsigned long pc;       /*	0: saved PC			*/
     unsigned long cr;       /*	4: saved CR			*/
@@ -32,12 +34,8 @@ typedef struct jmp_buf {
     double fpscr; /* 240: saved FPSCR		*/
     int pad[8];
 } jmp_buf;
-
 void __longjmp(register jmp_buf* env, int val);
 int __setjmp(register jmp_buf* env);
-
-#define setjmp(env) __setjmp(&(env))
-#define longjmp(env, val) __longjmp(&(env), val)
 
 #endif
 #endif

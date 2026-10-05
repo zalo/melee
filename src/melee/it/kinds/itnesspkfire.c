@@ -35,7 +35,7 @@ void it_802AA054(Item_GObj* gobj, Vec3* pos, Vec3* vel, f32 facing_dir,
     spawn.x3C_damage = 0;
     spawn.x0_parent_gobj = gobj;
     spawn.x4_parent_gobj2 = spawn.x0_parent_gobj;
-    spawn.x44_flag.b0 = true;
+    spawn.x44_flag.x0.b0 = true;
     spawn.x40 = 0;
 
     {
@@ -53,7 +53,7 @@ void it_802AA1D8(Item_GObj* item_gobj)
 {
     Item* item = GET_ITEM(item_gobj);
     itNessPKFirepillarAttributes* attrs =
-        item->xC4_article_data->x4_specialAttributes;
+        &item->xC4_article_data->x4_specialAttributes->ness_pk_firepillar;
     Item_80268E5C(item_gobj, 0, ITEM_ANIM_UPDATE);
     it_80275158(item_gobj, attrs->x0);
 }
@@ -77,7 +77,7 @@ bool it_2725_Logic23_DmgDealt(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
     itNessPKFirepillarAttributes* attrs =
-        ip->xC4_article_data->x4_specialAttributes;
+        &ip->xC4_article_data->x4_specialAttributes->ness_pk_firepillar;
     Vec3 pos = ip->pos;
     pos.y += attrs->x4;
     itNesspkfirepillar_802AA494(gobj, ip->owner, &pos, ip->facing_dir);
@@ -88,7 +88,7 @@ bool it_2725_Logic23_Clanked(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
     itNessPKFirepillarAttributes* attrs =
-        ip->xC4_article_data->x4_specialAttributes;
+        &ip->xC4_article_data->x4_specialAttributes->ness_pk_firepillar;
     Vec3 pos = ip->pos;
     pos.y += attrs->x4;
     itNesspkfirepillar_802AA494(gobj, ip->owner, &pos, ip->facing_dir);

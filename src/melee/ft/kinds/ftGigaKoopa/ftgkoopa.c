@@ -295,13 +295,16 @@ char ftGk_Init_803D3910[] = "PlyGkoopa5K_Share_joint";
 char ftGk_Init_803D3928[] = "PlyGkoopa5K_Share_matanim_joint";
 char ftGk_Init_AnimDatFilename[] = "PlGkAJ.dat";
 
-Fighter_DemoStrings ftGk_Init_DemoMotionFilenames = { 0 };
+Fighter_DemoStrings ftGk_Init_DemoMotionFilenames = { NULL };
 
-char* ftGk_Init_803D3984[] = { "ftDemoVi1201V2MotionFileGkoopa" };
+char* ftGk_Init_803D3984[] = {
+    "ftDemoVi1201V2MotionFileGkoopa"
+}; // Does this not belong in ftGk_Init_DemoMotionFilenames?
 
-Fighter_CostumeStrings ftGk_Init_CostumeStrings[] = {
-    { ftGk_Init_803D3904, ftGk_Init_803D3910, ftGk_Init_803D3928 },
-};
+Fighter_CostumeStrings
+    ftGk_Init_CostumeStrings[ARRAY_SIZE(ftGk_CostumeList)] = {
+        { ftGk_Init_803D3904, ftGk_Init_803D3910, ftGk_Init_803D3928 },
+    };
 
 void ftGk_Init_OnDeath(HSD_GObj* gobj)
 {
@@ -325,10 +328,10 @@ void ftGk_Init_OnLoad(HSD_GObj* gobj)
 {
     Fighter* fp = gobj->user_data;
     ftData* ftdata = fp->ft_data;
-    void** items = ftdata->x48_items;
+    union ftData_Item* items = ftdata->x48_items;
 
     ftKp_Init_OnLoadForGKoopa(fp);
-    it_8026B3F8(items[0], It_Kind_Koopa_Flame);
+    it_8026B3F8(items[0].article, It_Kind_Koopa_Flame);
 
     fp->x2226_b1 = true;
     fp->x222A_b0 = true;

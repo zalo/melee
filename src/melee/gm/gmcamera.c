@@ -568,7 +568,8 @@ static inline void gmCamera_801A31FC_inline(DynamicModelDesc* mdl)
 
 void gmCamera_801A31FC(void)
 {
-    PAD_STACK(24);
+    int i;
+    PAD_STACK(12);
 
     cmSnap_800316B4();
     gmCamera_VsCamUiState.x14 = 1;
@@ -578,21 +579,23 @@ void gmCamera_801A31FC(void)
     }
     gmCamera_VsCamUiState.ifvscam = lbArchive_LoadArchive("IfVsCam");
     {
-        HSD_Joint** joint_a = HSD_ArchiveGetPublicAddress(
-            gmCamera_VsCamUiState.ifvscam, "IfCameraInfo_Top_model_set");
+        HSD_Joint** joint_a =
+            HSD_ArchiveGetPublicAs(HSD_Joint*, gmCamera_VsCamUiState.ifvscam,
+                                   "IfCameraInfo_Top_model_set");
         HSD_GObj* gobj_a = GObj_Create(0xE, 0x10, 0);
         HSD_JObj* jobj_a = gmCamera_VsCamUiState.x4 =
             HSD_JObjLoadJoint(*joint_a);
         HSD_GObjObject_80390A70(gobj_a, HSD_GObj_JObjKind, jobj_a);
         GObj_SetupGXLink(gobj_a, HSD_GObj_JObjCallback, 0xB, 0);
     }
-    gmCamera_801A31FC_inline(HSD_ArchiveGetPublicAddress(
-        gmCamera_VsCamUiState.ifvscam, "IfCamera_Top_model_set"));
+    gmCamera_801A31FC_inline(
+        HSD_ArchiveGetPublicAs(DynamicModelDesc, gmCamera_VsCamUiState.ifvscam,
+                               "IfCamera_Top_model_set"));
     gmCamera_VsCamUiState.x20 = 2;
     HSD_SisLib_803A62A0(3, "SdVsCam", "SIS_VsCameraData");
     gmCamera_VsCamUiState.x54 =
         HSD_SisLib_803A611C(3, NULL, 9, 0xD, 0, 0xE, 0, 0xB);
-    gmCamera_VsCamUiState.x48[0] = NULL;
-    gmCamera_VsCamUiState.x48[1] = NULL;
-    gmCamera_VsCamUiState.x48[2] = NULL;
+    for (i = 0; i < 3; i++) {
+        gmCamera_VsCamUiState.x48[i] = NULL;
+    }
 }

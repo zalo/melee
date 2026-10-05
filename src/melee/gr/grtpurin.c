@@ -43,15 +43,15 @@ typedef struct grTPrSpecialParams {
 #ifdef MELEE_NATIVE
     s32 x0;
 #else
-    DynamicsDesc* x0;
+    lbColl_80008D30_arg1* x0;
 #endif
 } grTPrSpecialParams;
 
 #ifdef MELEE_NATIVE
-// Serialized DynamicsDesc slots stay 32-bit; the archive resolves them.
+// Serialized hit-description slots stay 32-bit; the archive resolves them.
 void* MeleeNativeScriptPointer(const void*);
 #define YAKUMONO_DYNAMICS(field) \
-    ((DynamicsDesc*) MeleeNativeScriptPointer(&yakumono_param->field))
+    ((lbColl_80008D30_arg1*) MeleeNativeScriptPointer(&yakumono_param->field))
 #else
 #define YAKUMONO_DYNAMICS(field) (yakumono_param->field)
 #endif
@@ -182,7 +182,7 @@ void grTPurin_802234F4(Ground_GObj* gobj)
     return;
 }
 
-DynamicsDesc* grTPurin_802234F8(enum_t arg0)
+lbColl_80008D30_arg1* grTPurin_802234F8(enum_t arg0)
 {
     enum_t i;
 

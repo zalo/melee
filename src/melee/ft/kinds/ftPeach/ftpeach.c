@@ -5,8 +5,6 @@
 #include <melee/ft/kinds/ftCommon/forward.h>
 #include <melee/it/forward.h>
 
-#include <placeholder.h>
-
 #include "ftpeachattacks4.h"
 #include "ftpeachfloat.h"
 #include "ftpeachfloatattack.h"
@@ -391,18 +389,19 @@ Fighter_DemoStrings ftPe_Init_DemoMotionFilenames = {
     "ftDemoViWaitMotionFilePeach",
 };
 
-Fighter_CostumeStrings ftPe_Init_CostumeStrings[] = {
-    { str_PlPeNr_dat, str_PlyPeach5K_Share_joint,
-      str_PlyPeach5K_Share_matanim_joint },
-    { str_PlPeYe_dat, str_PlyPeach5KYe_Share_joint,
-      str_PlyPeach5KYe_Share_matanim_joint },
-    { str_PlPeWh_dat, str_PlyPeach5KWh_Share_joint,
-      str_PlyPeach5KWh_Share_matanim_joint },
-    { str_PlPeBu_dat, str_PlyPeach5KBu_Share_joint,
-      str_PlyPeach5KBu_Share_matanim_joint },
-    { str_PlPeGr_dat, str_PlyPeach5KGr_Share_joint,
-      str_PlyPeach5KGr_Share_matanim_joint },
-};
+Fighter_CostumeStrings
+    ftPe_Init_CostumeStrings[ARRAY_SIZE(ftPe_CostumeList)] = {
+        { str_PlPeNr_dat, str_PlyPeach5K_Share_joint,
+          str_PlyPeach5K_Share_matanim_joint },
+        { str_PlPeYe_dat, str_PlyPeach5KYe_Share_joint,
+          str_PlyPeach5KYe_Share_matanim_joint },
+        { str_PlPeWh_dat, str_PlyPeach5KWh_Share_joint,
+          str_PlyPeach5KWh_Share_matanim_joint },
+        { str_PlPeBu_dat, str_PlyPeach5KBu_Share_joint,
+          str_PlyPeach5KBu_Share_matanim_joint },
+        { str_PlPeGr_dat, str_PlyPeach5KGr_Share_joint,
+          str_PlyPeach5KGr_Share_matanim_joint },
+    };
 
 void ftPe_Init_OnDeath(HSD_GObj* gobj)
 {
@@ -439,15 +438,15 @@ void ftPe_Init_OnLoad(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     ftPe_DatAttrs* extAtrrs = fp->ft_data->ext_attr;
-    UNK_T* items = fp->ft_data->x48_items;
+    union ftData_Item* items = fp->ft_data->x48_items;
     extAtrrs->floatfallf_anim_start = lbAnim_8001E8F8(ftData_80085E50(fp, 18));
     extAtrrs->floatfallb_anim_start = lbAnim_8001E8F8(ftData_80085E50(fp, 19));
     PUSH_ATTRS(fp, ftPe_DatAttrs);
-    it_8026B3F8(items[0], It_Kind_Peach_Explode);
-    it_8026B3F8(items[1], It_Kind_Peach_Turnip);
-    it_8026B3F8(items[2], It_Kind_Peach_Parasol);
-    it_8026B3F8(items[3], It_Kind_Peach_Toad);
-    it_8026B3F8(items[4], It_Kind_Peach_ToadSpore);
+    it_8026B3F8(items[0].article, It_Kind_Peach_Explode);
+    it_8026B3F8(items[1].article, It_Kind_Peach_Turnip);
+    it_8026B3F8(items[2].article, It_Kind_Peach_Parasol);
+    it_8026B3F8(items[3].article, It_Kind_Peach_Toad);
+    it_8026B3F8(items[4].article, It_Kind_Peach_ToadSpore);
 }
 
 void ftPe_Init_OnDeath2(HSD_GObj* gobj)
@@ -459,22 +458,22 @@ void ftPe_Init_OnDeath2(HSD_GObj* gobj)
 
 void ftPe_Init_OnItemPickup(HSD_GObj* gobj, bool flag)
 {
-    Fighter_OnItemPickup(gobj, flag, 1, 1);
+    Fighter_OnItemPickup(gobj, flag, true, true);
 }
 
 void ftPe_Init_OnItemInvisible(HSD_GObj* gobj)
 {
-    Fighter_OnItemInvisible(gobj, 1);
+    Fighter_OnItemInvisible(gobj, true);
 }
 
 void ftPe_Init_OnItemVisible(HSD_GObj* gobj)
 {
-    Fighter_OnItemVisible(gobj, 1);
+    Fighter_OnItemVisible(gobj, true);
 }
 
 void ftPe_Init_OnItemDrop(HSD_GObj* gobj, bool flag)
 {
-    Fighter_OnItemDrop(gobj, flag, 1, 1);
+    Fighter_OnItemDrop(gobj, flag, true, true);
 }
 
 void ftPe_Init_LoadSpecialAttrs(HSD_GObj* gobj)

@@ -35,7 +35,7 @@ typedef enum {
     statex10_1,
 } statex10;
 
-/* 433318 */ static struct {
+/* 433318 */ static struct state_t {
     /* +0  */ bool probe_status;
     /* +4  */ bool unk_status;
     /* +8  */ LbCardStatus card_status;
@@ -62,7 +62,7 @@ static u8 lb_803BAB60[20] = {
     0x02, 0x00, 0x01, 0x00, 0, 0, 0, 0, 0, 0, 0x03, 0x00, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 #else
-static struct {
+static struct lb_803BAB60_t {
     u32 x0, x4, x8;
     u32 pad[2];
 } lb_803BAB60 = {
@@ -370,12 +370,12 @@ static void lbCardGame_KeepIconImages(void)
 void lbCardGame_LoadArchive(int jobj_translate_idx)
 {
     if (_p(icon_data) == NULL) {
-        lbArchive_80016DBC("LbMcGame.", &_p(icon_data), "MemCardIconData", 0);
+        lbArchive_80016DBC("LbMcGame.", &_p(icon_data), "MemCardIconData", NULL);
 #ifdef MELEE_NATIVE
         lbCardGame_KeepIconImages();
 #endif
         lbArchive_80016DBC("NtMemAc", &_p(scene_data),
-                           "ScNtcCommon_scene_data", 0);
+                           "ScNtcCommon_scene_data", NULL);
         _p(jobj_translate_idx) = jobj_translate_idx;
         _p(enable) = true;
 #ifdef MELEE_NATIVE

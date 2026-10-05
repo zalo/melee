@@ -39,7 +39,7 @@ ItemStateTable it_803F7FB8[] = { {
 void it_2725_Logic18_Spawned(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itHououAttr* attr = ip->xC4_article_data->x4_specialAttributes;
+    itHououAttr* attr = &ip->xC4_article_data->x4_specialAttributes->houou;
     ip->xDD4_itemVar.houou.start_pos = ip->pos;
     ip->facing_dir = 0.0F;
     ip->xDAC_itcmd_var0 = 0;
@@ -116,7 +116,7 @@ bool itHouou_UnkMotion2_Anim(Item_GObj* gobj)
 void itHouou_UnkMotion2_Phys(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itHououAttr* attr = ip->xC4_article_data->x4_specialAttributes;
+    itHououAttr* attr = &ip->xC4_article_data->x4_specialAttributes->houou;
 
     it_8027A344(gobj);
 
@@ -172,7 +172,7 @@ bool itHouou_UnkMotion3_Anim(Item_GObj* gobj)
 void itHouou_UnkMotion3_Phys(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itHououAttr* attr = ip->xC4_article_data->x4_specialAttributes;
+    itHououAttr* attr = &ip->xC4_article_data->x4_specialAttributes->houou;
     s32 timer;
 
     it_8027A344(gobj);
@@ -197,7 +197,7 @@ bool itHouou_UnkMotion3_Coll(Item_GObj* gobj)
 void it_802D290C(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itHououAttr* attr = ip->xC4_article_data->x4_specialAttributes;
+    itHououAttr* attr = &ip->xC4_article_data->x4_specialAttributes->houou;
     Item_80268E5C(gobj, 4, ITEM_ANIM_UPDATE);
     Item_SetEffectHitlagCallbacks(ip);
     ip->xDD4_itemVar.houou.vel_accum = attr->x18;
@@ -227,7 +227,7 @@ bool itHouou_UnkMotion4_Anim(Item_GObj* gobj)
 void itHouou_UnkMotion4_Phys(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itHououAttr* attr = ip->xC4_article_data->x4_specialAttributes;
+    itHououAttr* attr = &ip->xC4_article_data->x4_specialAttributes->houou;
 
     it_8027A344(gobj);
 
@@ -316,7 +316,7 @@ void it_802D2C78(Item_GObj* gobj)
         ip2 = GET_ITEM(gobj);
         Item_80268E5C(gobj, 1, ITEM_ANIM_UPDATE);
         Item_SetEffectHitlagCallbacks(ip2);
-        ip->xDD1_flag.b1 = true;
+        ip->xDD1_flag.x0.b1 = true;
     }
 }
 
@@ -350,7 +350,7 @@ void it_802D2D2C(Item_GObj* gobj)
         spawn.kind = It_Kind_Houou_SacredFire;
         spawn.x0_parent_gobj = ip->owner;
         spawn.x4_parent_gobj2 = gobj;
-        spawn.x44_flag.b0 = true;
+        spawn.x44_flag.x0.b0 = true;
         spawn.x40 = 0;
         new_gobj = Item_80268B18(&spawn);
         GET_ITEM(new_gobj)->xDD4_itemVar.houou.timer = line_id;
@@ -364,7 +364,7 @@ void it_2725_Logic42_Spawned(Item_GObj* item_gobj)
     PAD_STACK(8);
 
     item = GET_ITEM(item_gobj);
-    attr = item->xC4_article_data->x4_specialAttributes;
+    attr = &item->xC4_article_data->x4_specialAttributes->houou;
     if ((item_gobj && item_gobj) && item_gobj) {
     }
     item->xD44_lifeTimer = attr->timer;

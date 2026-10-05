@@ -168,21 +168,17 @@ int HSD_VIGetXFBDrawEnable(void)
     bool intr;
     int idx = -1;
 
-    if (HSD_VIGetNbXFB() < 2) {
-        goto ret;
-    }
+    if (HSD_VIGetNbXFB() >= 2) {
+        intr = OSDisableInterrupts();
 
-    intr = OSDisableInterrupts();
-
-    if ((idx = HSD_VISearchXFBByStatus(HSD_VI_XFB_DRAWING)) == -1) {
-        if ((idx = HSD_VISearchXFBByStatus(HSD_VI_XFB_FREE)) != -1) {
-            _p->xfb[idx].status = HSD_VI_XFB_DRAWING;
+        if ((idx = HSD_VISearchXFBByStatus(HSD_VI_XFB_DRAWING)) == -1) {
+            if ((idx = HSD_VISearchXFBByStatus(HSD_VI_XFB_FREE)) != -1) {
+                _p->xfb[idx].status = HSD_VI_XFB_DRAWING;
+            }
         }
+
+        OSRestoreInterrupts(intr);
     }
-
-    OSRestoreInterrupts(intr);
-
-ret:
     return idx;
 }
 
@@ -190,15 +186,11 @@ int HSD_VIWaitXFBDrawEnable(void)
 {
     int idx = -1;
 
-    if (HSD_VIGetNbXFB() < 2) {
-        goto ret;
+    if (HSD_VIGetNbXFB() >= 2) {
+        while ((idx = HSD_VIGetXFBDrawEnable()) == -1) {
+            VIWaitForRetrace();
+        }
     }
-
-    while ((idx = HSD_VIGetXFBDrawEnable()) == -1) {
-        VIWaitForRetrace();
-    }
-
-ret:
     return idx;
 }
 

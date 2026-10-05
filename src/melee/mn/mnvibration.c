@@ -36,29 +36,6 @@ char* GetNameText(u8 slot);
 int GetNameCount(void);
 void lbCardGame_SaveChanges(void);
 
-typedef struct MnVibrationDataLayout {
-    AnimLoopSettings intro_anim;
-    AnimLoopSettings main_anim;
-    AnimLoopSettings cursor_anim;
-    Vec3 name_pos;
-    char user_data_error[0x18];
-    char file_name[0x10];
-    char user_data_name[0xC];
-    char convi_top_joint[0x18];
-    char convi_top_animjoint[0x1C];
-    char convi_top_matanim_joint[0x20];
-    char convi_top_shapeanim_joint[0x24];
-    char ctlvi_top_joint[0x18];
-    char ctlvi_top_animjoint[0x1C];
-    char ctlvi_top_matanim_joint[0x20];
-    char ctlvi_top_shapeanim_joint[0x24];
-    char onoffvi_top_joint[0x1C];
-    char onoffvi_top_animjoint[0x20];
-    char onoffvi_top_matanim_joint[0x24];
-    char onoffvi_top_shapeanim_joint[0x24];
-    char cursorvi_top_joint[0x20];
-} MnVibrationDataLayout;
-
 // Local inline JObj functions using the weak HSD_JObjSetMtxDirty pattern
 static inline f32 mnVibration_JObjGetTranslationX(HSD_JObj* jobj)
 {
@@ -132,77 +109,20 @@ s32 mnVibration_804D4FF0 = 0x20010000;
 #endif
 SDATA char mnVibration_804D4FF4[] = "jobj.h";
 SDATA char mnVibration_804D4FFC[] = "jobj";
-#ifdef MELEE_NATIVE
-// Init reads the archive symbol names through MnVibrationDataLayout cast from
-// &mnVibration_803EECE0; native compilers do not lay the separate statics out
-// contiguously, so keep the whole block in one object.
-static MnVibrationDataLayout mnVibration_Layout = {
-    { 0.0f, 20.0f, -0.1f },
-    { 50.0f, 70.0f, -0.1f },
-    { 0.0f, 14.0f, -0.1f },
-    { -0.4f, 0.5f, 0.0f },
-    "Can't get user_data.\n",
-    "mnvibration.c",
-    "user_data",
-    "MenMainConVi_Top_joint",
-    "MenMainConVi_Top_animjoint",
-    "MenMainConVi_Top_matanim_joint",
-    "MenMainConVi_Top_shapeanim_joint",
-    "MenMainCtlVi_Top_joint",
-    "MenMainCtlVi_Top_animjoint",
-    "MenMainCtlVi_Top_matanim_joint",
-    "MenMainCtlVi_Top_shapeanim_joint",
-    "MenMainOnoffVi_Top_joint",
-    "MenMainOnoffVi_Top_animjoint",
-    "MenMainOnoffVi_Top_matanim_joint",
-    "MenMainOnoffVi_Top_shapeanim_joint",
-    "MenMainCursorVi_Top_joint",
-};
-#define mnVibration_803EECE0 mnVibration_Layout.intro_anim
-#define mnVibration_803EECEC mnVibration_Layout.main_anim
-#define mnVibration_803EECF8 mnVibration_Layout.cursor_anim
-#define mnVibration_803EED04 mnVibration_Layout.name_pos
-#else
 AnimLoopSettings mnVibration_803EECE0 = { 0.0f, 20.0f, -0.1f };
 AnimLoopSettings mnVibration_803EECEC = { 50.0f, 70.0f, -0.1f };
 AnimLoopSettings mnVibration_803EECF8 = { 0.0f, 14.0f, -0.1f };
 Vec3 mnVibration_803EED04 = { -0.4f, 0.5f, 0.0f };
-// These strings are accessed through MnVibrationDataLayout.
-#ifdef MUST_MATCH
-#pragma push
-#pragma force_active on
-#endif
-static char mnVibration_803EED10[0x18] = "Can't get user_data.\n";
-static char mnVibration_803EED28[0x10] = "mnvibration.c";
-static char mnVibration_803EED38[0xC] = "user_data";
-static char mnVibration_803EED44[0x18] = "MenMainConVi_Top_joint";
-static char mnVibration_803EED5C[0x1C] = "MenMainConVi_Top_animjoint";
-static char mnVibration_803EED78[0x20] = "MenMainConVi_Top_matanim_joint";
-static char mnVibration_803EED98[0x24] = "MenMainConVi_Top_shapeanim_joint";
-static char mnVibration_803EEDBC[0x18] = "MenMainCtlVi_Top_joint";
-static char mnVibration_803EEDD4[0x1C] = "MenMainCtlVi_Top_animjoint";
-static char mnVibration_803EEDF0[0x20] = "MenMainCtlVi_Top_matanim_joint";
-static char mnVibration_803EEE10[0x24] = "MenMainCtlVi_Top_shapeanim_joint";
-static char mnVibration_803EEE34[0x1C] = "MenMainOnoffVi_Top_joint";
-static char mnVibration_803EEE50[0x20] = "MenMainOnoffVi_Top_animjoint";
-static char mnVibration_803EEE70[0x24] = "MenMainOnoffVi_Top_matanim_joint";
-static char mnVibration_803EEE94[0x24] = "MenMainOnoffVi_Top_shapeanim_joint";
-static char mnVibration_803EEEB8[0x20] = "MenMainCursorVi_Top_joint";
-
-#ifdef MUST_MATCH
-#pragma pop
-#endif
-#endif // MELEE_NATIVE
 
 // --- Globals ---
 HSD_GObj* mnVibration_804D6C28;
 
 /// --- Local Helper Structs ---
 typedef struct MnVibrationJointAssets {
-    void* joint;     // 0x00
-    void* animjoint; // 0x04
-    void* matanim;   // 0x08
-    void* shapeanim; // 0x0C
+    HSD_Joint* joint;              // 0x00
+    HSD_AnimJoint* animjoint;      // 0x04
+    HSD_MatAnimJoint* matanim;     // 0x08
+    HSD_ShapeAnimJoint* shapeanim; // 0x0C
 } MnVibrationJointAssets;
 
 typedef struct MnVibrationData {
@@ -674,24 +594,22 @@ void mnVibration_UpdatePortPanel(HSD_JObj* arg0, u8 arg1, u8 arg2)
     HSD_JObj* sp14;
     HSD_JObj* sp10;
     u8 temp_ret;
-    MnVibrationDataLayout* floats =
-        (MnVibrationDataLayout*) &mnVibration_803EECE0;
 
     lb_80011E24(arg0, &sp14, 1, -1);
     if (arg2 != 0) {
         HSD_JObjReqAnimAll(sp14, (f32) arg1);
         HSD_JObjAnimAll(sp14);
         if (GetRumbleSettingOfPort((s32) arg1) != 0) {
-            HSD_JObjReqAnimAll(sp14, floats->cursor_anim.end_frame);
+            HSD_JObjReqAnimAll(sp14, mnVibration_803EECF8.end_frame);
         } else {
-            HSD_JObjReqAnimAll(sp14, floats->cursor_anim.start_frame);
+            HSD_JObjReqAnimAll(sp14, mnVibration_803EECF8.start_frame);
         }
         mn_8022F3D8(sp14, 0xFF, MOBJ_MASK);
         HSD_JObjAnimAll(sp14);
     } else {
         HSD_JObjReqAnimAll(sp14, 20.0f);
         HSD_JObjAnimAll(sp14);
-        HSD_JObjReqAnimAll(sp14, floats->cursor_anim.end_frame);
+        HSD_JObjReqAnimAll(sp14, mnVibration_803EECF8.end_frame);
         mn_8022F3D8(sp14, 0xFF, MOBJ_MASK);
         HSD_JObjAnimAll(sp14);
     }
@@ -1115,11 +1033,9 @@ void mnVibration_CreateScreen(s32 arg0)
     HSD_Text* text;
     s32 i;
     MnVibrationData* data;
-    MnVibrationDataLayout* layout =
-        (MnVibrationDataLayout*) &mnVibration_803EECE0;
 
     (void) arg0;
-    PAD_STACK(24);
+    PAD_STACK(20);
     assets = &mnVibration_804A0898;
     gobj = GObj_Create(6, 7, 0x80);
     mnVibration_804D6C28 = gobj;
@@ -1131,8 +1047,8 @@ void mnVibration_CreateScreen(s32 arg0)
     HSD_JObjReqAnimAll(jobj, 0.0f);
     data = HSD_MemAlloc(sizeof(MnVibrationData));
     if (data == NULL) {
-        OSReport(layout->user_data_error);
-        __assert(layout->file_name, 0x3A7, layout->user_data_name);
+        OSReport("Can't get user_data.\n");
+        __assert("mnvibration.c", 0x3A7, "user_data");
     }
     data->x0[0] = 0;
     data->x0[1] = 0;
@@ -1141,14 +1057,9 @@ void mnVibration_CreateScreen(s32 arg0)
         data->x6[i] = HSD_PadCopyStatus[(u8) i].err != 0 ? 0 : 1;
     }
     data->scroll_offset = 0;
-    data->texts[0] = NULL;
-    data->texts[1] = NULL;
-    data->texts[2] = NULL;
-    data->texts[3] = NULL;
-    data->texts[4] = NULL;
-    data->texts[5] = NULL;
-    data->texts[6] = NULL;
-    data->texts[7] = NULL;
+    for (i = 0; i < 8; i++) {
+        data->texts[i] = NULL;
+    }
     GObj_InitUserData(gobj, 0, HSD_Free, data);
     {
         s32 k;
@@ -1179,9 +1090,7 @@ void mnVibration_Init(int arg0)
     HSD_GObj* gobj;
     HSD_GObjProc* proc;
     MnVibrationJointAssets* assets;
-    MnVibrationDataLayout* strings;
 
-    strings = (MnVibrationDataLayout*) &mnVibration_803EECE0;
     assets = (&mnVibration_804A0868);
     mn_804D6BC8.cooldown = 5;
     mn_804A04F0.prev_menu = mn_804A04F0.cur_menu;
@@ -1190,22 +1099,22 @@ void mnVibration_Init(int arg0)
     archive = mn_804D6BB8;
 
     lbArchive_LoadSections(
-        archive, &assets[3].joint, strings->convi_top_joint,
-        &assets[3].animjoint, strings->convi_top_animjoint, &assets[3].matanim,
-        strings->convi_top_matanim_joint, &assets[3].shapeanim,
-        strings->convi_top_shapeanim_joint,
+        archive, &assets[3].joint, "MenMainConVi_Top_joint",
+        &assets[3].animjoint, "MenMainConVi_Top_animjoint", &assets[3].matanim,
+        "MenMainConVi_Top_matanim_joint", &assets[3].shapeanim,
+        "MenMainConVi_Top_shapeanim_joint",
 
-        &assets[1].joint, strings->ctlvi_top_joint, &assets[1].animjoint,
-        strings->ctlvi_top_animjoint, &assets[1].matanim,
-        strings->ctlvi_top_matanim_joint, &assets[1].shapeanim,
-        strings->ctlvi_top_shapeanim_joint,
+        &assets[1].joint, "MenMainCtlVi_Top_joint", &assets[1].animjoint,
+        "MenMainCtlVi_Top_animjoint", &assets[1].matanim,
+        "MenMainCtlVi_Top_matanim_joint", &assets[1].shapeanim,
+        "MenMainCtlVi_Top_shapeanim_joint",
 
-        &assets[2].joint, strings->onoffvi_top_joint, &assets[2].animjoint,
-        strings->onoffvi_top_animjoint, &assets[2].matanim,
-        strings->onoffvi_top_matanim_joint, &assets[2].shapeanim,
-        strings->onoffvi_top_shapeanim_joint,
+        &assets[2].joint, "MenMainOnoffVi_Top_joint", &assets[2].animjoint,
+        "MenMainOnoffVi_Top_animjoint", &assets[2].matanim,
+        "MenMainOnoffVi_Top_matanim_joint", &assets[2].shapeanim,
+        "MenMainOnoffVi_Top_shapeanim_joint",
 
-        &assets[0].joint, strings->cursorvi_top_joint,
+        &assets[0].joint, "MenMainCursorVi_Top_joint",
 
         NULL);
 

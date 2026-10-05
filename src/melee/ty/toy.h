@@ -22,7 +22,7 @@
 /* 30562C */ void Toy_SetUnlockState(enum_t, bool);
 /* 305918 */ void Toy_80305918(s8, s32, s32);
 /* 305B88 */ s32 Toy_80305B88(void);
-/* 305C44 */ s32 Toy_80305C44(void);
+/* 305C44 */ u32 Toy_80305C44(void);
 /* 305D00 */ float Toy_80305D00(void);
 /* 305DB0 */ float Toy_80305DB0(void);
 /* 305EB4 */ float Toy_80305EB4(void);
@@ -71,7 +71,7 @@
 #ifdef MELEE_NATIVE
 extern struct Toy26B8 MeleeNativeToyState;
 #define Toy_804A284C ((u16*) ((u8*) &MeleeNativeToyState + 0x194))
-#define Toy_804A2AA8 (MeleeNativeToyState.anim)
+#define Toy_804A2AA8 (MeleeNativeToyState.x3F0_u.anim)
 #else
 /* 4A284C */ extern u16 Toy_804A284C[302];
 /* 4A2AA8 */ extern ToyAnimState Toy_804A2AA8;

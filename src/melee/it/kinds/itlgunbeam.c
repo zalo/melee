@@ -113,7 +113,7 @@ Item_GObj* it_802996D0(HSD_GObj* owner_gobj, Vec3* pos, u32 arg2,
     spawn.vel.x = spawn.vel.y = spawn.vel.z = 0.0f;
     spawn.x0_parent_gobj = owner_gobj;
     spawn.x4_parent_gobj2 = spawn.x0_parent_gobj;
-    spawn.x44_flag.b0 = true;
+    spawn.x44_flag.x0.b0 = true;
     spawn.x40 = arg2;
 
     {
@@ -121,7 +121,7 @@ Item_GObj* it_802996D0(HSD_GObj* owner_gobj, Vec3* pos, u32 arg2,
         if (gobj != NULL) {
             Item* item = GET_ITEM(gobj);
             ItLGunBeamAttr* item_spec_attr =
-                item->xC4_article_data->x4_specialAttributes;
+                &item->xC4_article_data->x4_specialAttributes->l_gun_beam;
             Item_ClearCmdVars(item);
             it_80275158(gobj, item->xDD4_itemVar.lgunbeam.lifetime =
                                   item_spec_attr->lifetime);
@@ -224,10 +224,10 @@ bool itLgunbeam_UnkMotion0_Coll(HSD_GObj* gobj)
     PAD_STACK(0x1E0);
     Item_ClampAngle(&ip->xDD4_itemVar.lgunbeam.angle0);
     flags = 0;
-    ip->x378_itemColl.ecb_source.up = 3.0f;
-    ip->x378_itemColl.ecb_source.down = 3.0f;
-    ip->x378_itemColl.ecb_source.front = 3.0f;
-    ip->x378_itemColl.ecb_source.back = 3.0f;
+    ip->x378_itemColl.ecb_source.x4.x0_1.up = 3.0f;
+    ip->x378_itemColl.ecb_source.x4.x0_1.down = 3.0f;
+    ip->x378_itemColl.ecb_source.x4.x0_1.front = 3.0f;
+    ip->x378_itemColl.ecb_source.x4.x0_1.back = 3.0f;
     it_8026D9A0(gobj);
 
     if (ip->x378_itemColl.env_flags & Collide_FloorMask) {

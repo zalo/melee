@@ -25,14 +25,14 @@ typedef struct grTMewtwo_UnkStruct {
     s32 x1C;
     s32 x18;
 #else
-    DynamicsDesc* x0;
-    DynamicsDesc* x4;
-    DynamicsDesc* xC;
-    DynamicsDesc* x8;
-    DynamicsDesc* x10;
-    DynamicsDesc* x14;
-    DynamicsDesc* x1C;
-    DynamicsDesc* x18;
+    lbColl_80008D30_arg1* x0;
+    lbColl_80008D30_arg1* x4;
+    lbColl_80008D30_arg1* xC;
+    lbColl_80008D30_arg1* x8;
+    lbColl_80008D30_arg1* x10;
+    lbColl_80008D30_arg1* x14;
+    lbColl_80008D30_arg1* x1C;
+    lbColl_80008D30_arg1* x18;
 #endif
 } grTMewtwo_UnkStruct;
 
@@ -54,14 +54,14 @@ typedef struct grTMewtwo_UnkStruct {
 /* 222488 */ static bool grTMewtwo_80222488(Ground_GObj* gobj);
 /* 222490 */ static void stageGObj1_GObjProc(Ground_GObj* gobj);
 /* 2224B0 */ static void grTMewtwo_802224B0(Ground_GObj* gobj);
-/* 2224B4 */ static DynamicsDesc* grTMewtwo_802224B4(enum_t arg0);
+/* 2224B4 */ static lbColl_80008D30_arg1* grTMewtwo_802224B4(enum_t arg0);
 /* 2225C8 */ static bool grTMewtwo_802225C8(Vec3* arg0, int arg1,
                                             HSD_JObj* arg2);
 #ifdef MELEE_NATIVE
-// Serialized DynamicsDesc slots stay 32-bit; the archive resolves them.
+// Serialized hit-description slots stay 32-bit; the archive resolves them.
 void* MeleeNativeScriptPointer(const void*);
 #define YAKUMONO_DYNAMICS(field) \
-    ((DynamicsDesc*) MeleeNativeScriptPointer(&yakumono_param->field))
+    ((lbColl_80008D30_arg1*) MeleeNativeScriptPointer(&yakumono_param->field))
 #else
 #define YAKUMONO_DYNAMICS(field) (yakumono_param->field)
 #endif
@@ -198,7 +198,7 @@ static void stageGObj1_GObjProc(Ground_GObj* gobj)
 
 void grTMewtwo_802224B0(Ground_GObj* gobj) {}
 
-static inline DynamicsDesc* inlineA0(int arg0)
+static inline lbColl_80008D30_arg1* inlineA0(int arg0)
 {
     int temp = mpLineGetKind(arg0);
     if (temp == CollLine_Floor) {
@@ -214,7 +214,7 @@ static inline DynamicsDesc* inlineA0(int arg0)
     }
 }
 
-static inline DynamicsDesc* inlineA1(int arg0)
+static inline lbColl_80008D30_arg1* inlineA1(int arg0)
 {
     int temp = mpLineGetKind(arg0);
     if (temp == CollLine_Floor) {
@@ -230,7 +230,7 @@ static inline DynamicsDesc* inlineA1(int arg0)
     }
 }
 
-DynamicsDesc* grTMewtwo_802224B4(enum_t arg0)
+lbColl_80008D30_arg1* grTMewtwo_802224B4(enum_t arg0)
 {
     if (arg0 != -1) {
         int temp = mpJointFromLine(arg0);

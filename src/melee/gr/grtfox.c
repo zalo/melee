@@ -40,14 +40,14 @@ static void stageGObj1_OnInit(Ground_GObj*);
 static bool grTFox_80220E30(Ground_GObj*);
 static void stageGObj1_GObjProc(Ground_GObj*);
 static void grTFox_80220E58(Ground_GObj*);
-static DynamicsDesc* grTFox_80220E5C(enum_t);
+static lbColl_80008D30_arg1* grTFox_80220E5C(enum_t);
 static bool grTFox_80220F08(Vec3*, int, HSD_JObj*);
 
 #ifdef MELEE_NATIVE
-// Serialized DynamicsDesc slots stay 32-bit; the archive resolves them.
+// Serialized hit-description slots stay 32-bit; the archive resolves them.
 void* MeleeNativeScriptPointer(const void*);
 #define YAKUMONO_DYNAMICS(field) \
-    ((DynamicsDesc*) MeleeNativeScriptPointer(&yakumono_param->field))
+    ((lbColl_80008D30_arg1*) MeleeNativeScriptPointer(&yakumono_param->field))
 #else
 #define YAKUMONO_DYNAMICS(field) (yakumono_param->field)
 #endif
@@ -162,7 +162,7 @@ static void stageGObj1_GObjProc(Ground_GObj* gobj)
 
 void grTFox_80220E58(Ground_GObj* gobj) {}
 
-DynamicsDesc* grTFox_80220E5C(enum_t arg0)
+lbColl_80008D30_arg1* grTFox_80220E5C(enum_t arg0)
 {
     if (arg0 != -1) {
         enum_t i = mpJointFromLine(arg0);

@@ -202,15 +202,15 @@ int it_8026B3C0(ItemKind kind)
 }
 
 /// Store Item article pointer to table
-void it_8026B3F8(Article* article, s32 kind)
+void it_8026B3F8(Article* article, ItemKind kind)
 {
-    it_804D6D38[kind - It_Kind_Kuriboh] = article;
+    it_804D6D38[kind - It_Kind_Section_Monster_Character_Misc_Start] = article;
 }
 
 /// Store Stage Item article pointer to table
-void it_8026B40C(Article* article, s32 kind)
+void it_8026B40C(Article* article, ItemKind kind)
 {
-    it_804A0F60[kind - It_Kind_Old_Kuri] = article;
+    it_804A0F60[kind - It_Kind_Section_Stage_Extended_Start] = article;
 }
 
 /// Item Damage Math
@@ -263,32 +263,32 @@ bool it_8026B4F0(HSD_GObj* gobj)
     }
 }
 
-/// Get unknown float from 0x0 of item's special attributes
+/// Get unknown float from 0x0 of Bunny Hood's special attributes
 float it_8026B54C(HSD_GObj* gobj)
 {
     Item* temp_item = gobj->user_data;
-    itUnkAttributes* unk_attr =
-        temp_item->xC4_article_data->x4_specialAttributes;
+    itRabbitCAttributes* unk_attr =
+        &temp_item->xC4_article_data->x4_specialAttributes->rabbit_c;
 
-    return unk_attr->x0_float;
+    return unk_attr->x0;
 }
 
-/// Identical to 0x8026B54C but likely using a different itAttributes struct
+/// Get unknown float from 0x0 of Metal Box's special attributes
 float it_8026B560(HSD_GObj* gobj)
 {
     Item* temp_item = gobj->user_data;
-    itUnkAttributes* unk_attr =
-        temp_item->xC4_article_data->x4_specialAttributes;
-    return unk_attr->x0_float;
+    itMetalBAttributes* unk_attr =
+        &temp_item->xC4_article_data->x4_specialAttributes->metal_b;
+    return unk_attr->x0;
 }
 
-/// Get unknown float from 0x4 of item's special attributes
+/// Get unknown float from 0x4 of Metal Box's special attributes
 float it_8026B574(HSD_GObj* gobj)
 {
     Item* temp_item = gobj->user_data;
-    itUnkAttributes* unk_attr =
-        temp_item->xC4_article_data->x4_specialAttributes;
-    return unk_attr->x4_float;
+    itMetalBAttributes* unk_attr =
+        &temp_item->xC4_article_data->x4_specialAttributes->metal_b;
+    return unk_attr->x4;
 }
 
 /// Get unknown integer from itCommonData
@@ -363,9 +363,10 @@ bool it_8026B6C8(HSD_GObj* gobj)
 
     ip = gobj->user_data;
     kind = ip->kind;
-    if (((kind >= It_Kind_Kuriboh) && (kind < It_Kind_Octarock_Stone)) ||
-        ((itemID_2 = ip->kind, ((itemID_2 < It_Kind_Old_Kuri) == false)) &&
-         (itemID_2 < It_Kind_Arwing_Laser)))
+    if (((kind >= It_Kind_Monster_Start) && (kind < It_Kind_Monster_End)) ||
+        ((itemID_2 = ip->kind,
+          ((itemID_2 < It_Kind_Section_Stage_Extended_Start) == false)) &&
+         (itemID_2 < It_Kind_Stage_End)))
     {
         itemID_3 = ip->kind;
         if ((itemID_3 != It_Kind_Kyasarin_Egg) &&
@@ -624,7 +625,7 @@ void it_8026B9A8(HSD_GObj* gobj, HSD_GObj* arg1, Fighter_Part arg2)
     }
 
     HSD_JObjRemoveAnimAll(jobj0);
-    ip->x524_cmd.u = NULL;
+    ip->x524_cmd.x8.u = NULL;
 }
 
 /// Multiply item's scale
@@ -705,7 +706,7 @@ void it_8026BC14(HSD_GObj* gobj)
 bool it_8026BC68(HSD_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    return ip->xDD0_flag.b0;
+    return ip->xDD0_flag.x0.b0;
 }
 
 /// @returns #Item::owner of @p gobj.
@@ -738,21 +739,21 @@ void it_8026BC90(HSD_GObj* gobj, Vec3* pos)
 void it_8026BCF4(HSD_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    ip->xDCD_flag.b2 = false;
+    ip->xDCD_flag.x0.b2 = false;
 }
 
 /// Sets #Item::xDCD_flag::bits::b2 of @p gobj.
 void it_8026BD0C(HSD_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    ip->xDCD_flag.b2 = true;
+    ip->xDCD_flag.x0.b2 = true;
 }
 
 /// Sets #Item::xDD0_flag::bits::b3 of @p gobj.
 void it_8026BD24(HSD_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    ip->xDD0_flag.b3 = true;
+    ip->xDD0_flag.x0.b3 = true;
 }
 
 /// Sets #Item::xDCC_flag::bits::b3 of @p gobj.
@@ -773,14 +774,14 @@ void it_8026BD54(HSD_GObj* gobj)
 void it_8026BD6C(HSD_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    ip->xDCD_flag.b3 = true;
+    ip->xDCD_flag.x0.b3 = true;
 }
 
 /// Sets #Item::xDCD_flag::bits::b4 of @p gobj.
 void it_8026BD84(HSD_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    ip->xDCD_flag.b4 = true;
+    ip->xDCD_flag.x0.b4 = true;
 }
 
 /// Sets #Item::xDC8_word::flags::x1A of @p gobj.
@@ -803,7 +804,7 @@ void it_8026BDCC(HSD_GObj* gobj)
     /// @todo Each of these is an inlined function. Some are already defined.
     {
         Item* ip = GET_ITEM(gobj);
-        ip->xDD0_flag.b3 = false;
+        ip->xDD0_flag.x0.b3 = false;
     }
 
     {
@@ -813,12 +814,12 @@ void it_8026BDCC(HSD_GObj* gobj)
 
     {
         Item* ip = GET_ITEM(gobj);
-        ip->xDCD_flag.b3 = false;
+        ip->xDCD_flag.x0.b3 = false;
     }
 
     {
         Item* ip = GET_ITEM(gobj);
-        ip->xDCD_flag.b4 = false;
+        ip->xDCD_flag.x0.b4 = false;
     }
 
     {
@@ -833,7 +834,7 @@ void it_8026BE28(HSD_GObj* gobj)
     /// @todo Each of these is an inlined function. Some are already defined.
     {
         Item* ip = GET_ITEM(gobj);
-        ip->xDD0_flag.b3 = true;
+        ip->xDD0_flag.x0.b3 = true;
     }
 
     {
@@ -843,12 +844,12 @@ void it_8026BE28(HSD_GObj* gobj)
 
     {
         Item* ip = GET_ITEM(gobj);
-        ip->xDCD_flag.b3 = true;
+        ip->xDCD_flag.x0.b3 = true;
     }
 
     {
         Item* ip = GET_ITEM(gobj);
-        ip->xDCD_flag.b4 = true;
+        ip->xDCD_flag.x0.b4 = true;
     }
 
     {
@@ -979,18 +980,18 @@ HSD_GObj* it_8026BE84(BobOmbRain* bobOmbRain)
         break;
     }
 
-    if (gobj != NULL && bobOmbRain->x1C.b0) {
+    if (gobj != NULL && bobOmbRain->x1C.x0.b0) {
         ip = gobj->user_data;
-        ip->xDD0_flag.b3 = true;
+        ip->xDD0_flag.x0.b3 = true;
 
         item_data_2 = gobj->user_data;
         item_data_2->xDCC_flag.b3 = false;
 
         item_data_3 = gobj->user_data;
-        item_data_3->xDCD_flag.b3 = true;
+        item_data_3->xDCD_flag.x0.b3 = true;
 
         item_data_4 = gobj->user_data;
-        item_data_4->xDCD_flag.b4 = true;
+        item_data_4->xDCD_flag.x0.b4 = true;
 
         item_data_5 = gobj->user_data;
         item_data_5->xDC8_word.flags.x1A = false;
@@ -1039,8 +1040,9 @@ bool it_8026C1B4(HSD_GObj* gobj)
 
 u32 it_8026C1D4(void)
 {
-    itLGun_ItemVars* lgun = it_804D6D24[It_Kind_L_Gun]->x4_specialAttributes;
-    return lgun->timer;
+    ItLGunAttr* lgun =
+        &it_804D6D24[It_Kind_L_Gun]->x4_specialAttributes->l_gun;
+    return lgun->max_ammo;
 }
 
 /// Check if item has grabbed a GObj?
@@ -1077,12 +1079,12 @@ HSD_GObj* it_8026C258(Vec3* pos, f32 facing_dir)
         Item* ip = GET_ITEM(cur);
 
         // Might not actually be (exclusively) hold kind in the end???
-        enum_t hold_kind = ip->hold_kind;
+        Item_HoldKinds hold_kind = ip->hold_kind;
 
         // Decide lock-on type for Samus Missile?
-        if ((hold_kind == ITEM_UNK_MATO || hold_kind == ITEM_UNK_LOCKON ||
-             /// @todo Why is this cast to @c s16 necessary?
-             (s16) (hold_kind == ITEM_UNK_ENEMY) || hold_kind == ITEM_UNK_7) &&
+        /// @todo Why are these casts to @c s32 and s16 necessary?
+        if ((hold_kind == ITEM_HOLD_4 || (s32) hold_kind == ITEM_HOLD_5 ||
+             (s16) (hold_kind == ITEM_HOLD_6) || hold_kind == ITEM_HOLD_7) &&
             ip->grab_victim == NULL &&
             (!ip->xDC8_word.flags.x13 || ip->owner == NULL) &&
             (facing_dir != -1 || !(ip->pos.x > pos->x)) &&

@@ -431,46 +431,49 @@ Fighter_DemoStrings ftFc_Init_DemoMotionFilenames = {
     "ftDemoViWaitMotionFileFalco",
 };
 
-Fighter_CostumeStrings ftFc_Init_CostumeStrings[] = {
-    { ftFc_Init_803D1CC0, ftFc_Init_803D1CCC, ftFc_Init_803D1CE4 },
-    { ftFc_Init_803D1D04, ftFc_Init_803D1D10, ftFc_Init_803D1D2C },
-    { ftFc_Init_803D1D50, ftFc_Init_803D1D5C, ftFc_Init_803D1D78 },
-    { ftFc_Init_803D1D9C, ftFc_Init_803D1DA8, ftFc_Init_803D1DC4 },
-};
+Fighter_CostumeStrings
+    ftFc_Init_CostumeStrings[ARRAY_SIZE(ftFc_CostumeList)] = {
+        { ftFc_Init_803D1CC0, ftFc_Init_803D1CCC, ftFc_Init_803D1CE4 },
+        { ftFc_Init_803D1D04, ftFc_Init_803D1D10, ftFc_Init_803D1D2C },
+        { ftFc_Init_803D1D50, ftFc_Init_803D1D5C, ftFc_Init_803D1D78 },
+        { ftFc_Init_803D1D9C, ftFc_Init_803D1DA8, ftFc_Init_803D1DC4 },
+    };
 
 void ftFc_Init_OnDeath(HSD_GObj* gobj)
 {
     Fighter* fp = gobj->user_data;
-    fp->u.fx.x222C_blasterGObj = 0;
+    fp->u.fx.x222C_blasterGObj = NULL;
     ftParts_80074A4C(gobj, 0, 0);
 }
 
 void ftFc_Init_OnItemPickup(HSD_GObj* gobj, bool flag)
 {
-    Fighter_OnItemPickup(gobj, flag, 1, 1);
+    Fighter_OnItemPickup(gobj, flag, true, true);
 }
 
 void ftFc_Init_OnItemInvisible(HSD_GObj* gobj)
 {
-    Fighter_OnItemInvisible(gobj, 1);
+    Fighter_OnItemInvisible(gobj, true);
 }
 
 void ftFc_Init_OnItemVisible(HSD_GObj* gobj)
 {
-    Fighter_OnItemVisible(gobj, 1);
+    Fighter_OnItemVisible(gobj, true);
 }
 
 void ftFc_Init_OnItemDrop(HSD_GObj* gobj, bool flag)
 {
-    Fighter_OnItemDrop(gobj, flag, 1, 1);
+    Fighter_OnItemDrop(gobj, flag, true, true);
 }
 
 void ftFc_Init_OnLoad(HSD_GObj* gobj)
 {
     Fighter* fp = gobj->user_data;
     ftData* ftdata = fp->ft_data;
+    /// @todo: create a file and struct for Falco's attributes (same as
+    /// ftFox_DatAttrs?) and replace this
     s32* sa2;
-    void** items = ftdata->x48_items;
+    union ftData_Item* items = ftdata->x48_items;
 
     u8 _[8];
 
@@ -478,9 +481,9 @@ void ftFc_Init_OnLoad(HSD_GObj* gobj)
     ftFx_Init_OnLoadForFalco(fp);
 
     sa2 = fp->dat_attrs;
-    it_8026B3F8(items[0], sa2[7]);
-    it_8026B3F8(items[1], sa2[8]);
-    it_8026B3F8(items[3], It_Kind_Falco_Phantasm);
+    it_8026B3F8(items[0].article, sa2[7]);
+    it_8026B3F8(items[1].article, sa2[8]);
+    it_8026B3F8(items[3].article, It_Kind_Falco_Phantasm);
 }
 
 void ftFc_Init_LoadSpecialAttrs(HSD_GObj* gobj)

@@ -74,7 +74,7 @@ foreach(source IN LISTS MELEE_SJIS_SOURCES)
   set_source_files_properties("${converted}" PROPERTIES INCLUDE_DIRECTORIES "${source_directory}")
 endforeach()
 add_library(melee_game OBJECT ${GAME_SOURCES})
-target_include_directories(melee_game PRIVATE include "${MELEE_ROOT}/src" "${CMAKE_CURRENT_BINARY_DIR}/sdk")
+target_include_directories(melee_game PRIVATE include "${MELEE_ROOT}/src" "${MELEE_ROOT}/libs/doldecomp/include" "${CMAKE_CURRENT_BINARY_DIR}/sdk")
 target_compile_definitions(melee_game PRIVATE TARGET_PC MELEE_NATIVE BUILD_VERSION=0 VERSION_GALE01)
 target_compile_options(melee_game PRIVATE -include "${CMAKE_CURRENT_SOURCE_DIR}/include/compat.h"
   -g

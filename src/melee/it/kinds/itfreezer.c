@@ -23,7 +23,8 @@ ItemStateTable it_803F7C70[] = {
 void itFreezer_802CCF9C(Item_GObj* gobj)
 {
     Item* item = GET_ITEM(gobj);
-    itFreezerAttributes* attrs = item->xC4_article_data->x4_specialAttributes;
+    itFreezerAttributes* attrs =
+        &item->xC4_article_data->x4_specialAttributes->freezer;
     item->facing_dir = 0.0f;
     item->xDAC_itcmd_var0 = 0;
     item->xDB0_itcmd_var1 = 0;
@@ -64,7 +65,7 @@ void itFreezer_802CD090(Item_GObj* gobj)
     if (item->xDD4_itemVar.freezer.x60 <= 0) {
         HSD_JObj* jobj = HSD_GObjGetHSDObj(gobj);
         itFreezerAttributes* attrs =
-            item->xC4_article_data->x4_specialAttributes;
+            &item->xC4_article_data->x4_specialAttributes->freezer;
         item->xDD4_itemVar.freezer.x60 = attrs->xC;
         it_8027ADEC(0x461, gobj, jobj, 1.4f);
         return;
@@ -107,14 +108,14 @@ void itFreezer_UnkMotion2_Phys(Item_GObj* gobj)
     Item* item = GET_ITEM(gobj);
     if (item->xDAC_itcmd_var0 != false) {
         itFreezerAttributes* attrs =
-            item->xC4_article_data->x4_specialAttributes;
+            &item->xC4_article_data->x4_specialAttributes->freezer;
         item->x40_vel.y = attrs->x4;
         item->xDAC_itcmd_var0 = 0;
         item->xDB0_itcmd_var1 = 1;
     }
     if (item->xDB0_itcmd_var1 != false) {
         itFreezerAttributes* attrs =
-            item->xC4_article_data->x4_specialAttributes;
+            &item->xC4_article_data->x4_specialAttributes->freezer;
         item->x40_vel.y += attrs->x8;
     }
 }
@@ -130,7 +131,7 @@ void itFreezer_802CD290(Item_GObj* gobj)
     if (item->xDD4_itemVar.freezer.x60 <= 0) {
         HSD_JObj* jobj = HSD_GObjGetHSDObj(gobj);
         itFreezerAttributes* attrs =
-            item->xC4_article_data->x4_specialAttributes;
+            &item->xC4_article_data->x4_specialAttributes->freezer;
         item->xDD4_itemVar.freezer.x60 = attrs->xC;
         it_8027ADEC(0x461, gobj, jobj, 1.4f);
         return;
@@ -164,7 +165,7 @@ static void itFreezer_UnkMotion0_Phys_inline1(Item_GObj* gobj)
     Item* item = GET_ITEM(gobj);
     it_80273454(gobj);
     itFreezer_UnkMotion0_Phys_inline2(gobj);
-    item->xDD1_flag.b1 = true;
+    item->xDD1_flag.x0.b1 = true;
 }
 
 void itFreezer_UnkMotion0_Phys(Item_GObj* gobj)

@@ -329,12 +329,13 @@ Fighter_DemoStrings ftPk_Init_DemoMotionFilenames = {
     "ftDemoViWaitMotionFilePikachu",
 };
 
-Fighter_CostumeStrings ftPk_Init_CostumeStrings[] = {
-    { ftPk_Init_803CE0D4, ftPk_Init_803CE0E0, ftPk_Init_803CE0FC },
-    { ftPk_Init_803CE120, ftPk_Init_803CE12C, ftPk_Init_803CE148 },
-    { ftPk_Init_803CE16C, ftPk_Init_803CE178, ftPk_Init_803CE194 },
-    { ftPk_Init_803CE1B8, ftPk_Init_803CE1C4, ftPk_Init_803CE1E0 },
-};
+Fighter_CostumeStrings
+    ftPk_Init_CostumeStrings[ARRAY_SIZE(ftPk_CostumeList)] = {
+        { ftPk_Init_803CE0D4, ftPk_Init_803CE0E0, ftPk_Init_803CE0FC },
+        { ftPk_Init_803CE120, ftPk_Init_803CE12C, ftPk_Init_803CE148 },
+        { ftPk_Init_803CE16C, ftPk_Init_803CE178, ftPk_Init_803CE194 },
+        { ftPk_Init_803CE1B8, ftPk_Init_803CE1C4, ftPk_Init_803CE1E0 },
+    };
 
 void ftPk_Init_OnLoadForPichu(Fighter* fp)
 {
@@ -344,15 +345,15 @@ void ftPk_Init_OnLoadForPichu(Fighter* fp)
 void ftPk_Init_OnLoad(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    void** item_list = fp->ft_data->x48_items;
+    union ftData_Item* item_list = fp->ft_data->x48_items;
 
     PUSH_ATTRS(fp, ftPikachuAttributes);
 
     {
         ftPikachuAttributes* pika_attr = fp->dat_attrs;
-        it_8026B3F8(item_list[0], pika_attr->xDC);
-        it_8026B3F8(item_list[1], pika_attr->specialn_itkind);
-        it_8026B3F8(item_list[2], pika_attr->specialairn_itkind);
+        it_8026B3F8(item_list[0].article, pika_attr->xDC);
+        it_8026B3F8(item_list[1].article, pika_attr->specialn_itkind);
+        it_8026B3F8(item_list[2].article, pika_attr->specialairn_itkind);
     }
 }
 
@@ -366,22 +367,22 @@ void ftPk_Init_OnDeath(HSD_GObj* gobj)
 
 void ftPk_Init_OnItemPickup(HSD_GObj* gobj, bool flag)
 {
-    Fighter_OnItemPickup(gobj, flag, 0, 0);
+    Fighter_OnItemPickup(gobj, flag, false, false);
 }
 
 void ftPk_Init_OnItemInvisible(HSD_GObj* gobj)
 {
-    Fighter_OnItemInvisible(gobj, 0);
+    Fighter_OnItemInvisible(gobj, false);
 }
 
 void ftPk_Init_OnItemVisible(HSD_GObj* gobj)
 {
-    Fighter_OnItemVisible(gobj, 0);
+    Fighter_OnItemVisible(gobj, false);
 }
 
 void ftPk_Init_OnItemDrop(HSD_GObj* gobj, bool bool1)
 {
-    Fighter_OnItemDrop(gobj, bool1, 0, 0);
+    Fighter_OnItemDrop(gobj, bool1, false, false);
 }
 
 void ftPk_Init_UnkMotionStates1(HSD_GObj* gobj)

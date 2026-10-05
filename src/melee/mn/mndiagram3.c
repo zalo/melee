@@ -191,14 +191,14 @@ void mnDiagram3_PopulateRankings(HSD_GObj* gobj)
                     (rank = (u8) i,
                      mnDiagram2_GetAggregatedFighterRank(&first_rank,
                                                          stat_type, rank),
-                     first_rank.idx != 0x19))
+                     first_rank.x0.idx != 0x19))
                 {
                     {
                         u8 rank = (u16) i;
                         mnDiagram2_GetAggregatedFighterRank(&fighter_rank,
                                                             stat_type, rank);
                     }
-                    icon = mnDiagram_CreateFighterIcon(fighter_rank.idx, 0);
+                    icon = mnDiagram_CreateFighterIcon(fighter_rank.x0.idx, 0);
                     HSD_JObjSetTranslateY(icon, row_spacing * (f32) i);
                     HSD_JObjAddChild(data->jobjs[6], icon);
                     {
@@ -206,8 +206,8 @@ void mnDiagram3_PopulateRankings(HSD_GObj* gobj)
                         mnDiagram2_GetAggregatedFighterRank(&rank_value,
                                                             stat_type, rank);
                     }
-                    mnDiagram_FormatDecimalNumber((char*) sp58, rank_value.xC,
-                                                  0);
+                    mnDiagram_FormatDecimalNumber((char*) sp58,
+                                                  rank_value.x0.xC, 0);
                     {
                         f32 offset_y = neg_spacing * (f32) i / 0.035f;
                         HSD_SisLib_803A6B98(value_text, 0.0f, offset_y,
@@ -586,7 +586,7 @@ void mnDiagram3_InitUserData(Diagram3* data, int arg1)
 {
     u8* src;
     int i;
-    PAD_STACK(8);
+    PAD_STACK(4);
 
     src = (u8*) &mn_804A04F0;
     data->saved_menu = src[0];
@@ -602,11 +602,9 @@ void mnDiagram3_InitUserData(Diagram3* data, int arg1)
     data->popup_gobj = NULL;
     data->title_text = NULL;
     data->value_text = NULL;
-    data->row_icons[0] = NULL;
-    data->row_icons[1] = NULL;
-    data->row_icons[2] = NULL;
-    data->row_icons[3] = NULL;
-    data->row_icons[4] = NULL;
+    for (i = 0; i < 5; i++) {
+        data->row_icons[i] = NULL;
+    }
 }
 
 static inline HSD_JObj* mnDiagram3_LoadJoint(StaticModelDesc* archive)

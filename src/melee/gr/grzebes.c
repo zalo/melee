@@ -63,7 +63,7 @@
 /* 1DC408 */ static void grZebes_801DC408(Ground_GObj*);
 /* 1DC744 */ static void grZebes_801DC744(s32, u8);
 /* 1DC9DC */ static void grZebes_801DC9DC(HSD_GObj* arg);
-/* 1DCCB8 */ static DynamicsDesc* grZebes_801DCCB8(enum_t arg);
+/* 1DCCB8 */ static lbColl_80008D30_arg1* grZebes_801DCCB8(enum_t arg);
 /* 1DCCC0 */ static bool grZebes_801DCCC0(Vec3* arg, int arg0, HSD_JObj* jobj);
 
 typedef struct grZe_ColorEntry {
@@ -1440,9 +1440,9 @@ s32 grZebes_801DAA08(void)
                  * pointers and stride widen, so use the named array element. */
                 struct UnkStageDat_x8_t* e =
                     &grDatFiles_801C6330(2)->unk4->unk8[2];
-                HSD_ShapeAnimJoint** sap = e->unkC;
-                HSD_AnimJoint** ajp = e->unk4;
-                HSD_MatAnimJoint** mjp = e->unk8;
+                HSD_ShapeAnimJoint** sap = e->shapeanims;
+                HSD_AnimJoint** ajp = e->anims;
+                HSD_MatAnimJoint** mjp = e->matanims;
                 HSD_ShapeAnimJoint* sa;
                 HSD_MatAnimJoint* ma;
                 HSD_AnimJoint* aj;
@@ -2403,7 +2403,7 @@ bool grZebes_801DCBFC(Ground_GObj* gobj, HSD_GObj* fobj, void* arg)
     return false;
 }
 
-DynamicsDesc* grZebes_801DCCB8(enum_t arg)
+lbColl_80008D30_arg1* grZebes_801DCCB8(enum_t arg)
 {
     return NULL;
 }

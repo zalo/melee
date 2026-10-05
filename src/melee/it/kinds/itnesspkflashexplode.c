@@ -36,7 +36,7 @@ Item_GObj* it_802AF940(Item_GObj* owner, Item_GObj* flash, Vec3* pos,
     spawn.vel.x = spawn.vel.y = spawn.vel.z = 0.0f;
     spawn.x0_parent_gobj = owner;
     spawn.x4_parent_gobj2 = flash;
-    spawn.x44_flag.b0 = true;
+    spawn.x44_flag.x0.b0 = true;
     spawn.x40 = 0;
 
     explode = Item_80268B18(&spawn);
@@ -64,7 +64,8 @@ void it_2725_Logic103_Destroyed(Item_GObj* item_gobj)
 void it_802AFA70(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itFlashExplAttributes* attr = ip->xC4_article_data->x4_specialAttributes;
+    itFlashExplAttributes* attr =
+        &ip->xC4_article_data->x4_specialAttributes->flash_expl;
     f32 ratio;
     PAD_STACK(8);
 
@@ -93,7 +94,8 @@ void it_802AFA70(Item_GObj* gobj)
 bool itNessPKFlashExplode_UnkMotion0_Anim(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
-    itFlashExplAttributes* attr = ip->xC4_article_data->x4_specialAttributes;
+    itFlashExplAttributes* attr =
+        &ip->xC4_article_data->x4_specialAttributes->flash_expl;
     HSD_JObj* jobj = GET_JOBJ(gobj);
     Vec3 scale;
     scale.x = scale.y = scale.z = (ip->xDD4_itemVar.pkflushexplode.xDD4 *

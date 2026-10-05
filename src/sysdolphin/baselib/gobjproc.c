@@ -85,7 +85,7 @@ void HSD_GObjProc_QueueProc(HSD_GObjProc* gproc)
     }
     gproc->child = proc_gobj->proc;
     proc_gobj->proc = gproc;
-    if (HSD_GObj_DelayedProcInfo.in_delayed_proc &&
+    if (HSD_GObj_DelayedProcInfo.x0.x0.in_delayed_proc &&
         gproc->prev == HSD_GObj_CurrentInvokedProc &&
         gproc->next == HSD_GObj_NextInvokedProc &&
         s_link == HSD_GObj_CurrentInvokedSLink)
@@ -98,7 +98,7 @@ void HSD_GObjProc_UnqueueProc(HSD_GObjProc* gproc)
 {
     int p_link = gproc->gobj->p_link;
     int s_link = gproc->s_link;
-    if (HSD_GObj_DelayedProcInfo.in_delayed_proc &&
+    if (HSD_GObj_DelayedProcInfo.x0.x0.in_delayed_proc &&
         gproc == HSD_GObj_NextInvokedProc)
     {
         HSD_GObj_NextInvokedProc = gproc->next;
@@ -156,6 +156,7 @@ HSD_GObjProc* HSD_GObj_SetupProc(HSD_GObj* gobj, HSD_GObjEvent func, u8 pri)
     gproc = HSD_ObjAlloc(&gobjproc_alloc_data);
     assertProc(gproc);
     HSD_ASSERT(216, pri <= HSD_GObjLibInitData.gproc_pri_max);
+    /// @todo: should the priorities be an enum that illustrates what they are?
     gproc->s_link = pri;
     gproc->flags_1 = gproc->flags_2 = 0;
     gproc->flags_3 = 3;
@@ -167,10 +168,10 @@ HSD_GObjProc* HSD_GObj_SetupProc(HSD_GObj* gobj, HSD_GObjEvent func, u8 pri)
 
 void HSD_GObjProc_RemoveProc(HSD_GObjProc* gproc)
 {
-    if (!HSD_GObj_DelayedProcInfo.in_delayed_proc &&
+    if (!HSD_GObj_DelayedProcInfo.x0.x0.in_delayed_proc &&
         gproc == HSD_GObj_CurrentInvokedProc)
     {
-        HSD_GObj_DelayedProcInfo.delay_remove_proc = true;
+        HSD_GObj_DelayedProcInfo.x0.x0.delay_remove_proc = true;
     } else {
         HSD_GObjProc_UnlinkProcFromGObj(gproc);
         HSD_ObjFree(&gobjproc_alloc_data, gproc);

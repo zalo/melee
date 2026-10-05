@@ -592,36 +592,33 @@ void ftKb_SpecialAirLwEnd_Phys(Fighter_GObj* gobj)
     ft_80085134(gobj);
 }
 
+static inline void resetSpecialLwState(Fighter_GObj* gobj,
+                                       struct ftKb_Init_803CB490_layout* p)
+{
+    Fighter* fp = GET_FIGHTER(gobj);
+    int i;
+
+    for (i = 0; i < 4; i++) {
+        fp->mv.kb.speciallw.x24[i] = KIRBY_STONE_NORMAL(p);
+        fp->mv.kb.speciallw.x54[i] = fp->mv.kb.speciallw.x24[i];
+        fp->mv.kb.speciallw.x88[i] = 0.0f;
+        fp->mv.kb.speciallw.x88[i + 4] = 0.0f;
+    }
+    fp->mv.kb.speciallw.x18 = KIRBY_STONE_NORMAL(p);
+    fp->mv.kb.speciallw.x84 = 0.0f;
+}
+
 void ftKb_SpecialLw1_Coll(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    Fighter* fp2;
     Fighter* fp3;
     s32 temp;
     struct ftKb_Init_803CB490_layout* p =
         (struct ftKb_Init_803CB490_layout*) ftKb_Init_803CB490;
-    PAD_STACK(16);
+    PAD_STACK(4);
 
     if (ft_80082708(gobj) == GA_Ground) {
-        fp2 = GET_FIGHTER(gobj);
-        fp2->mv.kb.speciallw.x24[0] = KIRBY_STONE_NORMAL(p);
-        fp2->mv.kb.speciallw.x54[0] = fp2->mv.kb.speciallw.x24[0];
-        fp2->mv.kb.speciallw.x88[0] = 0.0f;
-        fp2->mv.kb.speciallw.x88[4] = 0.0f;
-        fp2->mv.kb.speciallw.x24[1] = KIRBY_STONE_NORMAL(p);
-        fp2->mv.kb.speciallw.x54[1] = fp2->mv.kb.speciallw.x24[1];
-        fp2->mv.kb.speciallw.x88[1] = 0.0f;
-        fp2->mv.kb.speciallw.x88[5] = 0.0f;
-        fp2->mv.kb.speciallw.x24[2] = KIRBY_STONE_NORMAL(p);
-        fp2->mv.kb.speciallw.x54[2] = fp2->mv.kb.speciallw.x24[2];
-        fp2->mv.kb.speciallw.x88[2] = 0.0f;
-        fp2->mv.kb.speciallw.x88[6] = 0.0f;
-        fp2->mv.kb.speciallw.x24[3] = KIRBY_STONE_NORMAL(p);
-        fp2->mv.kb.speciallw.x54[3] = fp2->mv.kb.speciallw.x24[3];
-        fp2->mv.kb.speciallw.x88[3] = 0.0f;
-        fp2->mv.kb.speciallw.x88[7] = 0.0f;
-        fp2->mv.kb.speciallw.x18 = KIRBY_STONE_NORMAL(p);
-        fp2->mv.kb.speciallw.x84 = 0.0f;
+        resetSpecialLwState(gobj, p);
         fp->self_vel.x = 0.0f;
         ftCommon_8007D5D4(fp);
         temp = fp->x221C_b4;
@@ -641,33 +638,14 @@ void ftKb_SpecialLw1_Coll(Fighter_GObj* gobj)
 void ftKb_SpecialLw_Coll(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    Fighter* fp2;
     Fighter* fp3;
     s32 temp;
     struct ftKb_Init_803CB490_layout* p =
         (struct ftKb_Init_803CB490_layout*) ftKb_Init_803CB490;
-    PAD_STACK(16);
+    PAD_STACK(4);
 
     if (ft_80082708(gobj) == GA_Ground) {
-        fp2 = GET_FIGHTER(gobj);
-        fp2->mv.kb.speciallw.x24[0] = KIRBY_STONE_NORMAL(p);
-        fp2->mv.kb.speciallw.x54[0] = fp2->mv.kb.speciallw.x24[0];
-        fp2->mv.kb.speciallw.x88[0] = 0.0f;
-        fp2->mv.kb.speciallw.x88[4] = 0.0f;
-        fp2->mv.kb.speciallw.x24[1] = KIRBY_STONE_NORMAL(p);
-        fp2->mv.kb.speciallw.x54[1] = fp2->mv.kb.speciallw.x24[1];
-        fp2->mv.kb.speciallw.x88[1] = 0.0f;
-        fp2->mv.kb.speciallw.x88[5] = 0.0f;
-        fp2->mv.kb.speciallw.x24[2] = KIRBY_STONE_NORMAL(p);
-        fp2->mv.kb.speciallw.x54[2] = fp2->mv.kb.speciallw.x24[2];
-        fp2->mv.kb.speciallw.x88[2] = 0.0f;
-        fp2->mv.kb.speciallw.x88[6] = 0.0f;
-        fp2->mv.kb.speciallw.x24[3] = KIRBY_STONE_NORMAL(p);
-        fp2->mv.kb.speciallw.x54[3] = fp2->mv.kb.speciallw.x24[3];
-        fp2->mv.kb.speciallw.x88[3] = 0.0f;
-        fp2->mv.kb.speciallw.x88[7] = 0.0f;
-        fp2->mv.kb.speciallw.x18 = KIRBY_STONE_NORMAL(p);
-        fp2->mv.kb.speciallw.x84 = 0.0f;
+        resetSpecialLwState(gobj, p);
         fp->self_vel.x = 0.0f;
         ftCommon_8007D5D4(fp);
         temp = fp->x221C_b4;
@@ -688,30 +666,10 @@ void ftKb_SpecialLw_Coll(Fighter_GObj* gobj)
 void ftKb_SpecialLwEnd_Coll(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    Fighter* fp2;
     struct ftKb_Init_803CB490_layout* p =
         (struct ftKb_Init_803CB490_layout*) ftKb_Init_803CB490;
-    PAD_STACK(8);
     ft_80081D0C(gobj);
-    fp2 = GET_FIGHTER(gobj);
-    fp2->mv.kb.speciallw.x24[0] = KIRBY_STONE_NORMAL(p);
-    fp2->mv.kb.speciallw.x54[0] = fp2->mv.kb.speciallw.x24[0];
-    fp2->mv.kb.speciallw.x88[0] = 0.0f;
-    fp2->mv.kb.speciallw.x88[4] = 0.0f;
-    fp2->mv.kb.speciallw.x24[1] = KIRBY_STONE_NORMAL(p);
-    fp2->mv.kb.speciallw.x54[1] = fp2->mv.kb.speciallw.x24[1];
-    fp2->mv.kb.speciallw.x88[1] = 0.0f;
-    fp2->mv.kb.speciallw.x88[5] = 0.0f;
-    fp2->mv.kb.speciallw.x24[2] = KIRBY_STONE_NORMAL(p);
-    fp2->mv.kb.speciallw.x54[2] = fp2->mv.kb.speciallw.x24[2];
-    fp2->mv.kb.speciallw.x88[2] = 0.0f;
-    fp2->mv.kb.speciallw.x88[6] = 0.0f;
-    fp2->mv.kb.speciallw.x24[3] = KIRBY_STONE_NORMAL(p);
-    fp2->mv.kb.speciallw.x54[3] = fp2->mv.kb.speciallw.x24[3];
-    fp2->mv.kb.speciallw.x88[3] = 0.0f;
-    fp2->mv.kb.speciallw.x88[7] = 0.0f;
-    fp2->mv.kb.speciallw.x18 = KIRBY_STONE_NORMAL(p);
-    fp2->mv.kb.speciallw.x84 = 0.0f;
+    resetSpecialLwState(gobj, p);
     ftPartSetRotX(fp, 0, 0.0f);
 }
 
@@ -859,30 +817,10 @@ void ftKb_SpecialAirLw_Coll(Fighter_GObj* gobj)
 void ftKb_SpecialAirLwEnd_Coll(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    Fighter* fp2;
     struct ftKb_Init_803CB490_layout* p =
         (struct ftKb_Init_803CB490_layout*) ftKb_Init_803CB490;
-    PAD_STACK(8);
     ft_80081D0C(gobj);
-    fp2 = GET_FIGHTER(gobj);
-    fp2->mv.kb.speciallw.x24[0] = KIRBY_STONE_NORMAL(p);
-    fp2->mv.kb.speciallw.x54[0] = fp2->mv.kb.speciallw.x24[0];
-    fp2->mv.kb.speciallw.x88[0] = 0.0f;
-    fp2->mv.kb.speciallw.x88[4] = 0.0f;
-    fp2->mv.kb.speciallw.x24[1] = KIRBY_STONE_NORMAL(p);
-    fp2->mv.kb.speciallw.x54[1] = fp2->mv.kb.speciallw.x24[1];
-    fp2->mv.kb.speciallw.x88[1] = 0.0f;
-    fp2->mv.kb.speciallw.x88[5] = 0.0f;
-    fp2->mv.kb.speciallw.x24[2] = KIRBY_STONE_NORMAL(p);
-    fp2->mv.kb.speciallw.x54[2] = fp2->mv.kb.speciallw.x24[2];
-    fp2->mv.kb.speciallw.x88[2] = 0.0f;
-    fp2->mv.kb.speciallw.x88[6] = 0.0f;
-    fp2->mv.kb.speciallw.x24[3] = KIRBY_STONE_NORMAL(p);
-    fp2->mv.kb.speciallw.x54[3] = fp2->mv.kb.speciallw.x24[3];
-    fp2->mv.kb.speciallw.x88[3] = 0.0f;
-    fp2->mv.kb.speciallw.x88[7] = 0.0f;
-    fp2->mv.kb.speciallw.x18 = KIRBY_STONE_NORMAL(p);
-    fp2->mv.kb.speciallw.x84 = 0.0f;
+    resetSpecialLwState(gobj, p);
     ftPartSetRotX(fp, 0, 0.0f);
 }
 

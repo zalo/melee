@@ -52,7 +52,7 @@ itMewtwoDisable_Logic67_SpawnMewtwoDisable(Fighter_GObj* fighter_gobj,
     vel->x = 0.0f;
     spawnitem.x0_parent_gobj = fighter_gobj;
     spawnitem.x4_parent_gobj2 = spawnitem.x0_parent_gobj;
-    spawnitem.x44_flag.b0 = true;
+    spawnitem.x44_flag.x0.b0 = true;
     spawnitem.x40 = 0;
 
     if ((item_gobj = Item_80268B18(&spawnitem)) != NULL) {
@@ -72,7 +72,8 @@ itMewtwoDisable_Logic67_SpawnMewtwoDisable(Fighter_GObj* fighter_gobj,
 void it_802C4B38(Item_GObj* item_gobj)
 {
     Item* item = GET_ITEM(item_gobj);
-    itMDisableAttributes* attrs = item->xC4_article_data->x4_specialAttributes;
+    itMDisableAttributes* attrs =
+        &item->xC4_article_data->x4_specialAttributes->m_disable;
     Fighter_GObj* fighter_gobj = item->xDD4_itemVar.mdisable.owner;
 
     // the last parameter gets the y scaling of mewtwo

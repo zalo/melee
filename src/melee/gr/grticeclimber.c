@@ -36,7 +36,7 @@
 /* 221208 */ static void grTIceClimber_80221208(Item_GObj*, Ground*, Vec3*,
                                                 HSD_GObj*, f32);
 /* 221288 */ static void grTIceClimber_80221288(HSD_GObj*);
-/* 221354 */ static DynamicsDesc* grTIceClimber_80221354(enum_t);
+/* 221354 */ static lbColl_80008D30_arg1* grTIceClimber_80221354(enum_t);
 /* 22135C */ static bool grTIceClimber_8022135C(Vec3*, int, HSD_JObj*);
 
 static StageCallbacks stage_callbacks[] = {
@@ -173,8 +173,8 @@ void grTIceClimber_80221208(Item_GObj* gobj, Ground* u1, Vec3* u2,
     Item* it = GET_ITEM(gobj);
 
 #ifdef MELEE_NATIVE
-    HSD_JObjSetFlagsAll(it->xDD4_itemVar.yaku.x4, JOBJ_HIDDEN);
-    lb_8000B1CC(it->xDD4_itemVar.yaku.x4, NULL, &pos);
+    HSD_JObjSetFlagsAll(it->xDD4_itemVar.yaku.x4_u.x4, JOBJ_HIDDEN);
+    lb_8000B1CC(it->xDD4_itemVar.yaku.x4_u.x4, NULL, &pos);
 #else
     HSD_JObjSetFlagsAll(it->xDD4_itemVar.mato.x4, JOBJ_HIDDEN);
     lb_8000B1CC(it->xDD4_itemVar.mato.x4, NULL, &pos);
@@ -212,7 +212,7 @@ void grTIceClimber_80221288(HSD_GObj* ground_gobj)
     }
 }
 
-DynamicsDesc* grTIceClimber_80221354(enum_t gobj)
+lbColl_80008D30_arg1* grTIceClimber_80221354(enum_t gobj)
 {
     return NULL;
 }

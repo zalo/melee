@@ -36,7 +36,7 @@ Item_GObj* it_802C4580(Item_GObj* parent_gobj, HSD_GObj* arg1, Vec3* pos,
     spawn.vel.x = spawn.vel.y = spawn.vel.z = 0.0f;
     spawn.x0_parent_gobj = parent_gobj;
     spawn.x4_parent_gobj2 = arg1;
-    spawn.x44_flag.b0 = true;
+    spawn.x44_flag.x0.b0 = true;
     spawn.x40 = 0;
     gobj = Item_80268B18(&spawn);
     if (gobj != NULL) {
@@ -67,7 +67,8 @@ void it_802C46C4(Item_GObj* gobj, Item* arg1)
 
     ip = GET_ITEM(gobj);
     jobj = GET_JOBJ(gobj);
-    attrs = ip->xC4_article_data->x4_specialAttributes;
+    attrs =
+        &ip->xC4_article_data->x4_specialAttributes->zelda_din_fire_explode;
     Item_ClearFlagsAndEnterState(gobj, ip, 0);
     it_80275158(gobj, 60.0f);
     ip->xDD4_itemVar.zeldadinfireexplode.xDD8 = 0.0f;
@@ -98,7 +99,8 @@ bool itZeldadinfireexplode_UnkMotion0_Anim(Item_GObj* gobj)
     f32 temp_f1;
     Vec3 scale;
 
-    attrs = ip->xC4_article_data->x4_specialAttributes;
+    attrs =
+        &ip->xC4_article_data->x4_specialAttributes->zelda_din_fire_explode;
 
     temp_f1 = (attrs->x8 - attrs->x4) / attrs->x0;
     scale.x = scale.y = scale.z =

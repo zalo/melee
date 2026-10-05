@@ -4,6 +4,7 @@
 #include <Runtime/platform.h>
 
 #include <melee/gm/forward.h>
+#include <melee/it/forward.h>
 #include <melee/mn/forward.h> // IWYU pragma: export
 #include <sysdolphin/baselib/forward.h>
 
@@ -222,8 +223,9 @@ struct StartMeleeRules {
     u32 x18;
     u32 x1C_pad[(0x20 - 0x1C) / 4];
 
-    u64 x20; // item mask
-    int x28;
+    u64 x20;          // item mask (which items are enabled?)
+    ItemKind it_kind; // not sure how this is used; can it be anything other
+                      // than an ItemKind?
     float x2C;
     float x30;        ///< damage ratio
     float game_speed; ///< game speed
@@ -247,7 +249,7 @@ struct StartMeleeRules {
     Event on_frame_end;               ///< ingame post-frame callback
     void (*on_match_end)(u8 outcome); ///< on VS match end callback.
                                       ///< @param outcome ::MatchOutcome
-    struct {
+    struct StartMeleeRules_x54 {
         u8 pad_x0[0x10];
         u8 x10_b0 : 1;
         u8 x10_b1 : 1;

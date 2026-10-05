@@ -70,7 +70,7 @@ Item_GObj* it_802B2A10(Fighter_GObj* parent, Vec3* pos, s32 part,
     spawn.vel.x = 0.0f;
     spawn.x0_parent_gobj = parent;
     spawn.x4_parent_gobj2 = spawn.x0_parent_gobj;
-    spawn.x44_flag.b0 = true;
+    spawn.x44_flag.x0.b0 = true;
     spawn.x40 = 0;
     gobj = Item_80268B18(&spawn);
     if (gobj != NULL) {
@@ -88,7 +88,7 @@ void it_802B2B08(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
     itYoshiEggThrowAttributes* attrs =
-        ip->xC4_article_data->x4_specialAttributes;
+        &ip->xC4_article_data->x4_specialAttributes->yoshi_egg_throw;
     Item_80268E5C(gobj, 1, ITEM_ANIM_UPDATE);
     it_80275158(gobj, attrs->x0);
 }
@@ -146,7 +146,7 @@ void it_802B2C38(HSD_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
     itYoshiEggThrowAttributes* attrs =
-        ip->xC4_article_data->x4_specialAttributes;
+        &ip->xC4_article_data->x4_specialAttributes->yoshi_egg_throw;
     HSD_JObj* jobj = gobj->hsd_obj;
     Item_80268E5C(gobj, 2, 0x12);
     it_8026BB44(gobj);

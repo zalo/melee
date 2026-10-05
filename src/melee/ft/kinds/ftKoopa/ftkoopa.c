@@ -2,8 +2,6 @@
 
 #include <melee/it/forward.h>
 
-#include <placeholder.h>
-
 #include "forward.h"
 #include "ftkoopaspecialhi.h"
 #include "ftkoopaspeciallw.h"
@@ -300,12 +298,13 @@ Fighter_DemoStrings ftKp_Init_DemoMotionFilenames = {
     "ftDemoViWaitMotionFileKoopa",
 };
 
-Fighter_CostumeStrings ftKp_Init_CostumeStrings[] = {
-    { ftKp_Init_803CF0B8, ftKp_Init_803CF0C4, ftKp_Init_803CF0DC },
-    { ftKp_Init_803CF0FC, ftKp_Init_803CF108, ftKp_Init_803CF124 },
-    { ftKp_Init_803CF148, ftKp_Init_803CF154, ftKp_Init_803CF170 },
-    { ftKp_Init_803CF194, ftKp_Init_803CF1A0, ftKp_Init_803CF1BC },
-};
+Fighter_CostumeStrings
+    ftKp_Init_CostumeStrings[ARRAY_SIZE(ftKp_CostumeList)] = {
+        { ftKp_Init_803CF0B8, ftKp_Init_803CF0C4, ftKp_Init_803CF0DC },
+        { ftKp_Init_803CF0FC, ftKp_Init_803CF108, ftKp_Init_803CF124 },
+        { ftKp_Init_803CF148, ftKp_Init_803CF154, ftKp_Init_803CF170 },
+        { ftKp_Init_803CF194, ftKp_Init_803CF1A0, ftKp_Init_803CF1BC },
+    };
 
 void ftKp_Init_OnDeath(HSD_GObj* gobj)
 {
@@ -341,10 +340,10 @@ void ftKp_Init_OnLoad(HSD_GObj* gobj)
     Fighter* fp = gobj->user_data;
 
     ftData* ftDataInfo = fp->ft_data;
-    UNK_T* items = ftDataInfo->x48_items;
+    union ftData_Item* items = ftDataInfo->x48_items;
 
     PUSH_ATTRS(fp, ftKoopaAttributes);
-    it_8026B3F8(items[0], It_Kind_Koopa_Flame);
+    it_8026B3F8(items[0].article, It_Kind_Koopa_Flame);
     fp->x2226_b1 = true;
 }
 
@@ -455,7 +454,7 @@ void ftKp_SpecialS_80132E30(HSD_GObj* gobj)
         HSD_GObj* victim_gobj = fp->victim_gobj;
         ftCommon_8007E2F4(fp, 0);
         ftCo_800DE2A8(gobj, victim_gobj);
-        ftCo_800DE7C0(victim_gobj, 0, 0);
+        ftCo_800DE7C0(victim_gobj, NULL, false);
         fp->cmd_vars[0] = 0;
     }
 }

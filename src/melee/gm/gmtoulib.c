@@ -132,7 +132,7 @@ static s16 lbl_803D9E1C[][2] = {
 /* 4771C4 */ TmData gm_804771C4;   // must not be static
 
 int lbl_804D663C;
-u8 lbl_804D6638[0x4];
+HSD_Archive* lbl_804D6638;
 
 extern SceneDesc* lbl_804D666C;
 extern SceneDesc* lbl_804D6674;
@@ -202,6 +202,7 @@ static inline void gmTournament_SetBracketByes(BracketEntry* entries,
 
 void fn_8018A514(int count, float val)
 {
+    int j;
     s32 region;
     BracketEntry* entries;
     BracketSrcEntry* src;
@@ -257,14 +258,10 @@ void fn_8018A514(int count, float val)
         lbl_80473AB8[i].x26 = src->x1D;
         lbl_80473AB8[i].x27 = src->x1F;
         lbl_80473AB8[i].x28 = src->x20;
-        lbl_80473AB8[i].slots[0].x52 = 9;
-        lbl_80473AB8[i].slots[0].x32 = 0;
-        lbl_80473AB8[i].slots[1].x52 = 9;
-        lbl_80473AB8[i].slots[1].x32 = 0;
-        lbl_80473AB8[i].slots[2].x52 = 9;
-        lbl_80473AB8[i].slots[2].x32 = 0;
-        lbl_80473AB8[i].slots[3].x52 = 9;
-        lbl_80473AB8[i].slots[3].x32 = 0;
+        for (j = 0; j < 4; j++) {
+            lbl_80473AB8[i].slots[j].x52 = 9;
+            lbl_80473AB8[i].slots[j].x32 = 0;
+        }
         lbl_80473AB8[i].slots[0].x30 = src->x21;
         lbl_80473AB8[i].slots[1].x30 = src->x22;
         lbl_80473AB8[i].slots[2].x30 = src->x23;
@@ -275,7 +272,7 @@ void fn_8018A514(int count, float val)
     if (region == 0) {
         gmTournament_SetBracketByes(entries, count);
     }
-    PAD_STACK(24);
+    PAD_STACK(8);
 }
 
 void fn_8018A970(int arg0)
@@ -1762,6 +1759,11 @@ static inline void gmTournament_InitBracket(s32 entrant_count, f32 anim_frame,
     fn_8018A970(entrant_count);
 }
 
+typedef struct CObjData {
+    f32 pos[9];
+    struct lbl_803D9DD0_t cobj_data;
+} CObjData;
+
 /// Initializes the tournament bracket camera and optionally resets bracket
 /// data. Removes all existing GObjs from two entity lists, inits lbl_80473AB8
 /// entries, creates camera GObj with CObjDesc loaded from lbl_803B7CA8 rodata.
@@ -1794,10 +1796,6 @@ void fn_8018E618(int arg0, f32 farg0, int arg1)
 
     gobj = GObj_Create(9, 20, 1);
     {
-        typedef struct CObjData {
-            f32 pos[9];
-            struct lbl_803D9DD0_t cobj_data;
-        } CObjData;
         HSD_CObj* cobj = HSD_CObjLoadDesc((HSD_CObjDesc*) &cam);
 #ifdef MELEE_NATIVE
         // lbl_803D9DD0 is not placed right after lbl_803D9DAC natively.
@@ -1815,12 +1813,7 @@ void fn_8018E618(int arg0, f32 farg0, int arg1)
         }
     }
     GObj_SetupGXLinkMax(gobj, HSD_GObj_803910D8, 1);
-#ifdef MELEE_NATIVE
     gobj->gxlink_prios = 0x10;
-#else
-    ((u32*) &gobj->gxlink_prios)[1] = 0x10;
-    ((u32*) &gobj->gxlink_prios)[0] = 0;
-#endif
 
     gmTournament_InitBracket(arg0, farg0, arg1);
 }
@@ -1846,7 +1839,7 @@ void fn_8018E85C(DynamicModelDesc* model, s32 flag)
 
     for (outer_idx = 0; outer_idx < 0x40; outer_idx++) {
         if (lbl_80473AB8[outer_idx].x0 == 0) {
-            goto next_entry;
+            continue;
         }
         inner_idx = 0;
         for (; inner_idx < 4; inner_idx++) {
@@ -1859,7 +1852,7 @@ void fn_8018E85C(DynamicModelDesc* model, s32 flag)
 #define GMTOULIB_SUB(off, type, field) (*(type*) (sub + (off)))
 #endif
             if (GMTOULIB_SUB(0x30, u8, x30) == 0) {
-                goto next_sub;
+                continue;
             }
 
             if (flag != 0) {
@@ -1913,10 +1906,7 @@ void fn_8018E85C(DynamicModelDesc* model, s32 flag)
                 fn_8018FDC4(jobj, (f32) GMTOULIB_SUB(0x44, s32, x44),
                             -(f32) GMTOULIB_SUB(0x48, s32, x48), 666.0f);
             }
-
-        next_sub:;
         }
-    next_entry:;
     }
 }
 

@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+int MeleeNativeDeterministicIO(void) { return 0; }
 #define CHECK(x) do { if (!(x)) { fprintf(stderr,"%s:%d: %s\n",__FILE__,__LINE__,#x); abort(); } } while(0)
 static u8 memory[1024];
 static void (*render)(int16_t*, unsigned);

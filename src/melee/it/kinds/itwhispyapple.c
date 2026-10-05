@@ -111,7 +111,7 @@ Item_GObj* it_802EE200(HSD_GObj* parent, Vec3* pos, f32 threshold1,
     spawn.vel.y = 0.0f;
     spawn.vel.x = 0.0f;
     spawn.x0_parent_gobj = NULL;
-    spawn.x44_flag.b0 = 0;
+    spawn.x44_flag.x0.b0 = 0;
     spawn.x40 = 0;
     if (it_8026D3CC() == false) {
         rand -= threshold2;
@@ -145,7 +145,7 @@ void it_802EE374(Item_GObj* gobj)
 {
     Item* ip = GET_ITEM(gobj);
     itWhispyAppleAttributes* attrs =
-        ip->xC4_article_data->x4_specialAttributes;
+        &ip->xC4_article_data->x4_specialAttributes->whispy_apple;
     f32 rand;
 
     Item_80268E5C(gobj, 0, ITEM_ANIM_UPDATE);

@@ -24,7 +24,7 @@
         void** da = &(fp)->dat_attrs;                                         \
         *(attributeName*) (fp)->dat_attrs_backup = *src;                      \
         *da = backup;                                                         \
-    } while (0)
+    } while (false)
 
 /// @todo Remove declarations. Doesn't really need to be a macro.
 #define COPY_ATTRS(gobj, attributeName)                                       \
@@ -267,8 +267,8 @@ static inline void ftCommon_HandleTeleportCollisions(Fighter_GObj* gobj,
 /// @todo This and #ftCheckThrowB3, etc. are probably one macro or something.
 static inline bool ftCheckThrowB0(Fighter* fp)
 {
-    if (fp->throw_flags_b0) {
-        fp->throw_flags_b0 = false;
+    if (fp->x2210.x0.throw_flags_b0) {
+        fp->x2210.x0.throw_flags_b0 = false;
         return true;
     } else {
         return false;
@@ -277,8 +277,8 @@ static inline bool ftCheckThrowB0(Fighter* fp)
 
 static inline bool ftCheckThrowB3(Fighter* fp)
 {
-    if (fp->throw_flags_b3) {
-        fp->throw_flags_b3 = false;
+    if (fp->x2210.x0.throw_flags_b3) {
+        fp->x2210.x0.throw_flags_b3 = false;
         return true;
     } else {
         return false;
@@ -287,8 +287,8 @@ static inline bool ftCheckThrowB3(Fighter* fp)
 
 static inline bool ftCheckThrowB4(Fighter* fp)
 {
-    if (fp->throw_flags_b4) {
-        fp->throw_flags_b4 = false;
+    if (fp->x2210.x0.throw_flags_b4) {
+        fp->x2210.x0.throw_flags_b4 = false;
         return true;
     } else {
         return false;

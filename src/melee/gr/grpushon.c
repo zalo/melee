@@ -50,11 +50,11 @@ struct grPushon_YakumonoParam {
     s32 x10;
     s32 x14;
 #else
-    DynamicsDesc* x4;
-    DynamicsDesc* x8;
-    DynamicsDesc* xC;
-    DynamicsDesc* x10;
-    DynamicsDesc* x14;
+    lbColl_80008D30_arg1* x4;
+    lbColl_80008D30_arg1* x8;
+    lbColl_80008D30_arg1* xC;
+    lbColl_80008D30_arg1* x10;
+    lbColl_80008D30_arg1* x14;
 #endif
     bool x18;
     struct grPushOn_Entry x1c[0x1E];
@@ -62,10 +62,10 @@ struct grPushon_YakumonoParam {
 };
 
 #ifdef MELEE_NATIVE
-// Serialized DynamicsDesc slots stay 32-bit; the archive resolves them.
+// Serialized hit-description slots stay 32-bit; the archive resolves them.
 void* MeleeNativeScriptPointer(const void*);
 #define YAKUMONO_DYNAMICS(field) \
-    ((DynamicsDesc*) MeleeNativeScriptPointer(&yakumono_param->field))
+    ((lbColl_80008D30_arg1*) MeleeNativeScriptPointer(&yakumono_param->field))
 #else
 #define YAKUMONO_DYNAMICS(field) (yakumono_param->field)
 #endif
@@ -730,7 +730,7 @@ s32 fn_802192A4(void* arg0, HSD_GObj* gobj, s32* result)
     return 0;
 }
 
-DynamicsDesc* grPushOn_80219458(enum_t arg0)
+lbColl_80008D30_arg1* grPushOn_80219458(enum_t arg0)
 {
     s32 joint;
     s32 kind;

@@ -91,11 +91,11 @@ unsigned MeleeCheckItems(void* root) {
         ++checked;
     }
     if(!data->x4[It_Kind_Box]->x0_common_attr->x0_is_heavy) {fprintf(stderr,"Item layout check failed at line %d\n",__LINE__);abort();}
-    KinokoAttrs* kinoko=data->x4[It_Kind_Kinoko]->x4_specialAttributes;
-    if(!kinoko->anims[0]||!kinoko->anims[1]||!isfinite(kinoko->x0)) {fprintf(stderr,"Item layout check failed at line %d\n",__LINE__);abort();}
-    itFoodsAttributes* foods=data->x4[It_Kind_Foods]->x4_specialAttributes;
-    if(foods->x0!=28||!foods[27].x4) {fprintf(stderr,"Item layout check failed at line %d\n",__LINE__);abort();}
-    itWstarAttributes* star=data->x4[It_Kind_WStar]->x4_specialAttributes;
+    KinokoAttrs* kinoko=&data->x4[It_Kind_Kinoko]->x4_specialAttributes->kinoko;
+    if(!kinoko->x8[0]||!kinoko->x8[1]||!isfinite(kinoko->x0)) {fprintf(stderr,"Item layout check failed at line %d\n",__LINE__);abort();}
+    itFoodsAttributes* foods=&data->x4[It_Kind_Foods]->x4_specialAttributes->foods;
+    if(foods->count!=28||!foods->entries[27].joint) {fprintf(stderr,"Item layout check failed at line %d\n",__LINE__);abort();}
+    itWstarAttributes* star=&data->x4[It_Kind_WStar]->x4_specialAttributes->wstar;
     if(star->x24_count!=7||!star->x28_entries[6].x0_anim_joint) {fprintf(stderr,"Item layout check failed at line %d\n",__LINE__);abort();}
     return checked;
 }
@@ -109,8 +109,8 @@ void MeleeCheckGamewatchColors(void* root, const void* bytes) {
 #include <melee/gr/types.h>
 void MeleeCheckStageFlags(void) {
     StageCallbacks callbacks = {0};
-    callbacks.flags = 0xC0000000U;
-    if(!callbacks.flags_b0 || !callbacks.flags_b1 || callbacks.flags_b2) abort();
-    callbacks.flags_b0 = 0;
-    if(callbacks.flags != 0x40000000U) abort();
+    callbacks.x10.flags = 0xC0000000U;
+    if(!callbacks.x10.x0.flags_b0 || !callbacks.x10.x0.flags_b1 || callbacks.x10.x0.flags_b2) abort();
+    callbacks.x10.x0.flags_b0 = 0;
+    if(callbacks.x10.flags != 0x40000000U) abort();
 }

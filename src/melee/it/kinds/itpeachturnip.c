@@ -64,7 +64,7 @@ s32 it_802BD32C(Item_GObj* item_gobj)
     itPeachTurnipAttributes* attr;
 
     item = GET_ITEM(item_gobj);
-    attr = item->xC4_article_data->x4_specialAttributes;
+    attr = &item->xC4_article_data->x4_specialAttributes->peach_turnip;
 
     sum = 0;
     for (i = 0; i < attr->x4_length; i++) {
@@ -118,12 +118,12 @@ Item_GObj* it_802BD4AC(Item_GObj* item_gobj, Vec3* pos, Fighter_Part part,
     if (spawn_gobj != NULL) {
         item = GET_ITEM(spawn_gobj);
         if (kind == It_Kind_Peach_Turnip) {
-            attr = item->xC4_article_data->x4_specialAttributes;
+            attr = &item->xC4_article_data->x4_specialAttributes->peach_turnip;
             it_80275158(spawn_gobj, attr->x0_lifetime);
             item->xDD4_itemVar.peachturnip.xDD8 = it_802BD32C(spawn_gobj);
             item->xDD4_itemVar.peachturnip.xDDC_damage =
                 attr->x8[item->xDD4_itemVar.peachturnip.xDD8].x4_damage;
-            item->xDD4_itemVar.peachturnip.xDD4.b0 = 0;
+            item->xDD4_itemVar.peachturnip.xDD4.x0.b0 = 0;
             item->xDD4_itemVar.peachturnip.xDE4_owner = item->owner;
             it_8026BD0C(spawn_gobj);
         }
@@ -157,13 +157,13 @@ void itPeachTurnip_Logic56_PickedUp(Item_GObj* item_gobj)
     item = GET_ITEM(item_gobj);
 
     it_80273670(item_gobj, 0, (f32) item->xDD4_itemVar.peachturnip.xDD8);
-    if (item->xDD4_itemVar.peachturnip.xDD4.b0) {
+    if (item->xDD4_itemVar.peachturnip.xDD4.x0.b0) {
         Item_80268E5C(item_gobj, 4, ITEM_ANIM_UPDATE);
     } else {
         Item_80268E5C(item_gobj, 0, ITEM_ANIM_UPDATE);
         it_8026BCF4(item_gobj);
     }
-    item->xDD4_itemVar.peachturnip.xDD4.b0 = 1;
+    item->xDD4_itemVar.peachturnip.xDD4.x0.b0 = 1;
     Item_802694CC(item_gobj);
 }
 

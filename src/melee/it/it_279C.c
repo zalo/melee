@@ -50,13 +50,11 @@
 #include <melee/pl/pltrick.h>
 #include <sysdolphin/baselib/random.h>
 
-#define IT_M_PI_2 1.5707963267948966
-
 const Quaternion it_803B8588 = { 0.0f, 0.0f, 0.0f, 0.0f };
 const Quaternion it_803B8598 = { 0.0f, 0.0f, 0.0f, 0.0f };
 
-/// Pokemon items
-struct sdata_ItemGXLink it_803F2310[47] = {
+/// Pokemon and Related Items
+struct sdata_ItemGXLink it_803F2310[It_Kind_Section_Pokemon_Extended_Size] = {
     it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
     it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
     it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
@@ -69,7 +67,8 @@ struct sdata_ItemGXLink it_803F2310[47] = {
     it_8026EECC, it_8026EECC,
 };
 
-ItemLogicTable it_803F23CC[ARRAY_SIZE(it_803F2310)] = {
+/// Pokemon and Related Items
+ItemLogicTable it_803F23CC[It_Kind_Section_Pokemon_Extended_Size] = {
     {
         // Tosakinto (Goldeen)
         it_803F7A48,
@@ -928,39 +927,6 @@ static ItemKind common_pokemon[] = {
     It_PKind_Maril,     It_PKind_Fushigibana, It_PKind_Terminate,
 };
 
-typedef enum PokemonKind {
-    Pokemon_ID_Tosakinto,   // Goldeen (Tosakinto)
-    Pokemon_ID_Chicorita,   // Chikorita (Chicorita)
-    Pokemon_ID_Kabigon,     // Snorlax (Kabigon)
-    Pokemon_ID_Kamex,       // Blastoise (Kamex)
-    Pokemon_ID_Matadogas,   // Weezing (Matadogas)
-    Pokemon_ID_Lizardon,    // Charizard (Lizardon)
-    Pokemon_ID_Fire,        // Moltres (Fire)
-    Pokemon_ID_Thunder,     // Zapdos (Thunder)
-    Pokemon_ID_Freezer,     // Articuno (Freezer)
-    Pokemon_ID_Sonans,      // Wobbuffet (Sonans)
-    Pokemon_ID_Hassam,      // Scizor (Hassam)
-    Pokemon_ID_Unknown,     // Unown (Unknown)
-    Pokemon_ID_Entei,       // Entei
-    Pokemon_ID_Raikou,      // Raikou
-    Pokemon_ID_Suikun,      // Suicune (Suikun)
-    Pokemon_ID_Kireihana,   // Bellossom (Kireihana)
-    Pokemon_ID_Marumine,    // Electrode (Marumine)
-    Pokemon_ID_Lugia,       // Lugia
-    Pokemon_ID_Houou,       // Ho-oh (Houou)
-    Pokemon_ID_Metamon,     // Ditto (Metamon)
-    Pokemon_ID_Pippi,       // Clefairy (Pippi)
-    Pokemon_ID_Togepy,      // Togepi (Togepy)
-    Pokemon_ID_Mew,         // Mew
-    Pokemon_ID_Cerebi,      // Celebi (Cerebi)
-    Pokemon_ID_Hitodeman,   // Staryu (Hitodeman)
-    Pokemon_ID_Lucky,       // Chansey (Lucky)
-    Pokemon_ID_Porygon2,    // Porygon2
-    Pokemon_ID_Hinoarashi,  // Cyndaquil (Hinoarashi)
-    Pokemon_ID_Maril,       // Marill (Maril)
-    Pokemon_ID_Fushigibana, // Venusaur (Fushigibana)
-} PokemonKind;
-
 void it_80279C48(Item_GObj* item_gobj)
 {
     Vec3 v;
@@ -1042,10 +1008,10 @@ static inline void it_80279E24_inline(Item_GObj* item_gobj)
 
 void it_80279E24(Item_GObj* item_gobj)
 {
+    Item* item = GET_ITEM(item_gobj);
     HSD_JObj* item_jobj = item_gobj->hsd_obj;
-    Item* item = HSD_GObjGetUserData(item_gobj);
     f32 scale = HSD_JObjGetScaleX(item_jobj);
-    PAD_STACK(24);
+    PAD_STACK(20);
 
     if (item->xDD4_itemVar.pokemon_spawn.x50 <= 0.0f) {
         item->xDD4_itemVar.pokemon_spawn.x50 =
@@ -1193,7 +1159,7 @@ void it_8027A344(Item_GObj* item_gobj)
 s32 it_8027A364(Item* item)
 {
     itPokemonSpawn_DatAttrs* attr =
-        item->xC4_article_data->x4_specialAttributes;
+        &item->xC4_article_data->x4_specialAttributes->pokemon_spawn;
     int ret_val = 1;
     int i;
     int start = It_PKind_Start;
@@ -1208,24 +1174,24 @@ s32 it_8027A364(Item* item)
     return ret_val;
 }
 
-s32 it_8027A4D4(Item* item)
+PokemonKind it_8027A4D4(Item* item)
 {
     int rand_int;
     int i;
     int var_r3;
 
     itPokemonSpawn_DatAttrs* attr =
-        item->xC4_article_data->x4_specialAttributes;
+        &item->xC4_article_data->x4_specialAttributes->pokemon_spawn;
 
     if (HSD_Randi(251) == 0 && !Item_804A0E24.rare_spawned && gm_80165084()) {
         Item_804A0E24.rare_spawned = true;
         gm_80172C04();
-        return 23;
+        return Pokemon_ID_Cerebi;
     }
     if (HSD_Randi(251) == 0 && !Item_804A0E24.rare_spawned && gm_80164ABC()) {
         Item_804A0E24.rare_spawned = true;
         gm_80172BC4();
-        return 22;
+        return Pokemon_ID_Mew;
     }
     rand_int = HSD_Randi(it_8027A364(item));
     var_r3 = 0;
@@ -1241,16 +1207,18 @@ s32 it_8027A4D4(Item* item)
             }
         }
     }
-    return 0;
+    return Pokemon_ID_Tosakinto;
 }
 
-s32 it_8027A780(Item* item, void* arg1)
+struct PokemonSpawnWeight {
+    ItemKind kind;
+    s32 weight;
+};
+
+PokemonKind it_8027A780(Item* item, const ItemKind* kinds)
 {
     u8 _pad[8];
-    struct PokemonSpawnWeight {
-        ItemKind kind;
-        s32 weight;
-    } weights[30];
+    struct PokemonSpawnWeight weights[It_PKind_Items_Size];
     struct PokemonSpawnWeight* base;
     struct PokemonSpawnWeight* buf;
     ItemKind last_kind;
@@ -1267,20 +1235,20 @@ s32 it_8027A780(Item* item, void* arg1)
     base = weights;
     buf = base;
     cnt = 0;
-    attr = item->xC4_article_data->x4_specialAttributes;
+    attr = &item->xC4_article_data->x4_specialAttributes->pokemon_spawn;
     total = 0;
     last_kind = Item_804A0E24.last_kind;
     previous_kind = Item_804A0E24.previous_kind;
-    for (i = 0; i < 30; i++) {
-        ItemKind kind = ((ItemKind*) arg1)[i];
+    for (i = 0; i < It_PKind_Items_Size; i++) {
+        ItemKind kind = kinds[i];
         if (kind == It_PKind_Terminate) {
             break;
         }
         if (last_kind != kind && previous_kind != kind) {
             buf->kind = kind;
             cnt++;
-            buf->weight = attr->pokemon_spawn_weights[((ItemKind*) arg1)[i] -
-                                                      It_PKind_Start];
+            buf->weight =
+                attr->pokemon_spawn_weights[kinds[i] - It_PKind_Start];
             total += buf->weight;
             buf++;
         }
@@ -1304,9 +1272,11 @@ s32 it_8027A780(Item* item, void* arg1)
     return result - It_PKind_Start;
 }
 
+// Should be PokemonKind, but it sometomes returns It_PKind_Sonans, which is a
+// ItemKind
 s32 it_8027A9B8(Item* item)
 {
-    void* vec;
+    ItemKind* vec;
 
     vec = gm_801BEC54();
     if (vec == NULL) {
@@ -1317,14 +1287,14 @@ s32 it_8027A9B8(Item* item)
     {
         Item_804A0E24.rare_spawned = true;
         gm_80172C04();
-        return 23U;
+        return Pokemon_ID_Cerebi;
     }
     if ((HSD_Randi(251U) == 0) && (!Item_804A0E24.rare_spawned) &&
         gm_80164ABC())
     {
         Item_804A0E24.rare_spawned = true;
         gm_80172BC4();
-        return 22U;
+        return Pokemon_ID_Mew;
     }
     return it_8027A780(item, vec);
 }
@@ -1334,7 +1304,8 @@ void it_8027AAA0(Item_GObj* item1_gobj, Item* item2, s32 arg2)
     Item* var_r6;
 
     Item* it = GET_ITEM(item1_gobj);
-    itPokemonSpawn_DatAttrs* attr = it->xC4_article_data->x4_specialAttributes;
+    itPokemonSpawn_DatAttrs* attr =
+        &it->xC4_article_data->x4_specialAttributes->pokemon_spawn;
     if (arg2 == It_PKind_Marumine) {
         item2->xDD4_itemVar.pokemon_spawn.x1C = 0.0f;
         item2->xDD4_itemVar.pokemon_spawn.x20 = 0.0f;
@@ -1364,10 +1335,10 @@ void it_8027AAA0(Item_GObj* item1_gobj, Item* item2, s32 arg2)
     }
 }
 
-static inline s32 selectPokemonForOpening(Item* item)
+static inline PokemonKind selectPokemonForOpening(Item* item)
 {
     itPokemonSpawn_DatAttrs* attr =
-        item->xC4_article_data->x4_specialAttributes;
+        &item->xC4_article_data->x4_specialAttributes->pokemon_spawn;
     s32 rand_int = HSD_Randi(it_8027A364(item));
     s32 index;
     s32 total = 0;
@@ -1383,9 +1354,11 @@ static inline s32 selectPokemonForOpening(Item* item)
             }
         }
     }
-    return 0;
+    return Pokemon_ID_Tosakinto;
 }
 
+// Should be PokemonKind, but it sometomes returns It_PKind_Sonans, which is an
+// ItemKind
 static inline s32 selectPokemonFromList(Item* item, ItemKind* kinds)
 {
     if (kinds == NULL) {
@@ -1394,32 +1367,36 @@ static inline s32 selectPokemonFromList(Item* item, ItemKind* kinds)
     return it_8027A780(item, kinds);
 }
 
+/// @todo: Can this be fixed?
+/// As it is written now, both PokemonKind and ItemKind are mixed and get
+/// assigned to spawn.kind (which is of type ItemKind)
 bool it_8027AB64(Item_GObj* item_gobj)
 {
     u8 _pad[8];
     SpawnItem spawn;
     Item* item2; // permuterslop
     Item* item;
-    u32 temp_r3;
+    ItemKind temp_kind;
     PAD_STACK(16);
 
     item = item_gobj->user_data;
-    temp_r3 = gm_8016AEB8();
-    if (temp_r3 != 0) {
-        if (temp_r3 == 1) {
+    temp_kind = gm_8016AEB8();
+    if ((u32) temp_kind != It_Kind_Unset2) { // Matches gm_SetupRulesDefaults
+        if ((u32) temp_kind == 1) {
             spawn.kind = it_8027A9B8(item);
         } else {
-            spawn.kind = temp_r3 - It_PKind_Start;
+            spawn.kind = temp_kind - It_PKind_Start;
         }
     } else if (gm_8018841C()) {
-        spawn.kind = selectPokemonFromList(item, common_pokemon);
+        spawn.kind =
+            (enum ItemKind) selectPokemonFromList(item, common_pokemon);
 
     } else if (gm_GetCurrentGameMode() == GM_OPENING_MV) {
-        spawn.kind = selectPokemonForOpening(item);
+        spawn.kind = (enum ItemKind) selectPokemonForOpening(item);
     } else {
-        spawn.kind = db_GetCurrentlySelectedPokemon();
+        spawn.kind = (enum ItemKind) db_GetCurrentlySelectedPokemon();
         if (spawn.kind == (enum ItemKind) Pokemon_ID_Tosakinto) {
-            spawn.kind = it_8027A4D4(item);
+            spawn.kind = (enum ItemKind) it_8027A4D4(item);
         } else {
             spawn.kind--;
         }
@@ -1433,7 +1410,7 @@ bool it_8027AB64(Item_GObj* item_gobj)
     item2 = item_gobj->user_data;
     {
         itPokemonSpawn_DatAttrs* attrs =
-            item2->xC4_article_data->x4_specialAttributes;
+            &item2->xC4_article_data->x4_specialAttributes->pokemon_spawn;
         Vec3* prev_pos = &spawn.prev_pos;
         spawn.vel.z = 0.0f;
         spawn.vel.x = 0.0f;
@@ -1446,7 +1423,7 @@ bool it_8027AB64(Item_GObj* item_gobj)
         spawn.kind = spawn.kind + It_PKind_Start;
         spawn.x0_parent_gobj = item2->owner;
         spawn.x4_parent_gobj2 = item_gobj;
-        spawn.x44_flag.b0 = 1;
+        spawn.x44_flag.x0.b0 = 1;
         spawn.x40 = 0;
         if (spawn.kind == It_PKind_Cerebi) {
             gm_80172C04();
@@ -1491,7 +1468,7 @@ bool it_8027AE34(Item_GObj* item_gobj)
     item->x40_vel.x = -item->x40_vel.x * item->xC70;
     item->facing_dir = -item->facing_dir;
     item->xD44_lifeTimer = item->xD48_halfLifeTimer;
-    rotate.y = IT_M_PI_2 * item->facing_dir;
+    rotate.y = M_PI_2 * item->facing_dir;
     HSD_JObjSetRotation(item_jobj, &rotate);
     return false;
 }
@@ -1504,7 +1481,7 @@ bool it_8027AF50(Item_GObj* item_gobj)
     rotate = it_803B8598;
     lbVector_Mirror(&item->x40_vel, &item->xC58);
     it_80272980(item_gobj);
-    rotate.y = IT_M_PI_2 * item->facing_dir;
+    rotate.y = M_PI_2 * item->facing_dir;
     HSD_JObjSetRotation(item_jobj, &rotate);
     return false;
 }
@@ -1518,7 +1495,7 @@ void it_8027B070(Item_GObj* item_gobj, Fighter_GObj* owner_gobj)
     item->xD90 = fighter->x2070;
     item->xD94 = fighter->x2074.x2074_vec;
     item->xD9C = fighter->x2074.x207C;
-    item->xDA4_word = fighter->x2074.x2084;
+    item->xDA4_word = fighter->x2074.x10.x2084;
     item->xDA8_short = fighter->x2074.x2088;
 }
 
@@ -1567,7 +1544,7 @@ void it_8027B1F4(Item_GObj* item_gobj)
         struct Struct2074* temp_r3 = ft_800898A8((Fighter_GObj*) item->owner);
         item->xD94 = temp_r3->x2074_vec;
         item->xD9C = temp_r3->x207C;
-        item->xDA4_word = temp_r3->x2084;
+        item->xDA4_word = temp_r3->x10.x2084;
         return;
     }
     ft_80089768(&item->xD94);
@@ -1582,7 +1559,7 @@ void it_8027B288(Item_GObj* item_gobj, volatile u32 arg1)
 
     item = item_gobj->user_data;
     sp14.x2070_int = arg1;
-    if ((sp14.x2073 == 0) || (sp14.x2073 != item->xD90.x2073)) {
+    if ((sp14.x0.x2073 == 0) || (sp14.x0.x2073 != item->xD90.x0.x2073)) {
         item->xDA8_short = plAttack_80037B08();
     }
     item->xD90 = sp14;
@@ -1590,7 +1567,7 @@ void it_8027B288(Item_GObj* item_gobj, volatile u32 arg1)
         temp_r3 = ft_800898A8(item->owner);
         item->xD94 = temp_r3->x2074_vec;
         item->xD9C = temp_r3->x207C;
-        item->xDA4_word = temp_r3->x2084;
+        item->xDA4_word = temp_r3->x10.x2084;
         return;
     }
     ft_80089768(&item->xD94);
@@ -1613,7 +1590,7 @@ void it_8027B378(Fighter_GObj* fighter_gobj, Item_GObj* item_gobj, f32 arg2)
     PAD_STACK(4);
 
     if (it_8026B6C8(item_gobj)) {
-        temp_r30 = ft_80089884(fighter_gobj)->x2073;
+        temp_r30 = ft_80089884(fighter_gobj)->x0.x2073;
         temp_r31 = ftLib_IsSubFighter(fighter_gobj);
         temp_r3 = ftLib_GetPlayerIndex(fighter_gobj);
         pl_8003EB30(arg2, temp_r3, temp_r31, 6, 0, temp_r30);
@@ -1632,7 +1609,7 @@ void it_8027B408(Item_GObj* item_gobj1, Item_GObj* item_gobj2, f32 arg8)
             HSD_GObj* owner = item1->owner;
             temp_r31 = ftLib_IsSubFighter(owner);
             temp_r3 = ftLib_GetPlayerIndex(owner);
-            pl_8003EB30(arg8, temp_r3, temp_r31, 6, 0, item1->xD90.x2073);
+            pl_8003EB30(arg8, temp_r3, temp_r31, 6, 0, item1->xD90.x0.x2073);
         }
     }
 }
@@ -1643,7 +1620,7 @@ void it_8027B4A4(Fighter_GObj* item_gobj1, Item_GObj* item_gobj2)
 
     if (it_8026B6C8(item_gobj2)) {
         temp_r31 = (void*) ft_800898A8(item_gobj1);
-        pl_800384DC(item_gobj1, ft_80089884(item_gobj1)->x2073, temp_r31);
+        pl_800384DC(item_gobj1, ft_80089884(item_gobj1)->x0.x2073, temp_r31);
     }
 }
 
@@ -1652,7 +1629,7 @@ void it_8027B508(Item_GObj* item_gobj1, Item_GObj* item_gobj2)
     if (it_8026B6C8(item_gobj2)) {
         Item* item1 = GET_ITEM(item_gobj1);
         if (ftLib_IsFighter(item1->owner)) {
-            pl_800384DC(item1->owner, item1->xD90.x2073, &item1->xD94);
+            pl_800384DC(item1->owner, item1->xD90.x0.x2073, &item1->xD94);
         }
     }
 }

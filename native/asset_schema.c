@@ -98,8 +98,8 @@ S(cpuconfig,struct Fighter_804D64FC_t,40,P(struct Fighter_804D64FC_t,cmdscripts,
 S(jointanimpair,StaticModelDesc,8,P(StaticModelDesc,joint,0,AT_JOINT),P(StaticModelDesc,animjoint,4,AT_ANIM));
 typedef struct NativeMapJointPairs { HSD_Joint* joint; s16* pairs; s32 count; } NativeMapJointPairs;
 typedef struct NativeLightOverride { HSD_LightDesc* light; u8 flags; } NativeLightOverride;
-S(maphead,UnkStageDat,48,P(UnkStageDat,unk0,0,AT_MAP_JOINT_PAIRS),U(UnkStageDat,unk4,4,1),P(UnkStageDat,unk8,8,AT_MAP_MODEL),U(UnkStageDat,unkC,12,1),P(UnkStageDat,unk10,16,AT_SPLINE_TABLE),U(UnkStageDat,unk14,20,1),P(UnkStageDat,unk18,24,AT_LIGHT_OVERRIDE),U(UnkStageDat,unk1C,28,1),P(UnkStageDat,unk20,32,AT_SHADOW_ENTRY),U(UnkStageDat,unk24,36,1),P(UnkStageDat,unk28,40,AT_MOBJ_TABLE),U(UnkStageDat,unk2C,44,1));
-S(mapmodel,struct UnkStageDat_x8_t,52,P(struct UnkStageDat_x8_t,unk0,0,AT_JOINT),P(struct UnkStageDat_x8_t,unk4,4,AT_ANIMS),P(struct UnkStageDat_x8_t,unk8,8,AT_MATANIMS),P(struct UnkStageDat_x8_t,unkC,12,AT_SHAPEANIMS),P(struct UnkStageDat_x8_t,x10,16,AT_CAMERA),P(struct UnkStageDat_x8_t,x14,20,AT_CAMERA_ANIMS),P(struct UnkStageDat_x8_t,x18,24,AT_LIGHT_LISTS),P(struct UnkStageDat_x8_t,x1C,28,AT_FOG),P(struct UnkStageDat_x8_t,unk20,32,AT_HALVES),U(struct UnkStageDat_x8_t,unk24,36,1),P(struct UnkStageDat_x8_t,x28,40,AT_RAW),P(struct UnkStageDat_x8_t,x2C,44,AT_HALVES),U(struct UnkStageDat_x8_t,x30,48,1));
+S(maphead,UnkStageDat,48,P(UnkStageDat,unk0,0,AT_MAP_JOINT_PAIRS),U(UnkStageDat,count,4,1),P(UnkStageDat,unk8,8,AT_MAP_MODEL),U(UnkStageDat,unkC,12,1),P(UnkStageDat,unk10,16,AT_SPLINE_TABLE),U(UnkStageDat,unk14,20,1),P(UnkStageDat,unk18,24,AT_LIGHT_OVERRIDE),U(UnkStageDat,unk1C,28,1),P(UnkStageDat,unk20,32,AT_SHADOW_ENTRY),U(UnkStageDat,unk24,36,1),P(UnkStageDat,unk28,40,AT_MOBJ_TABLE),U(UnkStageDat,unk2C,44,1));
+S(mapmodel,struct UnkStageDat_x8_t,52,P(struct UnkStageDat_x8_t,joint,0,AT_JOINT),P(struct UnkStageDat_x8_t,anims,4,AT_ANIMS),P(struct UnkStageDat_x8_t,matanims,8,AT_MATANIMS),P(struct UnkStageDat_x8_t,shapeanims,12,AT_SHAPEANIMS),P(struct UnkStageDat_x8_t,x10,16,AT_CAMERA),P(struct UnkStageDat_x8_t,x14,20,AT_CAMERA_ANIMS),P(struct UnkStageDat_x8_t,x18,24,AT_LIGHT_LISTS),P(struct UnkStageDat_x8_t,x1C,28,AT_FOG),P(struct UnkStageDat_x8_t,unk20,32,AT_HALVES),U(struct UnkStageDat_x8_t,unk24,36,1),P(struct UnkStageDat_x8_t,x28,40,AT_RAW),P(struct UnkStageDat_x8_t,x2C,44,AT_HALVES),U(struct UnkStageDat_x8_t,x30,48,1));
 S(mapjointpairs,NativeMapJointPairs,12,P(NativeMapJointPairs,joint,0,AT_JOINT),P(NativeMapJointPairs,pairs,4,AT_HALVES),U(NativeMapJointPairs,count,8,1));
 S(lightoverride,NativeLightOverride,8,P(NativeLightOverride,light,0,AT_LIGHT),B(NativeLightOverride,flags,4,1));
 S(shadowentry,struct GroundShadowEntry,8,P(struct GroundShadowEntry,unk0,0,AT_LIGHT_ANIM),{4,sizeof(void*),AF_BYTE,1,0});
@@ -119,7 +119,7 @@ S(itemarrow,itLinkArrowAttributes,44,U(itLinkArrowAttributes,x0,0,9),P(itLinkArr
 S(itemchain,itSeakChain_Attrs,108,U(itSeakChain_Attrs,x0,0,25),P(itSeakChain_Attrs,x64_joint,100,AT_JOINT),P(itSeakChain_Attrs,x68_joint,104,AT_JOINT));
 S(itemyoyo,itYoyoAttributes,92,U(itYoyoAttributes,x0_CHARGE_SPAWN_POS,0,20),P(itYoyoAttributes,x50_string_joint,80,AT_JOINT),P(itYoyoAttributes,x54_yoyo_joint,84,AT_JOINT),P(itYoyoAttributes,x58_yoyo_matanim,88,AT_MATANIMJOINT));
 S(itemdrawparts,it_266F_ItemVars,16,H(it_266F_ItemVars,x0,0,1),P(it_266F_ItemVars,x4,4,AT_RAW),H(it_266F_ItemVars,x8,8,1),P(it_266F_ItemVars,xC,12,AT_RAW));
-S(itemgw,itGamewatchparachuteAttributes,4,P(itGamewatchparachuteAttributes,x0,0,AT_ITEM_DRAW_PARTS));
+S(itemgw,itGamewatchAttributes,4,P(itGamewatchAttributes,x0,0,AT_ITEM_DRAW_PARTS));
 S(itemchef,itGamewatchchefAttributes,116,P(itGamewatchchefAttributes,x0,0,AT_ITEM_DRAW_PARTS),U(itGamewatchchefAttributes,x4,4,28));
 typedef struct NativePurinParts { HSD_Joint* joint; FtPartsDesc parts; } NativePurinParts;
 S(purinparts,NativePurinParts,12,P(NativePurinParts,joint,0,AT_JOINT),U(NativePurinParts,parts.model_num,4,1),P(NativePurinParts,parts.vis_table,8,AT_FIGHTER_VIS_TABLE));
@@ -158,7 +158,7 @@ S(partvis,TempS,8,U(TempS,x0,0,1),P(TempS,x4,4,AT_RAW));
 S(fighteranims,struct Fighter_WaitAnimData,24,P(struct Fighter_WaitAnimData,x0,0,AT_STRING),U(struct Fighter_WaitAnimData,x4,4,2),P(struct Fighter_WaitAnimData,xC,12,AT_SCRIPT),U(struct Fighter_WaitAnimData,x10_animCurrFlags,16,1),U(struct Fighter_WaitAnimData,x14,20,1));
 S(fighterpartanim,struct ftData_x1C,12,H(struct ftData_x1C,x0,0,2),P(struct ftData_x1C,x4,4,AT_RAW),P(struct ftData_x1C,x8,8,AT_ANIMS));
 S(fighterguard,struct ftData_x20,8,P(struct ftData_x20,x0,0,AT_JOINT),U(struct ftData_x20,x8,4,1));
-S(fighterdynamics,ftDynamics,20,U(ftDynamics,dynamicsNum,0,1),P(ftDynamics,ftDynamicBones,4,AT_BONE_DYNAMICS),U(ftDynamics,x4,8,1),P(ftDynamics,x8,12,AT_WORDS),P(ftDynamics,x10,16,AT_WORD_TABLE));
+S(fighterdynamics,ftDynamics,20,U(ftDynamics,x0.dynamicsNum,0,1),P(ftDynamics,x0.ftDynamicBones,4,AT_BONE_DYNAMICS),U(ftDynamics,x4,8,1),P(ftDynamics,x8,12,AT_WORDS),P(ftDynamics,x10,16,AT_WORD_TABLE));
 S(fighterhurt,struct ftData_x30,8,U(struct ftData_x30,count,0,1),P(struct ftData_x30,inits,4,AT_WORDS));
 S(fighterledge,ftData_x44_t,28,H(ftData_x44_t,unk0,0,6),U(ftData_x44_t,unkC,12,4));
 S(fightersfx,FtSFX,56,P(FtSFX,smash,0,AT_SFX_ARRAY),U(FtSFX,x4,4,6),P(FtSFX,x1C,28,AT_SFX_ARRAY),P(FtSFX,x20,32,AT_SFX_ARRAY),U(FtSFX,x24,36,5));
@@ -171,7 +171,7 @@ S(dynamicsdesc,DynamicsDesc,20,P(DynamicsDesc,data,0,AT_WORDS),U(DynamicsDesc,co
 #define ICE_SPAWN(i) H(struct grIceMt_YakumonoParam,xBC[i].kind,188+4*(i),1),B(struct grIceMt_YakumonoParam,xBC[i].x2,190+4*(i),2)
 #define ICE_SPAWN4(i) ICE_SPAWN(i),ICE_SPAWN(i+1),ICE_SPAWN(i+2),ICE_SPAWN(i+3)
 S(stageice,struct grIceMt_YakumonoParam,316,H(struct grIceMt_YakumonoParam,x0,0,3),U(struct grIceMt_YakumonoParam,x8,8,11),H(struct grIceMt_YakumonoParam,x34,52,4),U(struct grIceMt_YakumonoParam,x3C,60,23),H(struct grIceMt_YakumonoParam,ft_max_y,152,2),U(struct grIceMt_YakumonoParam,x9C,156,2),H(struct grIceMt_YakumonoParam,xA4,164,3),P(struct grIceMt_YakumonoParam,field_ixs,172,AT_HALVES),P(struct grIceMt_YakumonoParam,xB0,176,AT_HALVES),P(struct grIceMt_YakumonoParam,xB4,180,AT_HALVES),H(struct grIceMt_YakumonoParam,xB8,184,2),ICE_SPAWN4(0),ICE_SPAWN4(4),ICE_SPAWN4(8),ICE_SPAWN4(12),ICE_SPAWN4(16),ICE_SPAWN4(20),ICE_SPAWN4(24),ICE_SPAWN4(28));
-S(grounditem,struct GroundItemData,8,U(struct GroundItemData,unk0,0,1),P(struct GroundItemData,unk4,4,AT_ARTICLE));
+S(grounditem,struct GroundItemData,8,U(struct GroundItemData,gr_itkind,0,1),P(struct GroundItemData,article_data,4,AT_ARTICLE));
 S(article,Article,24,P(Article,x0_common_attr,0,AT_ITEM_ATTR),P(Article,x4_specialAttributes,4,AT_ITEM_NUMBERS),P(Article,x8_hurtbones,8,AT_ITEM_HURT),P(Article,xC_itemStates,12,AT_ITEM_STATES),P(Article,x10_modelDesc,16,AT_ITEM_MODEL),P(Article,x14_dynamics,20,AT_ITEM_DYNAMICS));
 S(itemcommon,ItemCommonData,0x160,U(ItemCommonData,x0,0,18),B(ItemCommonData,x48_byte,0x48,4),U(ItemCommonData,x4C_float,0x4C,38),B(ItemCommonData,filler_1a,0xE4,4),U(ItemCommonData,xE8,0xE8,1),B(ItemCommonData,filler_1a_2,0xEC,4),U(ItemCommonData,xF0,0xF0,28));
 S(itemattr,ItemAttr,0x84,B(ItemAttr,x3,2,1),U(ItemAttr,x4_throw_speed_mul,4,32));
@@ -182,9 +182,15 @@ S(itemdynamics,ItemDynamics,16,U(ItemDynamics,count,0,1),P(ItemDynamics,dyn_desc
 // Serialized dynamics inputs are arrays of 60-byte numeric coefficient records,
 // not the runtime DynamicsData linked nodes created by lb_8000FD48.
 S(bonedynamics,BoneDynamicsDesc,24,U(BoneDynamicsDesc,bone_id,0,1),P(BoneDynamicsDesc,dyn_desc.data,4,AT_WORDS),U(BoneDynamicsDesc,dyn_desc.count,8,4));
-S(itemsword,itSword_UnkArticle1,48,U(itSword_UnkArticle1,x0,0,9),B(itSword_UnkArticle1,x1C.x8,36,9));
-S(itemfoods,itFoodsAttributes,16,U(itFoodsAttributes,x0,0,1),P(itFoodsAttributes,x4,4,AT_JOINT),U(itFoodsAttributes,x8,8,2));
-S(itemkinoko,KinokoAttrs,16,U(KinokoAttrs,x0,0,2),P(KinokoAttrs,anims[0],8,AT_ANIM),P(KinokoAttrs,anims[1],12,AT_ANIM));
+S(itemsword,itSwordAttributes,48,U(itSwordAttributes,x0,0,9),B(itSwordAttributes,x1C.x8,36,9));
+/* The food table is { s32 count; itFoodEntry entries[]; }. Cut into 16-byte disc records that is
+   { count or the previous entry's offset.y, joint, heal_amount, offset.x }, which is 24 bytes here. */
+typedef struct NativeFoodsRecord { s32 x0; HSD_Joint* x4; s32 x8; s32 xC; } NativeFoodsRecord;
+_Static_assert(offsetof(itFoodsAttributes,entries)==offsetof(NativeFoodsRecord,x4)&&sizeof(itFoodEntry)==sizeof(NativeFoodsRecord)
+    &&offsetof(itFoodEntry,heal_amount)+offsetof(NativeFoodsRecord,x4)==offsetof(NativeFoodsRecord,x8)
+    &&offsetof(itFoodEntry,offset)+offsetof(NativeFoodsRecord,x4)==offsetof(NativeFoodsRecord,xC),"food records must overlay itFoodsAttributes");
+S(itemfoods,NativeFoodsRecord,16,U(NativeFoodsRecord,x0,0,1),P(NativeFoodsRecord,x4,4,AT_JOINT),U(NativeFoodsRecord,x8,8,2));
+S(itemkinoko,KinokoAttrs,16,U(KinokoAttrs,x0,0,2),P(KinokoAttrs,x8[0],8,AT_ANIM),P(KinokoAttrs,x8[1],12,AT_ANIM));
 typedef struct NativeKuriAttrs { s32* weights; float values[4]; } NativeKuriAttrs;
 S(itemkuri,NativeKuriAttrs,20,P(NativeKuriAttrs,weights,0,AT_WORDS),U(NativeKuriAttrs,values,4,4));
 S(itemleadead,itLeadeadAttributes,32,P(itLeadeadAttributes,x0,0,AT_WORDS),U(itLeadeadAttributes,x4,4,5),H(itLeadeadAttributes,x18,24,3),B(itLeadeadAttributes,x1E,30,1));

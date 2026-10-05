@@ -7,7 +7,6 @@
 #include <melee/lb/lbaudio_ax.h>
 #include <melee/pl/player.h>
 #include <melee/sc/types.h>
-#include <sysdolphin/baselib/cobj.h>
 #include <sysdolphin/baselib/dobj.h>
 #include <sysdolphin/baselib/fog.h>
 #include <sysdolphin/baselib/gobj.h>
@@ -190,7 +189,7 @@ void un_802FE260(void)
 
     un_804D6D90 = 0;
     lbArchive_LoadSections(*ifAll_GetArchive(), &un_804A1F10.x0,
-                           "Stc_rarwmdls", 0);
+                           "Stc_rarwmdls", NULL);
     for (i = 0; i < 4; i++) {
         gobj = GObj_Create(HSD_GOBJ_CLASS_UI, 15, 0);
         jobj = HSD_JObjLoadJoint(un_804A1F10.x0[0]->joint);

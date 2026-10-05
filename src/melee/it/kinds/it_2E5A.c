@@ -18,7 +18,6 @@
 #include <melee/lb/lbaudio_ax.h>
 #include <melee/lb/lbvector.h>
 #include <melee/mp/mpcoll.h>
-#include <sysdolphin/baselib/cobj.h>
 #include <sysdolphin/baselib/gobj.h>
 #include <sysdolphin/baselib/gobjproc.h>
 #include <sysdolphin/baselib/jobj.h>
@@ -85,7 +84,7 @@ bool it_802E5AC4(Item_GObj* item_gobj, bool arg_check)
     item = GET_ITEM(item_gobj);
     coll_data = &item->x378_itemColl;
     comm_attr = item->xCC_item_attr;
-    spec_attr = item->xC4_article_data->x4_specialAttributes;
+    spec_attr = &item->xC4_article_data->x4_specialAttributes->unk_2e5a;
     it_80276214(item_gobj);
     coll_data->cur_pos.y -= item->xC1C.bottom;
     check1 = mpColl_80048844(coll_data);
@@ -100,15 +99,10 @@ bool it_802E5AC4(Item_GObj* item_gobj, bool arg_check)
         if (ABS(item->x40_vel.y) <= 0.00001f) {
             item->x40_vel.y = 0.0f;
         }
-        if (ABS(item->x40_vel.x) <= comm_attr->x5c) {
-            if (!(ABS(item->x40_vel.y) <= comm_attr->x5c)) {
-                goto block_16;
-            }
-            goto block_18;
-        }
-    block_16:
-        if (item->xDCD_flag.b4 || !comm_attr->x58) {
-        block_18:
+        if ((ABS(item->x40_vel.x) <= comm_attr->x5c &&
+             ABS(item->x40_vel.y) <= comm_attr->x5c) ||
+            item->xDCD_flag.x0.b4 || !comm_attr->x58)
+        {
             itResetVelocity(item);
             item->xD50_landNum = 0;
         } else {
@@ -154,8 +148,8 @@ bool it_802E5AC4(Item_GObj* item_gobj, bool arg_check)
             item->x40_vel.x *= spec_attr->x14;
             item->xD50_landNum += 1;
             if (item->xD50_landNum >= 3U) {
-                if (!(item->xDCF_flag.b0)) {
-                    item->xDCF_flag.b0 = 1;
+                if (!(item->xDCF_flag.x0.b0)) {
+                    item->xDCF_flag.x0.b0 = 1;
                 }
             }
         }
@@ -256,14 +250,15 @@ static inline void it_802E614C(Item_GObj* parent_gobj1,
     spawn->vel = *vel;
     spawn->x0_parent_gobj = parent_gobj1;
     spawn->x4_parent_gobj2 = parent_gobj2;
-    spawn->x44_flag.b0 = 1;
+    spawn->x44_flag.x0.b0 = 1;
     spawn->x40 = 0;
 }
 
 s32 it_802E61C4(Item_GObj* item_gobj, s32 arg1, s32 arg2)
 {
     Item* item = GET_ITEM(item_gobj);
-    it_2E5A_Attrs* attr = item->xC4_article_data->x4_specialAttributes;
+    it_2E5A_Attrs* attr =
+        &item->xC4_article_data->x4_specialAttributes->unk_2e5a;
     f32 new_var;
     s32 var_r29;
     f32 temp_f1;
@@ -287,7 +282,8 @@ void it_802E628C(Item_GObj* item_gobj, f32 arg8, f32 arg9)
     f32 temp_f1;
     f32 temp_f0;
     f32 var_f30;
-    it_2E5A_Attrs* attr = item->xC4_article_data->x4_specialAttributes;
+    it_2E5A_Attrs* attr =
+        &item->xC4_article_data->x4_specialAttributes->unk_2e5a;
 
     temp_f31 = HSD_Randf();
     temp_f1 = M_PI_2;
@@ -315,11 +311,12 @@ void it_802E628C(Item_GObj* item_gobj, f32 arg8, f32 arg9)
 static inline void it_802E6380_inline(Item_GObj* item_gobj)
 {
     Item* item = GET_ITEM(item_gobj);
-    item->xDD4_itemVar.it_2E5A.x18.b0 =
-        (item->xDD4_itemVar.it_2E5A.x18.b1 = 0);
+    item->xDD4_itemVar.it_2E5A.x18.x0.b0 =
+        (item->xDD4_itemVar.it_2E5A.x18.x0.b1 = 0);
 
     if (item->xDD4_itemVar.it_2E5A.x8 != 0) {
-        it_2E5A_Attrs* attr = item->xC4_article_data->x4_specialAttributes;
+        it_2E5A_Attrs* attr =
+            &item->xC4_article_data->x4_specialAttributes->unk_2e5a;
         it_2E5A_SubVars* sub = &item->xDD4_itemVar.it_2E5A.sub;
         sub->x4 = GET_JOBJ(item_gobj);
         sub->x0 = (0.003906f * attr->x28) / item->scl;
@@ -327,7 +324,7 @@ static inline void it_802E6380_inline(Item_GObj* item_gobj)
         lb_8000B1CC(sub->x4, NULL, &sub->x8);
         sub->x14 = sub->x8;
         if (db_ShowCoinPickupRange()) {
-            item->xDAA_flag.b0 = 1;
+            item->xDAA.xDAA_flag.x0.b0 = 1;
         }
     }
 }
@@ -355,7 +352,8 @@ static inline s32 it_802E6380_tier(Item_GObj* item_gobj, it_2E5A_Attrs* attr,
 s32 it_802E6380(Item_GObj* item_gobj, it_802E5FXX_struct* arg1)
 {
     Item* item = GET_ITEM(item_gobj);
-    it_2E5A_Attrs* attr = item->xC4_article_data->x4_specialAttributes;
+    it_2E5A_Attrs* attr =
+        &item->xC4_article_data->x4_specialAttributes->unk_2e5a;
     s32 off = it_802E6380_tier(item_gobj, attr, arg1);
     PAD_STACK(8);
 
@@ -373,7 +371,7 @@ s32 it_802E6380(Item_GObj* item_gobj, it_802E5FXX_struct* arg1)
 
     item->xDD4_itemVar.it_2E5A.x14 = attr->x8;
     item->xDD4_itemVar.it_2E5A.x8 = arg1->x14;
-    item->xDCD_flag.b6 = 1;
+    item->xDCD_flag.x0.b6 = 1;
 
     {
         s32 tier_idx = off;
@@ -408,18 +406,18 @@ bool it_802E657C(Item_GObj* item_gobj)
     if (item->xDD4_itemVar.it_2E5A.x8 == 1) {
         temp_f0_2 = item->xDD4_itemVar.it_2E5A.x10;
         if (temp_f0_2 <= 0.0f) {
-            temp_r4 = item->xDD4_itemVar.it_2E5A.x18.b0;
+            temp_r4 = item->xDD4_itemVar.it_2E5A.x18.x0.b0;
             if (!temp_r4) {
-                item->xDD4_itemVar.it_2E5A.x18.b0 = 1;
+                item->xDD4_itemVar.it_2E5A.x18.x0.b0 = 1;
             }
         } else {
             item->xDD4_itemVar.it_2E5A.x10 = temp_f0_2 - 1.0f;
         }
         temp_f1 = item->xDD4_itemVar.it_2E5A.x14;
         if (temp_f1 <= 0.0f) {
-            if (item->xDCD_flag.b5 != 1) {
+            if (item->xDCD_flag.x0.b5 != 1) {
                 it_80275444(item_gobj);
-                item->xDD4_itemVar.it_2E5A.x18.b1 = 1;
+                item->xDD4_itemVar.it_2E5A.x18.x0.b1 = 1;
             }
         } else {
             item->xDD4_itemVar.it_2E5A.x14 = temp_f1 - 1.0f;
@@ -439,7 +437,8 @@ static inline void it_2E5A_ApplyStateDesc(HSD_GObj* item_gobj, int idx)
 {
     Item* item = item_gobj->user_data;
     HSD_JObj* item_jobj = item_gobj->hsd_obj;
-    it_2E5A_Attrs* attr = item->xC4_article_data->x4_specialAttributes;
+    it_2E5A_Attrs* attr =
+        &item->xC4_article_data->x4_specialAttributes->unk_2e5a;
     item->xD0_itemStateDesc = (ItemStateDesc*) &attr->tiers[idx].anim_joint;
     Item_80268D34(item_gobj, item->xD0_itemStateDesc);
     HSD_JObjAnimAll(item_jobj);
@@ -486,7 +485,7 @@ bool it_2E5A_UnkMotion0_Coll(HSD_GObj* item_gobj)
     if (it_802E5AC4(item_gobj, 1)) {
         it_802E6888(item_gobj);
         item->xD50_landNum = 0;
-        item->xDCF_flag.b0 = 0;
+        item->xDCF_flag.x0.b0 = 0;
     }
     return false;
 }

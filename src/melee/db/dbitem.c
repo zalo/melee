@@ -1,5 +1,7 @@
 #include <melee/it/forward.h>
 
+#include <stdbool.h>
+
 #include "db.h"
 #include <melee/ef/efsync.h>
 #include <melee/ft/ftlib.h>
@@ -21,21 +23,25 @@
 /* 4D6B38 */ static DevText* db_ItemAndPokemonMenuText;
 /* 4D6B3C */ static int db_ShowItemCollisionBubbles;
 
-static struct {
+static struct db_ItemAndPokemonMenu_t {
+    /// @todo: Make DisplayStatus an enum?
     unsigned int DisplayStatus; // 0=uninitialized, 1=visible, 2=hidden
     unsigned int DisplayFadeTimer;
-    int ItemSpawnsEnabled;
+    bool ItemSpawnsEnabled;
     int Player;
-    int CurrentlySelectedItem;
-    int CurrentlySelectedPokemon;
+    ItemKind CurrentlySelectedItem;
+    PokemonKind CurrentlySelectedPokemon;
     ItemKind LastSelectedItem;
-    int LastSelectedPokemon;
-    u32 ShowEnemyStompRange : 1;
-    u32 ShowItemPickupRange : 1;
-    u32 ShowCoinPickupRange : 1;
+    PokemonKind LastSelectedPokemon;
+    u32 ShowEnemyStompRange : 1; // changing this to a bool causes a mismatch
+                                 // in db_ShowEnemyStompRange
+    u32 ShowItemPickupRange : 1; // changing this to a bool causes a mismatch
+                                 // in db_ShowItemPickupRange
+    u32 ShowCoinPickupRange : 1; // changing this to a bool causes a mismatch
+                                 // in db_ShowCoinPickupRange
 } db_ItemAndPokemonMenu;
 
-/* 3EA94C */ static char* db_ItemNames[] = {
+/* 3EA94C */ static char* db_ItemNames[It_Kind_Common_Items_Size] = {
     // clang-format off
     "Capsule ",
     "Box     ",
@@ -75,7 +81,7 @@ static struct {
     // clang-format on
 };
 
-/* 3EAA50 */ static char* db_PokemonNames[] = {
+/* 3EAA50 */ static char* db_PokemonNames[It_PKind_Items_Total] = {
     "Random",      "Tosakinto", "Chicorita", "Kabigon",    "Kamex",
     "Matadogas",   "Lizardon",  "Fire",      "Thunder",    "Freezer",
     "Sonans",      "Hassam",    "Unknown",   "Entei",      "Raikou",
@@ -85,11 +91,15 @@ static struct {
     "Fushigibana",
 };
 
-/* 3EAAFC */ static char* db_BarrelEnemies[] = { "Kuriboh ", "Leadead ",
-                                                 "Octarock", "Ottosei " };
+/* 3EAAFC */ static char* db_BarrelEnemies[It_Kind_Monster_Items_Size] = {
+    "Kuriboh ", "Leadead ", "Octarock", "Ottosei "
+};
 
-/* 3EABA8 */ static char* db_AdventureEnemies[26] = {
-    // clang-format off
+/// @todo: Add remaining names of Stage items and possibly split into two
+/// separate arrays??
+/* 3EABA8 */ static char*
+    db_AdventureEnemies[It_Kind_Monsters2_Stage_Items_Size] = {
+        // clang-format off
     "old-Kuri",
     "Mato    ",
     "Heiho   ",
@@ -103,25 +113,38 @@ static struct {
     "klap    ",
     "zgshell ",
     "zrshell ",
-    // clang-format on
-};
+        // clang-format on
+    };
 
+/// @todo: Should we rename the item categories to match these?
 static char unused_db_string_803EAC10[] =
     "Item=%d Foods=%d Yaku=%d Sp_Item=%d Pokemon=%d PokeShot=%d CZako=%d "
     "CZakoShot=%d Zako=%d ZakoShot=%d Shot=%d Etc=%d\n";
+/// Possible category members
+// Item - It_Kind_Capsule thru It_Kind_M_Ball (see db_CommonItems??)
+// Foods - It_Kind_Heart, It_Kind_Tomato, and It_Kind_Foods (maybe
+// It_Kind_Lucky_Egg and It_Kind_WhispyHealApple) Yaku - It_Kind_Tincle thru
+// It_Kind_Kyasarin_Egg Sp_Item - It_Kind_Mario_Fire thru
+// It_Kind_Kirby_YoshiEggLay Pokemon - It_Pkind_Random thru
+// It_PKind_Fushigibana (see db_PokemonItems) CZako - It_Kind_Kuriboh thru
+// It_Kind_Ottosea (see db_BarrelEnemies) CZakoShot - It_Kind_Octarock_Stone
+// Zako - It_Kind_Old_Kuri thru It_Kind_Klap (see db_AdventureEnemies)
+// ZakoShot - It_Kind_ZGShell and It_Kind_ZRShell
+// Shot - It_Kind_L_Gun_Ray thru It_Kind_F_Flower_Flame
+// Etc - It_Kind_EvYoshiEgg, It_Kind_Unk4, and It_Kind_Coin
 
 void fn_SetupItemAndPokemonMenu(void)
 {
     db_ItemAndPokemonMenu.DisplayStatus = 0;
-    db_ItemAndPokemonMenu.CurrentlySelectedItem = 0x22;
+    db_ItemAndPokemonMenu.CurrentlySelectedItem = It_Kind_M_Ball;
     db_ItemAndPokemonMenu.LastSelectedItem =
         db_ItemAndPokemonMenu.CurrentlySelectedItem;
-    db_ItemAndPokemonMenu.CurrentlySelectedPokemon = 0;
+    db_ItemAndPokemonMenu.CurrentlySelectedPokemon = Pokemon_Start;
     db_ItemAndPokemonMenu.LastSelectedPokemon =
         db_ItemAndPokemonMenu.CurrentlySelectedPokemon;
     db_ShowItemCollisionBubbles = 1;
-    db_ItemAndPokemonMenu.ShowEnemyStompRange = 0;
-    db_ItemAndPokemonMenu.ShowItemPickupRange = 0;
+    db_ItemAndPokemonMenu.ShowEnemyStompRange = false;
+    db_ItemAndPokemonMenu.ShowItemPickupRange = false;
 }
 
 void fn_80225A54(int player)
@@ -146,16 +169,19 @@ void fn_80225A54(int player)
     }
 }
 
+// Changing this to return a bool causes a mismatch
 u32 db_ShowEnemyStompRange(void)
 {
     return db_ItemAndPokemonMenu.ShowEnemyStompRange;
 }
 
+// Changing this to return a bool causes a mismatch
 u32 db_ShowItemPickupRange(void)
 {
     return db_ItemAndPokemonMenu.ShowItemPickupRange;
 }
 
+// Changing this to return a bool causes a mismatch
 u32 db_ShowCoinPickupRange(void)
 {
     return db_ItemAndPokemonMenu.ShowCoinPickupRange;
@@ -170,11 +196,11 @@ void fn_EnableShowCoinPickupRange(void)
     while (item_gobj != NULL) {
         it = GET_ITEM(item_gobj);
         if (it->kind == It_Kind_Unk4) {
-            it->xDAA_flag.b0 = 1;
+            it->xDAA.xDAA_flag.x0.b0 = 1;
         }
         item_gobj = item_gobj->next;
     }
-    db_ItemAndPokemonMenu.ShowCoinPickupRange = 1;
+    db_ItemAndPokemonMenu.ShowCoinPickupRange = true;
 }
 
 void fn_DisableShowCoinPickupRange(void)
@@ -186,11 +212,11 @@ void fn_DisableShowCoinPickupRange(void)
     while (item_gobj != NULL) {
         it = GET_ITEM(item_gobj);
         if (it->kind == It_Kind_Unk4) {
-            it->xDAA_flag.b0 = 0;
+            it->xDAA.xDAA_flag.x0.b0 = 0;
         }
         item_gobj = item_gobj->next;
     }
-    db_ItemAndPokemonMenu.ShowCoinPickupRange = 0;
+    db_ItemAndPokemonMenu.ShowCoinPickupRange = false;
 }
 
 void fn_EnableShowEnemyStompRange(void)
@@ -201,12 +227,12 @@ void fn_EnableShowEnemyStompRange(void)
     item_gobj = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_ITEM];
     while (item_gobj != NULL) {
         it = GET_ITEM(item_gobj);
-        if (it->xDD0_flag.b0) {
-            it->xDAA_flag.b3 = 1;
+        if (it->xDD0_flag.x0.b0) {
+            it->xDAA.xDAA_flag.x0.b3 = 1;
         }
         item_gobj = item_gobj->next;
     }
-    db_ItemAndPokemonMenu.ShowEnemyStompRange = 1;
+    db_ItemAndPokemonMenu.ShowEnemyStompRange = true;
 }
 
 void fn_DisableShowEnemyStompRange(void)
@@ -217,10 +243,10 @@ void fn_DisableShowEnemyStompRange(void)
     item_gobj = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_ITEM];
     while (item_gobj != NULL) {
         it = item_gobj->user_data;
-        it->xDAA_flag.b3 = 0;
+        it->xDAA.xDAA_flag.x0.b3 = 0;
         item_gobj = item_gobj->next;
     }
-    db_ItemAndPokemonMenu.ShowEnemyStompRange = 0;
+    db_ItemAndPokemonMenu.ShowEnemyStompRange = false;
 }
 
 void fn_EnableShowItemPickupRange(void)
@@ -231,10 +257,10 @@ void fn_EnableShowItemPickupRange(void)
     item_gobj = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_ITEM];
     while (item_gobj != NULL) {
         it = item_gobj->user_data;
-        it->xDAA_flag.b4 = 1;
+        it->xDAA.xDAA_flag.x0.b4 = 1;
         item_gobj = item_gobj->next;
     }
-    db_ItemAndPokemonMenu.ShowItemPickupRange = 1;
+    db_ItemAndPokemonMenu.ShowItemPickupRange = true;
 }
 
 void fn_DisableShowItemPickupRange(void)
@@ -245,28 +271,28 @@ void fn_DisableShowItemPickupRange(void)
     item_gobj = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_ITEM];
     while (item_gobj != NULL) {
         it = item_gobj->user_data;
-        it->xDAA_flag.b4 = 0;
+        it->xDAA.xDAA_flag.x0.b4 = 0;
         item_gobj = item_gobj->next;
     }
-    db_ItemAndPokemonMenu.ShowItemPickupRange = 0;
+    db_ItemAndPokemonMenu.ShowItemPickupRange = false;
 }
 
-s32 db_GetCurrentlySelectedPokemon(void)
+PokemonKind db_GetCurrentlySelectedPokemon(void)
 {
     return db_ItemAndPokemonMenu.CurrentlySelectedPokemon;
 }
 
 void db_DisableItemSpawns(void)
 {
-    db_ItemAndPokemonMenu.ItemSpawnsEnabled = 0;
+    db_ItemAndPokemonMenu.ItemSpawnsEnabled = false;
 }
 
 void db_EnableItemSpawns(void)
 {
-    db_ItemAndPokemonMenu.ItemSpawnsEnabled = 1;
+    db_ItemAndPokemonMenu.ItemSpawnsEnabled = true;
 }
 
-s32 db_AreItemSpawnsEnabled(void)
+bool db_AreItemSpawnsEnabled(void)
 {
     return db_ItemAndPokemonMenu.ItemSpawnsEnabled;
 }
@@ -274,7 +300,7 @@ s32 db_AreItemSpawnsEnabled(void)
 void db_80225D64(Item_GObj* item, Fighter_GObj* owner)
 {
     Item* it = GET_ITEM(item);
-    it->xDAA_byte |= db_ShowItemCollisionBubbles;
+    it->xDAA.xDAA_byte |= db_ShowItemCollisionBubbles;
 }
 
 void fn_ToggleItemCollisionBubbles(void)
@@ -289,8 +315,8 @@ void fn_ToggleItemCollisionBubbles(void)
     item_gobj = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_ITEM];
     while (item_gobj != NULL) {
         it = item_gobj->user_data;
-        it->xDAA_byte &= 0xFC;
-        it->xDAA_byte |= db_ShowItemCollisionBubbles;
+        it->xDAA.xDAA_byte &= 0xFC;
+        it->xDAA.xDAA_byte |= db_ShowItemCollisionBubbles;
         item_gobj = item_gobj->next;
     }
 }
@@ -300,14 +326,14 @@ void db_80225DD8(Item_GObj* item, Fighter_GObj* owner)
     Item* it = GET_ITEM(item);
     if (ftLib_IsFighter(owner) == 0) {
         it = GET_ITEM(item);
-        it->xDAA_byte |= db_ShowItemCollisionBubbles;
+        it->xDAA.xDAA_byte |= db_ShowItemCollisionBubbles;
         // db_80225D64(item, owner); // stack too big
     } else {
         int x;
-        it->xDAA_byte &= 0xFC;
+        it->xDAA.xDAA_byte &= 0xFC;
         x = fn_8022697C(owner);
         if (x != 0) {
-            it->xDAA_byte |= x & 3;
+            it->xDAA.xDAA_byte |= x & 3;
         }
     }
 }
@@ -316,7 +342,7 @@ void fn_80225E6C(Fighter_GObj* owner, Fighter* fp)
 {
     Item_GObj* item_gobj;
     Item* it;
-    int stack[2];
+    PAD_STACK(4);
 
     item_gobj = HSD_GObjPLinkHead[HSD_GOBJ_PLINK_ITEM];
     while (item_gobj != NULL) {
@@ -330,53 +356,82 @@ void fn_80225E6C(Fighter_GObj* owner, Fighter* fp)
 
 void db_HandleItemPokemonMenuInput(int player)
 {
+    // Increment the selected item
     if ((db_ButtonsDown(player) & HSD_PAD_L) &&
         (db_ButtonsRepeat(player) & HSD_PAD_DPADUP))
     {
-        if (db_ItemAndPokemonMenu.CurrentlySelectedItem < 0x23) {
+        if (db_ItemAndPokemonMenu.CurrentlySelectedItem < It_Kind_Common_End) {
             db_ItemAndPokemonMenu.CurrentlySelectedItem++;
-            if (db_ItemAndPokemonMenu.CurrentlySelectedItem == 0x23) {
-                db_ItemAndPokemonMenu.CurrentlySelectedItem = 0x2B;
+            // If currently selected a common item, progres to monster items
+            // next instead of common item-related items
+            if (db_ItemAndPokemonMenu.CurrentlySelectedItem ==
+                It_Kind_L_Gun_Ray)
+            {
+                db_ItemAndPokemonMenu.CurrentlySelectedItem = It_Kind_Kuriboh;
             }
-        } else if (db_ItemAndPokemonMenu.CurrentlySelectedItem < 0x2F) {
+        } else if (db_ItemAndPokemonMenu.CurrentlySelectedItem <
+                   It_Kind_Monster_End)
+        {
             db_ItemAndPokemonMenu.CurrentlySelectedItem++;
-            if (db_ItemAndPokemonMenu.CurrentlySelectedItem == 0x2F) {
+            // If currently selected a monster item, progress to monster 2
+            // items next instead of monster-related items
+            if (db_ItemAndPokemonMenu.CurrentlySelectedItem ==
+                It_Kind_Octarock_Stone)
+            {
                 db_ItemAndPokemonMenu.CurrentlySelectedItem = It_Kind_Old_Kuri;
             }
-        } else if (db_ItemAndPokemonMenu.CurrentlySelectedItem < 0xE9) {
+        } else if (db_ItemAndPokemonMenu.CurrentlySelectedItem <
+                   (It_Kind_Stage_End - 1))
+        {
             db_ItemAndPokemonMenu.CurrentlySelectedItem++;
         }
     }
 
+    // Decrement the selected item
     if ((db_ButtonsDown(player) & HSD_PAD_L) &&
         (db_ButtonsRepeat(player) & HSD_PAD_DPADDOWN))
     {
-        if (db_ItemAndPokemonMenu.CurrentlySelectedItem >= 0xD0) {
+        if (db_ItemAndPokemonMenu.CurrentlySelectedItem >=
+            It_Kind_Monster2_Start)
+        {
             db_ItemAndPokemonMenu.CurrentlySelectedItem--;
-            if (db_ItemAndPokemonMenu.CurrentlySelectedItem < 0xD0) {
-                db_ItemAndPokemonMenu.CurrentlySelectedItem = 0x2E;
+            // If currently selected a monster 2 item, progres to monster items
+            // next instead of pokemon-related items
+            if (db_ItemAndPokemonMenu.CurrentlySelectedItem <
+                It_Kind_Monster2_Start)
+            {
+                db_ItemAndPokemonMenu.CurrentlySelectedItem = It_Kind_Ottosea;
             }
-        } else if (db_ItemAndPokemonMenu.CurrentlySelectedItem >= 0x2B) {
+        } else if (db_ItemAndPokemonMenu.CurrentlySelectedItem >=
+                   It_Kind_Monster_Start)
+        {
             db_ItemAndPokemonMenu.CurrentlySelectedItem--;
-            if (db_ItemAndPokemonMenu.CurrentlySelectedItem < 0x2B) {
-                db_ItemAndPokemonMenu.CurrentlySelectedItem = 0x22;
+            // If currently selected a monster item, progress to common items
+            // next instead of common item-related items
+            if (db_ItemAndPokemonMenu.CurrentlySelectedItem <
+                It_Kind_Monster_Start)
+            {
+                db_ItemAndPokemonMenu.CurrentlySelectedItem = It_Kind_M_Ball;
             }
-        } else if (db_ItemAndPokemonMenu.CurrentlySelectedItem > 0) {
+        } else if (db_ItemAndPokemonMenu.CurrentlySelectedItem >
+                   It_Kind_Common_Start)
+        {
             db_ItemAndPokemonMenu.CurrentlySelectedItem--;
         }
     }
+    // Increment the selected pokemon
     if ((db_ButtonsDown(player) & HSD_PAD_L) &&
         (db_ButtonsRepeat(player) & HSD_PAD_DPADRIGHT))
     {
-        if (db_ItemAndPokemonMenu.CurrentlySelectedPokemon < 0x1E) {
+        if (db_ItemAndPokemonMenu.CurrentlySelectedPokemon < Pokemon_Total) {
             db_ItemAndPokemonMenu.CurrentlySelectedPokemon++;
         }
     }
-
+    // Decrement the selected pokemon
     if ((db_ButtonsDown(player) & HSD_PAD_L) &&
         (db_ButtonsRepeat(player) & HSD_PAD_DPADLEFT))
     {
-        if (db_ItemAndPokemonMenu.CurrentlySelectedPokemon > 0) {
+        if (db_ItemAndPokemonMenu.CurrentlySelectedPokemon > Pokemon_Start) {
             db_ItemAndPokemonMenu.CurrentlySelectedPokemon--;
         }
     }
@@ -426,22 +481,22 @@ void fn_UpdateItemAndPokemonMenu(int player)
         }
         DevText_Erase(db_ItemAndPokemonMenuText);
         DevText_SetCursorXY(db_ItemAndPokemonMenuText, 0, 0);
-        if (db_ItemAndPokemonMenu.CurrentlySelectedItem < 0x23) {
+        if (db_ItemAndPokemonMenu.CurrentlySelectedItem < It_Kind_Common_End) {
             item = db_ItemNames[db_ItemAndPokemonMenu.CurrentlySelectedItem];
         } else if (db_ItemAndPokemonMenu.CurrentlySelectedItem <
-                   It_Kind_Octarock_Stone)
+                   It_Kind_Monster_End)
         {
             item =
                 db_BarrelEnemies[db_ItemAndPokemonMenu.CurrentlySelectedItem -
-                                 It_Kind_Kuriboh];
+                                 It_Kind_Monster_Start];
         } else if (db_ItemAndPokemonMenu.CurrentlySelectedItem <
-                   It_Kind_Arwing_Laser)
+                   It_Kind_Stage_End)
         {
             item = db_AdventureEnemies[db_ItemAndPokemonMenu
                                            .CurrentlySelectedItem -
-                                       It_Kind_Old_Kuri];
+                                       It_Kind_Monster2_Start];
         } else {
-            while (1) {
+            while (true) {
             }
         }
         DevText_Printf(
@@ -463,7 +518,7 @@ void db_CheckAndSpawnItem(int player)
         return;
     }
     spawnItem.kind = db_ItemAndPokemonMenu.CurrentlySelectedItem;
-    if (Item_80266F3C() == 0 && spawnItem.kind < It_Common_End) {
+    if (Item_80266F3C() == false && spawnItem.kind < It_Kind_Common_End) {
         return;
     }
     Player_LoadPlayerCoords(player, &spawnItem.prev_pos);
@@ -475,29 +530,30 @@ void db_CheckAndSpawnItem(int player)
     spawnItem.vel.x = spawnItem.vel.y = spawnItem.vel.z = 0.0F;
     spawnItem.x0_parent_gobj = NULL;
     spawnItem.x4_parent_gobj2 = spawnItem.x0_parent_gobj;
-    spawnItem.x44_flag.b0 = 1;
+    spawnItem.x44_flag.x0.b0 = 1;
     spawnItem.x40 = 0;
-    if (spawnItem.kind < It_Common_End &&
+    if (spawnItem.kind < It_Kind_Common_End &&
         Item_804A0C64.x0 >= (u32) it_804D6D28->x0)
     {
         OSReport("Item Max Over.\n");
         return;
     }
-    if (spawnItem.kind < It_Kind_Octarock_Stone &&
+    if (spawnItem.kind < It_Kind_Monster_End &&
         Item_804A0C64.x2C >= (u32) it_804D6D28->x14)
     {
         OSReport("couldn't get Item struct.(CZako)\n");
         return;
     }
-    if (spawnItem.kind < It_Kind_Old_Kuri ||
-        spawnItem.kind >= It_Kind_Arwing_Laser ||
-        it_804A0F60[spawnItem.kind - It_Kind_Old_Kuri] != 0)
+    if (spawnItem.kind < It_Kind_Section_Pokemon_Extended_End ||
+        spawnItem.kind >= It_Kind_Stage_End ||
+        it_804A0F60[spawnItem.kind - It_Kind_Section_Stage_Extended_Start] !=
+            NULL)
     {
-        if (spawnItem.kind != It_Kind_M_Ball || it_8026C704() == 0) {
+        if (spawnItem.kind != It_Kind_M_Ball || it_8026C704() == false) {
             {
                 HSD_GObj* gobj = Item_80268B18(&spawnItem);
                 if (gobj != NULL) {
-                    GET_ITEM(gobj)->xDAA_flag.byte |=
+                    GET_ITEM(gobj)->xDAA.xDAA_flag.byte |=
                         db_ShowItemCollisionBubbles;
                     efSync_Spawn(0x420, gobj, &spawnItem.prev_pos);
                 }

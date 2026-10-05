@@ -9,13 +9,14 @@
 #include <melee/it/kinds/forward.h>
 #include <sysdolphin/baselib/forward.h>
 
-#include <placeholder.h>
+#include <dat_macros.h>
 
 #include <dolphin/gx.h>
 #include <dolphin/mtx.h>
 #include <melee/ft/types.h>
 #include <melee/it/itCharItems.h>
 #include <melee/it/itCommonItems.h>
+#include <melee/it/itemattrs.h>
 #include <melee/it/itPKFlash.h>
 #include <melee/it/itPKThunder.h>
 #include <melee/lb/types.h>
@@ -28,7 +29,7 @@ struct PokemonSelectionState {
 };
 
 struct CameraBoxFlags {
-    struct {
+    struct CameraBoxFlags_x0 {
         u8 b01 : 2;
         u8 b2 : 1;
         u8 b3 : 1;
@@ -36,11 +37,11 @@ struct CameraBoxFlags {
         u8 b5 : 1;
         u8 b6 : 1;
         u8 b7 : 1;
-    };
+    } x0;
 };
 
 struct flag32 {
-    struct {
+    struct flag32_flags {
         u32 x0 : 1;
         u32 x1 : 1;
         u32 x2 : 1;
@@ -99,7 +100,7 @@ struct ItemAttr {
     u8 x3;                  // 0x3
     f32 x4_throw_speed_mul; // 0x4, speed multiplier at which this item is
                             // thrown at
-    s32 x8;
+    f32 x8;
     f32 xC_spin_speed;
     f32 x10_fall_speed;     // 0x10
     f32 x14_fall_speed_max; // 0x14
@@ -144,13 +145,16 @@ struct ItemDynamics {
     /// does not work perfectly
     int count;
 
-    BoneDynamicsDesc* dyn_descs;
+    BoneDynamicsTemplate* dyn_descs DAT_COUNT(count);
 #ifdef MELEE_NATIVE
     s32 collision_count;
     ItemCollisionDesc* collision_descs;
 #endif
 };
 
+/// @todo In some stage items (e.g. in @c GrCn.dat), #x4_matanim_joint and
+///       #x8_parameters hold values that are not relocated, so they are not
+///       always pointers of these types.
 struct ItemStateDesc {
     HSD_AnimJoint* x0_anim_joint;
 
@@ -158,11 +162,13 @@ struct ItemStateDesc {
 
     HSD_ShapeAnimJoint* x8_parameters;
 
-    UNK_T xC_script;
+    /// Run by #it_802799E4.
+    union CmdUnion* xC_script DAT_SCRIPT(itCommandLength(_command));
 };
 
 struct ItemStateArray {
-    struct ItemStateDesc x0_itemStateDesc[8];
+    /// Indexed by the @c anim_id of the item kind's #ItemStateTable entries.
+    struct ItemStateDesc x0_itemStateDesc[8] DAT_EXTENT;
 };
 
 struct ItemModelDesc {
@@ -192,7 +198,7 @@ typedef struct {
 
 struct Article {
     ItemAttr* x0_common_attr;
-    void* x4_specialAttributes;
+    union ItemSpecialAttributes* x4_specialAttributes;
     ItHurtBoneList* x8_hurtbones;
     ItemStateArray* xC_itemStates;
     ItemModelDesc* x10_modelDesc;
@@ -246,7 +252,7 @@ struct Item {
 
     ItemKind kind;
 
-    enum_t hold_kind;
+    Item_HoldKinds hold_kind;
 
     s32 x18;
     s32 x1C;
@@ -487,22 +493,22 @@ struct Item {
     struct Struct207C xD9C;
     u32 xDA4_word;
     u16 xDA8_short;
-    union {
+    union Item_xDAA {
         UnkFlagStruct xDAA_flag; // Develop mode stuff?
         u8 xDAA_byte;
-    };
+    } xDAA;
     u32 xDAC_itcmd_var0;
     u32 xDB0_itcmd_var1;
     u32 xDB4_itcmd_var2;
     u32 xDB8_itcmd_var3;
-    union {
+    union Item_xDBC {
         flag32 xDBC_itcmd_var4;
         u32 xDBC_itcmd_var4_word;
-    };
+    } xDBC;
     u32 xDC0;
     u32 xDC4;
     flag32 xDC8_word;
-    struct {
+    struct Item_xDCC_flag {
         u8 b0 : 1;
         u8 b1 : 1;
         u8 b2 : 1;
@@ -667,7 +673,7 @@ struct SpawnItem {
 
     /// @brief Defines the behavior of the item, such as thrown and pickup.
     /// @todo 0 = capsule.
-    /*  +C */ enum_t hold_kind;
+    /*  +C */ Item_HoldKinds hold_kind;
 
     /* +10 */ s32 x10;
     /* +14 */ Vec3 pos;

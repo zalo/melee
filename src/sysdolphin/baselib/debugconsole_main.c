@@ -1216,7 +1216,7 @@ void hsd_80395644(void)
     *p = saved;
 }
 
-static struct {
+static struct lbl_8040B8C4_t {
     ExcptNode* x0;
     UNK_T x4;
     UNK_T x8;
@@ -1973,7 +1973,8 @@ s32 hsd_80396A20(void* data)
                 hsd_80394E8C(lbl_8040BC3C.x18);
                 return 1;
             }
-            goto default_case;
+            break;
+
         case 0x400:
             lbl_8040BC3C.x10 = val & ~mask;
             return 1;
@@ -1984,11 +1985,8 @@ s32 hsd_80396A20(void* data)
             ps_push_node((ExcptNode*) &lbl_8040BD74);
             return 1;
         }
-        default:
-        default_case:
-            bit <<= 1;
-            break;
         }
+        bit <<= 1;
     }
     return 0;
 }
@@ -2400,14 +2398,15 @@ void hsd_80397520(void* node_ptr)
     }
 }
 
+struct ParticleInputState {
+    u8 _pad[0x54];
+    PADStatus pads[8];
+    s32 port;
+    s32 repeat;
+};
+
 void hsd_803975D4(void)
 {
-    struct ParticleInputState {
-        u8 _pad[0x54];
-        PADStatus pads[8];
-        s32 port;
-        s32 repeat;
-    };
     struct ParticleScreenState* sp = &hsd_804CF810;
     PADStatus* cur_pads;
     PADStatus* pads;

@@ -26,7 +26,7 @@ BOOL DVDReadAsyncPrio(DVDFileInfo* file,void* dest,s32 size,s32 offset,DVDCallba
     (void)dest;(void)size;(void)offset;(void)priority;
     CHECK(!dvd_done);dvd_done=cb;dvd_file=file;return 1;
 }
-void ARQPostRequest(ARQRequest* request,u32 owner,u32 type,u32 priority,
+void ARQPostRequest(ARQRequest* request,uintptr_t owner,u32 type,u32 priority,
                     uintptr_t source,uintptr_t dest,u32 length,ARQCallback callback) {
     (void)owner;(void)type;(void)priority;(void)source;(void)dest;(void)length;
     CHECK(!aram_done);aram_done=callback;aram_request=request;

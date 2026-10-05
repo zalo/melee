@@ -20,8 +20,7 @@
 #define M_TAU 6.283185307179586
 
 #define GET_ATTRS(ip)                                                         \
-    ((itClimbersBlizzardAttributes*)                                          \
-         ip->xC4_article_data->x4_specialAttributes)
+    (&ip->xC4_article_data->x4_specialAttributes->climbers_blizzard)
 
 /* 2C2380 */ bool itClimbersBlizzard_UnkMotion0_Anim(Item_GObj* gobj);
 /* 2C23B4 */ void itClimbersBlizzard_UnkMotion0_Phys(Item_GObj* gobj);
@@ -44,7 +43,7 @@ static inline Item_GObj* spawn_item_0z(Item_GObj* gobj, ItemKind kind,
     spawn->vel.x = spawn->vel.y = spawn->vel.z = 0.0f;
     spawn->x0_parent_gobj = gobj;
     spawn->x4_parent_gobj2 = spawn->x0_parent_gobj;
-    spawn->x44_flag.b0 = true;
+    spawn->x44_flag.x0.b0 = true;
     spawn->x40 = 0;
     return Item_80268B18(spawn);
 }

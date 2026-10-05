@@ -223,8 +223,8 @@ void Player_80031AD0(int slot)
 
     first_struct.internal_id = internal_id;
     first_struct.slot = slot;
-    first_struct.b0 = false;
-    first_struct.has_transformation = false;
+    first_struct.x6.b0 = false;
+    first_struct.x6.has_transformation = false;
     first_struct.x5 = -1;
 
     player->player_entity[0] = Fighter_Create(&first_struct);
@@ -239,8 +239,8 @@ void Player_80031AD0(int slot)
 
         second_struct.internal_id = internal_id;
         second_struct.slot = slot;
-        second_struct.b0 = true;
-        second_struct.has_transformation = has_transformation;
+        second_struct.x6.b0 = true;
+        second_struct.x6.has_transformation = has_transformation;
         second_struct.x5 = -1;
 
         player->player_entity[1] = Fighter_Create(&second_struct);
@@ -1877,13 +1877,14 @@ void Player_80036978(s32 slot, Vec3* pos)
 
 void Player_InitOrResetPlayer(s32 slot)
 {
+    int i;
     StaticPlayer* player;
     u8* transformed0;
     u8* transformed1;
     f32 zerofloat;
     f32 onefloat;
 
-    u8 _[56];
+    u8 _[48];
 
     Player_CheckSlot(slot);
     player = &player_slots[slot];
@@ -1941,12 +1942,9 @@ void Player_InitOrResetPlayer(s32 slot)
     player->falls[player->transformed[0]] = 0;
     player->falls[player->transformed[1]] = 0;
 
-    player->kos_by_player[0] = 0;
-    player->kos_by_player[1] = 0;
-    player->kos_by_player[2] = 0;
-    player->kos_by_player[3] = 0;
-    player->kos_by_player[4] = 0;
-    player->kos_by_player[5] = 0;
+    for (i = 0; i < 6; i++) {
+        player->kos_by_player[i] = 0;
+    }
 
     player->match_frame_count = -1;
     player->self_destructs = 0;
@@ -2019,11 +2017,11 @@ void Player_80036DA4(void)
 
 void Player_80036DD8(void)
 {
-    void** sp8;
+    struct plLoadCommonData* data;
 
-    lbArchive_LoadSymbols(str_PdPmdat_start_of_data, (void**) &sp8,
+    lbArchive_LoadSymbols(str_PdPmdat_start_of_data, &data,
                           str_plLoadCommonData, NULL);
-    pl_804D6470 = *sp8;
+    pl_804D6470 = data->x0;
 }
 
 void Player_80036E20(CharacterKind ckind, HSD_Archive* archive, s32 arg2)
@@ -2063,9 +2061,9 @@ void Player_80036F34(s32 slot, s32 arg1)
     player = &player_slots[slot];
     some_struct.internal_id = ftMapping_list[player->ckind].internal_id;
     some_struct.slot = slot;
-    some_struct.has_transformation = 0;
+    some_struct.xC.has_transformation = 0;
     some_struct.unk8 = arg1;
-    some_struct.b0 = 0;
+    some_struct.xC.b0 = 0;
 
     player->pkind = Gm_PKind_Demo;
     player->player_entity[0] = ftDemo_CreateFighter(&some_struct);
@@ -2074,7 +2072,7 @@ void Player_80036F34(s32 slot, s32 arg1)
     {
         some_struct.internal_id =
             ftMapping_list[player->ckind].extra_internal_id;
-        some_struct.has_transformation = 1;
+        some_struct.xC.has_transformation = 1;
         player->player_entity[1] = ftDemo_CreateFighter(&some_struct);
     }
 }
@@ -2089,9 +2087,9 @@ void Player_80037054(s32 slot, s32 arg1)
     player = &player_slots[slot];
     some_struct.internal_id = ftMapping_list[player->ckind].internal_id;
     some_struct.slot = slot;
-    some_struct.has_transformation = 0;
+    some_struct.xC.has_transformation = 0;
     some_struct.unk8 = arg1;
-    some_struct.b0 = 1;
+    some_struct.xC.b0 = 1;
 
     player->pkind = Gm_PKind_Demo;
     player->player_entity[0] = ftDemo_CreateFighter(&some_struct);
@@ -2100,7 +2098,7 @@ void Player_80037054(s32 slot, s32 arg1)
     {
         some_struct.internal_id =
             ftMapping_list[player->ckind].extra_internal_id;
-        some_struct.has_transformation = 1;
+        some_struct.xC.has_transformation = 1;
         player->player_entity[1] = ftDemo_CreateFighter(&some_struct);
     }
 }

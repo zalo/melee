@@ -20,18 +20,6 @@
 /* 2FFC6C */ static bool un_802FFC6C(enum soundtest_callback_arg0);
 /* 2FFCC8 */ static bool fn_802FFCC8(enum soundtest_callback_arg0);
 
-/// Symbol table loaded from SmSt.dat
-struct SoundTestLoadData {
-    /* 0x00 */ int x0;
-    /* 0x04 */ char** x4;
-    /* 0x08 */ char** x8;
-    /* 0x0C */ char** xC;
-    /* 0x10 */ int x10;
-    /* 0x14 */ int* x14;
-    /* 0x18 */ int* x18;
-    /* 0x1C */ char** x1C;
-};
-
 /// .sdata
 /* 804D5850 */ static int un_804D5850 = 127;
 /* 804D5854 */ static int un_804D5854 = 127;
@@ -102,7 +90,7 @@ void un_802FF7DC(void)
 #else
 void un_802FF7DC(void)
 {
-    lbArchive_LoadSymbols(un_803F9FA4.x160, &un_804D6DA8, un_803F9FA4.x16C, 0);
+    lbArchive_LoadSymbols(un_803F9FA4.x160, &un_804D6DA8, un_803F9FA4.x16C, NULL);
     un_803F9FA4.entries[1].x18 = un_804D6DA8->x0;
     un_803F9FA4.entries[1].xC = un_804D6DA8->x4;
     un_803F9FA4.entries[6].xC = un_804D6DA8->x8;

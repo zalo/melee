@@ -46,17 +46,17 @@ typedef struct grTGn_YakumonoParam {
     s32 x4;
     s32 x8;
 #else
-    DynamicsDesc* x0;
-    DynamicsDesc* x4;
-    DynamicsDesc* x8;
+    lbColl_80008D30_arg1* x0;
+    lbColl_80008D30_arg1* x4;
+    lbColl_80008D30_arg1* x8;
 #endif
 } grTGn_YakumonoParam;
 
 #ifdef MELEE_NATIVE
-// Serialized DynamicsDesc slots stay 32-bit; the archive resolves them.
+// Serialized hit-description slots stay 32-bit; the archive resolves them.
 void* MeleeNativeScriptPointer(const void*);
 #define YAKUMONO_DYNAMICS(field) \
-    ((DynamicsDesc*) MeleeNativeScriptPointer(&yakumono_param->field))
+    ((lbColl_80008D30_arg1*) MeleeNativeScriptPointer(&yakumono_param->field))
 #else
 #define YAKUMONO_DYNAMICS(field) (yakumono_param->field)
 #endif
@@ -166,7 +166,7 @@ void grTGanon_802249B0(Ground_GObj* gobj)
     return;
 }
 
-DynamicsDesc* grTGanon_802249B4(enum_t arg0)
+lbColl_80008D30_arg1* grTGanon_802249B4(enum_t arg0)
 {
     if (arg0 != -1) {
         enum_t i = mpJointFromLine(arg0);

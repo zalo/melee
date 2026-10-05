@@ -35,7 +35,7 @@ bool ftPk_SpecialLw_CheckProperty(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
 
-    s32 value = fp->x2070.x2071_b0_3;
+    s32 value = fp->x2070.x0.x2071_b0_3;
 
     switch (value) {
     case 1:
@@ -143,7 +143,7 @@ void ftPk_SpecialLw_Enter(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     fp->cmd_vars[0] = 0;
-    fp->throw_flags = 0;
+    fp->x2210.throw_flags = 0;
     THUNDER_VARS(fp).x4 = 1;
     THUNDER_VARS(fp).x0 = 0;
     Fighter_ChangeMotionState(gobj, 359, Ft_MF_None, 0.0f, 1.0f, 0.0f, 0);
@@ -154,7 +154,7 @@ void ftPk_SpecialAirLw_Enter(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     fp->cmd_vars[0] = 0;
-    fp->throw_flags = 0;
+    fp->x2210.throw_flags = 0;
     THUNDER_VARS(fp).x4 = 1;
     THUNDER_VARS(fp).x0 = 0;
     Fighter_ChangeMotionState(gobj, 363, Ft_MF_None, 0.0f, 1.0f, 0.0f, 0);
@@ -233,7 +233,7 @@ void ftPk_SpecialLwStart_Anim(HSD_GObj* gobj)
         Fighter_ChangeMotionState(gobj, 360, Ft_MF_SkipRumble, 0.0f, 1.0f,
                                   0.0f, 0);
         fighter_copy = GET_FIGHTER(gobj);
-        fighter_copy->throw_flags = 0;
+        fighter_copy->x2210.throw_flags = 0;
         fighter_copy->take_dmg_cb = &ftPk_SpecialLw_SetState_Unk1;
         fp->accessory4_cb = &ftPk_SpecialLw_SpawnEffect;
     }
@@ -249,7 +249,7 @@ void ftPk_SpecialAirLwStart_Anim(HSD_GObj* gobj)
         Fighter_ChangeMotionState(gobj, 364, Ft_MF_SkipRumble, 0.0f, 1.0f,
                                   0.0f, 0);
         fighter_copy = GET_FIGHTER(gobj);
-        fighter_copy->throw_flags = 0;
+        fighter_copy->x2210.throw_flags = 0;
         fighter_copy->take_dmg_cb = &ftPk_SpecialLw_SetState_Unk1;
         fp->accessory4_cb = &ftPk_SpecialLw_SpawnEffect;
     }

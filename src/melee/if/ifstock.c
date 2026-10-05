@@ -557,7 +557,7 @@ HSD_GObj* ifStock_802F96D0(int a, int b, float x, float y)
 static inline struct lbl_8046B6A0_FighterMatchInfoFlags*
 ifStock_802F98E8_get_match_info(VsSceneState* data, int player)
 {
-    return &data->fighters[player].flags;
+    return &data->fighters[player].x4.flags;
 }
 
 static const GXColor ifStock_802F98E8_color1 = { 0x08, 0x08, 0x08, 0x80 };
@@ -1000,7 +1000,7 @@ void ifStock_802FAEC4(void)
     memzero(&ifStock_804A1A8C, sizeof(ifStock_804A1A8C));
     memzero(&ifStock_804A1774, sizeof(ifStock_804A1774));
     lbArchive_LoadSections(*ifAll_GetArchive(), &scene_models,
-                           ifStock_SceneModels, 0);
+                           ifStock_SceneModels, NULL);
     stock->x0 = scene_models;
     stock->x4 = scene_models[1];
     ifStock_804A1ACC.x108 = NULL;

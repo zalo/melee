@@ -162,7 +162,7 @@ void ftMr_Init_OnDeath(HSD_GObj* gobj)
     fp->u.mr.x2234_tornadoCharge = false;
     fp->u.mr.x2238_isCapeBoost = false;
     fp->u.mr.x223C_capeGObj = NULL;
-    fp->u.mr.x2240 = 0;
+    fp->u.mr.x2240 = NULL;
 }
 
 void ftMr_Init_OnLoadForDrMario(Fighter* fp)
@@ -175,7 +175,7 @@ void ftMr_Init_OnLoad(HSD_GObj* gobj)
     /// @todo #GET_FIGHTER is too much stack. Problem with #PUSH_ATTRS?
     Fighter* fp = gobj->user_data;
     ftData* ftDataInfo = fp->ft_data;
-    void** items = ftDataInfo->x48_items;
+    union ftData_Item* items = ftDataInfo->x48_items;
 
     fp->can_walljump = true;
 
@@ -184,8 +184,8 @@ void ftMr_Init_OnLoad(HSD_GObj* gobj)
     {
         ftMario_DatAttrs* sa = fp->dat_attrs;
 
-        it_8026B3F8(items[0], It_Kind_Mario_Fire);
-        it_8026B3F8(items[2], sa->specials.cape_kind);
+        it_8026B3F8(items[0].article, It_Kind_Mario_Fire);
+        it_8026B3F8(items[2].article, sa->specials.cape_kind);
     }
 }
 
@@ -196,22 +196,22 @@ void ftMr_Init_OnTakeDamage(HSD_GObj* gobj)
 
 void ftMr_Init_OnItemPickup(HSD_GObj* gobj, bool flag)
 {
-    Fighter_OnItemPickup(gobj, flag, 1, 1);
+    Fighter_OnItemPickup(gobj, flag, true, true);
 }
 
 void ftMr_Init_OnItemInvisible(HSD_GObj* gobj)
 {
-    Fighter_OnItemInvisible(gobj, 1);
+    Fighter_OnItemInvisible(gobj, true);
 }
 
 void ftMr_Init_OnItemVisible(HSD_GObj* gobj)
 {
-    Fighter_OnItemVisible(gobj, 1);
+    Fighter_OnItemVisible(gobj, true);
 }
 
 void ftMr_Init_OnItemDrop(HSD_GObj* gobj, bool flag)
 {
-    Fighter_OnItemDrop(gobj, flag, 1, 1);
+    Fighter_OnItemDrop(gobj, flag, true, true);
 }
 
 void ftMr_Init_LoadSpecialAttrs(HSD_GObj* gobj)

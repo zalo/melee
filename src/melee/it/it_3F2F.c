@@ -95,40 +95,42 @@
 #include "kinds/itzrshell.h"
 #include "kinds/types.h"
 
-/// Character-specific items
-struct sdata_ItemGXLink it_803F2F28[118] = {
-    it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
-    it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
+/// Monster and Character-specific items
+struct sdata_ItemGXLink
+    it_803F2F28[It_Kind_Section_Monster_Character_Misc_Size] = {
+        it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
+        it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
 
-    it_8026EECC, it_8026EECC, it_8026EECC, it_8029CD18, it_8029CD18,
+        it_8026EECC, it_8026EECC, it_8026EECC, it_8029CD18, it_8029CD18,
 
-    it_8026EECC, it_8026EECC, it_8029FDDC, it_8029FDDC, it_8026EECC,
-    it_8026EECC, it_802A7D8C, it_802A7D8C, it_8026EECC, it_8026EECC,
+        it_8026EECC, it_8026EECC, it_8029FDDC, it_8029FDDC, it_8026EECC,
+        it_8026EECC, it_802A7D8C, it_802A7D8C, it_8026EECC, it_8026EECC,
 
-    it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
-    it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
-    it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
-    it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
-    it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
-    it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
-    it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
-    it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
-    it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
-    it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
-    it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
-    it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
-    it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
-    it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
+        it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
+        it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
+        it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
+        it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
+        it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
+        it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
+        it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
+        it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
+        it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
+        it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
+        it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
+        it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
+        it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
+        it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
 
-    it_8026EECC, it_8026EECC, it_802A7D8C, it_802A7D8C, it_8026EECC,
+        it_8026EECC, it_8026EECC, it_802A7D8C, it_802A7D8C, it_8026EECC,
 
-    it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
-    it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
-    it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
+        it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
+        it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
+        it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
 
-    it_8026EECC, it_802F13B4, it_8026EECC,
-};
+        it_8026EECC, it_802F13B4, it_8026EECC,
+    };
 
+/// Monster and Character-specific items
 struct ItemLogicTable it_803F3100[ARRAY_SIZE(it_803F2F28)] = {
     {
         // Kuriboh
@@ -2226,8 +2228,8 @@ struct ItemLogicTable it_803F3100[ARRAY_SIZE(it_803F2F28)] = {
     },
 };
 
-/// Monster and Stage-specific Items
-struct sdata_ItemGXLink it_803F4CA8[30] = {
+/// Monster 2 and Stage-specific Items
+struct sdata_ItemGXLink it_803F4CA8[It_Kind_Section_Stage_Extended_Size] = {
     it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
     it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
     it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC,
@@ -2236,7 +2238,8 @@ struct sdata_ItemGXLink it_803F4CA8[30] = {
     it_8026EECC, it_8026EECC, it_8026EECC, it_8026EECC, NULL,
 };
 
-struct ItemLogicTable it_803F4D20[ARRAY_SIZE(it_803F4CA8)] = {
+/// Monster 2 and Stage-specific Items
+struct ItemLogicTable it_803F4D20[It_Kind_Section_Stage_Extended_Size] = {
     {
         // Old Goomba (old-Kuri)
         it_803F8320,

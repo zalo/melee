@@ -23,17 +23,6 @@ ItemStateTable it_803F6530[] = { { 0, itStarrodstar_UnkMotion0_Anim,
                                    itStarrodstar_UnkMotion0_Phys,
                                    itStarrodstar_UnkMotion0_Coll } };
 
-typedef struct StarRodStarAttrs {
-    float x0;
-    float x4;
-    float x8;
-    float xC;
-    float x10;
-    int x14;
-    int x18;
-    float x1C;
-} StarRodStarAttrs;
-
 void it_802988E4(Fighter_GObj* gobj, Vec* vec, int arg2, float arg3)
 {
     HSD_GObj* n;
@@ -53,7 +42,8 @@ void it_802988E4(Fighter_GObj* gobj, Vec* vec, int arg2, float arg3)
 void it_802989C8(Item_GObj* ig, Fighter_GObj* fg)
 {
     Item* ip = GET_ITEM(ig);
-    StarRodStarAttrs* attrs = ip->xC4_article_data->x4_specialAttributes;
+    StarRodStarAttrs* attrs =
+        &ip->xC4_article_data->x4_specialAttributes->star_rod_star;
     HitCapsule* hit;
     it_8026B3A8(ig);
     it_80274740(ig);
@@ -69,7 +59,7 @@ void it_802989C8(Item_GObj* ig, Fighter_GObj* fg)
         it_80272460(hit, attrs->x14, ig);
     }
     ip->xDD4_itemVar.starrodstar.x4 = attrs->x1C * ip->facing_dir;
-    ip->xDCE_flag.b7 = 0;
+    ip->xDCE_flag.x0.b7 = 0;
 }
 
 bool itStarrodstar_UnkMotion0_Anim(Item_GObj* gobj)
