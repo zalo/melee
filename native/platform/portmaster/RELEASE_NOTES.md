@@ -6,6 +6,13 @@ no game data: you need your own dump of the disc (US, version 1.02, `GALE01`).
 
 ## Changes in this build
 
+- **The game now uses the system's C++ library instead of carrying its own copy**, as PortMaster asks
+  of its ports. `melee.aarch64` loads the CFW's `libstdc++.so.6` and needs `GLIBCXX_3.4.26` from it
+  (GCC 9, from 2019, or newer), together with glibc 2.30 as before. Nothing in the game changes.
+  Checked on an emulated system with glibc 2.30 and libstdc++ 6.0.28 (what ArkOS has), on a Raspberry
+  Pi 5 and on the RG351P, where it runs at the same frame rates as before. The other CFWs have not
+  been tried with it yet: if the game no longer starts and `log.txt` has a line that mentions
+  `GLIBCXX` or `libstdc++.so.6`, please send that log with the name and version of the CFW.
 - **Memory no longer climbs for as long as the game runs on the RG35XX and RG34XX family** (Allwinner
   H700 with the stock Mali driver, version r20p0; seen in soak reports `6cdec219`, an RG35XX Pro on
   Knulli, and `4b5e0568`, an RG34XX-SP on muOS, as memory use that kept rising through the half

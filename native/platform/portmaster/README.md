@@ -159,7 +159,8 @@ The launcher environment can force any of these for one run: `MELEE_DEBUG_MENU=1
 
 The port is cross-compiled on an x86_64 Linux host with the Bootlin
 `aarch64--glibc--stable-2023.08-1` toolchain for `-mcpu=cortex-a35`, so one binary runs on every
-supported SoC. The C++ runtime is linked statically. SDL 3 is linked as a shared library and the
+supported SoC. The C++ runtime is the device's own `libstdc++.so.6` (neither bundled nor linked
+statically; see below). SDL 3 is linked as a shared library and the
 only bundled library is the SDL3-over-SDL2 shim (`native/tools/build_sdl3_shim.sh` builds it from
 bmdhacks' SDL fork with the same toolchain; `MELEE_SDL=shim`, the default of
 `build_portmaster.sh`). `MELEE_SDL=static` instead builds SDL 3 in with its own KMSDRM and Wayland
@@ -174,9 +175,22 @@ ArkOS (glibc 2.30) and CrossMix (2.33). The SDK's own glibc is 2.37, so `build_p
 against a copy of the SDK whose sysroot is swapped for Bootlin `stable-2020.02-2`'s glibc 2.30
 (`native/tools/glibc230_toolchain.sh build`; it downloads that toolchain once, keeps the SDK's
 compiler, gcc 12 runtime and device libraries, and adds `native/tools/glibc_compat.c` to
-`libstdc++.a` for the two symbols glibc 2.30 lacks). The build ends with a check that the binary
-imports nothing newer than `GLIBC_2.30` and no shared `libstdc++`. Set `MELEE_MIN_GLIBC=sdk` to skip
-the swap and link against the plain SDK (the result then needs glibc 2.34 or newer on the device).
+`libstdc++.a` for the two symbols glibc 2.30 lacks).
+
+The same toolchain decides which `libstdc++.so.6` the binary can run with. The sources are compiled
+with gcc 12's headers, and a plain link against gcc 12's library would need `GLIBCXX_3.4.30`, newer
+than ArkOS (3.4.28) has. The toolchain script therefore fetches libstdc++ 6.0.28 (GCC 10, from
+Debian bullseye's `libstdc++6` package, pinned by checksum) into `libstdcxx-link/`, and the game is
+linked against that library; the few functions gcc 12's headers use that it does not have come from
+objects of gcc 12's `libstdc++.a`, linked in after it and kept out of the dynamic symbol table
+(`--exclude-libs`, and `hide-stdcxx.ver` for the inline `std::` code in the game's own objects, so
+the executable never overrides a symbol of the device's library). The result needs
+`GLIBCXX_3.4.26` and `CXXABI_1.3.9`, that is libstdc++ from GCC 9 or newer.
+
+The build ends with a check (`glibc230_toolchain.sh verify`) that the binary imports nothing newer
+than `GLIBC_2.30`, links `libstdc++.so.6` dynamically with nothing newer than `GLIBCXX_3.4.28`, and
+exports no C++ runtime symbol. Set `MELEE_MIN_GLIBC=sdk` to skip the swap and link against the plain
+SDK (the result then needs glibc 2.34 or newer on the device and links the C++ runtime statically).
 
 1. Get the source:
 

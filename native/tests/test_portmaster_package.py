@@ -55,7 +55,7 @@ class PortJsonTests(unittest.TestCase):
         self.assertNotIn('`', attr['inst'])
         self.assertEqual(attr['arch'], ['aarch64'])
         self.assertEqual(attr['availability'], 'paid')
-        # Built against a glibc 2.30 sysroot (gettid, pthread_cond_clockwait); the static libstdc++ carries arc4random.
+        # Built against a glibc 2.30 sysroot (gettid, pthread_cond_clockwait); the C++ runtime is the device's.
         self.assertEqual(attr['min_glibc'], '2.30')
         self.assertIs(attr['rtr'], False)
         self.assertEqual(attr['runtime'], [])
@@ -659,7 +659,24 @@ class BuiltZipTests(unittest.TestCase):
                 # that library's, the one holding SDL's context, whatever libEGL.so.1 is on the device.
                 self.assertLess(order.index('libGLESv2.so.2'), order.index('libEGL.so.1'), order)
                 self.assertFalse(needed & {'libdrm.so.2', 'libgbm.so.1', 'libwayland-client.so.0', 'libwayland-egl.so.1',
-                                           'libSDL2-2.0.so.0', 'libstdc++.so.6', 'libmali.so.1'}, needed)
+                                           'libSDL2-2.0.so.0', 'libmali.so.1'}, needed)
+                # The C++ runtime is the device's libstdc++.so.6 (PortMaster ports neither bundle nor
+                # statically link it), at a symbol version every supported CFW has: ArkOS ships
+                # GLIBCXX_3.4.28. Nothing of it may be exported, or the executable's copy of a std::
+                # function would replace the device library's own for everything loaded later.
+                self.assertIn('libstdc++.so.6', needed)
+                with tempfile.NamedTemporaryFile(suffix='.aarch64') as elf:
+                    elf.write(binary)
+                    elf.flush()
+                    versions = subprocess.run(['readelf', '-V', '-W', elf.name], capture_output=True, text=True, check=True).stdout
+                    exports = subprocess.run(['readelf', '--dyn-syms', '-W', elf.name], capture_output=True, text=True, check=True).stdout
+                glibcxx = {tuple(int(part) for part in version.split('.')) for version in re.findall(r'GLIBCXX_([0-9.]+)', versions)}
+                self.assertTrue(glibcxx)
+                self.assertLessEqual(max(glibcxx), (3, 4, 28), glibcxx)
+                glibc = {tuple(int(part) for part in version.split('.')) for version in re.findall(r'GLIBC_([0-9.]+)', versions)}
+                self.assertLessEqual(max(glibc), (2, 30), glibc)
+                defined = [line.split()[7] for line in exports.splitlines() if len(line.split()) >= 8 and line.split()[6] != 'UND']
+                self.assertFalse([name for name in defined if re.match(r'_ZN?K?S[taiso]|_ZT[ISV]S[taiso]|_ZT[vhc]|_Zn[aw]|_Zd[al]|__cxa_|__gxx_', name)])
                 # Math is linked statically: the CFWs' libm versions differ in the last bit of
                 # sinf/atan2f, which desyncs online play between devices.
                 self.assertNotIn('libm.so.6', needed)

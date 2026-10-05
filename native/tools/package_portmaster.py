@@ -11,8 +11,8 @@ PortMaster-New expects:
         melee/licenses/LICENSE.<component>.txt, melee/assets/README.txt, melee/runtime/
     <output>/melee.zip         the two launchers + melee/ (+ port.json) at the zip root
 
-No disc image, GPU driver or other system library is ever included; the C++ runtime is linked
-statically into melee.aarch64. With --sdl3 the SDL3-over-SDL2 shim (native/tools/build_sdl3_shim.sh)
+No disc image, GPU driver or other system library is ever included; melee.aarch64 uses the device's
+libstdc++.so.6. With --sdl3 the SDL3-over-SDL2 shim (native/tools/build_sdl3_shim.sh)
 ships as melee/libs.aarch64/libSDL3.so.0, the one library the launcher adds to LD_LIBRARY_PATH; it
 dlopens the CFW's own SDL2 and replaces nothing on the device.
 """

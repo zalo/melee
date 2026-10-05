@@ -87,7 +87,7 @@ sh "$root/native/platform/flip/build.sh" \
 
 if [ -n "$link_flags" ]; then
     echo "== glibc check"
-    sh "$root/native/tools/glibc230_toolchain.sh" verify "$sdk" "$MELEE_BUILD_DIR/melee_native"
+    sh "$root/native/tools/glibc230_toolchain.sh" verify "$sdk" "$MELEE_BUILD_DIR/melee_native" cxx
     if [ "$MELEE_SDL" = shim ]; then
         sh "$root/native/tools/glibc230_toolchain.sh" verify "$sdk" "$FLIP_SDL3_ROOT/lib/libSDL3.so.0"
     fi
@@ -96,7 +96,8 @@ fi
 echo "== Packaging"
 rm -rf "$output/melee" "$output/melee.zip"
 # The plain SDK: package_flip.py strips with it and reads its libstdc++.so.6 for the Flip bundle
-# (dropped again for PortMaster); the glibc 2.30 toolchain has no shared libstdc++.
+# (dropped again for PortMaster, which uses the device's); the glibc 2.30 toolchain has no gcc 12
+# shared libstdc++.
 python3 "$root/native/tools/package_portmaster.py" --build "$MELEE_BUILD_DIR" --sdk "$sdk" --output "$output" $package_sdl3
 if [ "$MELEE_SDL" = shim ]; then
     sh "$root/native/platform/flip/check_sdl_backends.sh" --shim "$output/melee/melee/libs.aarch64/libSDL3.so.0" "$output/melee/melee/melee.aarch64"

@@ -1,0 +1,10 @@
+/* Link-time version script of the game executable (native/CMakeLists.txt).
+ *
+ * The executable links the device's libstdc++.so.6. Its own objects carry weak copies of inline
+ * std:: code (std::string members and the like) which the linker would put in the dynamic symbol
+ * table because the shared libstdc++ defines the same names; every library loaded afterwards would
+ * then bind to the executable's gcc 12 copies instead of the device libstdc++'s own. Keep them local. */
+{
+  local:
+    _ZNSt*; _ZNKSt*; _ZSt*; _ZTISt*; _ZTSSt*; _ZTVSt*; _ZNSa*; _ZNKSa*; _ZTv*; _ZTh*;
+};

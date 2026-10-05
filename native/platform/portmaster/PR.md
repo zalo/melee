@@ -59,10 +59,12 @@ The launch script, packaging scripts and the native platform code were written w
 
 ## Build choices the guide warns about
 
-- The C++ runtime is linked statically. The game is C++20 and needs GLIBCXX_3.4.30 or newer; several
-  CFWs still ship 3.4.28, and PortMaster forbids bundling libstdc++ in `libs.aarch64`. Static
-  linking is the remaining option and is what makes one binary run on AmberELEC, Batocera, dArkOS,
-  Knulli and ROCKNIX.
+- The C++ runtime is the device's own `libstdc++.so.6`: none is bundled and none is linked
+  statically. The game is C++20 and is compiled with GCC 12's headers, which linked plainly would
+  need GLIBCXX_3.4.30 where several CFWs still ship 3.4.28. The link therefore targets libstdc++
+  6.0.28 (GCC 10), and the few newer functions come from a handful of objects of GCC 12's
+  `libstdc++.a`, linked privately (not exported, so nothing of the device's library is overridden).
+  The binary needs GLIBCXX_3.4.26, CXXABI_1.3.9 and GLIBC_2.30.
 - `libs.aarch64/libSDL3.so.0` is the SDL3-over-SDL2 shim (bmdhacks/SDL, branch `sdl2-backend`),
   the same library Dusklight ships. The renderer (Aurora) is written against SDL3; the CFWs ship
   SDL2. The shim's video, audio and joystick drivers dlopen the CFW's own `libSDL2-2.0.so.0`, so the

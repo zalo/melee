@@ -318,6 +318,26 @@ if(MELEE_MIYOO_FLIP)
     message(STATUS "No libmali in the sysroot; linking ${MELEE_SYSROOT_EGL} and ${MELEE_SYSROOT_GLES} directly")
     set(MELEE_GL_LINK "${MELEE_SYSROOT_GLES}" "${MELEE_SYSROOT_EGL}")
   endif()
+  # C++ runtime: PortMaster ports use the device's libstdc++.so.6, neither bundled nor linked statically.
+  # The glibc 2.30 toolchain (native/tools/glibc230_toolchain.sh) holds libstdc++ 6.0.28 in libstdcxx-link
+  # as the shared link target, so the binary needs no version above GLIBCXX_3.4.28 (ArkOS, the oldest CFW)
+  # while the objects are still compiled with gcc 12's headers. The few symbols those headers use that
+  # 6.0.28 lacks come from gcc 12's libstdc++.a, kept out of the dynamic symbol table. That archive must
+  # follow every object and archive on the link line (CMake orders the transitive dependencies of Aurora
+  # and Dawn after any direct item) and the shared library must precede it, so only what the shared
+  # library cannot resolve is taken from it: hence the standard-libraries variable, which CMake appends
+  # last. Set here, after add_subdirectory(aurora), it applies to this directory's C++ links only.
+  # A toolchain without that directory (the plain SDK of the Flip development flow) links the runtime statically.
+  set(MELEE_LIBSTDCXX_LINK_DIR "${FLIP_TOOLCHAIN}/libstdcxx-link")
+  if(EXISTS "${MELEE_LIBSTDCXX_LINK_DIR}/libstdc++.so")
+    find_library(MELEE_STATIC_LIBSTDCXX NAMES libstdc++.a REQUIRED)
+    set(MELEE_DEVICE_LIBSTDCXX ON)
+    string(APPEND CMAKE_CXX_STANDARD_LIBRARIES " -lstdc++ -Wl,--exclude-libs,libstdc++.a \"${MELEE_STATIC_LIBSTDCXX}\"")
+    message(STATUS "C++ runtime: the device's libstdc++.so.6 (link target ${MELEE_LIBSTDCXX_LINK_DIR}, fallback ${MELEE_STATIC_LIBSTDCXX})")
+  else()
+    set(MELEE_DEVICE_LIBSTDCXX OFF)
+    message(STATUS "C++ runtime: static (no ${MELEE_LIBSTDCXX_LINK_DIR})")
+  endif()
 endif()
 
 foreach(target melee_native melee_boot_probe)
@@ -333,8 +353,15 @@ foreach(target melee_native melee_boot_probe)
     target_link_options(${target} PRIVATE -Wl,--as-needed)
     # No build-tree RPATH to the stub directory: the device's own libEGL/libGLESv2 must load.
     set_target_properties(${target} PROPERTIES SKIP_BUILD_RPATH ON)
-    # Static C++ runtime: CFWs ship libstdc++ as old as GLIBCXX_3.4.28 and PortMaster forbids bundling it.
-    target_link_options(${target} PRIVATE -static-libstdc++ -static-libgcc)
+    if(MELEE_DEVICE_LIBSTDCXX)
+      # The link directory makes every -lstdc++ the 6.0.28 library; the version script keeps the
+      # executable's own weak std:: code from being exported over the device libstdc++'s.
+      set(stdcxx_exports "${CMAKE_CURRENT_SOURCE_DIR}/platform/portmaster/hide-stdcxx.ver")
+      target_link_options(${target} PRIVATE "-L${MELEE_LIBSTDCXX_LINK_DIR}" "-Wl,--version-script,${stdcxx_exports}")
+      set_property(TARGET ${target} APPEND PROPERTY LINK_DEPENDS "${stdcxx_exports}")
+    else()
+      target_link_options(${target} PRIVATE -static-libstdc++ -static-libgcc)
+    endif()
   endif()
   if(APPLE)
     target_sources(${target} PRIVATE platform/macos/launcher.mm)
