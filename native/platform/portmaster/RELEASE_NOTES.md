@@ -9,10 +9,20 @@ no game data: you need your own dump of the disc (US, version 1.02, `GALE01`).
 - **The game now uses the system's C++ library instead of carrying its own copy**, as PortMaster asks
   of its ports. `melee.aarch64` loads the CFW's `libstdc++.so.6` and needs `GLIBCXX_3.4.26` from it
   (GCC 9, from 2019, or newer), together with glibc 2.30 as before. Nothing in the game changes.
-  Checked on an emulated system with glibc 2.30 and libstdc++ 6.0.28 (what ArkOS has), on a Raspberry
-  Pi 5 and on the RG351P, where it runs at the same frame rates as before. The other CFWs have not
-  been tried with it yet: if the game no longer starts and `log.txt` has a line that mentions
-  `GLIBCXX` or `libstdc++.so.6`, please send that log with the name and version of the CFW.
+  Checked by loading it against glibc 2.30 with libstdc++ 6.0.28 (what ArkOS has) on an emulated
+  system, where every symbol resolves, and by playing the soak test's playlist on a Raspberry Pi 5
+  (Raspberry Pi OS), the RG351P (AmberELEC) and the RG35XX SP (stock OS), at the same frame rates and
+  memory use as before. The other CFWs have not been tried with it yet: if the game no longer starts
+  and `log.txt` has a line that mentions `GLIBCXX` or `libstdc++.so.6`, please send that log with the
+  name and version of the CFW. The previous build, `portmaster-20261003-b5ea865`, still carries its
+  own copy and stays on the Releases page.
+- **The game's code is brought up to date with the Melee decompilation project** (35 commits of
+  doldecomp/melee, up to `c18349268`). Upstream renamed and retyped a good part of the fighter, item
+  and stage data; nothing is meant to play differently. Checked with the unattended playthrough of
+  every mode on a PC (about 870 matches), all 15 cases of our test matrix on the RG351P, and the soak
+  playlist on a Raspberry Pi 5, the RG351P and the RG35XX SP without a crash. If something that
+  worked in the previous build misbehaves in this one, a soak report or `log.txt` from it is what we
+  need.
 - **Memory no longer climbs for as long as the game runs on the RG35XX and RG34XX family** (Allwinner
   H700 with the stock Mali driver, version r20p0; seen in soak reports `6cdec219`, an RG35XX Pro on
   Knulli, and `4b5e0568`, an RG34XX-SP on muOS, as memory use that kept rising through the half
