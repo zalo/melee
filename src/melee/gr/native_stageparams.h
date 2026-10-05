@@ -5,7 +5,7 @@
 struct grIceMt_YakumonoParam {
     s16 x0;
     s16 x2;
-    s16 x4;
+    float x4;
     float x8;
     float xC;
     float x10;

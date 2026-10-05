@@ -47,28 +47,6 @@ typedef struct grVe_Data {
     } arwing;
 } grVe_Data;
 
-struct grVenom_YakumonoParam {
-    f32 x0;
-    f32 x4;
-    f32 x8;
-    f32 xC;
-    f32 x10;
-    char x14[0x2C - 0x14];
-    f32 x2C;
-    char x30[0x34 - 0x30];
-    f32 x34;
-#ifdef MELEE_NATIVE
-    // Serialized 32-bit slot; resolved with GR_MATERIAL_SCRIPT.
-    u32 x38;
-#else
-    void* x38;
-#endif
-};
-#ifdef MELEE_NATIVE
-// The block is read in place at its GameCube offsets (native/stage_numeric_layouts.hpp).
-STATIC_ASSERT(sizeof(struct grVenom_YakumonoParam) == 60);
-#endif
-
 static grVe_Data grVe_803E5348 = {
     {
         { 0, 5, 0 },

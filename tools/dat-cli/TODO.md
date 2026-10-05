@@ -40,16 +40,9 @@
 - Articles in Kirby's copies (`ftKbCopy*`) and in `ftData.x48_items` leave
   `x4_specialAttributes` ambiguous: their item kinds aren't bound. The
   kinds are known per slot (`ftKb_SpecialN_800F16D0`).
-- `ftData.x48_items` entries default to `Article` (`ftData_Item`), but
-  some layouts remain unannotated: Game & Watch 10, Sheik 4/5, Jigglypuff 1.
-  The fighter kind is bound at each `ftData` root (its index in the loader's
-  name table), and the item slot is bound on `x48_items`.
-  Add `DAT_IF` conditions to the other C views in `ftData_Item`, which
-  currently selects Samus's grapple in slot 4, joints for Link/Young Link
-  6, Kirby 4 and Yoshi 3, and otherwise `Article`, to choose these layouts.
-  The same bindings can type `Article.x4_special` for fighter items.
 - Fighters' part animations (`ftData_x1C.x8`) sit next to `HSD_AnimJoint`
-  trees that nothing points to. Their relocations can't be explained.
+  trees that nothing points to, whose subtrees the part animations reach.
+  `dat_symbols.txt` types their heads by address.
 
 Not errors:
 
@@ -57,8 +50,18 @@ Not errors:
   exporter reuses identical bytes. The walker could recognize this.
 - `-1` in pointer fields means none. Counted, not reported.
 
+- `ItCo.dat` 0x50A0-0x7DDC (right after `itPublicData.x8`) is a
+  byte-for-byte copy of 0x2FC-0x303C whose pointers point to the
+  originals. `dat_symbols.txt` types its structs and scripts by address; its
+  43 `ItemSpecialAttributes` (kinds unbound) remain.
+
 ## Stopgaps
 
+- `FtPartsDesc.vis_table` uses `DAT_EXTENT` for its costume rows. Each
+  row's `FtPartsVisLookup*` entries point to `model_num` elements, but the
+  nested pointers currently walk only one; carry that count through the
+  rows. Game & Watch's extra visibility table is an explicit 11-element
+  array. `ftParts_8007487C` and `ftParts_80074B6C` show the bounds.
 - `ItemStateArray` uses `DAT_EXTENT`. Its length is the largest `anim_id` in
   the item kind's `ItemStateTable`, plus one. Replace with a `DAT_COUNT`
   based on `Article::kind` once the counts are available (item state enums,
@@ -68,9 +71,6 @@ Not errors:
   annotate the remaining common items, character items, and Pokémon,
   and disambiguate shared views (R_Shell, Kinoko). ScBall and Spycloak
   still lack layouts.
-- Inline arrays such as `itFoodsAttributes.entries` use `DAT_EXTENT` even
-  when a sibling field gives their count. Teach `DAT_COUNT` walks to handle
-  inline arrays as well as pointers.
 - `ftData.xC`/`x14` (actions), `x1C` (part animations) and their `x8`,
   and `ftData_x20.x0` use `DAT_EXTENT`. The counts are in DOL tables per
   fighter kind (`ftData_Table_Unk0`, `ftData_UnkIntPairs`), or only in code.
@@ -105,12 +105,16 @@ Not errors:
 ## Coverage
 
 - `ALDYakuAll` (`StageInfo.ald_yaku_all`) is a null-terminated table of
-  item scripts, loaded as `void*`. Walking them needs a script attribute
-  for `dat_symbols.txt` roots, mirroring `DAT_SCRIPT`, so that its entries
-  can be `union CmdUnion*` without an ambiguous union.
+  item scripts, loaded as `void*`: a null, then the scripts from index 1
+  (as `Ground` reads them), then a null. The scripts are typed by address
+  (`script:`); the lists (~900 bytes) need a pointer typedef with
+  `DAT_SCRIPT` and a list that skips its first null.
+- `PlSb.dat` 0x75C-0x1444, after Sandbag's `FtSFX`, parses as subaction
+  commands but has no end command before the next object: not standalone
+  scripts. Nothing points into it.
 
 - Loaded into untyped destinations, types unknown:
-  `sqEventInitDataLevelTbl`, `tournament_box*_array`, `mnNameDefaultName*`
+  `mnNameDefaultName*`
   (and `mnNameAutoName*`), `MemCardIconData`, `MemSnapIconData`.
 - `toy.c` loads trophy symbols through `symbol_name` fields of its tables;
   those are covered by name patterns instead.
@@ -118,12 +122,6 @@ Not errors:
   relocated by `ftData` at runtime. They could be read as nested archives.
 - About 15,000 `void*` fields aren't followed. Use `DAT_TYPE` where the type
   is known.
-- `UnkStageDat.unk18` (map_head +0x18, count `unk1C`): entries are
-  `{ HSD_LightDesc*, word }`, where the word is flags in some stages (GrGr:
-  0 or 0xE0000000, as `ground.c` reads it through `LightOverrideEntry`) and
-  a relocated `HSD_LightAnim**` in others (GrNBa, GrPu, GrGd, GrIm: the
-  entries are the stage's `LightList`s). Left `void*`: a struct can't be
-  both, and no annotation chooses by relocation.
 
 ## Tool
 
@@ -142,6 +140,21 @@ Not errors:
   aurora lacks pieces (the GXVert inlines, shimmed in `dat_macros.h`). Move
   the DAT build to our own dolphin headers instead. They need a lot of
   cleanup first to build with clang as C23.
+
+## Native archive interface
+
+- An element of an array that is also an object of its own is converted
+  twice: the array holds a copy, so pointers to the lone object and into the
+  array differ. Interior pointers should point into the array.
+- A pointer to plain data without `DAT_COUNT`, `DAT_EXTENT` or
+  `DAT_TERMINATED` is one element natively, as the walk types it.
+- Plain unions (no pointers) are converted as their largest member.
+- `DAT_TYPE` on an integer narrower than a native pointer keeps the offset.
+- Scripts stay big-endian words with offsets; their readers need
+  `dat_raw` to follow them.
+- Packed archives (`Pl??AJ.dat`) are opened by size, like the walk.
+- The host build is gcc; a pure clang toolchain needs a wrapped host clang
+  beside the unwrapped one the DWARF build uses, and a ppc32 sysroot.
 
 ## Objects
 

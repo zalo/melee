@@ -39,14 +39,6 @@ StageData grTPr_StageData = {
     (1 << 0),
 };
 
-typedef struct grTPrSpecialParams {
-#ifdef MELEE_NATIVE
-    s32 x0;
-#else
-    lbColl_80008D30_arg1* x0;
-#endif
-} grTPrSpecialParams;
-
 #ifdef MELEE_NATIVE
 // Serialized hit-description slots stay 32-bit; the archive resolves them.
 void* MeleeNativeScriptPointer(const void*);

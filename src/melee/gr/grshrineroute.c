@@ -28,27 +28,6 @@
 #include <sysdolphin/baselib/lobj.h>
 #include <sysdolphin/baselib/random.h>
 
-struct grShrineRoute_YakumonoParam {
-#ifdef MELEE_NATIVE
-    s32 x0;
-    s32 x4;
-    s32 x8;
-    s32 xC;
-#else
-    void* x0;
-    void* x4;
-    void* x8;
-    void* xC;
-#endif
-    int x10;
-    f32 x14;
-    f32 x18;
-    f32 x1C;
-    f32 x20;
-    int x24;
-    grZakoGenerator_SpawnDesc spawn_desc;
-};
-
 struct grSh_Route_LightConfig {
     /* 0x00 */ GXColor color;
     /* 0x04 */ Vec3 pos;
@@ -1501,7 +1480,7 @@ s32 grShrineRoute_8020AE08(HSD_GObj* gobj, HSD_GObj* player_gobj, s32* out)
             // The caller passes a DynamicsDesc* slot; x10 is an archive pointer.
             *(void**) out = MeleeNativeScriptPointer(&yakumono_param->x10);
 #else
-            *out = yakumono_param->x10;
+            *out = (s32) yakumono_param->x10;
 #endif
             return 1;
         }

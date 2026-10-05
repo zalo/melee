@@ -17,7 +17,7 @@
 #include <melee/ft/kinds/ftLink/types.h>
 #include <melee/ft/kinds/ftMars/types.h>
 #include <melee/it/kinds/itkinoko.h>
-#include <melee/gm/gmeventdata.h>
+#include <melee/gm/gmevent.h>
 #include <melee/ty/types.h>
 #include <melee/if/types.h>
 #include <sysdolphin/baselib/fog.h>
@@ -170,7 +170,7 @@ S(dynamicsdesc,DynamicsDesc,20,P(DynamicsDesc,data,0,AT_WORDS),U(DynamicsDesc,co
 // The spawn descriptors {u16, u8, u8} run from +188 to the end of the block.
 #define ICE_SPAWN(i) H(struct grIceMt_YakumonoParam,xBC[i].kind,188+4*(i),1),B(struct grIceMt_YakumonoParam,xBC[i].x2,190+4*(i),2)
 #define ICE_SPAWN4(i) ICE_SPAWN(i),ICE_SPAWN(i+1),ICE_SPAWN(i+2),ICE_SPAWN(i+3)
-S(stageice,struct grIceMt_YakumonoParam,316,H(struct grIceMt_YakumonoParam,x0,0,3),U(struct grIceMt_YakumonoParam,x8,8,11),H(struct grIceMt_YakumonoParam,x34,52,4),U(struct grIceMt_YakumonoParam,x3C,60,23),H(struct grIceMt_YakumonoParam,ft_max_y,152,2),U(struct grIceMt_YakumonoParam,x9C,156,2),H(struct grIceMt_YakumonoParam,xA4,164,3),P(struct grIceMt_YakumonoParam,field_ixs,172,AT_HALVES),P(struct grIceMt_YakumonoParam,xB0,176,AT_HALVES),P(struct grIceMt_YakumonoParam,xB4,180,AT_HALVES),H(struct grIceMt_YakumonoParam,xB8,184,2),ICE_SPAWN4(0),ICE_SPAWN4(4),ICE_SPAWN4(8),ICE_SPAWN4(12),ICE_SPAWN4(16),ICE_SPAWN4(20),ICE_SPAWN4(24),ICE_SPAWN4(28));
+S(stageice,struct grIceMt_YakumonoParam,316,H(struct grIceMt_YakumonoParam,x0,0,2),U(struct grIceMt_YakumonoParam,x4,4,12),H(struct grIceMt_YakumonoParam,x34,52,4),U(struct grIceMt_YakumonoParam,x3C,60,23),H(struct grIceMt_YakumonoParam,ft_max_y,152,2),U(struct grIceMt_YakumonoParam,x9C,156,2),H(struct grIceMt_YakumonoParam,xA4,164,3),P(struct grIceMt_YakumonoParam,field_ixs,172,AT_HALVES),P(struct grIceMt_YakumonoParam,xB0,176,AT_HALVES),P(struct grIceMt_YakumonoParam,xB4,180,AT_HALVES),H(struct grIceMt_YakumonoParam,xB8,184,2),ICE_SPAWN4(0),ICE_SPAWN4(4),ICE_SPAWN4(8),ICE_SPAWN4(12),ICE_SPAWN4(16),ICE_SPAWN4(20),ICE_SPAWN4(24),ICE_SPAWN4(28));
 S(grounditem,struct GroundItemData,8,U(struct GroundItemData,gr_itkind,0,1),P(struct GroundItemData,article_data,4,AT_ARTICLE));
 S(article,Article,24,P(Article,x0_common_attr,0,AT_ITEM_ATTR),P(Article,x4_specialAttributes,4,AT_ITEM_NUMBERS),P(Article,x8_hurtbones,8,AT_ITEM_HURT),P(Article,xC_itemStates,12,AT_ITEM_STATES),P(Article,x10_modelDesc,16,AT_ITEM_MODEL),P(Article,x14_dynamics,20,AT_ITEM_DYNAMICS));
 S(itemcommon,ItemCommonData,0x160,U(ItemCommonData,x0,0,18),B(ItemCommonData,x48_byte,0x48,4),U(ItemCommonData,x4C_float,0x4C,38),B(ItemCommonData,filler_1a,0xE4,4),U(ItemCommonData,xE8,0xE8,1),B(ItemCommonData,filler_1a_2,0xEC,4),U(ItemCommonData,xF0,0xF0,28));

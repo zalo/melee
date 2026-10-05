@@ -1,3 +1,5 @@
+#include "grbattle.h"
+
 #include "granime.h"
 #include "grdisplay.h"
 #include "grlib.h"
@@ -17,26 +19,6 @@
 #include <sysdolphin/baselib/gobjproc.h>
 #include <sysdolphin/baselib/jobj.h>
 #include <sysdolphin/baselib/random.h>
-
-/** @var ::grBattle_YakumonoParam::bg_curr_color_overlay
- * @todo ::ColorOverlay_x8_t, from ::grMaterial_801C9604
- * @var ::grBattle_YakumonoParam::bg_prev_color_overlay
- * @copydoc ::grBattle_YakumonoParam::bg_curr_color_overlay
- */
-struct grBattle_YakumonoParam {
-#ifdef MELEE_NATIVE
-    // Serialized 32-bit slots; resolved with GR_MATERIAL_SCRIPT.
-    u32 bg_curr_color_overlay;
-    u32 bg_prev_color_overlay;
-#else
-    void* bg_curr_color_overlay;
-    void* bg_prev_color_overlay;
-#endif
-};
-#ifdef MELEE_NATIVE
-// The block is read in place at its GameCube offsets (native/stage_numeric_layouts.hpp).
-STATIC_ASSERT(sizeof(struct grBattle_YakumonoParam) == 8);
-#endif
 
 /* 219C98 */ static void grBattle_OnDemoInit(int);
 /* 219CA4 */ static void grBattle_OnInit(void);

@@ -40,18 +40,6 @@ StageData grTGn_StageData = {
     (1 << 0),
 };
 
-typedef struct grTGn_YakumonoParam {
-#ifdef MELEE_NATIVE
-    s32 x0;
-    s32 x4;
-    s32 x8;
-#else
-    lbColl_80008D30_arg1* x0;
-    lbColl_80008D30_arg1* x4;
-    lbColl_80008D30_arg1* x8;
-#endif
-} grTGn_YakumonoParam;
-
 #ifdef MELEE_NATIVE
 // Serialized hit-description slots stay 32-bit; the archive resolves them.
 void* MeleeNativeScriptPointer(const void*);

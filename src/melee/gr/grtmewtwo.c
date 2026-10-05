@@ -14,28 +14,6 @@
 #include <sysdolphin/baselib/gobj.h>
 #include <sysdolphin/baselib/gobjproc.h>
 
-typedef struct grTMewtwo_UnkStruct {
-#ifdef MELEE_NATIVE
-    s32 x0;
-    s32 x4;
-    s32 xC;
-    s32 x8;
-    s32 x10;
-    s32 x14;
-    s32 x1C;
-    s32 x18;
-#else
-    lbColl_80008D30_arg1* x0;
-    lbColl_80008D30_arg1* x4;
-    lbColl_80008D30_arg1* xC;
-    lbColl_80008D30_arg1* x8;
-    lbColl_80008D30_arg1* x10;
-    lbColl_80008D30_arg1* x14;
-    lbColl_80008D30_arg1* x1C;
-    lbColl_80008D30_arg1* x18;
-#endif
-} grTMewtwo_UnkStruct;
-
 /* 2221D8 */ static void grTMewtwo_802221D8(bool arg0);
 /* 2221DC */ static void grTMewtwo_802221DC(void);
 /* 222254 */ static void grTmewtwo_UnkStage0_OnLoad(void);

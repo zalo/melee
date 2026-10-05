@@ -1,6 +1,8 @@
 #ifndef GALE01_20362C
 #define GALE01_20362C
 
+#include <Runtime/platform.h>
+
 #include <melee/gr/forward.h>
 
 /* 20362C */ void grVenom_8020362C(void);
@@ -63,5 +65,27 @@
 /* 206D74 */ lbColl_80008D30_arg1* grVenom_80206D74(enum_t);
 /* 206D7C */ bool grVenom_80206D7C(Vec3*, int, HSD_JObj*);
 /* 3E54CC */ extern StageData grVe_StageData;
+
+struct grVenom_YakumonoParam {
+    f32 x0;
+    f32 x4;
+    f32 x8;
+    f32 xC;
+    f32 x10;
+    char x14[0x2C - 0x14];
+    f32 x2C;
+    char x30[0x34 - 0x30];
+    f32 x34;
+#ifdef MELEE_NATIVE
+    // Serialized 32-bit slot; resolved with GR_MATERIAL_SCRIPT.
+    u32 x38;
+#else
+    void* x38;
+#endif
+};
+#ifdef MELEE_NATIVE
+// The block is read in place at its GameCube offsets (native/stage_numeric_layouts.hpp).
+STATIC_ASSERT(sizeof(struct grVenom_YakumonoParam) == 60);
+#endif
 
 #endif

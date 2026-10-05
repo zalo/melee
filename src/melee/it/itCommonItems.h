@@ -175,7 +175,7 @@ typedef struct itWstarAttributes {
        the host copy from this. */
     /* +28 */ itWstarAttrEntry x28_entries[7];
 #else
-    /* +28 */ itWstarAttrEntry x28_entries[] DAT_EXTENT;
+    /* +28 */ itWstarAttrEntry x28_entries[] DAT_COUNT(x24_count);
 #endif
 } itWstarAttributes;
 
@@ -608,7 +608,7 @@ typedef struct itFoodEntry {
 
 typedef struct itFoodsAttributes {
     /* +0 */ s32 count;
-    /* +4 */ itFoodEntry entries[] DAT_EXTENT;
+    /* +4 */ itFoodEntry entries[] DAT_COUNT(count);
 } itFoodsAttributes;
 
 typedef struct itWhispyApple_ItemVars {

@@ -658,7 +658,7 @@ struct ftCommonData {
 
 typedef struct _FtSFXArr {
     int num;
-    s32* sfx_ids;
+    s32* sfx_ids DAT_COUNT(num);
 } FtSFXArr;
 
 struct FtSFX {
@@ -700,7 +700,7 @@ struct FtPartsDesc {
     /*  +0 */ u32 model_num;
     /// A row per costume, the default's (0) where an entry is NULL
     /// (#ftParts_8007487C).
-    /*  +4 */ FtPartsVisLookup* (*vis_table)[4];
+    /*  +4 */ FtPartsVisLookup* (*vis_table)[4] DAT_EXTENT;
 };
 
 typedef struct ftData_x20 {
@@ -713,11 +713,15 @@ typedef struct ftData_x34 {
     /* +4 */ float scale;
 } ftData_x34;
 
+/// Jigglypuff's slot 1, with its costume part descriptor at +4.
+struct ftData_x48_x4 {
+    /* +0 */ u32 x0;
+    /* +4 */ FtPartsDesc x4;
+};
+
 /// An entry of #ftData::x48_items: mostly an #Article, but some fighters
 /// keep joints or their own structs in certain slots. Those slots come
 /// first; #article is the catch-all for the rest.
-/// @todo Annotate the other slots per fighter (Sheik 4/5, Game & Watch 10,
-///       Jigglypuff 1).
 union ftData_Item {
     struct UNK_SAMUS_S1* samus_grapple DAT_IF(fighter_kind == Ft_Kind_Samus &&
                                               item_index == 4);
@@ -725,9 +729,15 @@ union ftData_Item {
         ((fighter_kind == Ft_Kind_Link || fighter_kind == Ft_Kind_CLink) &&
          item_index == 6) ||
         (fighter_kind == Ft_Kind_Kirby && item_index == 4) ||
-        (fighter_kind == Ft_Kind_Yoshi && item_index == 3));
-    HSD_Joint** joints;
-    FtPartsVisLookup* visibility;
+        (fighter_kind == Ft_Kind_Yoshi && item_index == 3) ||
+        (fighter_kind == Ft_Kind_Seak &&
+         (item_index == 4 || item_index == 5)));
+    /// Game & Watch's table has one entry for each of its 11 models.
+    FtPartsVisLookup (*visibility)[11] DAT_IF(fighter_kind ==
+                                                  Ft_Kind_GameWatch &&
+                                              item_index == 10);
+    struct ftData_x48_x4* parts DAT_IF(fighter_kind == Ft_Kind_Purin &&
+                                       item_index == 1);
     Article* article DAT_IF(true);
 };
 
@@ -741,7 +751,7 @@ typedef struct ftData_x1C {
 
 typedef struct ftData_x30 {
     /* +0 */ int count;
-    /* +4 */ ftHurtboxInit* inits;
+    /* +4 */ ftHurtboxInit* inits DAT_COUNT(count);
 } ftData_x30;
 
 typedef struct _ThrowFlags {
@@ -912,7 +922,8 @@ struct ftData {
     /* +2C */ struct ftDynamics* x2C;
     /* +30 */ ftData_x30* x30;
     /* +34 */ ftData_x34* x34;
-    /* +38 */ AbsorbDesc* x38;
+    /// One per #Fighter::x1614 (#ft_8007C630)
+    /* +38 */ AbsorbDesc* x38 DAT_COUNT(2);
     /* +3C */ struct UnkFloat6_Camera* x3C;
     /* +40 */ struct itPickup* x40;
     /* +44 */ ftData_x44_t* x44;
@@ -922,7 +933,9 @@ struct ftData {
                                                                _index);
     /* +4C */ FtSFX* x4C_sfx;
     /* +50 */ Vec2* x50;
-    /* +54 */ int* x54;
+    /// Bones, indexed by #Fighter::x2220_b0.
+    /// @todo Count: five in every fighter's data.
+    /* +54 */ int* x54 DAT_EXTENT;
     /* +58 */ struct ftData_x58_t* x58;
     /* +5C */ HSD_Joint* x5C;
 };
@@ -2074,6 +2087,9 @@ struct ftData_80085FD4_ret {
 #endif
 };
 
+/// A dynamic bone set: one per dynamic bone (0x100 for none).
+typedef s32* ftDynamicsBoneSet DAT_COUNT(ftDynamics::bones);
+
 struct ftDynamics {
     /// @todo Very similar to #ItemDynamics.
     struct ftDynamics_x0 {
@@ -2082,8 +2098,10 @@ struct ftDynamics {
     } x0;
     /*  +8 */ int x4;
     /*  +C */ AbsorbDesc* x8;
-    /// Per animation, the set of each dynamic bone (0x100 for none).
-    /* +10 */ s32** x10;
+    /// Per animation, the set of each dynamic bone.
+    /// @todo Count: the fighter's animations.
+    /* +10 */ ftDynamicsBoneSet* x10 DAT_EXTENT DAT_BIND(ftDynamics::bones,
+                                                         x0.dynamicsNum);
 };
 
 struct KirbyHatStruct {

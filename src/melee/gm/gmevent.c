@@ -35,8 +35,6 @@ struct UnkSmallLoadData {
     u8 pad[8];
 };
 
-#include "gmeventdata.h"
-
 /* 1BA938 */ static void gm_801BA938(struct EventData*, int lo, int hi, bool);
 /* 1BAA60 */ static void onEnterCss(GameModeState*);
 /* 1BAAD0 */ static void onExitCss(GameModeState*);
