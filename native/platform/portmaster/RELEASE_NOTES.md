@@ -6,6 +6,21 @@ no game data: you need your own dump of the disc (US, version 1.02, `GALE01`).
 
 ## Changes in this build
 
+- **Aurora, the library that draws the game and reads the controllers, is brought up to date with
+  its upstream** (25 commits of encounter/aurora, among them a rewrite of controller handling and
+  memory-card fixes). The way this port draws is kept as it was, and so is the button layout: B is
+  the east button and X the west one on every pad. Checked with the soak test's playlist for an hour
+  each on the RG351P (with sound) and the RG35XX SP, 70 minutes on a Raspberry Pi 5 and all 15 cases
+  of our test matrix on the RG351P: no crash, and the same frame rates, memory use and number of
+  compiled shaders as the previous build. The built-in buttons were checked by hand on the RG351P.
+  Not tried yet: the Miyoo Flip (ours is offline) and external controllers. If a pad that worked
+  before no longer does, or its buttons are swapped, please send `log.txt` and the name of the pad.
+- **A damaged shader cache no longer crashes the game at start-up** (`Failed to read pipeline cache
+  rows: database disk image is malformed` in the log, then `signal 11`; the start after that one
+  already worked, because the game sets the cache aside after a crash). It happened once on our
+  RG351P and we do not know what damaged the file. The game now deletes a damaged cache and builds
+  a new one without crashing first. Reproduced on a PC with the file from the RG351P and checked
+  there.
 - **The game now uses the system's C++ library instead of carrying its own copy**, as PortMaster asks
   of its ports. `melee.aarch64` loads the CFW's `libstdc++.so.6` and needs `GLIBCXX_3.4.26` from it
   (GCC 9, from 2019, or newer), together with glibc 2.30 as before. Nothing in the game changes.

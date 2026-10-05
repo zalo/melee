@@ -353,6 +353,9 @@ int main(int argc, char** argv) {
     config.textureVerifyInterval = static_cast<uint32_t>(number("MELEE_FLIP_TEXTURE_VERIFY_INTERVAL", 4));
     config.textureAtlas = flag("MELEE_FLIP_TEXTURE_ATLAS", true);
     config.disableRenderPassFusion = !flag("MELEE_FLIP_FUSE_PASSES", true);
+    // Melee's EFB copies cover what the frame goes on to use, so a copy clear stays a whole-target load-op
+    // clear; MELEE_FLIP_COPY_CLEAR_RECT=1 selects Aurora's rectangle-only clears for comparison.
+    config.wholeTargetCopyClear = !flag("MELEE_FLIP_COPY_CLEAR_RECT", false);
     // GLES fast path (Aurora gles-direct-submission): uniform table + batching on every path,
     // direct GLES submission of GX passes through Dawn's native GL interop when available.
     config.uniformTable = flag("MELEE_FLIP_UNIFORM_TABLE", true);
@@ -373,11 +376,11 @@ int main(int argc, char** argv) {
     config.smallCopyPassInterval = static_cast<uint32_t>(number("MELEE_FLIP_SCALED_COPY_INTERVAL", 2));
     // Readback checks need the scene mirrored into the EFB texture when it renders on the surface.
     if (std::getenv("MELEE_RENDER_CHECK") || std::getenv("MELEE_MATRIX_TEST")) setenv("AURORA_SCENE_MIRROR", "1", 0);
-    std::fprintf(stderr, "[flip-config] cpu_vertex_decode=%d resident_dl=%d resident_budget_mb=%u async_frames=%d texture_verify_interval=%u texture_atlas=%d pass_fusion=%d uniform_table=%d batch_draws=%d gles_direct=%d mapped_streams=%d scene_on_surface=%d halfres_sprites=%u small_copy_interval=%u resident_records=%d render_scale=%u render_stats=%d\n",
+    std::fprintf(stderr, "[flip-config] cpu_vertex_decode=%d resident_dl=%d resident_budget_mb=%u async_frames=%d texture_verify_interval=%u texture_atlas=%d pass_fusion=%d uniform_table=%d batch_draws=%d gles_direct=%d mapped_streams=%d scene_on_surface=%d halfres_sprites=%u small_copy_interval=%u resident_records=%d render_scale=%u render_stats=%d whole_target_copy_clear=%d\n",
                  config.cpuVertexDecode, config.residentDisplayLists, config.residentGeometryBudget / (1024u * 1024u),
                  config.asyncFrames, config.textureVerifyInterval, config.textureAtlas, !config.disableRenderPassFusion,
                  config.uniformTable, config.batchDraws, config.glesDirectSubmission, config.glesMappedStreams,
-                 config.sceneOnSurface, config.halfResolutionSpritePoints, config.smallCopyPassInterval, config.residentRecords, config.renderScale, config.renderStats);
+                 config.sceneOnSurface, config.halfResolutionSpritePoints, config.smallCopyPassInterval, config.residentRecords, config.renderScale, config.renderStats, config.wholeTargetCopyClear);
 #endif
     config.logCallback = log_message;
     config.mem1Size = MEM1_DEFAULT_SIZE;
