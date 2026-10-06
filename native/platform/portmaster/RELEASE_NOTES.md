@@ -6,6 +6,35 @@ no game data: you need your own dump of the disc (US, version 1.02, `GALE01`).
 
 ## Changes in this build
 
+- **Stage events that never ran on this port now do, and a batch of decompilation defects is fixed.**
+  A read of the New 3DS port's build-time patches (2gifts/melee-3ds, which marks code that only works
+  with the original compiler) gave a list to check against our own binary; each item was confirmed and
+  fixed in our own code. The one that matters most: the game's "has this stage animation finished"
+  query always answered no on this port, so about 70 stage branches never ran. Among what that turned
+  on: Flat Zone's oil man and other events now cycle (it used to stall after the first), Whispy blows
+  on Green Greens, Kongo Jungle's barrel cannon spins, Mushroom Kingdom II's Pidgit (which crashed
+  the game the first time its branch ran during our tests, before the fix). Also fixed: a square-root
+  helper that returned the value before the root (map collision and line-of-sight), name entry and the
+  Item Switch and VS Records screens reading past their tables, Mute City's and Icicle Mountain's
+  loaders, Kirby's and Jigglypuff's Rollout tables, tournament-mode casts and a divide by zero in its
+  bracket code, a fighter-colour query at zero percent, and about 25 functions that returned garbage
+  because they had no return statement. Checked with the unattended playthrough of every mode on a PC
+  (about 1,150 matches), matches pinned to each of the fixed stages on the RG351P and the RG35XX SP,
+  and the soak playlist on a Raspberry Pi 5. Final Destination's background sequence and Venom's late
+  arena changes were only exercised on the PC. A stage that misbehaves in this build and did not in the
+  previous one is what we want to hear about: `log.txt` or a soak report with the stage's name.
+- **Port Settings has a new "Speed and Controls" page** (the debug toggles moved to "Debug Options"):
+  *Low Detail Fighters* draws the low-polygon models the game already carries for reflections,
+  *Fighter Shadows* can be switched off, and *Controller Fix (UCF)* applies the Universal Controller
+  Fix 0.84 rules (dash-back, shield-drop, SDI), off by default and always off online. On a two-fighter
+  Battlefield match the two speed toggles together drew 53 frames a second instead of 44 on the RG35XX
+  SP and 27 instead of 22 on the RG351P. UCF is written from the published Gecko codes; its stick rules
+  are unit-tested, and it has not been checked by a player who knows what it should feel like. The
+  raw stick here reaches the full range where a GameCube pad stops short, so the fix's travel
+  thresholds are a little easier to trigger than on a console.
+- **The game's code is brought up to date with the Melee decompilation project again** (doldecomp/melee
+  up to `b578ad37f`: stage parameter structures moved into headers, item attribute layouts, a
+  corrected kill-count table). Nothing is meant to play differently.
 - **Aurora, the library that draws the game and reads the controllers, is brought up to date with
   its upstream** (25 commits of encounter/aurora, among them a rewrite of controller handling and
   memory-card fixes). The way this port draws is kept as it was, and so is the button layout: B is
