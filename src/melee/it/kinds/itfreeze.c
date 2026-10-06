@@ -59,7 +59,11 @@ Item_GObj* it_8028EB88(Item_GObj* ref_gobj, Vec3* pos, f32 facing_dir,
 {
     SpawnItem spawn;
     Item_GObj* gobj;
+#ifdef MELEE_NATIVE
+    Item* ip = NULL;
+#else
     Item* ip;
+#endif
 
     if (ref_gobj != NULL) {
         ip = GET_ITEM(ref_gobj);

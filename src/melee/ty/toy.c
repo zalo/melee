@@ -5484,9 +5484,16 @@ void Toy_80310324(void)
     Toy_803067BC(toy->x195, toy->x196);
 
     if (tg->x50 == NULL) {
+#ifdef MELEE_NATIVE
+        // sym + 4 is a spare slot of the retail frame; the result is unused.
+        tg->x50 = lbArchive_LoadSymbols(
+            lbLang_IsSavedLanguageJP() ? "TyMnView.dat" : "TyMnView.usd",
+            sym, _Toy_803FDEA0[0], NULL);
+#else
         tg->x50 = lbArchive_LoadSymbols(
             lbLang_IsSavedLanguageJP() ? "TyMnView.dat" : "TyMnView.usd",
             sym + 4, _Toy_803FDEA0[0], NULL);
+#endif
     }
 
     memzero(_Toy_sbss_804D6E68, sizeof(*_Toy_sbss_804D6E68));

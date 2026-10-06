@@ -29,12 +29,22 @@ HSD_GObj* mnItemSw_804D6BE8;
 extern StaticModelDesc MenMainCursorIs_Top;
 extern StaticModelDesc MenMainConIs_Top;
 
+#ifdef MELEE_NATIVE
+// The three data blocks are separate objects here, not one 0x118-byte run.
+struct MnItemSwTable {
+    f32 (*x00)[3];
+    f32* x30;
+    f32* items;
+    u8* item_order;
+};
+#else
 struct MnItemSwTable {
     /* 0x00 */ f32 x00[4][3];
     /* 0x30 */ f32 x30[18];
     /* 0x78 */ f32 items[32];
     /* 0xF8 */ u8 item_order[32];
 };
+#endif
 
 static f32 mnItemSw_803ED340[4][3] = {
     { 0.0f, 9.0f, -0.1f },
@@ -88,7 +98,17 @@ static f32 mnItemSw_804D4BA0[2] = { 0.0f, 1.0f };
 // Some routines address the adjacent data blocks as one table.
 static inline struct MnItemSwTable* mnItemSw_GetTable(void)
 {
+#ifdef MELEE_NATIVE
+    static struct MnItemSwTable table = {
+        mnItemSw_803ED340,
+        mnItemSw_AnimTable.x30,
+        mnItemSw_AnimTable.items,
+        mnItemSw_803ED438,
+    };
+    return &table;
+#else
     return (struct MnItemSwTable*) mnItemSw_803ED340;
+#endif
 }
 
 s32 mnItemSw_80233A98(s32 arg0)
@@ -461,7 +481,11 @@ void mnItemSw_8023453C(HSD_GObj* gobj, u8 arg1, u8 arg2)
 
     if (arg1_ != 0) {
         f32 y_spacing;
+#ifdef MELEE_NATIVE
+        f32 anim_val = 0.0f;
+#else
         f32 anim_val;
+#endif
         u8 old_cursor = data->cursor;
 
         if (old_cursor == 0x1F || old_cursor == 0x20) {

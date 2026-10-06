@@ -3710,6 +3710,10 @@ void ftCo_800A75DC(Fighter* fp0, Fighter* fp1)
                 }
             }
         } else {
+#ifdef MELEE_NATIVE
+            // Left unwritten when no island edge qualifies.
+            sp18 = fp1->cur_pos;
+#endif
             ftCo_800A4768(fp1, &sp18);
             ftCo_800A1F3C(fp0, sp18.x, sp18.y, data->x56C + fp1->cpu.x564);
         }
@@ -5628,8 +5632,14 @@ void ftCo_800AC5A0(Fighter* fp)
 {
     struct CpuFighter* data;
     bool var_r0;
+#ifdef MELEE_NATIVE
+    // See the @bug note below: unset when the knockback is nearly zero.
+    s8 stick_x = 0;
+    s8 stick_y = 0;
+#else
     s8 stick_x;
     s8 stick_y;
+#endif
 
     data = &fp->cpu;
     if (!fp->x221A_b3) {
@@ -6190,6 +6200,12 @@ static bool ftCo_800ADE48(Fighter* fp)
         } else if (!fp->x221A_b3) {
             switch_cmd = 0;
         } else {
+#ifdef MELEE_NATIVE
+            // This path never assigns the flag. On the GameCube it lives in
+            // r31, which still holds the caller's CPU-data pointer in nearly
+            // every caller, so the switch below is taken.
+            switch_cmd = 1;
+#endif
             data2->xF9_b0 = false;
             if (0.1f * data2->level > HSD_Randf()) {
                 data2->xFA_b1 = true;

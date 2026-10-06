@@ -150,7 +150,9 @@ bool ftCo_8008DA4C(Fighter_GObj* gobj, HitElement arg1, enum_t arg2)
 {
     Fighter* fp = gobj->user_data;
 #ifdef MELEE_NATIVE
-    bool result = false;
+    // With no damage taken the GameCube returns what is left in r0, the
+    // return address, so callers see true and step the colour animations.
+    bool result = true;
 #else
     bool result;
 #endif

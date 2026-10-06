@@ -65,7 +65,12 @@ static inline HSD_JObj* it_802BE65C_LoadString(Item* ip)
 
 HSD_GObj* it_802BE65C(Item* ip, HSD_JObj* bone_jobj)
 {
+#ifdef MELEE_NATIVE
+    // Walked by the clean-up loop when the first link cannot be created.
+    ItemLink* prev_link = NULL;
+#else
     ItemLink* prev_link;
+#endif
     ItemLink* head_link;
     ItemLink* tail_link;
     HSD_GObj* result;

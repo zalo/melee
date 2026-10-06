@@ -539,6 +539,10 @@ void it_80276CEC(Item_GObj* item_gobj)
 
     item = item_gobj->user_data;
     coll = &item->x378_itemColl;
+#ifdef MELEE_NATIVE
+    // Stored below even when no contact flag is set.
+    coll_index = item->xC2C;
+#endif
     if (coll->env_flags & Collide_LeftWallMask) {
         item->xAC_unk = coll->left_facing_wall.normal;
         coll_index = coll->left_facing_wall.index;

@@ -742,6 +742,9 @@ HSD_LObj* lb_8000CDC0(HSD_LObj* cur)
         }
         cur = HSD_LObjGetNext(cur);
     }
+#ifdef MELEE_NATIVE
+    return NULL;
+#endif
 }
 
 void lb_8000CE30(HSD_DObj* dobj, HSD_DObj* next)

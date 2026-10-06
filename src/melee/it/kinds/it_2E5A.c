@@ -217,7 +217,12 @@ s32 it_802E609C(it_802E5FXX_struct* vars, SpawnItem* spawn)
 {
     Item_GObj* spawn_gobj;
     s32 temp_r3_2;
+#ifdef MELEE_NATIVE
+    // Returned unassigned when there is nothing to spawn (a hit under 1%).
+    s32 var_r30 = 0;
+#else
     s32 var_r30;
+#endif
     s32 var_r29 = 0;
 
     while (vars->xC) {

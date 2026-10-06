@@ -1583,7 +1583,11 @@ void gm_801BD46C(HSD_GObj* gobj)
     VsSceneController* temp_r3;
     s32 var_r0;
     struct EventData* temp_r31;
+#ifdef MELEE_NATIVE
+    s32 var_r30 = 0;
+#else
     s32 var_r30;
+#endif
     int i;
     int count;
     HSD_GObj* p;

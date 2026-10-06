@@ -29,6 +29,15 @@
 #include <sysdolphin/baselib/random.h>
 #include <sysdolphin/baselib/spline.h>
 
+#ifdef MELEE_NATIVE
+#include <stddef.h>
+#include <Runtime/platform.h>
+// The barrel cannon ramps its animation rate through kongo2 and reads it
+// through kongo3.
+STATIC_ASSERT(offsetof(Ground, u.kongo2.xE8) ==
+              offsetof(Ground, u.kongo3.xE8));
+#endif
+
 static struct grKongo_YakumonoParam* yakumono_param;
 /* 1D7700 */ static void fn_801D7700(void* user_data, int joint_id,
                                      CollData* coll, int coll_x50,
@@ -281,7 +290,13 @@ void grKongo_801D55D8(Ground_GObj* arg0)
     grAnime_801C8138(arg0, temp_r31->map_id, 0);
     grMaterial_801C94D8(temp_r28);
     temp_r31->u.kongo3.xE4 = 1.0f;
+#ifdef MELEE_NATIVE
+    // gp+E8 is the animation rate the update reads through kongo3; the kongo
+    // view has two 8-byte pointers ahead of it.
+    temp_r31->u.kongo3.xE8 = 1.0f;
+#else
     temp_r31->u.kongo.xE8 = 1.0f;
+#endif
     temp_r31->u.kongo.xD4 = 0.0f;
     temp_r31->u.kongo.xD8 = 0.0f;
     temp_r31->u.kongo3.xC4 = 0;
@@ -290,7 +305,11 @@ void grKongo_801D55D8(Ground_GObj* arg0)
     temp_r31->u.kongo.u.taru.keep = NULL;
     temp_r31->u.kongo3.xDC = 0.0f;
     temp_r31->u.kongo3.xE0 = 0.0f;
+#ifdef MELEE_NATIVE
+    temp_r31->u.kongo3.xE8 = yakumono_param->unk60;
+#else
     temp_r31->u.kongo.xE8 = yakumono_param->unk60;
+#endif
     temp_r31->u.kongo2.xCC =
         rand_range((s32) yakumono_param->unk30, (s32) yakumono_param->unk2C);
     temp_r31->u.kongo2.xCE =

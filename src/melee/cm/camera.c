@@ -2907,6 +2907,13 @@ bool Camera_8002E234(void)
         break;
     case 2:
         ret = true;
+#ifdef MELEE_NATIVE
+        // An axis without its flag is not interpolated and was read
+        // uninitialised below (Master Hand's entry never sets pitch).
+        sp10 = game_camera.x35C.orbit.pitch;
+        spC = game_camera.x35C.orbit.yaw;
+        sp8 = game_camera.x35C.orbit.distance;
+#endif
         if (game_camera.x35C.orbit.b1) {
             ret &= Camera_8002E158(&sp10, game_camera.x368.orbit.pitch,
                                    game_camera.x35C.orbit.pitch);

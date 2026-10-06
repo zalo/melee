@@ -215,7 +215,11 @@ HSD_GObj* it_802A83E0(f32 facing_dir, Fighter_GObj* arg1, Vec3* arg2,
 
 static inline HSD_JObj* itLinkArrow_802A850C_inline(HSD_Joint* joint)
 {
+#ifdef MELEE_NATIVE
+    HSD_JObj* jobj = NULL;
+#else
     HSD_JObj* jobj;
+#endif
     if (joint != NULL) {
         jobj = HSD_JObjLoadJoint(joint);
     }

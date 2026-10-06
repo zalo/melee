@@ -570,6 +570,10 @@ float ftAnim_8006F3DC(Fighter_GObj* fighter_gobj)
     } else {
         return lbGetJObjCurrFrame(fp->x8AC_animSkeleton);
     }
+#ifdef MELEE_NATIVE
+    // No animated part: retail returns whatever f1 held.
+    return 0.0F;
+#endif
 }
 
 float ftAnim_8006F484(Fighter_GObj* fighter_gobj)
@@ -800,6 +804,9 @@ HSD_Joint* ftAnim_8006F994(Fighter* fp, HSD_JObj* jobj, HSD_Joint* joint)
         i += 1;
         ftAnim_GetNextJointInTree(&joint, &depth);
     }
+#ifdef MELEE_NATIVE
+    return NULL;
+#endif
 }
 
 void ftAnim_8006FA58(Fighter* fp, Fighter_Part part, HSD_Joint* joint)

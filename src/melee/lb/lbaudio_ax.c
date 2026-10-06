@@ -2484,7 +2484,13 @@ void lbAudioAx_8002838C(void)
     {
         static u8 lbl_80441064[71 * 1024];
         HSD_AudioSFXGetDefaultAuxParam(AXDRIVER_AUX_DELAY, &delay);
+#ifdef MELEE_NATIVE
+        // Retail sizes the delay as a standard reverb, reading a float far
+        // past the end of the parameter block.
+        HSD_ASSERT(0xF72, HSD_AudioGetAuxHeapSize(AXDRIVER_AUX_DELAY, &delay) < 71*1024);
+#else
         HSD_ASSERT(0xF72, HSD_AudioGetAuxHeapSize(2, &delay) < 71*1024);
+#endif
         HSD_AudioSFXSetupAux(1, 4, &delay, lbl_80441064, sizeof(lbl_80441064));
     }
 

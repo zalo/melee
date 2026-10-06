@@ -136,6 +136,13 @@ typedef struct mnDiagram_AnimTable {
 
 #define GET_DIAGRAM_ANIM_TABLE()                                              \
     ((mnDiagram_AnimTable*) &mnDiagram_PopupTextOffsets)
+#ifdef MELEE_NATIVE
+// Only points is inside mnDiagram_PopupTextOffsets; the rest of the overlay
+// is other objects, which are not adjacent here.
+#define DIAGRAM_CURSOR_ANIM(tbl) (&mnDiagram_CursorAnim)
+#else
+#define DIAGRAM_CURSOR_ANIM(tbl) (&(tbl)->cursor_anim)
+#endif
 
 static GXColor mnDiagram_PopupTextColor = { 0, 0, 0, 0xFF };
 char mnDiagram_StringTerminator[1] = "";
@@ -1481,7 +1488,7 @@ void mnDiagram_PopupAnimProc(HSD_GObj* arg0)
         text->default_alignment = 1;
     }
 
-    anim_frame = mn_8022EFD8(data->jobjs[12], &tbl->cursor_anim);
+    anim_frame = mn_8022EFD8(data->jobjs[12], DIAGRAM_CURSOR_ANIM(tbl));
     {
         HSD_Text* t;
         f32 y;
@@ -1495,7 +1502,7 @@ void mnDiagram_PopupAnimProc(HSD_GObj* arg0)
     }
     text->default_alignment = 1;
 
-    if (anim_frame == tbl->cursor_anim.end_frame) {
+    if (anim_frame == DIAGRAM_CURSOR_ANIM(tbl)->end_frame) {
         HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
     }
 }

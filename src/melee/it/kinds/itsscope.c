@@ -91,6 +91,9 @@ s32 it_80291D38(Item_GObj* gobj, s32 charge_level)
     case 9:
         return attrs->xC[9];
     }
+#ifdef MELEE_NATIVE
+    return 0;
+#endif
 }
 
 static inline int it_80291DAC_level(Item_GObj* gobj, int arg1)
@@ -134,6 +137,11 @@ int it_80291DAC(Item_GObj* gobj, int arg1)
     } else {
         return level;
     }
+#ifdef MELEE_NATIVE
+    // Not enough ammunition for any charged shot: retail returns r3 as it
+    // was left, which is not a charge level.
+    return level;
+#endif
 }
 
 void it_80291F14(Item_GObj* gobj, int charge_level)

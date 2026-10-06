@@ -146,6 +146,14 @@ typedef struct BracketData {
     /* 0x3700 */ BracketSrcEntry* srcs[3];
 } BracketData;
 
+#ifdef MELEE_NATIVE
+// gm_804771C4 follows lbl_80473AB8 and lbl_804771B8 only in the retail .bss.
+#define BRACKET_TM_DATA() (&gm_804771C4)
+#else
+#define BRACKET_TM_DATA()                                                     \
+    ((TmData*) &((BracketData*) lbl_80473AB8)->srcs[3])
+#endif
+
 typedef struct BracketSrcPtr {
     BracketSrcEntry* ptr;
 } BracketSrcPtr;
@@ -296,8 +304,16 @@ static inline void gmTournament_SetRegularCoords(s32 entry_idx, s32 slot_idx,
     s32 val1;
     s32 val2;
 
+#ifdef MELEE_NATIVE
+    // divw by zero does not trap on the console: 0, or -1 for a negative
+    // dividend. x86 raises SIGFPE.
+    s32 width = lbl_80473AB8[entry_idx].x14;
+    s32 step = x3 != 0 ? width / (s32) x3 : (width < 0 ? -1 : 0);
+    val1 = lbl_80473AB8[entry_idx].xC + slot_idx * step;
+#else
     val1 = lbl_80473AB8[entry_idx].xC +
            slot_idx * (lbl_80473AB8[entry_idx].x14 / (s32) x3);
+#endif
     *p3C = val1;
     *p44 = val1;
     *p34 = val1;
@@ -1001,13 +1017,14 @@ void fn_8018B090(HSD_GObj* arg0)
     PAD_STACK(0x18);
 }
 
-/* 3D9EE8 */ static char lbl_803D9EE8[] = {
+// Used as C strings: sized to the retail objects so the terminator exists.
+/* 3D9EE8 */ static char lbl_803D9EE8[12] = {
     131, 81, 131, 88, 131, 103, 32, 48, 48,
 };
-/* 3D9EF4 */ static char lbl_803D9EF4[] = {
+/* 3D9EF4 */ static char lbl_803D9EF4[12] = {
     130, 103, 130, 108, 130, 109, 32, 48, 48,
 };
-/* 3D9EF4 */ static char lbl_803D9F00[] = {
+/* 3D9EF4 */ static char lbl_803D9F00[12] = {
     130, 98, 130, 111, 130, 116, 32, 48, 48,
 };
 
@@ -2375,21 +2392,16 @@ void fn_8018FBE0(s32 arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5,
 {
     s32 i;
 
-    ((TmData*) &((BracketData*) lbl_80473AB8)->srcs[3])->cur_option = arg0;
-    ((TmData*) &((BracketData*) lbl_80473AB8)->srcs[3])->x1C = arg1;
-    ((TmData*) &((BracketData*) lbl_80473AB8)->srcs[3])->x20 = arg2;
+    BRACKET_TM_DATA()->cur_option = arg0;
+    BRACKET_TM_DATA()->x1C = arg1;
+    BRACKET_TM_DATA()->x20 = arg2;
 
     for (i = 0; 64 > i; i++) {
-        ((TmData*) &((BracketData*) lbl_80473AB8)->srcs[3])->x37[i].x2 =
-            (u8) arg3;
-        ((TmData*) &((BracketData*) lbl_80473AB8)->srcs[3])->x37[i].x1 =
-            (u8) arg4;
-        ((TmData*) &((BracketData*) lbl_80473AB8)->srcs[3])->x37[i].xD =
-            (u8) i;
-        ((TmData*) &((BracketData*) lbl_80473AB8)->srcs[3])->x37[i].x9 =
-            (u16) arg5;
-        ((TmData*) &((BracketData*) lbl_80473AB8)->srcs[3])->x37[i].x0 =
-            (u8) arg6;
+        BRACKET_TM_DATA()->x37[i].x2 = (u8) arg3;
+        BRACKET_TM_DATA()->x37[i].x1 = (u8) arg4;
+        BRACKET_TM_DATA()->x37[i].xD = (u8) i;
+        BRACKET_TM_DATA()->x37[i].x9 = (u16) arg5;
+        BRACKET_TM_DATA()->x37[i].x0 = (u8) arg6;
     }
 }
 

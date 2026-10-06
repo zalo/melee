@@ -1473,7 +1473,8 @@ void grVenom_80205F30(Ground_GObj* gobj)
                         s32 idx0 = VENOM_NATIVE(grVe_803E5380[gp->u.venom.xC8], base[gp->u.venom.xC8 + 14]);
                         s32 anim_arg =
                             grVe_GetAnimArg(fire_kind, gp, anim_data);
-                        s32 anim_id = VENOM_NATIVE(grVe_803E566C[idx0], anim_data->anim_ids[idx0]);
+                        // anim_ids sits 0x358 into the stage data: grVe_803E56A0.
+                        s32 anim_id = VENOM_NATIVE(grVe_803E56A0[idx0], anim_data->anim_ids[idx0]);
                         grAnime_801C8098(gobj, anim_id, 7, anim_arg, 0.0F,
                                          1.0F);
                     }

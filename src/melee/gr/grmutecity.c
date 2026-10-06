@@ -1240,7 +1240,13 @@ void grMuteCity_801F1328(void)
     PAD_STACK(8);
 
     for (i = 1; i < 30; i++) {
+#ifdef MELEE_NATIVE
+        // j == 0 would compare (and swap) arr[0] with the word before the
+        // array.
+        for (j = i; j > 0; j--) {
+#else
         for (j = i; j >= 0; j--) {
+#endif
             s32 temp = arr[j];
             if (grMc_8049F4B8[arr[j]].x0 > grMc_8049F4B8[arr[j - 1]].x0) {
                 arr[j] = arr[j - 1];

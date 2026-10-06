@@ -121,9 +121,15 @@ static void calcTornadoLastPos(HSD_Particle* pp, f32* x, f32* y, f32* z)
     gp = pp->gen;
     /// @bug The following should be accessing pp not gp
     if (gp == NULL) {
+#ifdef MELEE_NATIVE
+        *x = pp->pos.x;
+        *y = pp->pos.y;
+        *z = pp->pos.z;
+#else
         *x = gp->pos.x;
         *y = gp->pos.y;
         *z = gp->pos.z;
+#endif
         return;
     }
 

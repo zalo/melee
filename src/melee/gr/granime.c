@@ -54,7 +54,7 @@ void* MeleeNativeAnimationAt(const void*, unsigned);
 ///* 1C7B24 */ static void grAnime_801C7B24(HSD_GObj* gobj, int arg1, u32 arg2,
 ///                                          f32 arg8);
 #ifdef MELEE_NATIVE
-/* 1C82E8 */ static void fn_801C82E8(HSD_AObj* arg0, HSD_AObj** arg1);
+/* 1C82E8 */ static void fn_801C82E8(HSD_AObj* arg0, HSD_AObj* volatile* arg1);
 #else
 /* 1C82E8 */ static void fn_801C82E8(int arg0, int* arg1);
 #endif
@@ -1055,7 +1055,7 @@ void grAnime_801C8138(HSD_GObj* gobj, enum_t arg1, bool arg2)
 }
 
 #ifdef MELEE_NATIVE
-void fn_801C82E8(HSD_AObj* arg0, HSD_AObj** arg1)
+void fn_801C82E8(HSD_AObj* arg0, HSD_AObj* volatile* arg1)
 #else
 void fn_801C82E8(int arg0, int* arg1)
 #endif
@@ -1068,7 +1068,13 @@ HSD_AObj* grAnime_801C8318(HSD_GObj* gobj, int arg1, u32 arg2)
 {
     HSD_JObj* jobj;
     enum _HSD_TypeMask var_r30 = 0;
+#ifdef MELEE_NATIVE
+    // Written by fn_801C82E8 between setjmp and longjmp: without volatile the
+    // value read after the jump is indeterminate (a register copy stays NULL).
+    HSD_AObj* volatile sp14 = NULL;
+#else
     HSD_AObj* sp14 = NULL;
+#endif
     jobj = Ground_801C3FA4(gobj, arg1);
     if (jobj == NULL) {
         return 0;

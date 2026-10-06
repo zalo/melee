@@ -1021,7 +1021,14 @@ void grShrineRoute_8020A21C(Ground_GObj* gobj)
             static Vec3 const dir_init = { 0 };
             /* Compute weighted direction */
             dir = dir_init;
+#ifdef MELEE_NATIVE
+            // sorted[1] is unset with fewer than two lights; the loop below
+            // then never uses ref_dist.
+            ref_dist =
+                gp->u.shrineroute2.x168 > 1 ? distances[sorted[1]] : 0.0f;
+#else
             ref_dist = distances[sorted[1]];
+#endif
 
             for (i = 1; i < (int) gp->u.shrineroute2.x168; i++) {
                 if (HSD_LObjGetPosition(gp->u.shrineroute2.xC8[sorted[i]],

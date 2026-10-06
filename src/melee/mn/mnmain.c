@@ -1795,6 +1795,9 @@ GXColor* mn_8022BFBC(int arg0)
     case 4:
         return &mn_804D4B60;
     }
+#ifdef MELEE_NATIVE
+    return &mn_804D4B50;
+#endif
 }
 
 /// @brief gets the menu light color index
@@ -1843,6 +1846,9 @@ int mn_8022C010(int menu_kind, int selection)
     case MENU_KIND_RECORDS_MISC:
         return 4;
     }
+#ifdef MELEE_NATIVE
+    return 0;
+#endif
 }
 
 MenuFlow mn_804A04F0;

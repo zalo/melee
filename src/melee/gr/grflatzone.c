@@ -15,6 +15,16 @@
 #include <sysdolphin/baselib/jobj.h>
 #include <sysdolphin/baselib/random.h>
 
+#ifdef MELEE_NATIVE
+#include <stddef.h>
+#include <Runtime/platform.h>
+// The oil man's gobj is written through both views.
+STATIC_ASSERT(offsetof(Ground, u.flatzone.xD0) ==
+              offsetof(Ground, u.flatzone2.xD0));
+STATIC_ASSERT(offsetof(Ground, u.flatzone.xD4) ==
+              offsetof(Ground, u.flatzone2.timer));
+#endif
+
 static void stageGObj0_OnInit(Ground_GObj* gobj);
 
 static StageCallbacks grFz_StageCallbacks[] = {
@@ -464,7 +474,12 @@ void grFlatzone_802176BC(Ground_GObj* gobj)
             f32 other_x;
             f32 other_z;
             s32 line_id;
+#ifdef MELEE_NATIVE
+            // GroundVars_unk keeps pointers here natively; same field.
+            gp->u.flatzone2.xD0 = 3;
+#else
             gp->u.unk.xD0 = 3;
+#endif
             gp->u.flatzone2.timer = yakumono_param->unk3C;
             HSD_JObjGetTranslation(jobj, &pos);
             pos.x = (36.0f * gp->u.flatzone2.xC8) + pos.x;
@@ -602,7 +617,12 @@ void grFlatzone_80217E90(Ground_GObj* gobj)
     Ground_InitMapColl(jobj, gp->map_id);
     HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
     gp->u.flatzone.xC4 = 0;
+#ifdef MELEE_NATIVE
+    // The update counts this down through GroundVars_unk.
+    gp->u.unk.xC8 = 0;
+#else
     *(s32*) &gp->u.flatzone.xC8 = 0;
+#endif
 }
 
 bool grFlatzone_80217EE8(Ground_GObj* gobj)

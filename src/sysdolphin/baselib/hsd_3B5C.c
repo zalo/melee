@@ -2,8 +2,10 @@
 
 #include "hsd_3B34.h"
 
+#ifndef MELEE_NATIVE
 jmp_buf hsd_804D2E70;
 u8 hsd_804D2F68[0x70C];
+#endif
 
 typedef struct JpegWorkData {
     s32 luma[0x100];
@@ -17,6 +19,19 @@ typedef struct JpegState {
     jmp_buf jmp;
     JpegWorkData work;
 } JpegState;
+
+#ifdef MELEE_NATIVE
+// The decoder reaches its work area 0x118 bytes past the jmp_buf, into the
+// next global. Neither the size nor the adjacency holds here, so keep both in
+// one object and name the members.
+static JpegState hsd_JpegDecodeState;
+#define hsd_804D2E70 hsd_JpegDecodeState.jmp
+#define JPEG_DECODE_WORK(base) (&hsd_JpegDecodeState.work)
+#define JPEG_DECODE_PREV_DC(base) (hsd_JpegDecodeState.work.prev_dc)
+#else
+#define JPEG_DECODE_WORK(base) ((JpegWorkData*) &(base)[0x118])
+#define JPEG_DECODE_PREV_DC(base) ((s32*) &(base)[0x818])
+#endif
 
 typedef struct JpegQuantTables {
     u8 luma[0x40];
@@ -278,14 +293,14 @@ void hsd_803B5EA0(s32 component)
     } else {
         dc = 0;
     }
-    ((s32*) &base[0x818])[component] += dc;
+    JPEG_DECODE_PREV_DC(base)[component] += dc;
     coefficient = 1;
-    ((JpegWorkData*) &base[0x118])->coeff[0] =
-        ((s32*) &base[0x818])[component];
+    JPEG_DECODE_WORK(base)->coeff[0] =
+        JPEG_DECODE_PREV_DC(base)[component];
     while (coefficient < 0x40) {
         if ((run_bits = hsd_803B5D70(1, component)) == 0) {
             while (coefficient < 0x40) {
-                ((JpegWorkData*) &base[0x118])
+                JPEG_DECODE_WORK(base)
                     ->coeff[lbl_80431638[coefficient]] = 0;
                 coefficient += 1;
             }
@@ -293,7 +308,7 @@ void hsd_803B5EA0(s32 component)
         } else {
             zeros = hsd_803B5C4C(run_bits) - 1;
             while (zeros--) {
-                ((JpegWorkData*) &base[0x118])
+                JPEG_DECODE_WORK(base)
                     ->coeff[lbl_80431638[coefficient++]] = 0;
             }
             value_bits = hsd_803B5D70(1, component);
@@ -302,7 +317,7 @@ void hsd_803B5EA0(s32 component)
                 ac -= (1 << value_bits) - 1;
             }
             zigzag_index = lbl_80431638[coefficient++];
-            ((JpegWorkData*) &base[0x118])->coeff[zigzag_index] = ac;
+            JPEG_DECODE_WORK(base)->coeff[zigzag_index] = ac;
         }
     }
 }
@@ -559,7 +574,7 @@ static void fn_803B6820(u8* dst, s32 x, s32 y, s32 width, s32 unused_height)
                     chroma_row = tile_x >> 1;
                     chroma_row += chroma_x_base + ((tile_y & 2) * 4);
                     luma_base =
-                        &((JpegWorkData*) &base[0x118])->luma[luma_offset / 4];
+                        &JPEG_DECODE_WORK(base)->luma[luma_offset / 4];
                     for (block = 0; block < 4; block++) {
                         luminance = luma_base[block * 64];
                         {

@@ -449,8 +449,12 @@ one color after the countdown to hundreds of colors throughout combat.
 Young Link's hookshot used it_802A4BFC_sqrtf_offset, whose retail stack-matching
 trick wrote six floats past a scalar local. The native path now calls sqrtf;
 the original path remains unchanged. A native Young Link combat run completed
-without the former return-address corruption. The exact scalar-address offset
-pattern was searched across source; this was the only occurrence.
+without the former return-address corruption. That search covered the
+`*(&y + 6)` spelling only. The same trick spelled as a pointer argument,
+`sqrtf_store(x, sqrt_tmp - N)`, was still live in mplib.c (two sites) and
+lbcollision.c: natively the store landed outside the local and the function
+returned the value before the square root. Those now call sqrtf as well
+(ftcpuattack.c already did).
 
 The Brinstar damage callbacks also required native typed access to their acid
 and platform state. The old fake union aliases wrote damage floats into nearby

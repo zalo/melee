@@ -782,6 +782,12 @@ void lb_8001044C(DynamicsDesc* desc, void* colliders_raw, int num_colliders,
                                 cur->desc.lb_unk0.unk_2C.y;
                             s32 floor_hit3;
                             if (use_floor_fn != 0) {
+#ifdef MELEE_NATIVE
+                                // A level link above the floor reports a hit
+                                // without a point; the GameCube then reads
+                                // the height its last floor hit left here.
+                                floor_point2.y = pos_y;
+#endif
                                 floor_hit3 = lb_800103D8(
                                     &floor_point2, cur->desc.lb_unk0.unk_2C.x,
                                     cur->desc.lb_unk0.unk_2C.y, end_x2, end_y2,

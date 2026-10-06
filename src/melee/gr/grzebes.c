@@ -98,9 +98,11 @@ typedef struct grZe_BubbleSpawnPos {
     /* 0x1C */ f32 pad_1C[2];
 } grZe_BubbleSpawnPos;
 
+#ifndef MELEE_NATIVE
 /* 8049F140 */ static Vec3 grZe_8049F140[2];
 /* 8049F158 */ static Vec3 grZe_8049F158[2];
 /* 8049F170 */ static grZe_BubbleEntry grZe_8049F170[20];
+#endif
 
 typedef struct grZe_BubbleScales {
     f32 values[7];
@@ -115,6 +117,29 @@ typedef struct grZe_BubbleState {
     Vec3 positions[4];
     grZe_BubbleEntry bubbles[20];
 } grZe_BubbleState;
+
+#ifdef MELEE_NATIVE
+// Retail lays the two anchor pairs and the bubble pool out back to back and
+// reads them as one grZe_BubbleState; a host linker does not keep that order.
+static grZe_BubbleState grZe_BubbleBlock;
+#define grZe_8049F140 (&grZe_BubbleBlock.positions[0])
+#define grZe_8049F158 (&grZe_BubbleBlock.positions[2])
+#define grZe_8049F170 (grZe_BubbleBlock.bubbles)
+
+// Retail reads that block as 0x24-byte rows to place a regrown bubble: row n,
+// +0x14 is where bubble n - 1 sits. Host bubble entries are wider than a row.
+static inline void grZebes_GetSpawnPos(int row, f32* x, f32* y)
+{
+    if (row > 0) {
+        *x = grZe_8049F170[row - 1].x08_x;
+        *y = grZe_8049F170[row - 1].x0C_y;
+    } else {
+        // Row 0 ends inside the anchors, before the pool.
+        *x = grZe_8049F140[1].z;
+        *y = grZe_8049F158[0].x;
+    }
+}
+#endif
 
 GrJoint grZe_803E1A10[] = {
     { 1, 6, 21 }, { 4, 6, 14 }, { 3, 6, 1 }, { 2, 7, 6 }, { 5, 7, 1 },
@@ -461,6 +486,25 @@ void grZebes_801D881C(HSD_GObj* gobj)
                 s32 mirror;
                 spawn_phase = eq_counter / divisor;
                 mirror = 6 - spawn_phase;
+#ifdef MELEE_NATIVE
+                // The new bubble starts where its outer neighbour sits.
+                if (spawn_phase < mirror) {
+                    f32 rand = HSD_Randf();
+                    f32 scale_min = yakumono_param->x58;
+                    f32 scale_range = yakumono_param->x5C - scale_min;
+                    f32 x, y;
+                    grZebes_GetSpawnPos(spawn_phase, &x, &y);
+                    grZebes_801DAE70(spawn_phase, 4, x, y,
+                                     scale_range * rand + scale_min);
+                }
+                if (spawn_phase <= mirror) {
+                    f32 rand2 = HSD_Randf();
+                    f32 x, y;
+                    grZebes_GetSpawnPos(mirror + 2, &x, &y);
+                    grZebes_801DAE70(mirror, 4, x, y,
+                                     (f32) (0.5 * rand2 + 1.0));
+                }
+#else
                 if (spawn_phase < mirror) {
                     f32 rand = HSD_Randf();
                     f32 scale_min = yakumono_param->x58;
@@ -482,6 +526,7 @@ void grZebes_801D881C(HSD_GObj* gobj)
                                      pos[mirror + 2].x18_y,
                                      (f32) (0.5 * rand2 + 1.0));
                 }
+#endif
             }
             if (grAnime_801C83D0(gobj, 0xE, 1) != 0) {
                 gp->u.zebes_acid.xC4 = 0;

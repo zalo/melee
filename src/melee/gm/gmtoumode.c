@@ -191,7 +191,12 @@ void gm_801B18D4(GameModeState* arg0)
     }
 
     /// @todo :: figure out how to call this not inlined
+#ifdef MELEE_NATIVE
+    // gm_80487810 follows gm_804876D8 only in the retail .bss.
+    gm_SetupSuddenDeath(smd, &gm_80487810.match_end);
+#else
     gm_SetupSuddenDeath(smd, &((MatchExitInfo*) (src + 1))->match_end);
+#endif
 }
 
 void gm_801B1A2C(GameModeState* arg0)

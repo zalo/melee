@@ -1220,6 +1220,12 @@ void resolveIKJoint1(HSD_JObj* jobj)
             var_f5 = sqrtf(1.0F / (1e-10F + var_f27));
             var_f29_2 = var_f27 * var_f5;
         } else {
+#ifdef MELEE_NATIVE
+            // Both axes are only built above; for a target on the joint the
+            // GameCube scales whatever its stack held here, so use zero.
+            sp74 = HSD_JObj_803B94C4;
+            sp80 = HSD_JObj_803B94C4;
+#endif
             var_f1 = 0.0F;
             var_f29_2 = temp_f30;
         }

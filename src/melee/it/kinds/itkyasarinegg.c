@@ -134,7 +134,12 @@ void it_802EFD84(Item_GObj* gobj)
 
 bool itKyasarinegg_UnkMotion4_Anim(Item_GObj* gobj)
 {
+#ifdef MELEE_NATIVE
+    // Retail falls off the end with the callee's result still in r3.
+    return it_802751D8(gobj);
+#else
     it_802751D8(gobj);
+#endif
 }
 
 static inline bool it_damage_inline(Item_GObj* gobj)

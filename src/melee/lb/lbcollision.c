@@ -1452,6 +1452,16 @@ static inline float sqrDistance(Vec3* a, Vec3* b)
     return x * x + y * y + z * z;
 }
 
+#ifdef MELEE_NATIVE
+// The retail stack-matching form stores through slots below the scratch array
+// (sqrt_tmp - N); natively that is out of bounds and the store, with the
+// square root, is dropped.
+static inline float sqrtf_native(float x)
+{
+    return x > 0.0f ? sqrtf(x) : x;
+}
+#define sqrtf_store(x, y) sqrtf_native(x)
+#else
 static inline float sqrtf_store(float x, volatile float* y)
 {
     if (x > 0.0f) {
@@ -1464,6 +1474,7 @@ static inline float sqrtf_store(float x, volatile float* y)
     }
     return x;
 }
+#endif
 
 void lbColl_800077A0(Vec3* a, MtxPtr arg1, Vec3* b, Vec3* c, Vec3* d, Vec3* e,
                      float* angle, float x, float dist_offset)

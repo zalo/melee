@@ -9,6 +9,14 @@
 
 #define HSD_804D2648_BUF ((u8*) &hsd_804D2648)
 
+#ifdef MELEE_NATIVE
+#include <stddef.h>
+// The work arrays follow a jmp_buf that is 0x118 bytes only on the GameCube.
+#define JPEG_WORK_OFF(off) ((off) - 0x118 + offsetof(JpegWork, x118))
+#else
+#define JPEG_WORK_OFF(off) (off)
+#endif
+
 typedef struct JpegByteBuffer {
     u8 data[1];
 } JpegByteBuffer;
@@ -74,15 +82,28 @@ static const JpegMetadata lbl_803B9670 = {
     0xE2, 0xE3, 0xE4, 0xE5, 0xE6, 0xE7, 0xE8, 0xE9, 0xEA, 0xF2, 0xF3, 0xF4,
     0xF5, 0xF6, 0xF7, 0xF8, 0xF9, 0xFA,
 };
+#ifdef MELEE_NATIVE
+// The quantisation table and the tables after it are read as one block
+// (JpegEncodeTables), so they are one object here.
+static struct {
+    u8 quant[0x40];
+    u8 rest[0x410];
+} jpegEncodeData = { {
+#else
 static u8 lbl_80430C40[0x40] = {
+#endif
     0x10, 0x0B, 0x0A, 0x10, 0x18, 0x28, 0x33, 0x3D, 0x0C, 0x0C, 0x0E,
     0x13, 0x1A, 0x3A, 0x3C, 0x37, 0x0E, 0x0D, 0x10, 0x18, 0x28, 0x39,
     0x45, 0x38, 0x0E, 0x11, 0x16, 0x1D, 0x33, 0x57, 0x50, 0x3E, 0x12,
     0x16, 0x25, 0x38, 0x44, 0x6D, 0x67, 0x4D, 0x18, 0x23, 0x37, 0x40,
     0x51, 0x68, 0x71, 0x5C, 0x31, 0x40, 0x4E, 0x57, 0x67, 0x79, 0x78,
     0x65, 0x48, 0x5C, 0x5F, 0x62, 0x70, 0x64, 0x67, 0x63,
+#ifdef MELEE_NATIVE
+}, {
+#else
 };
 static u8 lbl_80430C80[0x410] = {
+#endif
     0x11, 0x12, 0x18, 0x2F, 0x63, 0x63, 0x63, 0x63, 0x12, 0x15, 0x1A, 0x42,
     0x63, 0x63, 0x63, 0x63, 0x18, 0x1A, 0x38, 0x63, 0x63, 0x63, 0x63, 0x63,
     0x2F, 0x42, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63, 0x63,
@@ -170,7 +191,13 @@ static u8 lbl_80430C80[0x410] = {
     0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x0E, 0x10, 0x10,
     0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x0A, 0x0F, 0x10, 0x10, 0x10,
     0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x00, 0x00,
+#ifdef MELEE_NATIVE
+} };
+#define lbl_80430C40 jpegEncodeData.quant
+#define lbl_80430C80 jpegEncodeData.rest
+#else
 };
+#endif
 extern u8 lbl_80431638[0x40];
 extern u16 lbl_80431678[0xC];
 extern u8 lbl_80431690[0xC];
@@ -180,7 +207,7 @@ static s32 lbl_804D6398 = 3;
 
 static inline void jpegLumaAddress(s32** dest, u8* work, u32 offset)
 {
-    work += 0x118;
+    work += JPEG_WORK_OFF(0x118);
     *dest = &((s32*) work)[offset / 4];
 }
 
@@ -957,7 +984,7 @@ hsd_803B51C8_inline(s32 image, s32 image_height, s32 image_width,
             u8* work_r23;
             hsd_803B3408(src, work_r25, work_r24, width, height);
             work_r23 = state.base + ((work_r26 = 0) << 8);
-            work_r23 += 0x118;
+            work_r23 += JPEG_WORK_OFF(0x118);
             while (work_r26 < 4) {
                 u8* scratch_r6;
                 s32* work_r5_3;
@@ -966,7 +993,7 @@ hsd_803B51C8_inline(s32 image, s32 image_height, s32 image_width,
                 fn_803B376C(work_r23);
                 quant_scale = lbl_804D6398;
                 work_r4_3 = (s32*) work_r23;
-                work_r5_3 = (s32*) (state.base + 0x718);
+                work_r5_3 = (s32*) (state.base + JPEG_WORK_OFF(0x718));
                 for (work_r3 = 0; work_r3 < 0x40; work_r3 += 8) {
                     scratch_r6 = state.quant_table + work_r3;
                     for (k = 0; k < 8; k++) {
@@ -986,10 +1013,10 @@ hsd_803B51C8_inline(s32 image, s32 image_height, s32 image_width,
                 s32* work_r4_4;
                 s32 work_r3_2;
                 u8* chroma_quant_table = state.quant_table + 0x40;
-                fn_803B376C(state.base + 0x518);
-                work_r5_4 = work_r26_2 = (s32*) (state.base + 0x718);
+                fn_803B376C(state.base + JPEG_WORK_OFF(0x518));
+                work_r5_4 = work_r26_2 = (s32*) (state.base + JPEG_WORK_OFF(0x718));
                 quant_scale = lbl_804D6398;
-                work_r4_4 = (s32*) (state.base + 0x518);
+                work_r4_4 = (s32*) (state.base + JPEG_WORK_OFF(0x518));
                 for (work_r3_2 = 0; work_r3_2 < 0x40; work_r3_2 += 8) {
                     scratch_r6_2 = chroma_quant_table + work_r3_2;
                     for (k = 0; k < 8; k++) {
@@ -1006,9 +1033,9 @@ hsd_803B51C8_inline(s32 image, s32 image_height, s32 image_width,
                 u8* scratch_r5;
                 s32* work_r4_5;
                 s32 work_r3_3;
-                fn_803B376C(state.base + 0x618);
+                fn_803B376C(state.base + JPEG_WORK_OFF(0x618));
                 quant_scale = lbl_804D6398;
-                work_r4_5 = (s32*) (state.base + 0x618);
+                work_r4_5 = (s32*) (state.base + JPEG_WORK_OFF(0x618));
                 for (work_r3_3 = 0; work_r3_3 < 0x40; work_r3_3 += 8) {
                     scratch_r5 = chroma_quant_table + work_r3_3;
                     for (k = 0; k < 8; k++) {

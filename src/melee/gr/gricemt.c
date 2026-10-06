@@ -762,7 +762,13 @@ void stageGObj10_GObjProc(Ground_GObj* arg0)
     f32 cur;
     f32 step;
     f32 ratio;
+#ifdef MELEE_NATIVE
+    // Only assigned while x14_b2 is clear but read on every later frame,
+    // where the GameCube sees the proc runner's r30 (zero unless paused).
+    s32 var_r30 = 0;
+#else
     s32 var_r30;
+#endif
     s32 r;
     PAD_STACK(8);
 
@@ -1578,6 +1584,10 @@ float grIceMt_801F96E0(struct grIceMt_GObj9_GObj10_UnderUpperIdPair* arg0,
         HSD_ASSERT(2636, jobj);
         HSD_JObjAddTranslationY(jobj2, y);
     }
+#ifdef MELEE_NATIVE
+    // Retail falls off the end with y still in f1; the scroll callers use it.
+    return y;
+#endif
 }
 
 /// @note Checks bit 6 of icemt2.xC4 (as byte) - clears it and does cleanup.

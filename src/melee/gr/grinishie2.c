@@ -25,6 +25,14 @@
 #include <sysdolphin/baselib/jobj.h>
 #include <sysdolphin/baselib/random.h>
 
+#ifdef MELEE_NATIVE
+#include <stddef.h>
+#include <Runtime/platform.h>
+// A Pidgit's gobj holds its spawner (written through inishie22) next to its own state (inishie23).
+STATIC_ASSERT(offsetof(Ground, u.inishie23.xC8_flags) >=
+              offsetof(Ground, u.inishie22.xC4) + sizeof(HSD_GObj*));
+#endif
+
 GrJoint grI2_803E4A60[] = {
     { 0, 1, 1 },  { 12, 3, 1 },  { 13, 4, 1 },  { 14, 15, 0 }, { 3, 5, 0 },
     { 4, 6, 0 },  { 5, 7, 0 },   { 6, 8, 0 },   { 7, 9, 0 },   { 8, 10, 0 },
@@ -609,8 +617,15 @@ void grInishie2_801FD824(HSD_GObj* gobj)
     gp->u.inishie23.xC8_flags.b0 = 0;
     gp->u.inishie23.xC8_flags.b2 = 0;
 
+#ifdef MELEE_NATIVE
+    // Same fields through the view the rest of this gobj uses; the two views
+    // only agree on the offsets with 4-byte pointers.
+    gp->u.inishie23.xCA = 0;
+    gp->u.inishie23.xD8 = spawn_pos;
+#else
     gp->u.inishie2.xCA = 0;
     gp->u.inishie2.xD8 = spawn_pos;
+#endif
 
     HSD_JObjSetTranslate(Ground_801C3FA4(gobj, 0), &spawn_pos);
 }

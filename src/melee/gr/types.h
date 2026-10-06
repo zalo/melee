@@ -263,6 +263,11 @@ struct GroundVars_flatzone {
     s16 xCA;
     s16 xCC;
     s16 xCE;
+#ifdef MELEE_NATIVE
+    // The oil man's state and timer are GroundVars_flatzone2.xD0 and .timer,
+    // which follow an 8-byte pointer there.
+    s32 native_pad;
+#endif
     s32 xD0;
     s32 xD4;
 };
@@ -332,6 +337,11 @@ struct grKongo_GroundVars2 {
     f32 xDC;
     f32 xE0;
     f32 xE4;
+#ifdef MELEE_NATIVE
+    // The barrel cannon reads this rate back as grKongo_GroundVars3.xE8, one
+    // slot further on with 8-byte pointers.
+    f32 native_pad;
+#endif
     f32 xE8;
 };
 
@@ -940,8 +950,14 @@ struct grInishie2_GroundVars2 {
 };
 
 struct grInishie2_GroundVars3 {
+#ifdef MELEE_NATIVE
+    // grInishie2_GroundVars2.xC4 (the gobj that spawned this one) is stored in
+    // this slot; with two s16 here an 8-byte pointer runs into the flags.
+    HSD_GObj* xC4;
+#else
     s16 xC4;
     s16 xC6;
+#endif
     struct grInishie2_GroundVars3_xC8_flags {
         u8 b0 : 1;
         u8 b1 : 1;

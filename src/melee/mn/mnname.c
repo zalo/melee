@@ -52,6 +52,34 @@
     { -5.5F, -2.9F, 23.0F },
 };
 
+// Several routines reach the objects above as offsets from mnName_803ED538,
+// which only works where the linker keeps them in one run.
+#ifdef MELEE_NATIVE
+static void* mnName_DataAt(u32 offset)
+{
+    static const struct {
+        u32 start;
+        void* object;
+    } run[] = {
+        { 0xE0, mnName_803ED618 },  { 0xC8, mnName_803ED600 },
+        { 0x6C, mnName_803ED5A4 },  { 0x60, &mnName_803ED598 },
+        { 0x54, &mnName_803ED58C }, { 0x48, &mnName_803ED580 },
+        { 0x3C, &mnName_803ED574 }, { 0x30, &mnName_803ED568 },
+        { 0x00, mnName_803ED538 },
+    };
+    int i;
+    HSD_ASSERT(0, offset < 0xF8);
+    for (i = 0; offset < run[i].start; i++) {
+    }
+    return (u8*) run[i].object + (offset - run[i].start);
+}
+#define MN_NAME_DATA(base, offset) ((u8*) mnName_DataAt(offset))
+#else
+#define MN_NAME_DATA(base, offset) ((u8*) (base) + (offset))
+#endif
+#define MN_NAME_LOOP(base, i)                                                 \
+    ((AnimLoopSettings*) MN_NAME_DATA(base, (i) * sizeof(AnimLoopSettings)))
+
 /// Animation loop window lookup table for mnName_FindAnimLoop (.rodata block
 /// owned by this translation unit; see symbols.txt 0x803B8510..0x803B8527).
 /// The last entry treats the leading three floats of mnName_803ED5A4 as an
@@ -844,24 +872,24 @@ f32 mnName_80238964(u8 index, u8 target, u8 flag)
 
     if (target == 0x18) {
         if (flag) {
-            return base[5].start_frame;
+            return MN_NAME_LOOP(base, 5)->start_frame;
         }
-        return base[4].start_frame;
+        return MN_NAME_LOOP(base, 4)->start_frame;
     }
 
     idx = index;
     switch (idx) {
     case 0x18:
         if (flag) {
-            return base[8].start_frame;
+            return MN_NAME_LOOP(base, 8)->start_frame;
         }
-        return base[6].start_frame;
+        return MN_NAME_LOOP(base, 6)->start_frame;
     case 0x19:
     case 0x1A:
         if (flag) {
-            return base[8 + (index == target)].start_frame;
+            return MN_NAME_LOOP(base, 8 + (index == target))->start_frame;
         }
-        return base[6 + (index == target)].start_frame;
+        return MN_NAME_LOOP(base, 6 + (index == target))->start_frame;
     }
 }
 
@@ -882,15 +910,15 @@ void mnName_80238A04(HSD_GObj* gobj, u8 target, u8 flag)
 
     if (target == 0x18) {
         if (flag) {
-            HSD_JObjReqAnimAll(jobj2, base[5].start_frame);
+            HSD_JObjReqAnimAll(jobj2, MN_NAME_LOOP(base, 5)->start_frame);
         } else {
-            HSD_JObjReqAnimAll(jobj2, base[4].start_frame);
+            HSD_JObjReqAnimAll(jobj2, MN_NAME_LOOP(base, 4)->start_frame);
         }
     } else {
         if (flag) {
-            HSD_JObjReqAnimAll(jobj2, base[8].start_frame);
+            HSD_JObjReqAnimAll(jobj2, MN_NAME_LOOP(base, 8)->start_frame);
         } else {
-            HSD_JObjReqAnimAll(jobj2, base[6].start_frame);
+            HSD_JObjReqAnimAll(jobj2, MN_NAME_LOOP(base, 6)->start_frame);
         }
     }
     HSD_JObjAnimAll(jobj2);
@@ -1007,8 +1035,8 @@ void mnName_80238C34(HSD_GObj* arg0, u8 arg1, u8 arg2)
         result = mn_8022ED6C(
             jobj, mnName_FindAnimLoop(mnName_803B8510, mn_8022F298(jobj)));
 
-        if (mnName_FindAnimLoop(tableBase, result) == base + 5) {
-            if (result >= mnName_80238C34_inline(&base[5])) {
+        if (mnName_FindAnimLoop(tableBase, result) == MN_NAME_LOOP(base, 5)) {
+            if (result >= mnName_80238C34_inline(MN_NAME_LOOP(base, 5))) {
                 HSD_GObjFree(arg0);
             }
         }
@@ -1405,19 +1433,21 @@ void fn_8023A0BC(HSD_GObj* gobj)
     }
 
     frame = mn_8022F298(sp2C);
-    if (*(f32*) (base + 0xC8) <= frame) {
-        end_frame = (f32*) (base + 0xCC);
-        if (frame < (*(new_var = (f32*) (base + 0xCC)))) {
-            frame2 = mn_8022EFD8(sp2C, (AnimLoopSettings*) (base + 0xC8));
+    if (*(f32*) MN_NAME_DATA(base, 0xC8) <= frame) {
+        end_frame = (f32*) MN_NAME_DATA(base, 0xCC);
+        if (frame < (*(new_var = (f32*) MN_NAME_DATA(base, 0xCC)))) {
+            frame2 = mn_8022EFD8(
+                sp2C, (AnimLoopSettings*) MN_NAME_DATA(base, 0xC8));
             lb_80011E24(jobj, &sp28, 8, -1);
-            mn_8022EFD8(sp28, (AnimLoopSettings*) (base + 0xC8));
+            mn_8022EFD8(sp28, (AnimLoopSettings*) MN_NAME_DATA(base, 0xC8));
             if (frame2 >= *end_frame) {
                 if (mnName_804D6BFC != NULL) {
                     HSD_SisLib_803A5CC4(mnName_804D6BFC);
                 }
                 text = HSD_SisLib_803A5ACC(
-                    0, 1, *(f32*) (base + 0xEC), *(f32*) (base + 0xF0),
-                    *(f32*) (base + 0xF4), 416.6667f, 33.333336f);
+                    0, 1, *(f32*) MN_NAME_DATA(base, 0xEC),
+                    *(f32*) MN_NAME_DATA(base, 0xF0),
+                    *(f32*) MN_NAME_DATA(base, 0xF4), 416.6667f, 33.333336f);
                 mnName_804D6BFC = text;
                 text->font_size.x = 0.03f;
                 text->font_size.y = 0.03f;

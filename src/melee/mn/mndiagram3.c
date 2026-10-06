@@ -47,6 +47,16 @@ typedef struct mnDiagram3_DataTable {
 /* 4D6C20 */ extern HSD_GObj* mnDiagram3_804D6C20;
 /* 4D4B64 */ extern GXColor mn_804D4B64;
 
+#ifdef MELEE_NATIVE
+// mnDiagram3_DataTable spans four objects that are only adjacent on the
+// GameCube.
+#define DIAGRAM3_POSITIONS(table) (&mnDiagram3_803EEC28)
+#define DIAGRAM3_STATS(table) (&mnDiagram3_803EEC4C)
+#else
+#define DIAGRAM3_POSITIONS(table) (&(table)->positions)
+#define DIAGRAM3_STATS(table) (&(table)->stats)
+#endif
+
 #ifdef MUST_MATCH
 static void sdata2_order(void)
 {
@@ -120,7 +130,7 @@ void mnDiagram3_PopulateRankings(HSD_GObj* gobj)
         {
             u32 max_distance;
 
-            unit_glyph_ids = table->stats.unit_glyph_ids;
+            unit_glyph_ids = DIAGRAM3_STATS(table)->unit_glyph_ids;
             (void) row_spacing;
             row_spacing = row_spacing - divider;
             max_distance = 0x5F5E0FF;
@@ -134,7 +144,7 @@ void mnDiagram3_PopulateRankings(HSD_GObj* gobj)
                         if (!mnDiagram2_IsIconOnlyStat(stat_type)) {
                             if (i == 0) {
                                 lb_8000B1CC(data->jobjs[6],
-                                            &table->positions.xC, &position);
+                                            &DIAGRAM3_POSITIONS(table)->xC, &position);
                                 title_text = HSD_SisLib_803A6754(0, 1);
                                 data->title_text = title_text;
                                 title_text->font_size.x = 0.035f;
@@ -170,7 +180,7 @@ void mnDiagram3_PopulateRankings(HSD_GObj* gobj)
                 }
 
                 if (i == 0) {
-                    lb_8000B1CC(data->jobjs[6], &table->positions.x18,
+                    lb_8000B1CC(data->jobjs[6], &DIAGRAM3_POSITIONS(table)->x18,
                                 &position);
                     value_text = HSD_SisLib_803A6754(0, 1);
                     data->value_text = value_text;
@@ -260,7 +270,7 @@ void mnDiagram3_PopulateRankings(HSD_GObj* gobj)
                         continue;
                     }
 
-                    lb_8000B1CC(data->jobjs[6], &table->positions.x18,
+                    lb_8000B1CC(data->jobjs[6], &DIAGRAM3_POSITIONS(table)->x18,
                                 &position);
                     {
                         HSD_Text* icon_text;

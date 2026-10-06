@@ -51,7 +51,12 @@ static HSD_GObj* it_802C248C(Item* ip, HSD_JObj* jobj)
 {
     itClimbersStringAttributes* attrs =
         &ip->xC4_article_data->x4_specialAttributes->climbers_string;
+#ifdef MELEE_NATIVE
+    // Walked by the clean-up loop when the first link cannot be created.
+    ItemLink* prev_link = NULL;
+#else
     ItemLink* prev_link;
+#endif
     ItemLink* head_link;
     ItemLink* tail_link;
     HSD_GObj* result;

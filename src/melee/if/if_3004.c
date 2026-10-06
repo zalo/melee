@@ -658,6 +658,10 @@ bool un_80300758(enum soundtest_callback_arg0 arg0)
     if (arg0 == 1) {
         un_802FFCD0(4, un_803FA258.x10);
     }
+#ifdef MELEE_NATIVE
+    // Retail falls off the end with r3 still holding arg0, or the 4 above.
+    return arg0 != 0;
+#endif
 }
 
 bool un_80300790(enum soundtest_callback_arg0 arg0)
@@ -665,6 +669,10 @@ bool un_80300790(enum soundtest_callback_arg0 arg0)
     if (arg0 == 1) {
         un_802FFCD0(4, un_803FA258.x24);
     }
+#ifdef MELEE_NATIVE
+    // Retail falls off the end with r3 still holding arg0, or the 4 above.
+    return arg0 != 0;
+#endif
 }
 
 bool un_803007C8(enum soundtest_callback_arg0 arg0)
@@ -1506,8 +1514,17 @@ bool un_80301CE0(enum soundtest_callback_arg0 arg0)
         un_802FFCD0(4, un_803FA258.x144);
         break;
     default:
+#ifdef MELEE_NATIVE
+        return arg0 != 0;
+#else
         break;
+#endif
     }
+#ifdef MELEE_NATIVE
+    // Retail falls off the end with r3 still holding arg0, the 4 above, or
+    // the scene-state pointer gm_801A4B60 loads: non-zero in each case.
+    return true;
+#endif
 }
 
 bool un_80301D40(enum soundtest_callback_arg0 update_scene)

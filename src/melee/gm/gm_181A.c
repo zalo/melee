@@ -73,12 +73,15 @@ typedef struct RegClearRecordOverlay {
     RegClearRecordState record[1];
 } RegClearRecordOverlay;
 #define REGCLEAR_RECORD_OVERLAY ((RegClearRecordOverlay*) &lbl_80473594)
+// Likewise the record[] that trails lbl_80472ED8_t is lbl_80473594.
+#define REGCLEAR_RECORD(data) (&lbl_80473594)
 #else
 typedef struct RegClearRecordOverlay {
     u8 pad[0x6BC];
     RegClearRecordState record[1];
 } RegClearRecordOverlay;
 #define REGCLEAR_RECORD_OVERLAY ((RegClearRecordOverlay*) &lbl_80472ED8)
+#define REGCLEAR_RECORD(data) ((data)->record)
 #endif
 
 typedef struct {
@@ -314,7 +317,7 @@ void fn_80181E18(void)
     case 0x23:
     case 0x24:
         if (gm_8016AEEC() == 0 && gm_8016AEFC() == 0x3B) {
-            data->record[0].x0 = 1;
+            REGCLEAR_RECORD(data)[0].x0 = 1;
             gm_8016B33C(7);
             gm_8016B328();
         }
@@ -334,10 +337,10 @@ void fn_80181E18(void)
             continue;
         }
 
-        switch (data->record[0].x8) {
+        switch (REGCLEAR_RECORD(data)[0].x8) {
         case 0x21:
         case 0x22:
-            data->record[0].x4 = gm_GetFrameCount();
+            REGCLEAR_RECORD(data)[0].x4 = gm_GetFrameCount();
             break;
         }
 
@@ -348,7 +351,7 @@ void fn_80181E18(void)
         field = &data->x4;
         x4 = field;
         next = *x4;
-        data->record[0].x2 = (s16) (temp + next);
+        REGCLEAR_RECORD(data)[0].x2 = (s16) (temp + next);
 
         switch (mode) {
         case 0x21:
@@ -383,7 +386,7 @@ void fn_80181E18(void)
 
         if (next == 0x3E7) {
             if (fn_80181BFC(NULL) == 0) {
-                data->record[0].x0 = 1;
+                REGCLEAR_RECORD(data)[0].x0 = 1;
                 gm_8016B33C(7);
                 gm_8016B328();
             }

@@ -1,0 +1,27 @@
+# Functions that can fall off the end, but whose callers never use the value (checked 2026-10-05).
+# native/tools/check_returns.py fails on any missing return that is not listed here.
+fn_80174920
+fn_80300CC8
+fn_80300DE0
+fn_80300ED0
+fn_803011EC
+ftPp_SpecialS_80120FE0
+gm_801623A4
+gm_80162968
+gm_801629B4
+gm_80162A4C
+grCorneria_801E03C8
+it_8027BA54
+it_802C4D10
+it_802E7654
+itLinkArrow_802A81C4
+itLinkArrow_802A850C
+main
+mnDiagram2_GetStatValue
+mnDiagram_GetVisibleFighterCursorFrom2
+mnName_80238964
+mnStageSw_80235C58
+pl_80037B2C
+Player_SetFlagsAEBit1
+Toy_803060BC
+un_80322598

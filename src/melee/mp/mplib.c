@@ -5034,6 +5034,16 @@ int mpLib_80056B34(int id, int* out)
     return entry->x4C[1];
 }
 
+#ifdef MELEE_NATIVE
+// The retail stack-matching form stores through slots below the scratch array
+// (sqrt_tmp - N); natively that is out of bounds and the store, with the
+// square root, is dropped.
+static inline float sqrtf_native(float x)
+{
+    return x > 0.0F ? sqrtf(x) : x;
+}
+#define sqrtf_store(x, y) sqrtf_native(x)
+#else
 static inline float sqrtf_store(float x, volatile float* y)
 {
     if (x > 0.0F) {
@@ -5046,6 +5056,7 @@ static inline float sqrtf_store(float x, volatile float* y)
     }
     return x;
 }
+#endif
 
 int mpJointFromLine(int line_id)
 {
@@ -5081,7 +5092,11 @@ bool mpLib_80056C54(int line_id, Vec3* pos, int* line_id_out, Vec3* vec_out,
     Vec3 vtx_pos;
     float sqrt_tmp[2];
     float dist;
+#ifdef MELEE_NATIVE
+    float total_dist = 0.0F;
+#else
     float total_dist;
+#endif
     float dx2, dy2;
     int result;
     int new_id;

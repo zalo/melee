@@ -401,7 +401,13 @@ void grPushOn_80218888(Ground_GObj* gobj)
 
         /* Compute weighted direction */
         dir = grPushOn_803B844C;
+#ifdef MELEE_NATIVE
+        // sorted[1] is unset with fewer than two lights; the loop below then
+        // never uses ref_dist.
+        ref_dist = gp->u.pushon.count > 1 ? distances[sorted[1]] : 0.0f;
+#else
         ref_dist = distances[sorted[1]];
+#endif
 
         for (i = 1; i < (int) gp->u.pushon.count; i++) {
             if (HSD_LObjGetPosition(gp->u.pushon.lobjs[sorted[i]],

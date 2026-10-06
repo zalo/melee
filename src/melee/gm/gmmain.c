@@ -133,6 +133,16 @@ int main(void)
     u32 _[2];
 
     OSInit();
+#ifdef MELEE_NATIVE
+    // The game tells ARAM offsets from memory pointers by comparing with
+    // 0x80000000, as on the GameCube (lbmemory.c, lbfile.c, ftdata.c), so the
+    // arena has to sit above that.
+    if ((uintptr_t) OSGetArenaLo() < 0x80000000u) {
+        OSPanic(__FILE__, __LINE__,
+                "game memory was mapped below 2 GiB; ARAM offsets and "
+                "pointers cannot be told apart");
+    }
+#endif
     VIInit();
     DVDInit();
     PADInit();
