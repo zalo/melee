@@ -1,6 +1,10 @@
 #include "ftCo_Guard.h"
 
 #ifdef MELEE_NATIVE
+#include "melee_ucf.h"
+#endif
+
+#ifdef MELEE_NATIVE
 #define GUARD_CHILD(fp) ((fp)->ft_data->x20->x0->child)
 #else
 #define GUARD_CHILD(fp) ((fp)->ft_data->x20->x0[2])
@@ -727,7 +731,13 @@ void ftCo_80093240(Fighter_GObj* gobj)
         if ((fp->input.lstick[0].x < 0 ? -fp->input.lstick[0].x
                                        : fp->input.lstick[0].x) >=
                 p_ftCommonData->sdi_min_stick_mag &&
+#ifdef MELEE_NATIVE
+            // UCF: a fast stick flick also counts as a fresh shield SDI input.
+            (fp->active_timer.lstick.x < p_ftCommonData->sdi_stick_window ||
+             MeleeNativeUcfShieldSdi(fp)))
+#else
             fp->active_timer.lstick.x < p_ftCommonData->sdi_stick_window)
+#endif
         {
             float scl = p_ftCommonData->x4C0 * (fp->input.lstick[0].x *
                                                 p_ftCommonData->sdi_pos_scale);

@@ -1,5 +1,9 @@
 #include "ftCo_DamageFall.h"
 
+#ifdef MELEE_NATIVE
+#include "melee_ucf.h"
+#endif
+
 #include <Runtime/platform.h>
 
 #include <sysdolphin/baselib/forward.h>
@@ -122,7 +126,13 @@ void ftCo_DamageFall_IASA(HSD_GObj* gobj)
         RETURN_IF(ftCo_800D705C(gobj));
         RETURN_IF(ftCo_800CB870(gobj));
         if (ABS(fp->input.lstick[0].x) >= p_ftCommonData->x210 &&
+#ifdef MELEE_NATIVE
+            // UCF: a fast stick flick one frame late still wiggles out.
+            MeleeNativeUcfTumble(fp, fp->active_timer.lstick.x <
+                                         p_ftCommonData->x214))
+#else
             fp->active_timer.lstick.x < p_ftCommonData->x214)
+#endif
         {
             ftCo_Fall_Enter(gobj);
             return;

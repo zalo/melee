@@ -409,7 +409,8 @@ void MeleeNativeMatrixTick(void)
 
 void MeleeNativeTestPrepareSss(SSSData* sss)
 {
-    if (getenv("MELEE_MATRIX_TEST") && getenv("MELEE_TEST_FORCE_STAGE"))
+    // A mode playlist can pin its versus stage too (MELEE_TEST_FORCE_STAGE without MELEE_MATRIX_TEST).
+    if ((getenv("MELEE_MATRIX_TEST") || MeleeNativePuppetDirects()) && getenv("MELEE_TEST_FORCE_STAGE"))
         sss->force_stage_id = setting("MELEE_TEST_STAGE", 328, 9);
 }
 

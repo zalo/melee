@@ -1,5 +1,9 @@
 #include "ftCo_Pass.h"
 
+#ifdef MELEE_NATIVE
+#include "melee_ucf.h"
+#endif
+
 #include <Runtime/platform.h>
 
 #include <melee/ft/forward.h>
@@ -54,7 +58,14 @@ bool ftCo_8009A080(Fighter_GObj* gobj)
 {
     u8 _[8];
     Fighter* fp = gobj->user_data;
+#ifdef MELEE_NATIVE
+    // UCF: a held shield-drop flick stands in for the stick-height test.
+    if (fp->input.held_buttons[0] & HSD_PAD_LR &&
+        (ftCo_80099F1C(gobj) || MeleeNativeUcfShieldDrop(fp)))
+    {
+#else
     if (fp->input.held_buttons[0] & HSD_PAD_LR && ftCo_80099F1C(gobj)) {
+#endif
         ftCo_8009A228(gobj);
         return true;
     }

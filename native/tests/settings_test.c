@@ -105,6 +105,47 @@ int main(void) {
     CHECK(MeleeNativeSettingsSave() == 0);
     CHECK(strstr(read_file(), "debug_menu = 0\n"));
 
+    /* The performance options: full-detail fighters with shadows unless asked otherwise. */
+    unsetenv("MELEE_LOW_DETAIL_FIGHTERS");
+    unsetenv("MELEE_FIGHTER_SHADOWS");
+    write_file("");
+    MeleeNativeSettingsLoad(dir);
+    CHECK(MeleeNativeLowDetailFighters() == 0 && MeleeNativeFighterShadows() == 1);
+    write_file("low_detail_fighters = 1\nfighter_shadows = 0\n");
+    MeleeNativeSettingsLoad(dir);
+    CHECK(MeleeNativeLowDetailFighters() == 1 && MeleeNativeFighterShadows() == 0);
+    CHECK(MeleeNativeSettingsSave() == 0);
+    CHECK(strstr(read_file(), "low_detail_fighters = 1\n") && strstr(read_file(), "fighter_shadows = 0\n"));
+    setenv("MELEE_LOW_DETAIL_FIGHTERS", "0", 1);
+    setenv("MELEE_FIGHTER_SHADOWS", "1", 1);
+    MeleeNativeSettingsLoad(dir);
+    CHECK(MeleeNativeLowDetailFighters() == 0 && MeleeNativeFighterShadows() == 1);
+    unsetenv("MELEE_LOW_DETAIL_FIGHTERS");
+    unsetenv("MELEE_FIGHTER_SHADOWS");
+    write_file("");
+    MeleeNativeSettingsLoad(dir);
+
+    /* The controller fix: retail stick rules unless asked otherwise. */
+    unsetenv("MELEE_UCF");
+    write_file("");
+    MeleeNativeSettingsLoad(dir);
+    CHECK(MeleeNativeUcf() == 0);
+    write_file("ucf = 1\n");
+    MeleeNativeSettingsLoad(dir);
+    CHECK(MeleeNativeUcf() == 1);
+    CHECK(MeleeNativeSettingsSave() == 0);
+    CHECK(strstr(read_file(), "ucf = 1\n"));
+    setenv("MELEE_UCF", "0", 1);
+    MeleeNativeSettingsLoad(dir);
+    CHECK(MeleeNativeUcf() == 0);
+    setenv("MELEE_UCF", "7", 1);
+    MeleeNativeSettingsLoad(dir);
+    CHECK(MeleeNativeUcf() == 1);
+    unsetenv("MELEE_UCF");
+    write_file("");
+    MeleeNativeSettingsLoad(dir);
+    CHECK(MeleeNativeUcf() == 0);
+
     /* Saving into a directory that cannot be written fails cleanly. */
     CHECK(MeleeNativeSettingsSaveFile("/nonexistent-dir/settings.cfg") != 0);
 

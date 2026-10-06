@@ -1,5 +1,9 @@
 #include "ftCo_Turn.h"
 
+#ifdef MELEE_NATIVE
+#include "melee_ucf.h"
+#endif
+
 #include <melee/ft/forward.h>
 
 #include <placeholder.h>
@@ -103,6 +107,10 @@ void ftCo_Turn_IASA(Fighter_GObj* gobj)
     }
     if (!fp->mv.co.turn.has_turned) {
         fp->facing_dir = -fp->facing_dir;
+#ifdef MELEE_NATIVE
+        // UCF: a fast enough stick flick completes the turn now (dash back).
+        MeleeNativeUcfTurn(fp);
+#endif
     }
 
     RETURN_IF(ftCo_SpecialS_CheckInput(gobj));

@@ -1,5 +1,9 @@
 #include "lbshadow.h"
 
+#ifdef MELEE_NATIVE
+#include "melee_settings.h"
+#endif
+
 #include "lbvector.h"
 #include "types.h"
 #include <dolphin/gx/GXVert.h>
@@ -498,7 +502,13 @@ void lbShadow_8000F38C(s32 arg0)
                 }
             }
 
-            if (fp->x20A4.shadow != NULL && cm != NULL && !fp->x20A4.x0_b3) {
+            if (fp->x20A4.shadow != NULL && cm != NULL && !fp->x20A4.x0_b3
+#ifdef MELEE_NATIVE
+                // Port setting: skip the shadow pass as well as its use.
+                && MeleeNativeFighterShadows()
+#endif
+            )
+            {
                 u8 intensity = Ground_801C0508();
                 shadow2 = fp->x20A4.shadow;
 

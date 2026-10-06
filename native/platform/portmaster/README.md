@@ -119,11 +119,27 @@ and returns. Values live in `melee/runtime/config/melee-native/settings.cfg`.
 
 | Row | Effect |
 | --- | --- |
-| Debug Menu, Y on title | On: Y on the title screen opens the game's developer menu (below). Off by default. |
-| Debug Overlays | On: matches gain the development tools under [Debug overlay chords](#debug-overlay-chords) while gameplay stays retail. Off by default. |
 | Show Frame Rate | On: the frames drawn a second in the top right corner, refreshed twice a second. When the game itself runs slower than real time, its speed follows (`41 fps, speed 85%`). |
+| Speed and Controls | Opens the page below. |
+| Debug Options | Opens a page with **Debug Menu, Y on title** (On: Y on the title screen opens the game's developer menu, below) and **Debug Overlays** (On: matches gain the development tools under [Debug overlay chords](#debug-overlay-chords) while gameplay stays retail). Both off by default. |
 | Unlock All Characters and Stages | Sets every character and stage unlock (and the game's own "special message" bonuses) in the current save and writes the memory card. On the next visit to the main menu the game hands out the trophies it awards for those unlocks, one pop-up each; press A through them once. |
-| Online Play | Reserved for the online-play configuration screen; shows "Coming soon". |
+| Online Play | Opens the LAN lobby: host a match, join a host found on the network, input delay (see [Online play](#online-play-two-devices-on-the-same-wi-fi)). |
+
+**Speed and Controls**
+
+| Row | Effect |
+| --- | --- |
+| Low Detail Fighters | On: every fighter is drawn with the low-polygon model the game keeps for reflections and the magnifier. Gameplay is unchanged. Off by default. |
+| Fighter Shadows | Off: fighters cast no shadow on the stage, which saves the shadow passes. On by default. |
+| Controller Fix, UCF | On: the Universal Controller Fix 0.84 stick rules (dash back, shield drop, 1.0 cardinals, SDI, tumble wiggle, crouch reversal) for pad-controlled fighters. This changes gameplay, so it is off by default and always off during online play. |
+
+The two fighter rows take effect immediately. Measured in a two-fighter Battlefield match (frames
+drawn a second, one run each):
+
+| Device | Default | Low Detail | No Shadows | Both |
+| --- | --- | --- | --- | --- |
+| RG35XX SP (H700) | 44 | 51 | 51 | 53 |
+| RG351P (RK3326) | 22 | 25 | 24 | 27 |
 
 ## Developer menu
 
@@ -153,7 +169,8 @@ normal play.
 | Y (hold) + D-pad left/right | Camera info and free camera (C-stick moves it) |
 
 The launcher environment can force any of these for one run: `MELEE_DEBUG_MENU=1`,
-`MELEE_DEBUG_OVERLAYS=1`, `MELEE_DEBUG_LEVEL=3`, `MELEE_SHOW_FPS=1`.
+`MELEE_DEBUG_OVERLAYS=1`, `MELEE_DEBUG_LEVEL=3`, `MELEE_SHOW_FPS=1`, `MELEE_LOW_DETAIL_FIGHTERS=1`,
+`MELEE_FIGHTER_SHADOWS=0`, `MELEE_UCF=1`.
 
 ## Building
 

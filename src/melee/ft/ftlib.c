@@ -1,5 +1,9 @@
 #include "ftlib.h"
 
+#ifdef MELEE_NATIVE
+#include "melee_settings.h"
+#endif
+
 #include <melee/it/forward.h>
 
 #include "fighter.h"
@@ -833,6 +837,12 @@ LbShadow* ftLib_GetShadow(HSD_GObj* gobj)
 bool ftLib_CastsShadow(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
+#ifdef MELEE_NATIVE
+    // Port setting: no fighter casts a shadow.
+    if (!MeleeNativeFighterShadows()) {
+        return false;
+    }
+#endif
     return !fp->x221E_b1 && !fp->x2226_b4 && !fp->is_sub_fighter;
 }
 

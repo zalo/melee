@@ -2,7 +2,8 @@
 /* Port settings that outlive one launch: a small key = value file in the user directory
  * (next to console-settings.txt), edited from the developer menu's "Port Settings" screen.
  * Melee.sh environment variables override the file for one launch (MELEE_DEBUG_OVERLAYS,
- * MELEE_DEBUG_LEVEL, MELEE_SHOW_FPS); the menu then shows and saves the overridden value. */
+ * MELEE_DEBUG_LEVEL, MELEE_SHOW_FPS, MELEE_LOW_DETAIL_FIGHTERS, MELEE_FIGHTER_SHADOWS,
+ * MELEE_UCF); the menu then shows and saves the overridden value. */
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -23,6 +24,15 @@ typedef struct MeleeNativeSettings {
     int online_input_delay;
     /* 1 draws the frame rate in the top right corner (see MeleeNativeFpsOverlay in vi_runtime.cpp). */
     int show_fps;
+    /* 1 draws every fighter with the low-detail model the game keeps for reflections and
+     * the magnifier (see ftDrawCommon_800805C8); gameplay is unchanged. */
+    int low_detail_fighters;
+    /* 0 skips the projected fighter shadows: no shadow passes, no shadow on the stage
+     * (see ftLib_CastsShadow and lbShadow_8000F38C). On by default. */
+    int fighter_shadows;
+    /* 1 applies the Universal Controller Fix 0.84 stick rules to pad-controlled fighters
+     * (see melee_ucf.h). Changes gameplay; ignored during online play. */
+    int ucf;
 } MeleeNativeSettings;
 
 extern MeleeNativeSettings MeleeNativeSettingsData;
@@ -41,6 +51,9 @@ int MeleeNativeDebugMenu(void);
 int MeleeNativeDebugOverlays(void);
 int MeleeNativeDebugLevel(void);
 int MeleeNativeShowFps(void);
+int MeleeNativeLowDetailFighters(void);
+int MeleeNativeFighterShadows(void);
+int MeleeNativeUcf(void);
 
 #ifdef __cplusplus
 }

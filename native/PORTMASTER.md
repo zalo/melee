@@ -101,6 +101,80 @@ authors.
 
 ## Status (branch `portmaster`, 2026-09-15)
 
+### Decomp defect sweep, Speed and Controls page, UCF (2026-10-05)
+- Starting point: the New 3DS port (2gifts/melee-3ds) patches the decomp at build time, and each patch marks
+  code that only works with the retail compiler. That port is GPLv3; nothing was copied from it. Every fix
+  here is our own, under `#ifdef MELEE_NATIVE`, with the retail text left in the `#else`.
+- Fixed (the first six were confirmed in our own binary's disassembly before the change):
+  - `granime.c`: the result local of `grAnime_801C8318` was not `volatile` across `setjmp`/`longjmp`, so the
+    three "has this stage animation finished" queries always said no. They answer now, which turns on about
+    70 branches in 21 stage files that had never run on a 64-bit build (see the Pidgit item below).
+  - `mplib.c` (two sites) and `lbcollision.c`: `sqrtf_store(x, sqrt_tmp - N)` returned the value before the
+    square root (PORTING_NOTES.md).
+  - Menu tables read through a cast that assumed adjacent statics: Item Switch (`mnitemsw.c`), name entry
+    (`mnname.c`), the VS Records cursor (`mndiagram.c`, `mndiagram3.c`), `mncount.c`.
+  - `grmutecity.c` `arr[j - 1]` at `j == 0`; `gricemt.c` float function with no return; Venom's animation
+    table and Brinstar's acid bubbles (both relied on retail's data layout); Kirby's and Jigglypuff's Rollout
+    tables; `toy.c`.
+  - Tournament mode casts (`gmtoulib.c`, `gmtoumode.c`), `ftCo_8008DA4C` (retail returns non-zero at zero
+    percent; checked against the DOL), uninitialised locals in the Freezie and Link's arrow code, a missing
+    return in Chansey's egg, a NULL particle in `psdisp.c`, a side effect inside an assert in `lbaudio_ax.c`.
+  - Snapshot JPEG encoder (`hsd_3B34.c`, `hsd_3B5C.c`): the state block assumed a 0x118-byte `jmp_buf`. The
+    layout is safe now; the encoder is still not functional natively (big-endian marker writes, a pointer
+    passed through an `s32`, no EFB read-back).
+  - 22 more from reading every non-void function that can fall off its end and a sample of the
+    uninitialised-local candidates (`camera.c`, `ftCo_0A01.c`, `ftanim.c`, `lb_00B0.c`, `if_3004.c`,
+    `mnmain.c`, `gmevent.c`, `gricemt.c`, `grpushon.c`, `grshrineroute.c` and seven item files).
+  - All 238 uninitialised-local warnings of the clang analyzer were then read one by one
+    (`build/melee-3ds-study/audit/uninit-triage.md` in the worktree, not committed): 217 false positives,
+    14 already fixed above, 5 real but never read back, and two fixed with an assumed value because retail
+    reads a stale stack slot there (confirmed in the DOL; the value itself is unknowable): `lb_00F9.c`
+    `lb_8001044C` (floor height for a level dynamics link of a cutscene fighter) and `jobj.c`
+    `resolveIKJoint1` (an IK target exactly on its joint; no known model reaches it). The false-positive
+    verdicts that rest on "the data never has this value" were not checked against the disc.
+  - `gmmain.c`: `OSPanic` right after `OSInit()` when the arena starts below `0x80000000`, instead of the
+    wild writes that followed. (Placed before `OSInit()` it fired on every device boot.)
+  - Mushroom Kingdom II (`gr/types.h`, `grinishie2.c`): a Pidgit's "animation finished" branch, live for the
+    first time because of the `granime.c` fix, bumped a counter that overlaps the 8-byte pointer to its
+    spawner. The host soak caught it as a SIGSEGV at `grinishie2.c:738`; the view now has a pointer-sized
+    slot and a `STATIC_ASSERT`.
+  - A read of all 69 call sites behind those three queries found three more gobjs written through union
+    views that only agree on the console, each fixed with a native-only pad or view plus a `STATIC_ASSERT`:
+    Flat Zone's oil man (`grflatzone.c`: arming it cleared half of the oil-patch pointer and left the state
+    machine on a value no case handles, so the stage's event cycle stopped after the first oil man, with or
+    without the `granime.c` fix), Whispy on Green Greens (`grgreens.c`: the wind timer and "start" flag were
+    initialised one view over from where the update reads them), and Kongo Jungle's barrel cannon
+    (`grkongo.c`: the spin rate was written, ramped and read at three different offsets, so the animation
+    rate was always 0). Host runs pinned to each stage with gdb probes show the oil man walking states
+    0-1-2-3, Whispy blowing, and the barrel ramping up and down.
+  - Two things the reading could not settle were run instead, on the host under gdb: Final Destination's
+    background sequence (state 9 asserts on an animation object that depends on the stage file) went
+    1 to 17 and wrapped twice with the stage's 30-second wait timer sped up by the debugger, and Venom
+    passed frames 4400 and 6100 (a collision joint added, then removed). Neither has run on a device at
+    those points; a normal three-stock match ends about when Final Destination reaches state 9.
+  - Test harness: a mode playlist can pin its versus stage (`MELEE_TEST_FORCE_STAGE=1 MELEE_TEST_STAGE=<id>`
+    without `MELEE_MATRIX_TEST`; with it, the matrix hook swaps the fighters the playlist preloaded and
+    the match start runs out of heap).
+  - `gmtoulib.c`: a tournament bracket divide whose divisor can be 0. PowerPC `divw` does not trap there (it gives 0, or -1 for a negative dividend); x86
+    raises SIGFPE and AArch64 returns 0. The native path spells the console result out.
+  - `grflatzone.c:403` frees the oil patch only when its pointer is NULL. That is what the retail code does
+    (checked against the DOL), so it stays.
+- `native/tools/check_returns.py <build dir>`: compiles every game file with `-Wreturn-type` and fails on a
+  non-void function that can fall off its end unless `return_type_allowlist.txt` names it (25 functions
+  whose callers ignore the value). Run it after every upstream merge.
+- Port Settings is three pages now. The main page keeps Show Frame Rate, Unlock All and Online Play; the two
+  debug toggles moved to **Debug Options**; **Speed and Controls** is new:
+  - Low Detail Fighters (`low_detail_fighters`, `MELEE_LOW_DETAIL_FIGHTERS`): fighters draw the low-polygon
+    model the game already loads for reflections and the magnifier (`ftlib.c`, `ftdrawcommon.c`).
+  - Fighter Shadows (`fighter_shadows`, `MELEE_FIGHTER_SHADOWS`): off skips the shadow passes (`lbshadow.c`).
+  - Controller Fix, UCF (`ucf`, `MELEE_UCF`): the Universal Controller Fix 0.84 rules, in `native/ucf.c`
+    (written from the disassembled codes; the published C port is GPLv3 and was not used). Off by default and
+    forced off during online play, since it changes gameplay. `native_ucf_test` covers the stick rules as
+    plain numbers; no test plays a match and checks a dash back. The raw stick reaches +-127 here where a GC
+    pad reaches about +-100, so the travel thresholds are easier to cross than on a console.
+  - Frames drawn a second in a two-fighter Battlefield match, one run each: RG35XX SP 44.2 default, 50.9 low
+    detail, 51.2 no shadows, 53.3 both; RG351P 22.0, 24.6, 23.6, 26.8.
+
 ### Full-speed gameplay on slow renderers: catch-up frame pacing (2026-09-19)
 - Before this, one rendered frame was one game frame: `VIWaitForRetrace` delivered a single retrace
   per call and re-based its clock when late, so the RG351P's 20 FPS match ran at a third of real

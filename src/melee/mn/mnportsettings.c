@@ -78,6 +78,9 @@ enum PortAction {
     Act_Join1,
     Act_Join2,
     Act_OnlineBack,
+    Act_OpenPerformance,
+    Act_OpenDebug,
+    Act_PageBack,
 };
 
 struct PortRow {
@@ -114,18 +117,45 @@ static void unlock_all(void)
 /// The SIS font renders space, digits, A-Z, a-z, comma, period, hyphen,
 /// colon and quotes; keep labels inside that set.
 static const struct PortRow rows[] = {
-    { "Debug Menu, Y on title", PortRow_Toggle,
-      &MeleeNativeSettingsData.debug_menu, onoff, Act_None, NULL, 0, 0 },
-    { "Debug Overlays", PortRow_Toggle, &MeleeNativeSettingsData.debug_overlays,
-      onoff, Act_None, NULL, 0, 0 },
     { "Show Frame Rate", PortRow_Toggle, &MeleeNativeSettingsData.show_fps,
       onoff, Act_None, NULL, 0, 0 },
+    { "Speed and Controls", PortRow_Action, NULL, NULL,
+      Act_OpenPerformance, NULL, 0, 0 },
+    { "Debug Options", PortRow_Action, NULL, NULL, Act_OpenDebug, NULL, 0, 0 },
     { "Unlock All Characters and Stages", PortRow_Action, NULL, NULL,
       Act_UnlockAll, NULL, 0, 0 },
     { "Online Play", PortRow_Action, NULL, NULL, Act_OpenOnline, NULL, 0, 0 },
 };
 #define ROW_COUNT ((int) ARRAY_SIZE(rows))
 #define MAX_ROWS 5 ///< bars 1..5 below the title
+
+/// Both fighter rows take effect on the next drawn frame. The controller fix
+/// changes how stick flicks are read and is ignored during online play.
+static const struct PortRow performance_rows[] = {
+    { "Low Detail Fighters", PortRow_Toggle,
+      &MeleeNativeSettingsData.low_detail_fighters, onoff, Act_None, NULL, 0,
+      0 },
+    { "Fighter Shadows", PortRow_Toggle,
+      &MeleeNativeSettingsData.fighter_shadows, onoff, Act_None, NULL, 0, 0 },
+    { "Controller Fix, UCF", PortRow_Toggle, &MeleeNativeSettingsData.ucf,
+      onoff, Act_None, NULL, 0, 0 },
+    { "Back", PortRow_Action, NULL, NULL, Act_PageBack, NULL, 0, 0 },
+};
+
+static const struct PortRow debug_rows[] = {
+    { "Debug Menu, Y on title", PortRow_Toggle,
+      &MeleeNativeSettingsData.debug_menu, onoff, Act_None, NULL, 0, 0 },
+    { "Debug Overlays", PortRow_Toggle, &MeleeNativeSettingsData.debug_overlays,
+      onoff, Act_None, NULL, 0, 0 },
+    { "Back", PortRow_Action, NULL, NULL, Act_PageBack, NULL, 0, 0 },
+};
+
+enum PortPage {
+    Page_Main,
+    Page_Online,
+    Page_Performance,
+    Page_Debug,
+};
 
 /// Online Play page: host, one row per host announced on the LAN (the two
 /// most recent), the input delay this device proposes when hosting, back.
@@ -187,7 +217,7 @@ static void build_online_rows(void)
 typedef struct PortMenuData {
     u8 cursor;
     u8 flash; ///< frames left of the "done" colour on an action row
-    u8 page;  ///< 0 = settings, 1 = Online Play
+    u8 page;  ///< enum PortPage
     u8 refresh; ///< frames until the online page redraws its live text
     HSD_Text* title;
     HSD_Text* labels[MAX_ROWS];
@@ -197,9 +227,17 @@ typedef struct PortMenuData {
 
 static const struct PortRow* current_rows(const PortMenuData* data, int* count)
 {
-    if (data->page == 1) {
+    if (data->page == Page_Online) {
         *count = online_row_count;
         return online_rows;
+    }
+    if (data->page == Page_Performance) {
+        *count = (int) ARRAY_SIZE(performance_rows);
+        return performance_rows;
+    }
+    if (data->page == Page_Debug) {
+        *count = (int) ARRAY_SIZE(debug_rows);
+        return debug_rows;
     }
     *count = ROW_COUNT;
     return rows;
@@ -291,7 +329,7 @@ static void rebuild(PortMenuData* data)
     const struct PortRow* table;
     Vec3 pos;
     free_all(data);
-    if (data->page == 1) {
+    if (data->page == Page_Online) {
         build_online_rows();
     }
     table = current_rows(data, &count);
@@ -302,7 +340,10 @@ static void rebuild(PortMenuData* data)
     {
         // Title centred on the Options panel (its centre is about 5 px right
         // of the screen centre); ~360 * font px per kerned glyph.
-        const char* title = data->page == 1 ? "Online Play" : "Port Settings";
+        static const char* const titles[] = { "Port Settings", "Online Play",
+                                              "Speed and Controls",
+                                              "Debug Options" };
+        const char* title = titles[data->page];
         f32 width_units = (f32) strlen(title) * kTitleFont * 360.0f / 20.0f;
         data->title = make_text(0.25f - width_units * 0.5f, pos.y, pos.z,
                                 kTitleFont, kTitleColor, title);
@@ -334,8 +375,9 @@ static void rebuild(PortMenuData* data)
     {
         // Same box and style as the Options description bar. The online page
         // shows the lobby status there instead.
-        const char* hint_text = data->page == 1 ? MeleeNativeNetplayMenuStatus()
-                                                : "Left, right change. B saves.";
+        const char* hint_text = data->page == Page_Online
+                                    ? MeleeNativeNetplayMenuStatus()
+                                    : "Left, right change. B saves.";
         HSD_Text* hint = HSD_SisLib_803A6754(0, 1);
         hint->pos_y = 9.1f;
         hint->pos_z = 17.0f;
@@ -359,9 +401,17 @@ static void move_cursor(PortMenuData* data, int delta)
     rebuild(data);
 }
 
+/// Leaves the Performance or Debug page for the row that opened it.
+static void close_page(PortMenuData* data)
+{
+    MeleeNativeSettingsSave();
+    data->cursor = data->page == Page_Performance ? 1 : 2;
+    data->page = Page_Main;
+}
+
 static void open_online(PortMenuData* data)
 {
-    data->page = 1;
+    data->page = Page_Online;
     data->cursor = 0;
     data->refresh = 0;
     MeleeNativeNetplayMenuEnter();
@@ -371,7 +421,7 @@ static void close_online(PortMenuData* data)
 {
     MeleeNativeNetplayMenuLeave();
     MeleeNativeSettingsSave();
-    data->page = 0;
+    data->page = Page_Main;
     data->cursor = ROW_COUNT - 1;
 }
 
@@ -395,6 +445,17 @@ static void run_action(PortMenuData* data, enum PortAction action)
     case Act_OnlineBack:
         close_online(data);
         break;
+    case Act_OpenPerformance:
+        data->page = Page_Performance;
+        data->cursor = 0;
+        break;
+    case Act_OpenDebug:
+        data->page = Page_Debug;
+        data->cursor = 0;
+        break;
+    case Act_PageBack:
+        close_page(data);
+        break;
     case Act_None:
         break;
     }
@@ -415,7 +476,7 @@ static void think(HSD_GObj* gobj)
         return;
     }
     data = port_gobj->user_data;
-    if (data->page == 1) {
+    if (data->page == Page_Online) {
         // A finished handshake relaunches the game from inside this call.
         MeleeNativeNetplayMenuTick();
         if (++data->refresh >= 20) {
@@ -427,8 +488,13 @@ static void think(HSD_GObj* gobj)
     events = Menu_GetAllInputs();
     if (events & MenuInput_Back) {
         sfxBack();
-        if (data->page == 1) {
+        if (data->page == Page_Online) {
             close_online(data);
+            rebuild(data);
+            return;
+        }
+        if (data->page != Page_Main) {
+            close_page(data);
             rebuild(data);
             return;
         }
@@ -465,9 +531,11 @@ static void think(HSD_GObj* gobj)
             break;
         case PortRow_Action:
             if (events & (MenuInput_Confirm | MenuInput_AButton)) {
+                u8 page = data->page;
                 sfxForward();
                 run_action(data, row->action);
-                data->flash = 45;
+                // "Done" colour for actions that stay on the page.
+                data->flash = data->page == page ? 45 : 0;
                 rebuild(data);
             }
             break;
@@ -484,7 +552,7 @@ static void display_proc(HSD_GObj* gobj)
 {
     PortMenuData* data = gobj->user_data;
     if (mn_804A04F0.cur_menu != PORT_MENU_KIND) {
-        if (data->page == 1) {
+        if (data->page == Page_Online) {
             MeleeNativeNetplayMenuLeave();
         }
         free_all(data);

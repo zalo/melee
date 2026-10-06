@@ -1,5 +1,9 @@
 #include "ftCo_SquatRv.h"
 
+#ifdef MELEE_NATIVE
+#include "melee_ucf.h"
+#endif
+
 #include <Runtime/platform.h>
 
 #include <melee/ft/forward.h>
@@ -31,7 +35,14 @@
 bool ftCo_SquatRv_CheckInput(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
+#ifdef MELEE_NATIVE
+    // UCF: lower crouch-exit height for a stick rolled along the rim.
+    if (fp->input.lstick[0].y >
+        -MeleeNativeUcfSquatRvThreshold(fp, p_ftCommonData->x94))
+    {
+#else
     if (fp->input.lstick[0].y > -p_ftCommonData->x94) {
+#endif
         ftCo_SquatRv_Enter(gobj);
         return true;
     }

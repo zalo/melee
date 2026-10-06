@@ -216,6 +216,12 @@ target_compile_options(native_settings_test PRIVATE -fsanitize=address,undefined
 target_link_options(native_settings_test PRIVATE -fsanitize=address,undefined)
 add_test(NAME native_settings COMMAND native_settings_test)
 set_tests_properties(native_settings PROPERTIES LABELS melee)
+add_executable(native_ucf_test tests/ucf_test.c ucf.c settings.c)
+target_include_directories(native_ucf_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_compile_options(native_ucf_test PRIVATE -fsanitize=address,undefined)
+target_link_options(native_ucf_test PRIVATE -fsanitize=address,undefined)
+add_test(NAME native_ucf COMMAND native_ucf_test)
+set_tests_properties(native_ucf PROPERTIES LABELS melee)
 
 add_executable(native_devcom_test tests/devcom_test.c os_runtime.c
   "${MELEE_ROOT}/src/sysdolphin/baselib/devcom.c")
@@ -269,7 +275,7 @@ set_tests_properties(native_pad_swap PROPERTIES LABELS melee)
 target_include_directories(melee_native PRIVATE "${MELEE_AURORA_DIR}/lib/dolphin/gx")
 target_include_directories(melee_boot_probe PRIVATE "${MELEE_AURORA_DIR}/lib/dolphin/gx")
 
-add_library(melee_audio_runtime OBJECT audio_runtime.c audio_decode.c arq_runtime.c audio_effects.c audio_chorus.c sfx_bank.c archive_bridge.c asset_schema.c movie_runtime.c dev_hardware.c matrix_runtime.c puppet_runtime.c)
+add_library(melee_audio_runtime OBJECT audio_runtime.c audio_decode.c arq_runtime.c audio_effects.c audio_chorus.c sfx_bank.c archive_bridge.c asset_schema.c movie_runtime.c dev_hardware.c matrix_runtime.c puppet_runtime.c ucf.c)
 target_include_directories(melee_audio_runtime PRIVATE $<TARGET_PROPERTY:melee_game,INCLUDE_DIRECTORIES>)
 target_compile_definitions(melee_audio_runtime PRIVATE $<TARGET_PROPERTY:melee_game,COMPILE_DEFINITIONS>)
 target_compile_options(melee_audio_runtime PRIVATE $<TARGET_PROPERTY:melee_game,COMPILE_OPTIONS>)

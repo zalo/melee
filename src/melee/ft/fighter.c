@@ -1,5 +1,9 @@
 #include "fighter.h"
 
+#ifdef MELEE_NATIVE
+#include "melee_ucf.h"
+#endif
+
 #include <math.h>
 #include <placeholder.h>
 
@@ -177,6 +181,10 @@ void Fighter_FirstInitialize_80067A84(void)
 {
     Fighter_800679B0();
     HSD_ObjAllocInit(&fighter_x59C_alloc_data, 0x8000, 0x20);
+#ifdef MELEE_NATIVE
+    // UCF: start every scene without stick history from the previous one.
+    MeleeNativeUcfFightersInit();
+#endif
 }
 
 void Fighter_LoadCommonData(void)
@@ -2054,6 +2062,11 @@ void Fighter_procInput(Fighter_GObj* gobj)
                 fp->activity_timer.lstick.y = 0;
                 fp->activity_timer.lstick.x = 0;
             }
+
+#ifdef MELEE_NATIVE
+            // UCF: record the raw stick, snap cardinals, track the shield drop.
+            MeleeNativeUcfFighterInput(fp);
+#endif
 
             // Fighter_ClampSpecificValue
             fp->active_duration.trigger++;

@@ -1,5 +1,9 @@
 #include "ftCo_Damage.h"
 
+#ifdef MELEE_NATIVE
+#include "melee_ucf.h"
+#endif
+
 #include <Runtime/platform.h>
 
 #include <math.h>
@@ -509,8 +513,15 @@ void ftCo_Damage_OnEveryHitlag(Fighter_GObj* gobj)
     if (fp->allow_sdi &&
         VEC2_SQ_LEN(fp->input.lstick[0]) >=
             SQ(p_ftCommonData->sdi_min_stick_mag) &&
+#ifdef MELEE_NATIVE
+        // UCF: a fast stick flick also counts as a fresh SDI input.
+        (fp->active_timer.lstick.x < p_ftCommonData->sdi_stick_window ||
+         fp->active_timer.lstick.y < p_ftCommonData->sdi_stick_window ||
+         MeleeNativeUcfSdi(fp)))
+#else
         (fp->active_timer.lstick.x < p_ftCommonData->sdi_stick_window ||
          fp->active_timer.lstick.y < p_ftCommonData->sdi_stick_window))
+#endif
     {
         float scaled_lstick_x =
             fp->input.lstick[0].x * p_ftCommonData->sdi_pos_scale;

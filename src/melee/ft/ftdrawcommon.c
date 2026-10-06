@@ -1,5 +1,9 @@
 #include "ftdrawcommon.h"
 
+#ifdef MELEE_NATIVE
+#include "melee_settings.h"
+#endif
+
 #include <Runtime/platform.h>
 
 #include <placeholder.h>
@@ -238,7 +242,19 @@ void ftDrawCommon_800805C8(HSD_GObj* gobj, s32 arg1, bool arg2)
             ftParts_800750C8(fighter, 2, 1);
         } else {
             ftParts_800750C8(fighter, 2, 0);
+#ifdef MELEE_NATIVE
+            // Port setting: draw the model kept for reflections and the
+            // magnifier in place of the full one.
+            if (MeleeNativeLowDetailFighters() && fighter->x5AC.xC[1] != NULL)
+            {
+                ftParts_800750C8(fighter, 0, 0);
+                ftParts_800750C8(fighter, 1, 1);
+            } else {
+                ftParts_800750C8(fighter, 0, 1);
+            }
+#else
             ftParts_800750C8(fighter, 0, 1);
+#endif
         }
         ftCo_8009F5AC(fighter);
         fighter->x2223_b2 = false;
