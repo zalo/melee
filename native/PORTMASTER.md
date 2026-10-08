@@ -101,6 +101,33 @@ authors.
 
 ## Status (branch `portmaster`, 2026-09-15)
 
+### RG DS on ROCKNIX: no EGL display under Wayland (2026-10-07)
+- Soak report `e39b6192`: an Anbernic RG DS (RK3566, Mali-G52, 3 GB, two 640x480 panels) on ROCKNIX
+  20260901, running a build of unknown origin (no `version.txt`, binary md5 `ea2266192890`, launcher one
+  line shorter than ours), stopped at start-up: `SDL2_CreateWindow failed: Could not get EGL display,
+  EGL=0x3000` with the inner SDL2 pinned to Wayland. SDL2 did reach the compositor (it reported the
+  640x480@60 mode); it is `eglGetPlatformDisplay`/`eglGetDisplay` for the `wl_display` that returned
+  nothing, without an EGL error. The reporter did not come back.
+- Same stack as the Flip on ROCKNIX (libmali g29p1 from JeffyCN's `libmali-next`, `gpudriver --start`
+  bind-mounts `/usr/lib/mali/lib{EGL,GLESv2}.so.*` over Mesa's, `MALI_DEFAULT_DISPLAY=wayland`,
+  sway spanning both panels as one 1284x482 output), which works. The one visible difference: on the
+  Flip libmali's `bifrost_kbase large_page_conf` line appears a second time inside our process when
+  EGL comes up; on the RG DS it never does, so either our process ran with a different EGL library or
+  libmali refused the Wayland display before touching the device. The log cannot tell which. The RG DS
+  community image (JorreFog/ROCKNIXDS) is ROCKNIX 20261001 plus a patched EmulationStation and a
+  DraStic display path; nothing in its README changes libmali or the ports' environment.
+- Done without the device: when the SDL window cannot be created, the game now prints what this
+  process resolved for EGL and GLES (paths, inode and size of the standard and vendor library names,
+  bind mounts, every loaded mali/EGL/GLES/SDL2 library, EGL client extensions, `MALI_DEFAULT_DISPLAY`,
+  `SDL_VIDEO_EGL_DRIVER`), probes `eglGetDisplay(EGL_DEFAULT_DISPLAY)`, and on a Wayland CFW opens its
+  own `wl_display` and replays SDL2's display acquisition in our libEGL. When SDL2 was not told which
+  EGL library to use and ours works, it retries the window once with `SDL_VIDEO_EGL_DRIVER` set to our
+  library (`display.cpp`, `dumpEglEnvironment`). The dump also replaces the smaller one on the "GL context
+  is up but no EGL display is current" path (the dArkOS case).
+- Check on hardware: RG351P and Pi 5 start as before; with `SDL_VIDEO_EGL_DRIVER=/nonexistent.so` forced
+  from the matrix the first window fails, the dump prints and the retry starts the game. Whether the
+  retry helps the RG DS is unknown until a report from that device on a release build arrives.
+
 ### Decomp defect sweep, Speed and Controls page, UCF (2026-10-05)
 - Starting point: the New 3DS port (2gifts/melee-3ds) patches the decomp at build time, and each patch marks
   code that only works with the retail compiler. That port is GPLv3; nothing was copied from it. Every fix

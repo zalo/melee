@@ -20,6 +20,9 @@
 #include <poll.h>
 #include <unistd.h>
 #include <dlfcn.h>
+#include <link.h>
+#include <climits>
+#include <sys/stat.h>
 
 // GBM is resolved at run time from the device's driver stack (Mesa's libgbm, or the libmali hook
 // on Rockchip BSP firmware). Linking the build SDK's libgbm would pin the binary to libmali.
@@ -509,6 +512,96 @@ void wait_pending_flip() {
     std::fprintf(stderr, "[flip-display] %s (SDL: %s, EGL=0x%x)\n", message, SDL_GetError(), eglGetError());
     std::exit(1);
 }
+
+// What this process resolved for EGL, and whether that library can open a display on its own. Printed
+// when SDL's window or EGL display fails, so a tester's log.txt says which driver stack the game and
+// the CFW's SDL2 ended up in (ROCKNIX bind-mounts libmali's wrappers over Mesa's libEGL.so.1, dArkOS
+// points SDL2 at libEGL.so, ...). A tester's own build on an RG DS (ROCKNIX, Mali-G52) failed with
+// "Could not get EGL display" under Wayland while the same stack works on the Flip; the log had
+// nothing else, hence this dump and the retry below.
+struct EglEnvironment {
+    const char* eglPath = nullptr;   // where our eglGetDisplay lives
+    const char* glesPath = nullptr;  // where our glGetString lives
+    bool waylandWorks = false;       // our libEGL opened and initialized a display on our own wl_display
+};
+int printLoadedGlLibrary(dl_phdr_info* info, size_t, void*) {
+    const char* name = info->dlpi_name;
+    if (name && *name && (std::strstr(name, "mali") || std::strstr(name, "EGL") || std::strstr(name, "GLES") ||
+                          std::strstr(name, "SDL2") || std::strstr(name, "gbm")))
+        std::fprintf(stderr, "[flip-display]   loaded: %s\n", name);
+    return 0;
+}
+EglEnvironment dumpEglEnvironment() {
+    static Dl_info eglInfo{}, glesInfo{};
+    EglEnvironment env;
+    if (dladdr(reinterpret_cast<void*>(&eglGetDisplay), &eglInfo) && eglInfo.dli_fname) env.eglPath = eglInfo.dli_fname;
+    if (dladdr(reinterpret_cast<void*>(&glGetString), &glesInfo) && glesInfo.dli_fname) env.glesPath = glesInfo.dli_fname;
+    std::fprintf(stderr, "[flip-display]   our libEGL: %s\n", env.eglPath ? env.eglPath : "?");
+    std::fprintf(stderr, "[flip-display]   our libGLESv2: %s\n", env.glesPath ? env.glesPath : "?");
+    for (const char* name : {"SDL_VIDEO_EGL_DRIVER", "SDL_VIDEO_GL_DRIVER", "SDL3SHIM_SDL2_VIDEODRIVER", "WAYLAND_DISPLAY",
+                             "XDG_RUNTIME_DIR", "MALI_DEFAULT_DISPLAY", "LD_LIBRARY_PATH"})
+        if (const char* value = std::getenv(name)) std::fprintf(stderr, "[flip-display]   %s=%s\n", name, value);
+    // Same file behind the standard name and the vendor directory? (ROCKNIX's libmali bind mounts.)
+    for (const char* path : {"/usr/lib/libEGL.so.1", "/usr/lib/libGLESv2.so.2", "/usr/lib/mali/libEGL.so.1",
+                             "/usr/lib/libmali.so.1", "/usr/lib/libEGL.so"}) {
+        struct stat st{};
+        if (stat(path, &st) == 0) {
+            char target[PATH_MAX] = {};
+            const ssize_t n = readlink(path, target, sizeof target - 1);
+            std::fprintf(stderr, "[flip-display]   %s: inode %llu, %lld bytes%s%s\n", path,
+                         static_cast<unsigned long long>(st.st_ino), static_cast<long long>(st.st_size),
+                         n > 0 ? ", symlink to " : "", n > 0 ? target : "");
+        }
+    }
+    if (FILE* mounts = std::fopen("/proc/self/mounts", "r")) {
+        char line[1024];
+        while (std::fgets(line, sizeof line, mounts))
+            if (std::strstr(line, "libEGL") || std::strstr(line, "libGLES") || std::strstr(line, "libSDL2"))
+                std::fprintf(stderr, "[flip-display]   mount: %s", line);
+        std::fclose(mounts);
+    }
+    dl_iterate_phdr(printLoadedGlLibrary, nullptr);
+    if (const char* clientExtensions = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS))
+        std::fprintf(stderr, "[flip-display]   our libEGL client extensions: %s\n", clientExtensions);
+    else
+        std::fprintf(stderr, "[flip-display]   our libEGL has no client extensions (EGL=0x%x)\n", eglGetError());
+    // Does our libEGL reach the platform at all on its own? (fbdev-Mali answers EGL_DEFAULT_DISPLAY.)
+    if (EGLDisplay def = eglGetDisplay(EGL_DEFAULT_DISPLAY); def != EGL_NO_DISPLAY) {
+        EGLint dmaj = 0, dmin = 0;
+        const bool ok = eglInitialize(def, &dmaj, &dmin);
+        std::fprintf(stderr, "[flip-display]   eglGetDisplay(EGL_DEFAULT_DISPLAY) in our libEGL: %s (EGL=0x%x)\n",
+                     ok ? "initializes" : "does not initialize", eglGetError());
+        if (ok) eglTerminate(def);
+    } else {
+        std::fprintf(stderr, "[flip-display]   eglGetDisplay(EGL_DEFAULT_DISPLAY) in our libEGL: EGL_NO_DISPLAY (EGL=0x%x)\n", eglGetError());
+    }
+    // Replay what SDL2's Wayland driver does, in our libEGL, on a connection of our own.
+    if (std::getenv("WAYLAND_DISPLAY")) {
+        void* wl = dlopen("libwayland-client.so.0", RTLD_NOW | RTLD_LOCAL);
+        const auto connect = wl ? reinterpret_cast<void* (*)(const char*)>(dlsym(wl, "wl_display_connect")) : nullptr;
+        const auto disconnect = wl ? reinterpret_cast<void (*)(void*)>(dlsym(wl, "wl_display_disconnect")) : nullptr;
+        void* wlDisplay = connect ? connect(nullptr) : nullptr;
+        if (!wlDisplay) {
+            std::fprintf(stderr, "[flip-display]   wl_display_connect: failed (%s)\n", wl ? "no compositor socket" : dlerror());
+        } else {
+            const auto getPlatformDisplay = reinterpret_cast<PFNEGLGETPLATFORMDISPLAYEXTPROC>(eglGetProcAddress("eglGetPlatformDisplayEXT"));
+            EGLDisplay dpy = getPlatformDisplay ? getPlatformDisplay(EGL_PLATFORM_WAYLAND_KHR, wlDisplay, nullptr) : EGL_NO_DISPLAY;
+            const char* how = "eglGetPlatformDisplayEXT(WAYLAND)";
+            if (dpy == EGL_NO_DISPLAY) { dpy = eglGetDisplay(static_cast<EGLNativeDisplayType>(wlDisplay)); how = "eglGetDisplay(wl_display)"; }
+            if (dpy == EGL_NO_DISPLAY) {
+                std::fprintf(stderr, "[flip-display]   our libEGL gives no display for our wl_display (EGL=0x%x)\n", eglGetError());
+            } else {
+                EGLint dmaj = 0, dmin = 0;
+                env.waylandWorks = eglInitialize(dpy, &dmaj, &dmin);
+                std::fprintf(stderr, "[flip-display]   our libEGL on our wl_display via %s: %s (EGL=0x%x)\n", how,
+                             env.waylandWorks ? "initializes" : "does not initialize", eglGetError());
+                if (env.waylandWorks) eglTerminate(dpy);
+            }
+            if (disconnect) disconnect(wlDisplay);
+        }
+    }
+    return env;
+}
 void cleanupSdl() {
     MeleeFlipShutdownPresenter();
     if (dawnWindow) gbm_surface_destroy(dawnWindow);
@@ -602,7 +695,23 @@ void initSdl() {
     }
     sdlWindow = SDL_CreateWindow("Melee Native", winW, winH,
                                  SDL_WINDOW_OPENGL | SDL_WINDOW_FULLSCREEN);
-    if (!sdlWindow) failSdl("Cannot create SDL window");
+    if (!sdlWindow) {
+        // Mostly the CFW's SDL2 finding no EGL display for its window. Say what EGL this process has,
+        // and when SDL2 was not told which EGL library to use, try once more with ours: on a Wayland
+        // CFW only if our libEGL opens a Wayland display itself (otherwise there is nothing to gain).
+        std::fprintf(stderr, "[flip-display] Cannot create SDL window (SDL: %s, EGL=0x%x):\n", SDL_GetError(), eglGetError());
+        const EglEnvironment env = dumpEglEnvironment();
+        const char* innerDriver = std::getenv("SDL3SHIM_SDL2_VIDEODRIVER");
+        const bool wayland = innerDriver && !std::strcmp(innerDriver, "wayland");
+        const char* chosen = std::getenv("SDL_VIDEO_EGL_DRIVER");
+        if (env.eglPath && (!chosen || std::strcmp(chosen, env.eglPath)) && (!wayland || env.waylandWorks)) {
+            std::fprintf(stderr, "[flip-display] retrying with SDL_VIDEO_EGL_DRIVER=%s\n", env.eglPath);
+            setenv("SDL_VIDEO_EGL_DRIVER", env.eglPath, 1);
+            if (env.glesPath) setenv("SDL_VIDEO_GL_DRIVER", env.glesPath, 1);
+            sdlWindow = SDL_CreateWindow("Melee Native", winW, winH, SDL_WINDOW_OPENGL | SDL_WINDOW_FULLSCREEN);
+        }
+        if (!sdlWindow) failSdl("Cannot create SDL window");
+    }
     sdlContext = SDL_GL_CreateContext(sdlWindow);
     if (!sdlContext) failSdl("Cannot create SDL GL context");
     if (!SDL_GL_MakeCurrent(sdlWindow, sdlContext)) failSdl("Cannot make the SDL GL context current");
@@ -619,21 +728,7 @@ void initSdl() {
                      reinterpret_cast<const char*>(glGetString(GL_VENDOR)),
                      reinterpret_cast<const char*>(glGetString(GL_RENDERER)),
                      reinterpret_cast<const char*>(glGetString(GL_VERSION)));
-        Dl_info info{};
-        if (dladdr(reinterpret_cast<void*>(&eglGetCurrentDisplay), &info) && info.dli_fname)
-            std::fprintf(stderr, "[flip-display]   our libEGL: %s\n", info.dli_fname);
-        if (dladdr(reinterpret_cast<void*>(&glGetString), &info) && info.dli_fname)
-            std::fprintf(stderr, "[flip-display]   our libGLESv2: %s\n", info.dli_fname);
-        for (const char* name : {"SDL_VIDEO_EGL_DRIVER", "SDL_VIDEO_GL_DRIVER"})
-            if (const char* value = std::getenv(name)) std::fprintf(stderr, "[flip-display]   %s=%s\n", name, value);
-        // Does our libEGL reach the platform at all on its own? (fbdev-Mali answers EGL_DEFAULT_DISPLAY.)
-        if (EGLDisplay def = eglGetDisplay(EGL_DEFAULT_DISPLAY); def != EGL_NO_DISPLAY) {
-            EGLint dmaj = 0, dmin = 0;
-            std::fprintf(stderr, "[flip-display]   eglGetDisplay(EGL_DEFAULT_DISPLAY) in our libEGL: %s\n",
-                         eglInitialize(def, &dmaj, &dmin) ? "initializes" : "does not initialize");
-        } else {
-            std::fprintf(stderr, "[flip-display]   eglGetDisplay(EGL_DEFAULT_DISPLAY) in our libEGL: EGL_NO_DISPLAY\n");
-        }
+        dumpEglEnvironment();
         failSdl("SDL did not create an EGL display");
     }
     // The context's bound draw surface is SDL's window surface; use it directly (SDL_EGL_GetWindowSurface
