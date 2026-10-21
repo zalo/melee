@@ -101,6 +101,20 @@ authors.
 
 ## Status (branch `portmaster`, 2026-09-15)
 
+### RK3562 on ROCKNIX/AisRock: presentation fence returns GL_WAIT_FAILED (2026-10-21)
+
+Tester reports 79fed084 (Rockchip RK3562 EVB, ROCKNIX 20260818) and d37c9b06 (RK3562, AisRock
+6ae40d-20260818) ended at the title screen after ~10 s at 60 fps with
+`[flip-present-error] Presentation completion fence failed EGL=0x3000 GL=0x0`: `glClientWaitSync` on the
+presentation thread's post-blit fence returned `GL_WAIT_FAILED` with no GL error (libmali g24p0,
+`OpenGL ES 3.2 v1.g24p0`). The same SoC on dArkOS 13 (RG52 Mini, report c8add4d0) is fine, so it is that
+driver build. `present_worker.cpp` now treats the first `GL_WAIT_FAILED` as "this driver's fence is
+broken": it logs once (`[flip-present] ... finishing presented frames with glFinish from now on`) and
+uses `glFinish` for that and every later frame; the fence object is still created and deleted as before.
+Regression-checked with the matrix `match` case on the RG351P (libmali r13p0) and the Flip (g29p1), where
+the fence works and the new branch never runs. No RK3562/ROCKNIX unit here: the next tester report from one
+is the real test.
+
 ### RG DS on ROCKNIX: no EGL display under Wayland (2026-10-07)
 - Soak report `e39b6192`: an Anbernic RG DS (RK3566, Mali-G52, 3 GB, two 640x480 panels) on ROCKNIX
   20260901, running a build of unknown origin (no `version.txt`, binary md5 `ea2266192890`, launcher one

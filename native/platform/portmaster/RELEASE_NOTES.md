@@ -6,6 +6,13 @@ no game data: you need your own dump of the disc (US, version 1.02, `GALE01`).
 
 ## Changes in this build
 
+- **RK3562 handhelds on ROCKNIX-based firmware (RG52 Mini-class boards, AisRock) no longer stop at the title
+  screen.** Two tester reports showed the game ending ten seconds in with `Presentation completion fence
+  failed`: that driver (libmali g24p0) answers the frame-completion fence with GL_WAIT_FAILED and no GL
+  error although the frame is fine. The presentation thread now notes it once and finishes frames with
+  `glFinish` from then on instead of exiting. Devices whose driver honours the fence are unchanged.
+- **A start-up failure to create the window now prints the EGL/GLES libraries in use and retries with
+  the game's own** (for the RG DS on ROCKNIX report, where SDL2's Wayland window got no EGL display).
 - **Stage events that never ran on this port now do, and a batch of decompilation defects is fixed.**
   A read of the New 3DS port's build-time patches (2gifts/melee-3ds, which marks code that only works
   with the original compiler) gave a list to check against our own binary; each item was confirmed and

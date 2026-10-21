@@ -206,11 +206,24 @@ void run() {
         }
         // Explicitly finish this texture's consumer before releasing ownership.
         // This wait is isolated on the presentation thread.
-        GLenum result;
-        do {
-            result = glClientWaitSync(consumed, GL_SYNC_FLUSH_COMMANDS_BIT, 1000000000);
-        } while (result == GL_TIMEOUT_EXPIRED);
-        if (result == GL_WAIT_FAILED) fail("Presentation completion fence failed");
+        // libmali g24p0 on RK3562 (ROCKNIX and AisRock testers, logs 79fed084 and d37c9b06) answers
+        // GL_WAIT_FAILED with no GL error for this fence once the title screen is up; the frames are
+        // fine, so from then on a glFinish stands in for the fence instead of ending the run.
+        static bool fenceBroken = false;
+        if (fenceBroken) {
+            glFinish();
+        } else {
+            GLenum result;
+            do {
+                result = glClientWaitSync(consumed, GL_SYNC_FLUSH_COMMANDS_BIT, 1000000000);
+            } while (result == GL_TIMEOUT_EXPIRED);
+            if (result == GL_WAIT_FAILED) {
+                fenceBroken = true;
+                std::fprintf(stderr, "[flip-present] Presentation completion fence failed (GL=0x%x); "
+                             "finishing presented frames with glFinish from now on\n", glGetError());
+                glFinish();
+            }
+        }
         glDeleteSync(consumed);
         glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
         glBindTexture(GL_TEXTURE_2D, 0);
